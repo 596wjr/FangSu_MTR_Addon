@@ -1,7 +1,7 @@
 plugins {
-    id 'dev.architectury.loom' version '1.13-SNAPSHOT' apply false
+    id 'dev.architectury.loom' version '1.11-SNAPSHOT' apply false
     id 'architectury-plugin' version '3.4-SNAPSHOT'
-    id 'com.github.johnrengelman.shadow' version '8.1.1' apply false
+    id 'com.gradleup.shadow' version '8.3.6' apply false
 }
 
 architectury {
@@ -29,6 +29,61 @@ subprojects {
         // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
         // See https://docs.gradle.org/current/userguide/declaring_repositories.html
         // for more information about repositories.
+        maven {
+            name = "BMCLAPI"
+            url = "https://bmclapi2.bangbang93.com/maven"
+            allowInsecureProtocol = true
+        }
+
+        maven {
+            name = 'aliyun-mirror'
+            url = 'https://maven.aliyun.com/repository/public'
+        }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven {
+            url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/'
+        }
+        maven {
+            url 'https://mirrors.huaweicloud.com/repository/maven/'
+        }
+        maven {
+            name = 'forge-mirror'
+            url = 'https://bmclapi2.bangbang93.com/maven'
+        }
+        maven {
+            url ='https://api.modrinth.com/maven'
+        }
+        maven { url "https://maven.neoforged.net/releases/" }
+        maven { url = "https://jitpack.io/" }
+        maven { url = "https://maven.terraformersmc.com/" }
+        repositories {
+            maven { url "https://maven.shedaniel.me/" }
+        }
+        maven {
+            name = 'ParchmentMC'
+            url = 'https://maven.parchmentmc.org'
+        }
+        flatDir {
+            dirs "../libs"
+        }
+        maven {
+            url = "https://maven.parchmentmc.org"
+            content {
+                includeGroup "org.parchmentmc"
+            }
+        }
+        maven {
+            name = "Modrinth"
+            url = "https://api.modrinth.com/maven"
+        }
+        repositories {
+            maven { url "https://maven.shedaniel.me/" }
+        }
+        maven { url "https://maven.terraformersmc.com/releases/" }
+    }
+
+    loom {
+        silentMojangMappingsLicense()
     }
 
     dependencies {

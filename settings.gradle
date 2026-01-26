@@ -1,8 +1,8 @@
 pluginManagement {
     repositories {
-        maven { url "https://maven.fabricmc.net/" }
-        maven { url "https://maven.architectury.dev/" }
-        maven { url "https://files.minecraftforge.net/maven/" }
+        maven { url = 'https://maven.fabricmc.net/' }
+        maven { url = 'https://maven.architectury.dev/' }
+        maven { url = 'https://files.minecraftforge.net/maven/' }
         gradlePluginPortal()
     }
 }
@@ -12,35 +12,3 @@ rootProject.name = 'fangsu'
 include 'common'
 include 'fabric'
 include 'forge'
-
-pluginManagement {
-    repositories {
-        maven { url 'https://maven.aliyun.com/repository/public/' }
-        maven { url 'https://maven.aliyun.com/repository/gradle-plugin/' }
-        maven { url 'https://maven.aliyun.com/repository/central/' }
-        gradlePluginPortal()
-    }
-}
-
-dependencyResolutionManagement {
-    repositories {
-        maven { url 'https://maven.aliyun.com/repository/public/' }
-        maven { url 'https://maven.aliyun.com/repository/central/' }
-        maven { url 'https://maven.aliyun.com/repository/google/' }
-
-        // Minecraft相关仓库（非常重要！）
-        maven { url 'https://maven.aliyun.com/repository/minecraft/' }
-
-        // Forge
-        maven { url 'https://maven.minecraftforge.net/' }
-
-        // Fabric
-        maven { url 'https://maven.fabricmc.net/' }
-
-        // Architectury
-        maven { url 'https://maven.architectury.dev/' }
-
-        // NeoForge
-        maven { url 'https://maven.neoforged.net/releases/' }
-    }
-}

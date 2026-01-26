@@ -1,15 +1,15 @@
 modLoader = "javafml"
 loaderVersion = "[47,)"
 #issueTrackerURL = ""
-license = "MIT"
+license = "Insert License Here"
 
 [[mods]]
 modId = "fangsu"
 version = "${version}"
-displayName = "FangSu OBJ Loader"
-authors = "596wjr"
+displayName = "FangSu MTR Addon"
+authors = "Me!"
 description = '''
-FangSu OBJ Loader
+This is an example description! Tell everyone what your mod is about!
 '''
 #logoFile = ""
 

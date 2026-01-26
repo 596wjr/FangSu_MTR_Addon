@@ -1,5 +1,5 @@
 plugins {
-    id 'com.github.johnrengelman.shadow'
+    id 'com.gradleup.shadow'
 }
 
 loom {
@@ -33,17 +33,23 @@ configurations {
 dependencies {
     forge "net.minecraftforge:forge:$rootProject.forge_version"
 
+    // Architectury API. This is optional, and you can comment it out if you don't need it.
     modImplementation "dev.architectury:architectury-forge:$rootProject.architectury_api_version"
 
-    common(project(path: ':common', configuration: 'namedElements')) { transitive false }
+    common(project(path: ':common', configuration: 'namedElements')) { transitive = false }
     shadowBundle project(path: ':common', configuration: 'transformProductionForge')
+
+    modImplementation "maven.modrinth:minecraft-transit-railway:$rootProject.mtr_version_forge"
+    if(rootProject.require_nte){
+        modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
+    }
 }
 
 processResources {
     inputs.property 'version', project.version
 
     filesMatching('META-INF/mods.toml') {
-        expand version: project.version
+        expand version: inputs.properties.version
     }
 }
 
@@ -53,5 +59,5 @@ shadowJar {
 }
 
 remapJar {
-    input.set shadowJar.archiveFile
+    inputFile.set shadowJar.archiveFile
 }
