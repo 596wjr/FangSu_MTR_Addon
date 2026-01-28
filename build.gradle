@@ -20,7 +20,7 @@ subprojects {
 
     base {
         // Set up a suffixed format for the mod jar names, e.g. `example-fabric`.
-        archivesName = "$rootProject.archives_name-$project.name"
+        archivesName = "$rootProject.archives_name-mc$project.minecraft_version-$rootProject.mod_version"
     }
 
     repositories {
@@ -53,19 +53,17 @@ subprojects {
         maven {
             url ='https://api.modrinth.com/maven'
         }
-        maven { url "https://maven.neoforged.net/releases/" }
+        maven { url = "https://maven.neoforged.net/releases/" }
         maven { url = "https://jitpack.io/" }
         maven { url = "https://maven.terraformersmc.com/" }
-        repositories {
-            maven { url "https://maven.shedaniel.me/" }
-        }
+        maven { url "https://maven.shedaniel.me/" }
         maven {
             name = 'ParchmentMC'
             url = 'https://maven.parchmentmc.org'
         }
-        flatDir {
-            dirs "../libs"
-        }
+//        flatDir {
+//            dirs "../libs"
+//        }
         maven {
             url = "https://maven.parchmentmc.org"
             content {
@@ -76,10 +74,7 @@ subprojects {
             name = "Modrinth"
             url = "https://api.modrinth.com/maven"
         }
-        repositories {
-            maven { url "https://maven.shedaniel.me/" }
-        }
-        maven { url "https://maven.terraformersmc.com/releases/" }
+        maven { url = "https://maven.terraformersmc.com/releases/" }
     }
 
     loom {
@@ -89,6 +84,12 @@ subprojects {
     dependencies {
         minecraft "net.minecraft:minecraft:$rootProject.minecraft_version"
         mappings loom.officialMojangMappings()
+
+
+        if(rootProject.require_nte){
+            modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
+        }
+        compileOnly "maven.modrinth:minecraft-transit-railway:${rootProject.mtr_version_forge}"
     }
 
     java {
