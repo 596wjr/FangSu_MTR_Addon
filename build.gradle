@@ -13,67 +13,63 @@ allprojects {
     version = rootProject.mod_version
 }
 
+/*
+ * 平台检测（task name 检测方式）
+ * 结果放到 ext.platform：UNKNOWN / FABRIC / FORGE / NEOFORGE (预留)
+ */
+ext {
+    platform = "UNKNOWN"
+
+    def taskNames = gradle.startParameter.taskNames.join(" ").toLowerCase()
+
+    if (taskNames.contains("fabric")) {
+        platform = "FABRIC"
+    } else if (taskNames.contains("forge")) {
+        platform = "FORGE"
+    } else if (taskNames.contains("neoforge")) {
+        // 预留，不启用
+        platform = "NEOFORGE"
+    }
+}
+
+println "[Build] Current platform = ${platform}"
+
+// 加载你放在外部脚本里的处理器（processAccessWidener 等）
+// 确保 build_process.gradle 中定义了 processAccessWidener 并把其放入 ext (eg. ext.processAccessWidener)
+apply from: "build_process.gradle"
+
 subprojects {
     apply plugin: 'dev.architectury.loom'
     apply plugin: 'architectury-plugin'
     apply plugin: 'maven-publish'
 
     base {
-        // Set up a suffixed format for the mod jar names, e.g. `example-fabric`.
         archivesName = "$rootProject.archives_name-mc$project.minecraft_version-$rootProject.mod_version"
     }
 
     repositories {
-        // Add repositories to retrieve artifacts from in here.
-        // You should only use this when depending on other mods because
-        // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-        // See https://docs.gradle.org/current/userguide/declaring_repositories.html
-        // for more information about repositories.
         maven {
             name = "BMCLAPI"
             url = "https://bmclapi2.bangbang93.com/maven"
             allowInsecureProtocol = true
         }
 
-        maven {
-            name = 'aliyun-mirror'
-            url = 'https://maven.aliyun.com/repository/public'
-        }
+        maven { name = 'aliyun-mirror'; url = 'https://maven.aliyun.com/repository/public' }
         maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
-        maven {
-            url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/'
-        }
-        maven {
-            url 'https://mirrors.huaweicloud.com/repository/maven/'
-        }
-        maven {
-            name = 'forge-mirror'
-            url = 'https://bmclapi2.bangbang93.com/maven'
-        }
-        maven {
-            url ='https://api.modrinth.com/maven'
-        }
+        maven { url = 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        maven { url = 'https://mirrors.huaweicloud.com/repository/maven/' }
+        maven { name = 'forge-mirror'; url = 'https://bmclapi2.bangbang93.com/maven' }
+        maven { url = 'https://api.modrinth.com/maven' }
         maven { url = "https://maven.neoforged.net/releases/" }
         maven { url = "https://jitpack.io/" }
         maven { url = "https://maven.terraformersmc.com/" }
-        maven { url "https://maven.shedaniel.me/" }
-        maven {
-            name = 'ParchmentMC'
-            url = 'https://maven.parchmentmc.org'
-        }
-//        flatDir {
-//            dirs "../libs"
-//        }
+        maven { url = "https://maven.shedaniel.me/" }
+        maven { name = 'ParchmentMC'; url = 'https://maven.parchmentmc.org' }
         maven {
             url = "https://maven.parchmentmc.org"
-            content {
-                includeGroup "org.parchmentmc"
-            }
+            content { includeGroup "org.parchmentmc" }
         }
-        maven {
-            name = "Modrinth"
-            url = "https://api.modrinth.com/maven"
-        }
+        maven { name = "Modrinth"; url = "https://api.modrinth.com/maven" }
         maven { url = "https://maven.terraformersmc.com/releases/" }
     }
 
@@ -85,19 +81,14 @@ subprojects {
         minecraft "net.minecraft:minecraft:$rootProject.minecraft_version"
         mappings loom.officialMojangMappings()
 
-
-        if(rootProject.require_nte){
+        if (rootProject.require_nte) {
             modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
         }
         compileOnly "maven.modrinth:minecraft-transit-railway:${rootProject.mtr_version_forge}"
     }
 
     java {
-        // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-        // if it is present.
-        // If you remove this line, sources will not be generated.
         withSourcesJar()
-
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -106,7 +97,72 @@ subprojects {
         it.options.release = 17
     }
 
-    // Configure Maven publishing.
+    // ---- 条件编译预处理：每个子工程单独注册 task（避免 root 没有 src/main/java 导致问题） ----
+
+    // 生成目录（相对于子工程的 build）
+    def generatedSrcDir = layout.buildDirectory.dir("generated/sources/conditional")
+
+    // 注册处理任务（名称为 processConditionalSources，子工程内唯一）
+    tasks.register("processConditionalSources") {
+        // 子工程的源码输入目录
+        def inputDir = file("src/main/java")
+
+        // 仅在该子工程确实有源代码时参与输入校验与执行，避免 Gradle 配置期失败
+        onlyIf {
+            inputDir.exists()
+        }
+
+        // 仅当目录存在时把它声明为 inputs（避免 Gradle 校验错误）
+        if (inputDir.exists()) {
+            inputs.dir(inputDir)
+        }
+        outputs.dir(generatedSrcDir)
+
+        doLast {
+            // 如果没有输入目录，直接不做事（防御）
+            if (!inputDir.exists()) {
+                logger.lifecycle("processConditionalSources: no src/main/java in ${project.path}, skipping")
+                return
+            }
+
+            def outDir = generatedSrcDir.get().asFile
+            outDir.deleteDir()
+            outDir.mkdirs()
+
+            // 只处理 Java 文件；保留相对路径
+            fileTree(inputDir).matching {
+                include "**/*.java"
+            }.each { File input ->
+                def relativePath = input.absolutePath.substring(inputDir.absolutePath.length() + 1)
+                def output = new File(outDir, relativePath)
+                output.parentFile.mkdirs()
+
+                // 调用你在 build_process.gradle 中定义并暴露到 ext 的处理函数
+                // 这里使用 rootProject 的函数（你在 build_process.gradle 应该把 processAccessWidener 放到 ext）
+                rootProject.processAccessWidener(input, output)
+            }
+        }
+    }
+
+    tasks.named("processConditionalSources").configure { task ->
+        doLast {
+            def genDir = layout.buildDirectory.dir("generated/sources/conditional").get().asFile
+
+            // 只在生成目录存在且有内容时才替换
+            if (genDir.exists() && genDir.listFiles()?.length > 0) {
+                sourceSets.main.java.setSrcDirs([genDir])
+                logger.lifecycle("Using conditional sources for ${project.path}")
+            }
+        }
+    }
+
+
+    // 确保 JavaCompile 在编译前先执行生成任务
+    tasks.withType(JavaCompile).configureEach {
+        dependsOn tasks.named("processConditionalSources")
+    }
+
+    // ---- 发布配置保持原样 ----
     publishing {
         publications {
             mavenJava(MavenPublication) {
@@ -114,13 +170,8 @@ subprojects {
                 from components.java
             }
         }
-
-        // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
         repositories {
-            // Add repositories to publish to here.
-            // Notice: This block does NOT have the same function as the block in the top level.
-            // The repositories here will be used for publishing your artifact, not for
-            // retrieving dependencies.
+            // publishing repository 配置（如需）
         }
     }
 }

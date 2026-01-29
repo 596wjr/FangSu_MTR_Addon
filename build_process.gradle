@@ -1,0 +1,104 @@
+def processAccessWidener(inputFile, outputFile) {
+    outputFile.deleteOnExit()
+
+    // 当前平台：FABRIC / FORGE
+    def currentPlatform = project.findProperty("platform")?.toString()?.toUpperCase()
+
+    def outputLines = []
+
+    // 条件栈，支持嵌套
+    def conditionStack = []
+
+    // 当前是否应当输出
+    def isActive = { ->
+        !conditionStack.contains(false)
+    }
+
+    inputFile.eachLine { rawLine ->
+        def line = rawLine.trim()
+
+        // //#if XXX
+        if (line.startsWith("//#if ")) {
+            def platform = line.substring(6).trim().toUpperCase()
+            conditionStack.add(platform == currentPlatform)
+            return
+        }
+
+        // //#elseif XXX
+        if (line.startsWith("//#elseif ")) {
+            def platform = line.substring(10).trim().toUpperCase()
+            if (!conditionStack.isEmpty()) {
+                def last = conditionStack.remove(conditionStack.size() - 1)
+                // 只有上一个 if/elseif 没命中，elseif 才可能命中
+                conditionStack.add(!last && platform == currentPlatform)
+            }
+            return
+        }
+
+        // //#else
+        if (line.startsWith("//#else")) {
+            if (!conditionStack.isEmpty()) {
+                def last = conditionStack.remove(conditionStack.size() - 1)
+                conditionStack.add(!last)
+            }
+            return
+        }
+
+        // //#endif
+        if (line.startsWith("//#endif")) {
+            if (!conditionStack.isEmpty()) {
+                conditionStack.remove(conditionStack.size() - 1)
+            }
+            return
+        }
+
+        // //$$ 开头的“伪注释代码”
+        if (rawLine.trim().startsWith("//\$\$")) {
+            if (isActive()) {
+                def uncommented = rawLine.replaceFirst(/^(\s*)\/\/\$\$\s?/, '$1')
+                outputLines.add(uncommented)
+            }
+            return
+        }
+
+        // 普通代码
+        if (isActive()) {
+            outputLines.add(rawLine)
+        }
+    }
+
+    outputFile.withWriter { writer ->
+        outputLines.each { writer.writeLine(it) }
+    }
+
+    return outputFile
+}
+
+ext {
+    processAccessWidener = this.&processAccessWidener
+}
+
+def generatedSrcDir = layout.buildDirectory.dir("generated/sources/conditional")
+
+tasks.register("processConditionalSources") {
+    inputs.dir("src/main/java")
+    outputs.dir(generatedSrcDir)
+
+    doLast {
+        def outDir = generatedSrcDir.get().asFile
+        outDir.deleteDir()
+        outDir.mkdirs()
+
+        fileTree("src/main/java").matching {
+            include "**/*.java"
+        }.each { File input ->
+            def relativePath = input.absolutePath
+                    .substring(file("src/main/java").absolutePath.length() + 1)
+
+            def output = new File(outDir, relativePath)
+            output.parentFile.mkdirs()
+
+            processAccessWidener(input, output)
+        }
+    }
+}
