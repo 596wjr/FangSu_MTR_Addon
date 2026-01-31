@@ -1,0 +1,107 @@
+{
+    "adv_board": [
+
+        {
+            "id": "adv_in_1",
+            "text": "adv_in_1",
+            "model": "fangsu:adv_board/adv_in_1.obj",
+            "flipV": false,
+            "shape": {
+                "center": [
+                    4,
+                    0,
+                    0,
+                    12,
+                    8,
+                    16
+                ],
+                "left": [
+                    4,
+                    0,
+                    0,
+                    12,
+                    8,
+                    16
+                ],
+                "right": [
+                    4,
+                    0,
+                    0,
+                    12,
+                    8,
+                    16
+                ],
+                "left_bottom": [
+                    4,
+                    0,
+                    0,
+                    12,
+                    8,
+                    16
+                ],
+                "right_bottom": [
+                    4,
+                    0,
+                    0,
+                    12,
+                    8,
+                    16
+                ],
+                "left_top": [
+                    4,
+                    0,
+                    0,
+                    12,
+                    8,
+                    16
+                ],
+                "right_top": [
+                    4,
+                    0,
+                    0,
+                    12,
+                    8,
+                    16
+                ],
+                "top": [
+                    4,
+                    0,
+                    0,
+                    12,
+                    8,
+                    16
+                ],
+                "bottom": [
+                    4,
+                    0,
+                    0,
+                    12,
+                    8,
+                    16
+                ]
+            },
+            "face": {
+                "front": 0.45
+            },
+            "widthUnit": 0.5,
+            "heightUnit": 0.5,
+            "bar": {
+                "left": 0.125,
+                "right": 0.125,
+                "top": 0.125,
+                "bottom": 0.125
+            },
+            "subModels": {
+                "center": "center",
+                "left": "l",
+                "left_top": "lt",
+                "left_bottom": "lb",
+                "top": "t",
+                "bottom": "b",
+                "right": "r",
+                "right_top": "rt",
+                "right_bottom": "rb"
+            }
+        }
+    ]
+}

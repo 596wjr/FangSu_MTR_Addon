@@ -1,0 +1,18 @@
+# Made in Blockbench 4.12.5
+newmtl m_466038f2-c797-57ed-2df4-0288b776b233
+map_Kd lg.png
+newmtl m_c385657f-c8f9-38b7-b50f-eb55cbcf2365#light
+map_Kd light.png
+newmtl m_1e7a4a0c-45cc-77c6-2396-41975fa52b88
+map_Kd g.png
+newmtl m_f0694f9b-bfda-8756-59e5-a3f3486274ec
+map_Kd w.png
+newmtl m_29474ab2-a041-c08a-dfc6-eb25c33a315d
+map_Kd routecolor.png
+newmtl m_f55a2162-2698-d5dd-a262-3efd1b456b63
+map_Kd b.png
+newmtl m_517a8b57-bf5d-b6cd-1152-51be7b5a431c
+map_Kd dl_off.png
+newmtl m_876ea88f-f236-60b0-71f5-b249aed8e2af#light
+map_Kd dl_on.png
+newmtl none

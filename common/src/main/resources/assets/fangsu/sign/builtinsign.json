@@ -1,0 +1,137 @@
+{
+    "signItems": [
+        {
+            "type": "str",
+            "icon": "fangsu:sign/texts.png",
+            "content": {
+                "text": "文本|Text"
+            }
+        },
+        {
+            "type": "space",
+            "icon": "fangsu:sign/space.png",
+            "content": {
+                "width": 1
+            }
+        },
+        {
+            "type": "img",
+            "icon": "fangsu:sign/al.png",
+            "content": {
+                "img": "fangsu:sign/al.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "fangsu:sign/ar.png",
+            "content": {
+                "img": "fangsu:sign/ar.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "fangsu:sign/au.png",
+            "content": {
+                "img": "fangsu:sign/au.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "fangsu:sign/ad.png",
+            "content": {
+                "img": "fangsu:sign/ad.png"
+            }
+        },
+        {
+            "type": "route",
+            "icon": "fangsu:sign/routea.png",
+            "content": {
+                "route": 0
+            }
+        },
+        {
+            "type": "routeb",
+            "icon": "fangsu:sign/routeb.png",
+            "content": {
+                "route": 0
+            }
+        },
+        {
+            "type": "trainicon",
+            "icon": "fangsu:sign/trainicon.png",
+            "content": {
+                "route": 0
+            }
+        },
+        {
+            "type": "destination",
+            "icon": "fangsu:sign/destination.png",
+            "content": {
+                "plat": 0
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/toilets.png",
+            "content": {
+                "text": "洗手间|Toilets",
+                "img": "mtr:textures/block/sign/toilets.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/male.png",
+            "content": {
+                "text": "男洗手间|Male Toilet",
+                "img": "mtr:textures/block/sign/male.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/female.png",
+            "content": {
+                "text": "女洗手间|Female Toilet",
+                "img": "mtr:textures/block/sign/female.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "fangsu:sign/lift.png",
+            "content": {
+                "text": "直梯|Lift",
+                "img": "fangsu:sign/lift.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/train.png",
+            "content": {
+                "text": "列车|Trains",
+                "img": "mtr:textures/block/sign/train.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/train_old.png",
+            "content": {
+                "text": "列车|Trains",
+                "img": "mtr:textures/block/sign/train_old.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/exit_1.png",
+            "content": {
+                "img": "mtr:textures/block/sign/exit_1.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/cross.png",
+            "content": {
+                "text": "禁止进入|No Entry",
+                "img": "mtr:textures/block/sign/cross.png"
+            }
+        }
+    ]
+}

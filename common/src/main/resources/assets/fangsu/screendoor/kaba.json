@@ -1,0 +1,184 @@
+{
+    "model": "fangsu:screendoor/kaba.obj",
+    "door": {
+        "left": [
+            {
+                "id": "common",
+                "text": "fangsu.item.screendoor_qg1.door.left.common.text",
+                "contentText": "fangsu.item.screendoor_qg1.door.left.common.contentText",
+                "doors": [
+                    {
+                        "subModel": "l_c",
+                        "shape": [[0, 0, 14, 16, 32, 15]],
+                        "step": 1
+                    }
+                ]
+            },
+            {
+                "id": "end",
+                "text": "fangsu.item.screendoor_qg1.door.left.end.text",
+                "contentText": "fangsu.item.screendoor_qg1.door.left.end.contentText",
+                "doors": [
+                    {
+                        "subModel": "l_ea",
+                        "shape": [[0, 0, 14, 8, 32, 15]],
+                        "step": 1
+                    },
+                    {
+                        "subModel": "l_eb",
+                        "shape": [[8, 0, 13, 16, 32, 14]],
+                        "step": 0.5
+                    }
+                ]
+            }
+        ],
+        "right": [
+            {
+                "id": "common",
+                "text": "fangsu.item.screendoor_qg1.door.right.common.text",
+                "contentText": "fangsu.item.screendoor_qg1.door.right.common.contentText",
+                "doors": [
+                    {
+                        "subModel": "r_c",
+                        "shape": [[0, 0, 14, 16, 32, 15]],
+                        "step": -1
+                    }
+                ]
+            },
+            {
+                "id": "end",
+                "text": "fangsu.item.screendoor_qg1.door.right.end.text",
+                "contentText": "fangsu.item.screendoor_qg1.door.right.end.contentText",
+                "doors": [
+                    {
+                        "subModel": "r_ea",
+                        "shape": [[8, 0, 14, 16, 32, 15]],
+                        "step": -1
+                    },
+                    {
+                        "subModel": "r_eb",
+                        "shape": [[0, 0, 13, 8, 32, 14]],
+                        "step": -0.5
+                    }
+                ]
+            }
+        ]
+    },
+    "glass": {
+        "left": [
+            {
+                "id": "auto",
+                "text": "cfg.autoSubModel",
+                "auto": "auto"
+            },
+            {
+                "id": "door",
+                "text": "fangsu.item.screendoor_qg1.glass.left.door.text",
+                "contentText": "fangsu.item.screendoor_qg1.glass.left.door.contentText",
+                "subModel": "g_ld",
+                "shape": [
+                    [15, 0, 12, 16, 32, 14],
+                    [8, 0, 12, 16, 32, 13]
+                ]
+            },
+            {
+                "id": "doorend",
+                "text": "fangsu.item.screendoor_qg1.glass.left.doorend.text",
+                "contentText": "fangsu.item.screendoor_qg1.glass.left.doorend.contentText",
+                "subModel": "g_lde",
+                "shape": [
+                    [15, 0, 11, 16, 32, 13],
+                    [8, 0, 11, 16, 32, 12]
+                ]
+            },
+            {
+                "id": "glass",
+                "text": "fangsu.item.screendoor_qg1.glass.left.glass.text",
+                "contentText": "fangsu.item.screendoor_qg1.glass.left.glass.contentText",
+                "subModel": "g_lg",
+                "shape": [[8, 0, 12, 16, 32, 13]]
+            },
+            {
+                "id": "shortend",
+                "text": "fangsu.item.screendoor_qg1.glass.left.shortend.text",
+                "contentText": "fangsu.item.screendoor_qg1.glass.left.shortend.contentText",
+                "subModel": "g_lse",
+                "shape": [[7, 0, 3, 8, 32, 13]]
+            },
+            {
+                "id": "longend",
+                "text": "fangsu.item.screendoor_qg1.glass.left.longend.text",
+                "contentText": "fangsu.item.screendoor_qg1.glass.left.longend.contentText",
+                "subModel": "g_lle",
+                "shape": [
+                    [15, 0, 3, 16, 32, 14],
+                    [8, 0, 12, 16, 32, 13]
+                ]
+            }
+        ],
+        "right": [
+            {
+                "id": "auto",
+                "text": "cfg.autoSubModel",
+                "auto": "auto"
+            },
+            {
+                "id": "door",
+                "text": "fangsu.item.screendoor_qg1.glass.right.door.text",
+                "contentText": "fangsu.item.screendoor_qg1.glass.right.door.contentText",
+                "subModel": "g_rd",
+                "shape": [
+                    [0, 0, 12, 1, 32, 14],
+                    [0, 0, 12, 8, 32, 13]
+                ]
+            },
+            {
+                "id": "doorend",
+                "text": "fangsu.item.screendoor_qg1.glass.right.doorend.text",
+                "contentText": "fangsu.item.screendoor_qg1.glass.right.doorend.contentText",
+                "subModel": "g_rde",
+                "shape": [
+                    [0, 0, 11, 1, 32, 13],
+                    [0, 0, 11, 8, 32, 12]
+                ]
+            },
+            {
+                "id": "glass",
+                "text": "fangsu.item.screendoor_qg1.glass.right.glass.text",
+                "contentText": "fangsu.item.screendoor_qg1.glass.right.glass.contentText",
+                "subModel": "g_rg",
+                "shape": [[0, 0, 12, 8, 32, 13]]
+            },
+            {
+                "id": "shortend",
+                "text": "fangsu.item.screendoor_qg1.glass.right.shortend.text",
+                "contentText": "fangsu.item.screendoor_qg1.glass.right.shortend.contentText",
+                "subModel": "g_rse",
+                "shape": [[8, 0, 3, 9, 32, 13]]
+            },
+            {
+                "id": "longend",
+                "text": "fangsu.item.screendoor_qg1.glass.right.longend.text",
+                "contentText": "fangsu.item.screendoor_qg1.glass.right.longend.contentText",
+                "subModel": "g_rle",
+                "shape": [
+                    [0, 0, 3, 1, 32, 14],
+                    [0, 0, 12, 8, 32, 13]
+                ]
+            }
+        ],
+        "auto": [
+            { "if": "LEFT_DOOR", "is": "end", "left": "doorend", "right": "shortend" },
+            { "if": "RIGHT_DOOR", "is": "end", "left": "shortend", "right": "doorend" },
+            { "if": "LEFT_BLOCK", "is": "SCREENDOOR_DOOR", "left": "door" },
+            { "if": "RIGHT_BLOCK", "is": "SCREENDOOR_DOOR", "right": "door" },
+            { "if": "LEFT_GLASS_RIGHT", "is": "door", "left": "door" },
+            { "if": "RIGHT_GLASS_LEFT", "is": "door", "right": "door" },
+            { "if": { "LEFT_BLOCK": { "is": "SCREENDOOR_GLASS" }, "RIGHT_BLOCK": { "is": "SCREENDOOR_GLASS" } }, "left": "glass", "right": "glass" },
+            { "if": { "LEFT_BLOCK": { "not": "SCREENDOOR_GLASS" }, "RIGHT_BLOCK": { "not": "SCREENDOOR_GLASS" } }, "left": "door", "right": "door" },
+            { "if": "LEFT_BLOCK", "not": "SCREENDOOR_GLASS", "left": "door", "right": "glass" },
+            { "if": "RIGHT_BLOCK", "not": "SCREENDOOR_GLASS", "left": "glass", "right": "door" },
+            { "if": "TRUE", "left": "door", "right": "door" }
+        ]
+    }
+}

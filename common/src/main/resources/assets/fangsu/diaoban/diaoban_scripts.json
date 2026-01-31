@@ -1,0 +1,19 @@
+{
+    "content":[
+        {
+            "id":"blank",
+            "text":"fangsu.diaoban.blank",
+            "content":"fangsu:diaoban/blank.js"
+        },
+        {
+            "id":"mtr_diaoban_station",
+            "text":"fangsu.diaoban.mtr_diaoban_station",
+            "content":"fangsu:diaoban/mtr_diaoban_station.js"
+        },
+        {
+            "id":"mtr_diaoban_route",
+            "text":"fangsu.diaoban.mtr_diaoban_route",
+            "content":"fangsu:diaoban/mtr_diaoban_route.js"
+        }
+    ]
+}

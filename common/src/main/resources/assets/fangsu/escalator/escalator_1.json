@@ -1,0 +1,23 @@
+{
+    "content":[
+        {
+            "id":"escalator_1",
+            "model":"fangsu:escalator/escalator_1.obj",
+            "speed":1,
+            "subModels":{
+                "step":{
+                    "left":{
+                        "model":"step_left",
+                        "length":0.5,
+                        "shape":[]
+                    },
+                    "right":{
+                        "model":"step_right",
+                        "length":0.5,
+                        "shape":[]
+                    }
+                }
+            }
+        }
+    ]
+}

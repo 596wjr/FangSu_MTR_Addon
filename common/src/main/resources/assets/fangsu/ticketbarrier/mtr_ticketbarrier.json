@@ -1,0 +1,103 @@
+{
+  "content": [
+    {
+      "id": "mtr_ticketbarrier_1",
+      "text": "fangsu.item.ticketbarrier.1.text",
+      "model": "fangsu:ticketbarrier/mtr_ticketbarrier_1.obj",
+      "flipV": true,
+      "shape": [
+        [
+          -1,
+          0,
+          -4,
+          1,
+          16.1,
+          20
+        ],
+        [
+          15,
+          0,
+          -4,
+          16,
+          16.1,
+          20
+        ]
+      ],
+      "collisionShape": [
+        [
+          -1,
+          0,
+          -4,
+          1,
+          24,
+          20
+        ],
+        [
+          15,
+          0,
+          -4,
+          16,
+          24,
+          20
+        ]
+      ],
+      "doorCloseShape": [
+        [
+          1,
+          6,
+          7,
+          15,
+          12,
+          9
+        ]
+      ],
+      "doorCloseCollisionShape": [
+        [
+          1,
+          6,
+          7,
+          15,
+          24,
+          9
+        ]
+      ],
+      "gatePos": 0.55,
+      "cardBox": [
+        7.25,
+        16.1,
+        9.7,
+        8.75,
+        16.2,
+        8.75
+      ],
+      "doors": [
+        {
+          "model": "fangsu:ticketbarrier/mtr_ticketbarrier_1_door.obj",
+          "use_parted_model": true,
+          "flipV": true,
+          "doorType": 2,
+          "pos": [
+            {
+              "subModel": "gatel",
+              "pos": [
+                -0.455,
+                0.3,
+                0
+              ],
+              "side": 1
+            },
+            {
+              "subModel": "gatel",
+              "pos": [
+                0.455,
+                0.3,
+                0
+              ],
+              "side": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

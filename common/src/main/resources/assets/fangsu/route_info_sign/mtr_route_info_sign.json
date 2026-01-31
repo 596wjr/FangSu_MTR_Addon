@@ -1,0 +1,49 @@
+{
+    "content":[
+        {
+            "id":"mtr_ris_wm",
+            "text":"fangsu.mtr.ris_wm.text",
+            "contentText":"fangsu.mtr.ris_wm.content_text",
+            "model":"fangsu:route_info_sign/mtr_ris_wm.obj",
+            "script": "fangsu:route_info_sign/mtr_ris.js",
+            "shape": [
+                [
+                    2,
+                    -4,
+                    15,
+                    14,
+                    16,
+                    16
+                ]
+            ],
+            "slots": [
+                [
+                    [
+                        -0.34375,
+                        0.96875,
+                        -0.43
+                    ],
+                    [
+                        -0.34375,
+                        -0.34375,
+                        -0.43
+                    ],
+                    [
+                        0.34375,
+                        -0.34375,
+                        -0.43
+                    ],
+                    [
+                        0.34375,
+                        0.96875,
+                        -0.43
+                    ]
+                ]
+            ],
+            "texSize": [
+                512,
+                1024
+            ]
+        }
+    ]
+}

@@ -1,5 +1,16 @@
 package com.fangsu.utils;
 
+//#if FABRIC
+
+import fabric.cn.zbx1425.sowcerext.model.RawModel;
+import fabric.cn.zbx1425.sowcerext.model.loader.ObjModelLoader;
+import fabric.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
+//#elseif FORGE
+//$$ import forge.cn.zbx1425.sowcerext.model.RawModel;
+//$$ import forge.cn.zbx1425.sowcerext.model.loader.ObjModelLoader;
+//$$ import forge.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
+//#endif
+
 import com.fangsu.Main;
 import com.google.gson.*;
 import com.google.gson.JsonElement;
@@ -23,8 +34,10 @@ public class ResourceUtil {
      * 从文件加载字符串数组
      */
     public static String[] loadStringAsArray(File file) throws IOException {
-        String GlobalRegisterKey="File"+ file.toPath()+"@StringArray";
-        if(register.containsKey(GlobalRegisterKey)){return (String[])register.get(GlobalRegisterKey);}
+        String GlobalRegisterKey = "File" + file.toPath() + "@StringArray";
+        if (register.containsKey(GlobalRegisterKey)) {
+            return (String[]) register.get(GlobalRegisterKey);
+        }
         List<String> lines = new ArrayList<>();
         try (BufferedReader reader = Files.newBufferedReader(file.toPath())) {
             String line;
@@ -32,7 +45,7 @@ public class ResourceUtil {
                 lines.add(line.trim());
             }
         }
-        register.put(GlobalRegisterKey,lines.toArray(new String[0]));
+        register.put(GlobalRegisterKey, lines.toArray(new String[0]));
         return lines.toArray(new String[0]);
     }
 
@@ -40,10 +53,13 @@ public class ResourceUtil {
      * 从资源包加载字符串数组
      */
     public static String[] loadStringAsArray(ResourceLocation location) throws IOException {
-        String GlobalRegisterKey="Identifier"+location.toString()+"@StringArray";
-        if(register.containsKey(GlobalRegisterKey)){return (String[])register.get(GlobalRegisterKey);}
+        String GlobalRegisterKey = "Identifier" + location.toString() + "@StringArray";
+        if (register.containsKey(GlobalRegisterKey)) {
+            return (String[]) register.get(GlobalRegisterKey);
+        }
         List<String> lines = new ArrayList<>();
-        ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();;
+        ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();
+        ;
         Optional<Resource> resource = resourceManager.getResource(location);
 
         if (resource.isPresent()) {
@@ -58,29 +74,32 @@ public class ResourceUtil {
             Main.LOGGER.warn("Resource not found: {}", location);
             throw new IOException("Resource not found: " + location);
         }
-        register.put(GlobalRegisterKey,lines.toArray(new String[0]));
+        register.put(GlobalRegisterKey, lines.toArray(new String[0]));
         return lines.toArray(new String[0]);
     }
 
 
     public static InputStream loadInputStream(ResourceLocation location) throws IOException {
-        String GlobalRegisterKey="Identifier"+location.toString()+"@loadInputStream";
-        if(register.containsKey(GlobalRegisterKey)){return (InputStream) register.get(GlobalRegisterKey);}
-        ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();;
+        String GlobalRegisterKey = "Identifier" + location.toString() + "@loadInputStream";
+        if (register.containsKey(GlobalRegisterKey)) {
+            return (InputStream) register.get(GlobalRegisterKey);
+        }
+        ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();
+        ;
         Optional<Resource> resource = resourceManager.getResource(location);
 
         InputStream stream = null;
 
         if (resource.isPresent()) {
             try (InputStream is = resource.get().open();
-                 ) {
-                stream= new BufferedInputStream(is);
+            ) {
+                stream = new BufferedInputStream(is);
             }
         } else {
             Main.LOGGER.warn("Resource not found: {}", location);
             throw new IOException("Resource not found: " + location);
         }
-        register.put(GlobalRegisterKey,stream);
+        register.put(GlobalRegisterKey, stream);
         return stream;
     }
 
@@ -102,10 +121,12 @@ public class ResourceUtil {
      * 从文件加载图像
      */
     public static BufferedImage loadImage(File file) throws IOException {
-        String GlobalRegisterKey="File"+ file.toPath()+"@BufferedImage";
-        if(register.containsKey(GlobalRegisterKey)){return (BufferedImage)register.get(GlobalRegisterKey);}
+        String GlobalRegisterKey = "File" + file.toPath() + "@BufferedImage";
+        if (register.containsKey(GlobalRegisterKey)) {
+            return (BufferedImage) register.get(GlobalRegisterKey);
+        }
         BufferedImage image = ImageIO.read(file);
-        register.put(GlobalRegisterKey,image);
+        register.put(GlobalRegisterKey, image);
         return image;
     }
 
@@ -113,23 +134,82 @@ public class ResourceUtil {
      * 从资源包加载图像
      */
     public static BufferedImage loadImage(ResourceLocation location) throws IOException {
-        String GlobalRegisterKey="Identifier"+ location.toString()+"@BufferedImage";
-        if(register.containsKey(GlobalRegisterKey)){return (BufferedImage)register.get(GlobalRegisterKey);}
+        String GlobalRegisterKey = "Identifier" + location.toString() + "@BufferedImage";
+        if (register.containsKey(GlobalRegisterKey)) {
+            return (BufferedImage) register.get(GlobalRegisterKey);
+        }
 
-        ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();;
+        ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();
+        ;
         Optional<Resource> resource = resourceManager.getResource(location);
 
         if (resource.isPresent()) {
             try (InputStream is = resource.get().open()) {
                 byte[] imageData = is.readAllBytes();
                 BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageData));
-                register.put(GlobalRegisterKey,image);
+                register.put(GlobalRegisterKey, image);
                 return image;
             }
         } else {
             Main.LOGGER.warn("Image resource not found: {}", location);
             throw new IOException("Image resource not found: " + location);
         }
+    }
+
+    public static RawModel loadModel(ResourceLocation location, Boolean flipV) throws IOException {
+        String GlobalRegisterKey = "Identifier" + location.toString() + (flipV ? "_flipV" : "") + "@RawModel";
+        if (register.containsKey(GlobalRegisterKey)) {
+            return (RawModel) register.get(GlobalRegisterKey);
+        }
+        ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();
+        RawModel model = ObjModelLoader.loadModel(resourceManager, location, null);
+        if (flipV) model.applyUVMirror(false, true);
+        register.put(GlobalRegisterKey, model);
+        return model;
+    }
+
+    public static Map<String, RawModel> loadPartedModel(ResourceLocation location, Boolean flipV) throws IOException {
+        String GlobalRegisterKey = "Identifier" + location.toString() + (flipV ? "_flipV" : "") + "@PartedModel";
+        if (register.containsKey(GlobalRegisterKey)) {
+            return (Map<String, RawModel>) register.get(GlobalRegisterKey);
+        }
+        ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();
+        Map<String, RawModel> models = ObjModelLoader.loadModels(resourceManager, location, null);
+        if (flipV)
+            for (Map.Entry<String, RawModel> entry : models.entrySet()) {
+                RawModel model = entry.getValue();
+                model.applyUVMirror(false, true);
+            }
+        register.put(GlobalRegisterKey, models);
+        return models;
+    }
+
+    public static DynamicModelHolder loadDmh(ResourceLocation location, Boolean flipV) throws IOException {
+        String GlobalRegisterKey = "Identifier" + location.toString() + (flipV ? "_flipV" : "") + "@Dmh";
+        if (register.containsKey(GlobalRegisterKey)) {
+            return (DynamicModelHolder) register.get(GlobalRegisterKey);
+        }
+        DynamicModelHolder dmh = new DynamicModelHolder();
+        dmh.uploadLater(loadModel(location, flipV));
+        register.put(GlobalRegisterKey, dmh);
+        return dmh;
+    }
+
+    public static Map<String, DynamicModelHolder> loadPartedDmh(ResourceLocation location, Boolean flipV) throws IOException {
+        String GlobalRegisterKey = "Identifier" + location.toString() + (flipV ? "_flipV" : "") + "@PartedDmh";
+        if (register.containsKey(GlobalRegisterKey)) {
+            return (Map<String, DynamicModelHolder>) register.get(GlobalRegisterKey);
+        }
+        Map<String, DynamicModelHolder> map = new HashMap<>();
+        Map<String, RawModel> models = loadPartedModel(location, flipV);
+        for (Map.Entry<String, RawModel> entry : models.entrySet()) {
+            RawModel model = entry.getValue();
+            DynamicModelHolder dmh = new DynamicModelHolder();
+            dmh.uploadLater(model);
+            map.put(entry.getKey(), dmh);
+        }
+        register.put(GlobalRegisterKey, map);
+        return map;
     }
 
     /**
@@ -154,14 +234,16 @@ public class ResourceUtil {
      * 创建纯色图像
      */
     public static BufferedImage createSolidColorImage(int width, int height, Color color) {
-        String GlobalRegisterKey="SolidColorImage"+width+"x"+height;
-        if(register.containsKey(GlobalRegisterKey)){return (BufferedImage)register.get(GlobalRegisterKey);}
+        String GlobalRegisterKey = "SolidColorImage" + width + "x" + height;
+        if (register.containsKey(GlobalRegisterKey)) {
+            return (BufferedImage) register.get(GlobalRegisterKey);
+        }
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = image.createGraphics();
         g2d.setColor(color);
         g2d.fillRect(0, 0, width, height);
         g2d.dispose();
-        register.put(GlobalRegisterKey,image);
+        register.put(GlobalRegisterKey, image);
         return image;
     }
 
@@ -174,7 +256,8 @@ public class ResourceUtil {
      */
     public static JsonElement loadAsJSON(ResourceLocation location) {
 
-        ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();;
+        ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();
+        ;
         List<Resource> resources = new ArrayList<>();
 
         try {
@@ -294,5 +377,22 @@ public class ResourceUtil {
         }
 
         return result;
+    }
+
+    public static String hashTo12Chars(String input) {
+        // 1. 计算 Java 内置哈希（int 32 位）
+        int hash = java.util.Objects.hashCode(input);
+
+        // 2. 也可以用 MurmurHash3 输出 long，更均匀
+        // long hash = com.google.common.hash.Hashing.murmur3_128().hashString(input, StandardCharsets.UTF_8).asLong();
+
+        // 3. 转成无符号 long
+        long unsigned = hash & 0xFFFFFFFFL;
+
+        // 4. 转成 12 位的 Base36（数字+字母）
+        String s = Long.toString(unsigned, 36);
+
+        // 5. 如果不足 12 位，左补 '0'
+        return String.format("%12s", s).replace(' ', '0');
     }
 }

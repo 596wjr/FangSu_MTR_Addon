@@ -1,0 +1,103 @@
+{
+    "common": [
+        {
+            "id": "beijing_sign_a",
+            "text": "fangsu.item.signa",
+            "model": "fangsu:sign/beijing/beijingsign_a.obj",
+            "unit": 8,
+            "tex": [
+                [
+                    0.09881875,
+                    0.11
+                ],
+                [
+                    0.59495625,
+                    0.17
+                ]
+            ],
+            "main": {
+                "subModel": "main",
+                "shape": [
+                    [
+                        4,
+                        0,
+                        5.5,
+                        12,
+                        6,
+                        10.5
+                    ],
+                    [
+                        4,
+                        6,
+                        4,
+                        12,
+                        12,
+                        12
+                    ]
+                ]
+            },
+            "side": {
+                "right": {
+                    "subModel": "sidea",
+                    "shape": [
+                        [
+                            8,
+                            0,
+                            5.5,
+                            9,
+                            6,
+                            10.5
+                        ],
+                        [
+                            8,
+                            6,
+                            4,
+                            9,
+                            12,
+                            12
+                        ]
+                    ]
+                },
+                "left": {
+                    "subModel": "sideb",
+                    "shape": [
+                        [
+                            7,
+                            0,
+                            5.5,
+                            8,
+                            6,
+                            10.5
+                        ],
+                        [
+                            7,
+                            6,
+                            4,
+                            8,
+                            12,
+                            12
+                        ]
+                    ]
+                }
+            },
+            "pole": {
+                "subModel": "pole",
+                "height":4,
+                "is_mtr_theme":true,
+                "shape": [
+                    [
+                        7.5,
+                        8,
+                        7.5,
+                        8.5,
+                        16,
+                        8.5
+                    ]
+                ]
+            }
+        }
+    ],
+    "on_wall": [
+        
+    ]
+}
