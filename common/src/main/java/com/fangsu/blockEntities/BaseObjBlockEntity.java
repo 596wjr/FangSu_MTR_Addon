@@ -1,8 +1,7 @@
 package com.fangsu.blockEntities;
 
-
+import com.fangsu.blocks.BaseObjBlock;
 //#if FABRIC
-
 import fabric.cn.zbx1425.mtrsteamloco.block.BlockEyeCandy;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.AbstractScriptContext;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.ScriptHolder;
@@ -12,12 +11,18 @@ import fabric.cn.zbx1425.sowcer.math.Matrices;
 import fabric.cn.zbx1425.sowcer.math.Matrix4f;
 import fabric.cn.zbx1425.sowcerext.model.ModelCluster;
 //#elseif FORGE
-//$$ import forge.cn.zbx1425.sowcerext.model.ModelCluster;
-//$$ import forge.cn.zbx1425.mtrsteamloco.render.scripting.eyecandy.EyeCandyScriptContext;
+//$$ import forge.cn.zbx1425.mtrsteamloco.block.BlockEyeCandy;
+//$$ import forge.cn.zbx1425.mtrsteamloco.render.scripting.AbstractScriptContext;
 //$$ import forge.cn.zbx1425.mtrsteamloco.render.scripting.ScriptHolder;
+//$$ import forge.cn.zbx1425.mtrsteamloco.render.scripting.eyecandy.EyeCandyDrawCalls;
+//$$ import forge.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
+//$$ import forge.cn.zbx1425.sowcer.math.Matrices;
+//$$ import forge.cn.zbx1425.sowcer.math.Matrix4f;
+//$$ import forge.cn.zbx1425.sowcerext.model.ModelCluster;
 //#endif
 import mtr.mappings.BlockEntityClientSerializableMapper;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -31,6 +36,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
 
@@ -142,11 +148,11 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
         return this.worldPosition;
     }
 
-    public VoxelShape setCollisionShape() {
+    public VoxelShape setCollisionShape(BlockState state) {
         return Block.box(0, 0, 0, 0, 0, 0);
     }
 
-    public VoxelShape setShape() {
+    public VoxelShape setShape(BlockState state) {
         return Block.box(0, 0, 0, 16, 16, 16);
     }
 
@@ -224,12 +230,12 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
     public void serverTick() {
     }
 
-    public VoxelShape getShapeInternal() {
-        return setShape(); // 你已有的逻辑
+    public VoxelShape getShapeInternal(BlockState state) {
+        return setShape(state); // 你已有的逻辑
     }
 
-    public VoxelShape getCollisionShapeInternal() {
-        return setCollisionShape();
+    public VoxelShape getCollisionShapeInternal(BlockState state) {
+        return setCollisionShape(state);
     }
 
     protected void markShapeDirty() {
@@ -244,4 +250,66 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
         }
     }
 
+    public Vec3 worldToLocal(Vec3 worldPos) {
+        Level level = this.getLevel();
+        if (level == null) return Vec3.ZERO;
+
+        BlockPos pos = this.getBlockPos();
+        Direction facing = level.getBlockState(pos)
+                .getValue(BaseObjBlock.FACING);
+
+        // 1. 世界坐标 → 碰撞箱原点
+        Vec3 v = worldPos.subtract(
+                pos.getX() + 0.5,
+                pos.getY(),
+                pos.getZ() + 0.5
+        );
+
+        // 2. 反向高级平移
+        v = v.subtract(
+                this.translateX,
+                this.translateY,
+                this.translateZ
+        );
+
+        // 3. 反向高级旋转（顺序必须和渲染相反）
+        v = rotateZ(v, -this.rotateZ);
+        v = rotateY(v, -this.rotateY);
+        v = rotateX(v, -this.rotateX);
+
+        // 4. 反向方块朝向
+        v = rotateY(v, (float) Math.toRadians(facing.toYRot()));
+
+        return v;
+    }
+
+    private static Vec3 rotateX(Vec3 v, float rad) {
+        float cos = (float) Math.cos(rad);
+        float sin = (float) Math.sin(rad);
+        return new Vec3(
+                v.x,
+                v.y * cos - v.z * sin,
+                v.y * sin + v.z * cos
+        );
+    }
+
+    private static Vec3 rotateY(Vec3 v, float rad) {
+        float cos = (float) Math.cos(rad);
+        float sin = (float) Math.sin(rad);
+        return new Vec3(
+                v.x * cos + v.z * sin,
+                v.y,
+                -v.x * sin + v.z * cos
+        );
+    }
+
+    private static Vec3 rotateZ(Vec3 v, float rad) {
+        float cos = (float) Math.cos(rad);
+        float sin = (float) Math.sin(rad);
+        return new Vec3(
+                v.x * cos - v.y * sin,
+                v.x * sin + v.y * cos,
+                v.z
+        );
+    }
 }

@@ -2,7 +2,6 @@ package com.fangsu.blockEntities;
 
 //#if FABRIC
 
-import com.fangsu.utils.CollisionBoxUtil;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
 import fabric.cn.zbx1425.sowcer.math.Matrices;
 //#elseif FORGE
@@ -13,8 +12,11 @@ import fabric.cn.zbx1425.sowcer.math.Matrices;
 import com.fangsu.Main;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.ResourceUtil;
+import com.fangsu.blocks.BaseObjBlock;
+import com.fangsu.utils.CollisionBoxUtil;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
@@ -45,6 +47,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     private static final int closeAnimationBeginTime = 500;
     private static final int doorAnimationTime = 200;
     private boolean animationDone = true;
+    private float gatePos = 0.5f;
 
     private Map<String, Map<String, Object>> loaded;
     private DynamicModelHolder mainDmh;
@@ -94,6 +97,10 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
             if (current.containsKey("doorCloseCollisionShape") && current.get("doorCloseCollisionShape") instanceof List<?> s) {
                 doorCloseCollisionShape = new CollisionBoxUtil.CollisionBox(s);
             }
+
+            if (current.containsKey("gatePos") && current.get("gatePos") instanceof Number pos) {
+                gatePos = pos.floatValue();
+            } else gatePos = 0.5f;
 
             cardBox = null;
             ticketBox = null;
@@ -183,25 +190,26 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         if (!extra.containsKey("isOpen")) extra.put("isOpen", "false");
         boolean isOpen = "true".equals(extra.get("isOpen"));
         if (!isOpen) {
-            if (cardBox != null) {
-                if (cardBox.contains(hitPos)) {
-                    player.displayClientMessage(Component.translatable("刷卡入闸"), true);
-                    extra.put("isOpen", "true");
-                    setChanged();
-                    level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
-                    this.markShapeDirty();
-                    return InteractionResult.SUCCESS;
-                } else {
-                    return InteractionResult.PASS;
-                }
-            } else if (cardBox == null) {
-                player.displayClientMessage(Component.translatable("刷卡入闸"), true);
-                extra.put("isOpen", "true");
-                setChanged();
-                level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
-                this.markShapeDirty();
-                return InteractionResult.SUCCESS;
-            }
+//            if (cardBox != null) {
+//                if (cardBox.contains(worldToLocal(hitPos))) {
+            player.displayClientMessage(Component.translatable("刷卡入闸"), true);
+            extra.put("isOpen", "true");
+            setChanged();
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+            this.markShapeDirty();
+            return InteractionResult.SUCCESS;
+//                } else {
+//                    Main.LOGGER.info("not in hitbox {} {}", hitPos, cardBox);
+//                    return InteractionResult.PASS;
+//                }
+//            } else if (cardBox == null) {
+//                player.displayClientMessage(Component.translatable("刷卡入闸"), true);
+//                extra.put("isOpen", "true");
+//                setChanged();
+//                level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+//                this.markShapeDirty();
+//                return InteractionResult.SUCCESS;
+//            }
 
 //            if(ticketBox != null && ticketBox.contains(hitPos)) {
 //                player.displayClientMessage(Component.translatable("刷票入闸"), true);
@@ -210,10 +218,10 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
 
         }
 
-        Main.LOGGER.info("isOpen : " + isOpen);
-        Main.LOGGER.info("cacheIsOpen : " + cacheIsOpen);
+//        Main.LOGGER.info("isOpen : " + isOpen);
+//        Main.LOGGER.info("cacheIsOpen : " + cacheIsOpen);
 
-        return InteractionResult.SUCCESS;
+        return InteractionResult.PASS;
     }
 
     @Override
@@ -225,46 +233,57 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         if (!extra.containsKey("isOpen")) extra.put("isOpen", "false");
         boolean isOpen = "true".equals(extra.get("isOpen"));
         if (isOpen) {
-            extraConfigs.put("isOpen", "false");
-            setChanged();
-            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
-            this.markShapeDirty();
+            if (worldToLocal(player.position()).z > gatePos) {
+                extraConfigs.put("isOpen", "false");
+                setChanged();
+                level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+                this.markShapeDirty();
+            }
         }
     }
 
     @Override
-    public VoxelShape setCollisionShape() {
+    public VoxelShape setCollisionShape(BlockState state) {
 
         Map<String, String> extra = this.extraConfigs;
 
         if (!extra.containsKey("isOpen")) extra.put("isOpen", "false");
         boolean isOpen = "true".equals(extra.get("isOpen"));
+        Direction facing = state.getValue(BaseObjBlock.FACING);
+        float rotX = this.rotateX,
+                rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot()),
+                rotZ = this.rotateZ;
 
         if (collisionShape != null) {
             if (!isOpen) {
                 if (doorCloseCollisionShape != null) {
                     return Shapes.or(collisionShape.asVoxelShape(), doorCloseCollisionShape.asVoxelShape());
                 } else if (doorCloseShape != null) {
-                    return Shapes.or(collisionShape.asVoxelShape(), doorCloseShape.asVoxelShape());
+                    return Shapes.or(collisionShape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1), doorCloseShape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1));
                 }
             }
-            return collisionShape.asVoxelShape();
+            return collisionShape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1);
         } else if (shape != null) {
             if (!isOpen) {
                 if (doorCloseShape != null) {
-                    return Shapes.or(shape.asVoxelShape(), doorCloseShape.asVoxelShape());
+                    return Shapes.or(shape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1), doorCloseShape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1));
                 }
             }
-            return shape.asVoxelShape();
+            return shape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1);
         }
 //        Main.LOGGER.warn("using default cbox");
         return Block.box(0, 0, 0, 0, 0, 0);
     }
 
     @Override
-    public VoxelShape setShape() {
+    public VoxelShape setShape(BlockState state) {
 
         Map<String, String> extra = this.extraConfigs;
+
+        Direction facing = state.getValue(BaseObjBlock.FACING);
+        float rotX = this.rotateX,
+                rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot()),
+                rotZ = this.rotateZ;
 
         if (!extra.containsKey("isOpen")) extra.put("isOpen", "false");
         boolean isOpen = "true".equals(extra.get("isOpen"));
@@ -272,10 +291,10 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         if (shape != null) {
             if (!isOpen) {
                 if (doorCloseShape != null) {
-                    return Shapes.or(shape.asVoxelShape(), doorCloseShape.asVoxelShape());
+                    return Shapes.or(shape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1), doorCloseShape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1));
                 }
             }
-            return shape.asVoxelShape();
+            return shape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 0.0625f);
         }
         return Block.box(0, 0, 0, 16, 16, 16);
     }

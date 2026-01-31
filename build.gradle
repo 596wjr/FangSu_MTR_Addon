@@ -44,7 +44,7 @@ subprojects {
     apply plugin: 'maven-publish'
 
     base {
-        archivesName = "$rootProject.archives_name-mc$project.minecraft_version-$rootProject.mod_version"
+        archivesName = "$rootProject.mod_prefix$rootProject.archives_name-mc$project.minecraft_version-${platform}"
     }
 
     repositories {
@@ -175,3 +175,4 @@ subprojects {
         }
     }
 }
+

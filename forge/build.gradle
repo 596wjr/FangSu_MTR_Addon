@@ -61,3 +61,7 @@ shadowJar {
 remapJar {
     inputFile.set shadowJar.archiveFile
 }
+
+tasks.named("sourcesJar") {
+    dependsOn tasks.named("processConditionalSources")
+}

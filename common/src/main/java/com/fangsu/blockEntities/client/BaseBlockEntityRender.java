@@ -2,7 +2,6 @@ package com.fangsu.blockEntities.client;
 
 //#if FABRIC
 
-import com.fangsu.Main;
 import fabric.cn.zbx1425.mtrsteamloco.MainClient;
 import fabric.cn.zbx1425.sowcer.math.Matrix4f;
 //#elseif FORGE
@@ -10,6 +9,7 @@ import fabric.cn.zbx1425.sowcer.math.Matrix4f;
 //$$ import forge.cn.zbx1425.sowcer.math.Matrix4f;
 //#endif
 
+import com.fangsu.Main;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.blocks.BaseObjBlock;
 import com.mojang.blaze3d.vertex.PoseStack;

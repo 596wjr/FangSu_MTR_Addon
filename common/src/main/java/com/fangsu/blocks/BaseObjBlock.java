@@ -49,7 +49,7 @@ public abstract class BaseObjBlock extends HorizontalDirectionalBlock implements
     @Nullable
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
-        return this.defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+        return this.defaultBlockState().setValue(FACING, context.getHorizontalDirection());
     }
 
     @Nullable
@@ -119,7 +119,7 @@ public abstract class BaseObjBlock extends HorizontalDirectionalBlock implements
     ) {
         BlockEntity be = world.getBlockEntity(pos);
         if (be instanceof BaseObjBlockEntity obj) {
-            VoxelShape shape = obj.getCollisionShapeInternal();
+            VoxelShape shape = obj.getCollisionShapeInternal(state);
             return shape == null ? Shapes.block() : shape;
         }
         return Shapes.empty();
@@ -134,7 +134,7 @@ public abstract class BaseObjBlock extends HorizontalDirectionalBlock implements
     ) {
         BlockEntity be = world.getBlockEntity(pos);
         if (be instanceof BaseObjBlockEntity obj) {
-            VoxelShape shape = obj.getShapeInternal();
+            VoxelShape shape = obj.getShapeInternal(state);
             return shape == null ? Shapes.block() : shape;
         }
         return Shapes.block();

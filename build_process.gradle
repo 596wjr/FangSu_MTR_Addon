@@ -21,7 +21,6 @@ def processAccessWidener(inputFile, outputFile) {
         if (line.startsWith("//#if ")) {
             def platform = line.substring(6).trim().toUpperCase()
             conditionStack.add(platform == currentPlatform)
-            outputLines.add("")
             return
         }
 
@@ -32,7 +31,6 @@ def processAccessWidener(inputFile, outputFile) {
                 def last = conditionStack.remove(conditionStack.size() - 1)
                 // 只有上一个 if/elseif 没命中，elseif 才可能命中
                 conditionStack.add(!last && platform == currentPlatform)
-                outputLines.add("")
             }
             return
         }
@@ -42,7 +40,6 @@ def processAccessWidener(inputFile, outputFile) {
             if (!conditionStack.isEmpty()) {
                 def last = conditionStack.remove(conditionStack.size() - 1)
                 conditionStack.add(!last)
-                outputLines.add("")
             }
             return
         }
@@ -51,27 +48,24 @@ def processAccessWidener(inputFile, outputFile) {
         if (line.startsWith("//#endif")) {
             if (!conditionStack.isEmpty()) {
                 conditionStack.remove(conditionStack.size() - 1)
-                outputLines.add("")
             }
             return
         }
 
         // //$$ 开头的“伪注释代码”
-        if (rawLine.trim().startsWith("//\$\$")) {
+        if (rawLine =~ /^\s*\/\/\$\$/) {
             if (isActive()) {
+                // 保留原有缩进，只去掉 //$$
                 def uncommented = rawLine.replaceFirst(/^(\s*)\/\/\$\$\s?/, '$1')
                 outputLines.add(uncommented)
-            } else {
-                outputLines.add("")
             }
             return
         }
 
+
         // 普通代码
         if (isActive()) {
             outputLines.add(rawLine)
-        } else {
-            outputLines.add("")
         }
     }
 
