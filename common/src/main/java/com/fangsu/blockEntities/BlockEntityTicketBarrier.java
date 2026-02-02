@@ -17,6 +17,7 @@ import com.fangsu.utils.CollisionBoxUtil;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
@@ -25,6 +26,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -190,13 +192,12 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         if (!extra.containsKey("isOpen")) extra.put("isOpen", "false");
         boolean isOpen = "true".equals(extra.get("isOpen"));
         if (!isOpen) {
+            //TODO 纸质客票系统
 //            if (cardBox != null) {
 //                if (cardBox.contains(worldToLocal(hitPos))) {
             player.displayClientMessage(Component.translatable("刷卡入闸"), true);
             extra.put("isOpen", "true");
-            setChanged();
-            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
-            this.markShapeDirty();
+            sendUpdateC2S();
             return InteractionResult.SUCCESS;
 //                } else {
 //                    Main.LOGGER.info("not in hitbox {} {}", hitPos, cardBox);
@@ -235,9 +236,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         if (isOpen) {
             if (worldToLocal(player.position()).z > gatePos) {
                 extraConfigs.put("isOpen", "false");
-                setChanged();
-                level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
-                this.markShapeDirty();
+                sendUpdateC2S();
             }
         }
     }
@@ -246,6 +245,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     public VoxelShape setCollisionShape(BlockState state) {
 
         Map<String, String> extra = this.extraConfigs;
+        applyShapeTransform(state);
 
         if (!extra.containsKey("isOpen")) extra.put("isOpen", "false");
         boolean isOpen = "true".equals(extra.get("isOpen"));
@@ -279,6 +279,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     public VoxelShape setShape(BlockState state) {
 
         Map<String, String> extra = this.extraConfigs;
+        applyShapeTransform(state);
 
         Direction facing = state.getValue(BaseObjBlock.FACING);
         float rotX = this.rotateX,
@@ -370,6 +371,31 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         }
 
         private record Door(DynamicModelHolder dmh, Double[] pos, Integer side, Integer step) {
+        }
+    }
+
+    private void applyShapeTransform(BlockState state) {
+        Direction facing = state.getValue(BaseObjBlock.FACING);
+        Vec3 trans = new Vec3(translateX, translateY, translateZ);
+        switch (facing) {
+            case NORTH -> trans = new Vec3(trans.x, trans.y, -trans.z);
+            case SOUTH -> trans = new Vec3(-trans.x, trans.y, trans.z);
+            case WEST -> trans = new Vec3(trans.z, trans.y, -trans.x);
+            case EAST -> trans = new Vec3(-trans.z, trans.y, trans.x);
+            default -> {
+            }
+        }
+        if (shape != null) {
+            shape.translate(trans);
+        }
+        if (collisionShape != null) {
+            collisionShape.translate(trans);
+        }
+        if (doorCloseShape != null) {
+            doorCloseShape.translate(trans);
+        }
+        if (doorCloseCollisionShape != null) {
+            doorCloseCollisionShape.translate(trans);
         }
     }
 }

@@ -1,17 +1,13 @@
 package com.fangsu.utils;
 
 import com.fangsu.Main;
-import com.fangsu.blocks.ModBlocks;
-import dev.architectury.registry.client.rendering.BlockEntityRendererRegistry;
+import com.fangsu.ui.TransformScreen;
 import dev.architectury.registry.registries.DeferredRegister;
 import dev.architectury.registry.registries.RegistrySupplier;
-import mtr.RegistryClient;
-import mtr.mappings.BlockEntityRendererMapper;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
-import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
@@ -20,7 +16,6 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class RegisterUtil {
@@ -32,6 +27,8 @@ public class RegisterUtil {
             DeferredRegister.create(Main.MOD_ID, Registries.BLOCK_ENTITY_TYPE);
     public static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
             DeferredRegister.create(Main.MOD_ID, Registries.CREATIVE_MODE_TAB);
+    public static final DeferredRegister<MenuType<?>> MENUS =
+            DeferredRegister.create(Main.MOD_ID, Registries.MENU);
 
     public static RegistrySupplier<Block> addBlock(String id, Supplier<? extends Block> block) {
         return BLOCKS.register(id, block);
@@ -43,6 +40,10 @@ public class RegisterUtil {
 
     public static RegistrySupplier<Item> addBlockItem(String id, RegistrySupplier<Block> block) {
         return ITEMS.register(id, () -> new BlockItem(block.get(), new Item.Properties()));
+    }
+
+    public static RegistrySupplier<MenuType<?>> addMenu(String id, Supplier<? extends MenuType<?>> menu) {
+        return MENUS.register(id, menu);
     }
 
     public static <T extends BlockEntity> RegistrySupplier<BlockEntityType<T>> addBlockEntity(
@@ -86,6 +87,7 @@ public class RegisterUtil {
         ITEMS.register();
         BLOCK_ENTITIES.register();
         CREATIVE_TABS.register();
+        MENUS.register();
     }
 
 

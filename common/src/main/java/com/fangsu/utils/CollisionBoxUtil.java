@@ -6,20 +6,28 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 public class CollisionBoxUtil {
+
+    /* ========= CollisionBox (使用者侧 API) ========= */
     public static class CollisionBox {
         private final List<AABB> boxes = new ArrayList<>();
+        private Vec3 offset = Vec3.ZERO; // 累积平移
 
         public CollisionBox(int... pos) {
             if (pos == null || pos.length < 6) return;
-            boxes.add(new AABB(pos[0] / 16d, pos[1] / 16d, pos[2] / 16d, pos[3] / 16d, pos[4] / 16d, pos[5] / 16d));
+            boxes.add(new AABB(pos[0] / 16d, pos[1] / 16d, pos[2] / 16d,
+                    pos[3] / 16d, pos[4] / 16d, pos[5] / 16d));
         }
 
         public CollisionBox(double... pos) {
             if (pos == null || pos.length < 6) return;
-            boxes.add(new AABB(pos[0] / 16d, pos[1] / 16d, pos[2] / 16d, pos[3] / 16d, pos[4] / 16d, pos[5] / 16d));
+            boxes.add(new AABB(pos[0] / 16d, pos[1] / 16d, pos[2] / 16d,
+                    pos[3] / 16d, pos[4] / 16d, pos[5] / 16d));
         }
 
         public CollisionBox(List<?> pos) {
@@ -50,73 +58,141 @@ public class CollisionBoxUtil {
             }
         }
 
-        public VoxelShape asRotatedShape(Vec3 origin,
-                                         float rx,
-                                         float ry,
-                                         float rz,
-                                         double stepSize) {
-            VoxelShape shape = Shapes.empty();
-            for (AABB box : boxes) {
-                shape = Shapes.or(shape, rotatedShape(box, origin, rx, ry, rz, stepSize));
-            }
-            return shape.optimize();
+        /**
+         * 记录平移偏移量
+         */
+        public void translate(double dx, double dy, double dz) {
+            offset = new Vec3(dx, dy, dz);
+        }
+
+        public void translate(Vec3 delta) {
+            if (delta != null) offset = delta;
+        }
+
+        public void addBox(AABB box) {
+            if (box != null) boxes.add(box);
+        }
+
+        public List<AABB> getBoxes() {
+            List<AABB> moved = new ArrayList<>(boxes.size());
+            for (AABB box : boxes) moved.add(box.move(offset));
+            return moved;
+        }
+
+        public void clear() {
+            boxes.clear();
+            offset = Vec3.ZERO;
         }
 
         public VoxelShape asVoxelShape() {
-            if (boxes.size() == 0) return null;
-            if (boxes.size() == 1) return Shapes.create(boxes.get(0));
-            return boxes.stream()
-                    .map(Shapes::create)
-                    .reduce(Shapes.empty(), Shapes::or);
+            if (boxes.isEmpty()) return null;
+            VoxelShape shape = Shapes.empty();
+            for (AABB box : boxes) {
+                shape = Shapes.or(shape, Shapes.create(box.move(offset)));
+            }
+            return shape;
+        }
+
+        public VoxelShape asRotatedShape(Vec3 origin, float rx, float ry, float rz, double stepSize) {
+            VoxelShape shape = Shapes.empty();
+            Vec3 worldOrigin = origin.add(offset);
+            for (AABB box : boxes) {
+                shape = Shapes.or(shape, CollisionBoxUtil.rotatedShape(box, worldOrigin, rx, ry, rz, stepSize));
+            }
+            return shape.optimize();
         }
     }
 
-    /**
-     * 将局部 AABB 通过切分 + 旋转生成近似旋转的 VoxelShape
-     *
-     * @param localBox 局部坐标系 AABB（通常以格子角为坐标，例如 0..1，多格高度可 >1）
-     * @param origin   旋转基点的世界坐标或中心坐标：
-     *                 - 如果 origin 的 x/y/z 接近整数（例如方块格的坐标），方法会自动把枢轴设为 origin+(0.5,0,0.5)
-     *                 - 否则 origin 被视为已经是“中心世界坐标”，直接使用
-     * @param rx       X 轴旋转（弧度）
-     * @param ry       Y 轴旋转（弧度）
-     * @param rz       Z 轴旋转（弧度）
-     * @param stepSize 每个切分块在局部坐标系中的边长（例如 0.0625 = 1/16）
-     */
-    public static VoxelShape rotatedShape(
-            AABB localBox,
-            Vec3 origin,
-            float rx,
-            float ry,
-            float rz,
-            double stepSize
-    ) {
-        // 特判：无旋转 -> 视 origin 是否为方块角或中心
-        if (rx == 0f && ry == 0f && rz == 0f) {
-            // 若 origin 看起来像方块角（整数），把结果移动到以格子角为基准的世界坐标
-            if (isIntegralVec(origin)) {
-                Vec3 pivot = origin.add(0.5, 0.0, 0.5);
-                // localBox 是以格子角为原点的 -> 先平移为以中心为原点，再加上 pivot
-                AABB centered = new AABB(localBox.minX - 0.5, localBox.minY, localBox.minZ - 0.5,
-                        localBox.maxX - 0.5, localBox.maxY, localBox.maxZ - 0.5);
-                return Shapes.create(centered.move(pivot));
-            } else {
-                // origin 已经是中心世界坐标
-                return Shapes.create(localBox.move(origin));
+    /* =============================
+     * 缓存机制（容忍浮点误差）
+     * ============================= */
+    private static final int DEFAULT_CACHE_CAPACITY = 256;
+    private static volatile Map<ShapeCacheKey, VoxelShape> SHAPE_CACHE = createLRUCache(DEFAULT_CACHE_CAPACITY);
+    private static volatile int cacheCapacity = DEFAULT_CACHE_CAPACITY;
+
+    public static synchronized void setCacheCapacity(int capacity) {
+        if (capacity < 1) throw new IllegalArgumentException("capacity must be >= 1");
+        cacheCapacity = capacity;
+        SHAPE_CACHE = createLRUCache(capacity);
+    }
+
+    public static synchronized void clearCache() {
+        SHAPE_CACHE.clear();
+    }
+
+    private static Map<ShapeCacheKey, VoxelShape> createLRUCache(int capacity) {
+        return new LinkedHashMap<>(capacity, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<ShapeCacheKey, VoxelShape> eldest) {
+                return size() > capacity;
             }
+        };
+    }
+
+    private static double q(double value) {
+        // 精度 1e-4
+        return Math.round(value * 1e4) / 1e4;
+    }
+
+    private record ShapeCacheKey(
+            double minX, double minY, double minZ,
+            double maxX, double maxY, double maxZ,
+            double originX, double originY, double originZ,
+            float rx, float ry, float rz,
+            double step
+    ) {
+        static ShapeCacheKey of(AABB box, Vec3 origin, float rx, float ry, float rz, double step) {
+            return new ShapeCacheKey(
+                    q(box.minX), q(box.minY), q(box.minZ),
+                    q(box.maxX), q(box.maxY), q(box.maxZ),
+                    q(origin.x), q(origin.y), q(origin.z),
+                    rx, ry, rz,
+                    q(step)
+            );
+        }
+    }
+
+    /* =============================
+     * 旋转 + 切分逻辑（保持原逻辑）
+     * ============================= */
+
+    public static VoxelShape rotatedShape(AABB localBox, Vec3 origin,
+                                          float rx, float ry, float rz, double stepSize) {
+        if (localBox == null || origin == null) return Shapes.empty();
+
+        ShapeCacheKey key = ShapeCacheKey.of(localBox, origin, rx, ry, rz, stepSize);
+        synchronized (SHAPE_CACHE) {
+            VoxelShape cached = SHAPE_CACHE.get(key);
+            if (cached != null) return cached;
         }
 
-        // 计算 pivot 与是否需要把 localBox 转为以中心为局部原点
+        VoxelShape shape;
+
+        // 无旋转特判
+        if (rx == 0f && ry == 0f && rz == 0f) {
+            if (isIntegralVec(origin)) {
+                Vec3 pivot = origin.add(0.5, 0.0, 0.5);
+                AABB centered = new AABB(localBox.minX - 0.5, localBox.minY, localBox.minZ - 0.5,
+                        localBox.maxX - 0.5, localBox.maxY, localBox.maxZ - 0.5);
+                shape = Shapes.create(centered.move(pivot));
+            } else {
+                shape = Shapes.create(localBox.move(origin));
+            }
+            shape = shape.optimize();
+            synchronized (SHAPE_CACHE) {
+                SHAPE_CACHE.put(key, shape);
+            }
+            return shape;
+        }
+
+        // 计算 pivot
         Vec3 pivotWorld;
-        AABB workingLocal; // 局部 box，确保其坐标系以 pivot 相匹配（这里 pivot 采用中心）
+        AABB workingLocal;
         if (isIntegralVec(origin)) {
-            // origin 是格子角 -> 我们把枢轴设置为格子中心
             pivotWorld = origin.add(0.5, 0.0, 0.5);
-            // 把 localBox (以格子角为原点) 平移到以中心为原点（X/Z 减 0.5）
             workingLocal = new AABB(localBox.minX - 0.5, localBox.minY, localBox.minZ - 0.5,
                     localBox.maxX - 0.5, localBox.maxY, localBox.maxZ - 0.5);
         } else {
-            // origin 已经是中心世界坐标，pivot 使用 origin，本地 box 不变
             pivotWorld = origin;
             workingLocal = localBox;
         }
@@ -126,8 +202,7 @@ public class CollisionBoxUtil {
         boolean zRot = rz != 0f;
         int axes = (xRot ? 1 : 0) + (yRot ? 1 : 0) + (zRot ? 1 : 0);
 
-        VoxelShape shape = Shapes.empty();
-
+        shape = Shapes.empty();
         if (axes == 1) {
             for (LocalBox part : split1D(workingLocal, stepSize, xRot, yRot, zRot)) {
                 AABB world = transformBox(part, pivotWorld, rx, ry, rz);
@@ -140,7 +215,11 @@ public class CollisionBoxUtil {
             }
         }
 
-        return shape.optimize();
+        VoxelShape result = shape.optimize();
+        synchronized (SHAPE_CACHE) {
+            SHAPE_CACHE.put(key, result);
+        }
+        return result;
     }
 
     /* =============================

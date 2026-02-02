@@ -40,7 +40,20 @@ dependencies {
 //    if(rootProject.require_nte){
 //        modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
 //    }
+
+    modApi("me.shedaniel.cloth:cloth-config-fabric:11.1.136") {
+        exclude(group: "net.fabricmc.fabric-api")
+    }
 }
+
+sourceSets {
+    main {
+        resources {
+            srcDirs += project(':common').sourceSets.main.resources.srcDirs
+        }
+    }
+}
+
 
 processResources {
     inputs.property 'version', project.version
@@ -58,3 +71,4 @@ shadowJar {
 remapJar {
     inputFile.set shadowJar.archiveFile
 }
+

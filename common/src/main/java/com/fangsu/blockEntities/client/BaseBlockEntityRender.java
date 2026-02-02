@@ -69,7 +69,11 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> extends BlockEn
         }
 //        if (prop.script != null) {
 //            synchronized (blockEntity.scriptContext) {
-        blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, lightToUse);
+        try {
+            blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, lightToUse);
+        } catch (Exception e) {
+            Main.LOGGER.error(e.getMessage());
+        }
 //            }
 //            prop.script.tryCallRenderFunctionAsync(blockEntity.scriptContext);
 //        }

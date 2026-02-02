@@ -1,8 +1,12 @@
 package com.fangsu.blockEntities;
 
+import com.fangsu.Main;
 import com.fangsu.blocks.BaseObjBlock;
 //#if FABRIC
-import fabric.cn.zbx1425.mtrsteamloco.block.BlockEyeCandy;
+import com.fangsu.extraConfig.Config;
+import com.fangsu.network.ModNetwork;
+import com.fangsu.ui.TransformScreen;
+import dev.architectury.networking.NetworkManager;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.AbstractScriptContext;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.ScriptHolder;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.eyecandy.EyeCandyDrawCalls;
@@ -20,30 +24,36 @@ import fabric.cn.zbx1425.sowcerext.model.ModelCluster;
 //$$ import forge.cn.zbx1425.sowcer.math.Matrix4f;
 //$$ import forge.cn.zbx1425.sowcerext.model.ModelCluster;
 //#endif
+import io.netty.buffer.Unpooled;
 import mtr.mappings.BlockEntityClientSerializableMapper;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMapper {
+public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMapper implements Syncable {
     private ObjBlockProperty property;
     public ObjBlockScriptContext scriptContext;
 
@@ -238,6 +248,75 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
         return setCollisionShape(state);
     }
 
+    public List<Config> getConfigs() {
+        return null;
+    }
+
+    @Override
+    public void writeC2S(FriendlyByteBuf buf) {
+        buf.writeFloat(translateX);
+        buf.writeFloat(translateY);
+        buf.writeFloat(translateZ);
+        buf.writeFloat(rotateX);
+        buf.writeFloat(rotateY);
+        buf.writeFloat(rotateZ);
+        buf.writeInt(extraConfigs.size());
+        for (String key : extraConfigs.keySet()) {
+            String value = extraConfigs.get(key);
+            buf.writeUtf(key);
+            buf.writeUtf(value);
+        }
+    }
+
+    @Override
+    public void readC2S(FriendlyByteBuf buf) {
+        translateX = buf.readFloat();
+        translateY = buf.readFloat();
+        translateZ = buf.readFloat();
+        rotateX = buf.readFloat();
+        rotateY = buf.readFloat();
+        rotateZ = buf.readFloat();
+        int size = buf.readInt();
+        for (int i = 0; i < size; i++) {
+            String key = buf.readUtf(64);
+            String value = buf.readUtf(128);
+            extraConfigs.put(key, value);
+        }
+        if (level != null && level.isClientSide == false) {
+            level.sendBlockUpdated(
+                    worldPosition,
+                    getBlockState(),
+                    getBlockState(),
+                    3
+            );
+        }
+
+    }
+
+    void syncToServer() {
+        if (level == null || level.isClientSide) {
+            if (!level.hasChunk(getBlockPos().getX() >> 4, getBlockPos().getZ() >> 4)) return;
+            FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+            buf.writeBlockPos(getBlockPos());
+            writeC2S(buf);
+            NetworkManager.sendToServer(ModNetwork.BE_SYNC, buf);
+        }
+    }
+
+    public void sendUpdateC2S() {
+        if (level != null && level.isClientSide)
+            syncToServer();
+        this.setChanged();
+        this.markShapeDirty();
+    }
+
+    public final InteractionResult useWithBrush(@NotNull BlockState state, @NotNull Level level, @NotNull BlockPos pos, @NotNull Player player, @NotNull InteractionHand hand, @NotNull BlockHitResult hit) {
+        if (level.isClientSide) {
+            Minecraft.getInstance().setScreen(new TransformScreen(this));
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
+    }
+
     protected void markShapeDirty() {
         if (level != null) {
             BlockState state = getBlockState();
@@ -312,4 +391,16 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
                 v.z
         );
     }
+
+    public record BaseObjC2SData(
+            float translateX,
+            float translateY,
+            float translateZ,
+            float rotateX,
+            float rotateY,
+            float rotateZ,
+            Map<String, String> extraConfigs
+    ) {
+    }
+
 }

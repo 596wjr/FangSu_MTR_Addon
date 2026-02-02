@@ -85,6 +85,7 @@ subprojects {
             modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
         }
         compileOnly "maven.modrinth:minecraft-transit-railway:${rootProject.mtr_version_forge}"
+        compileOnly("me.shedaniel.cloth:cloth-config-forge:11.1.136")
     }
 
     java {
@@ -175,4 +176,3 @@ subprojects {
         }
     }
 }
-

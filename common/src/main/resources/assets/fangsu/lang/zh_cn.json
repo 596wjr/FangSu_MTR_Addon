@@ -1,0 +1,12 @@
+{
+  "ui.fangsu.block.title": "方块配置",
+  "ui.fangsu.block.transX": "X偏移",
+  "ui.fangsu.block.transY": "Y偏移",
+  "ui.fangsu.block.transZ": "Z偏移",
+  "ui.fangsu.block.rotX": "X旋转",
+  "ui.fangsu.block.rotY": "Y旋转",
+  "ui.fangsu.block.rotZ": "Z旋转",
+  "ui.fangsu.block.config": "物件配置",
+  "ui.fangsu.block.translate": "物件偏移",
+  "ui.fangsu.block.extras": "物件额外配置"
+}

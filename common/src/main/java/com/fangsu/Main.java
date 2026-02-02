@@ -1,6 +1,8 @@
 package com.fangsu;
 
 import com.fangsu.blocks.ModBlocks;
+import com.fangsu.network.ModNetwork;
+import com.fangsu.ui.ModMenus;
 import com.fangsu.utils.RegisterUtil;
 import dev.architectury.platform.Platform;
 import net.fabricmc.api.EnvType;
@@ -25,9 +27,12 @@ public final class Main {
 
         ModBlocks.init();
         RegisterUtil.register();
+        ModMenus.init();
+        ModNetwork.init();
     }
 
     public static void initClient() {
         ModBlocks.initClient();
+        ModMenus.initClient();
     }
 }
