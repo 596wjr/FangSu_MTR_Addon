@@ -59,6 +59,11 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     private DoorsInfo subInfo;
     private CollisionBoxUtil.CollisionBox shape, collisionShape, doorCloseShape, doorCloseCollisionShape;
     private AABB ticketBox, cardBox;
+    private ShapeTransformKey lastShapeKey;
+    private VoxelShape cachedShapeOpen;
+    private VoxelShape cachedShapeClosed;
+    private VoxelShape cachedCollisionOpen;
+    private VoxelShape cachedCollisionClosed;
 
     public BlockEntityTicketBarrier(BlockPos blockPos, BlockState blockState) {
         super(BLOCK_ENTITY_TICKET_BARRIER.get(), blockPos, blockState);
@@ -66,6 +71,11 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
 
     @Override
     public void whenLoading() {
+        ensureExtraConfig("isOpen", "false");
+        ensureExtraConfig("fareType", "0");
+        ensureExtraConfig("isExit", "false");
+        ensureExtraConfig("fareVal", "10");
+        invalidateShapeCache();
 
         ObjBlockScriptContext ctx = this.scriptContext;
         BaseObjBlockEntity entity = this;
@@ -138,9 +148,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
 
         ObjBlockScriptContext ctx = this.scriptContext;
         Map<String, String> extra = this.extraConfigs;
-
-        if (!extra.containsKey("isOpen")) extra.put("isOpen", "false");
-        boolean isOpen = "true".equals(extra.get("isOpen"));
+        boolean isOpen = getExtraConfigBool("isOpen", false);
         long currentTime = System.currentTimeMillis();
         if (isOpen != cacheIsOpen) {
             cacheIsOpen = isOpen;
@@ -192,12 +200,11 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
 
         Vec3 hitPos = hit.getLocation().subtract(pos.getX(), pos.getY(), pos.getZ());
 
-        if (!extra.containsKey("isOpen")) extra.put("isOpen", "false");
-        boolean isOpen = "true".equals(extra.get("isOpen"));
+        boolean isOpen = getExtraConfigBool("isOpen", false);
         if (!isOpen) {
             //TODO 纸质客票系统
-            if (extra.containsKey("fareType") ? Integer.parseInt(extra.get("fareType")) == 0 : true) {
-                if (extra.containsKey("isExit") ? "false".equals(extra.get("isExit")) : true) {
+            if (getExtraConfigInt("fareType", 0) == 0) {
+                if (!getExtraConfigBool("isExit", false)) {
                     //entrance
                     if (MtrTicketSystem.enter(level, pos, player)) {
                         extra.put("isOpen", "true");
@@ -212,11 +219,11 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                         return InteractionResult.SUCCESS;
                     } else return InteractionResult.PASS;
                 }
-            } else if (extra.containsKey("fareType") ? Integer.parseInt(extra.get("fareType")) == 1 : false) {
+            } else if (getExtraConfigInt("fareType", 0) == 1) {
                 //单次扣费
                 MtrTicketSystem.addObjectivesIfMissing(level);
                 Score balance = MtrTicketSystem.getScore(level, player, MtrTicketSystem.BALANCE_OBJECTIVE);
-                int val = extra.containsKey("fareVal") ? Integer.parseInt(extra.get("fareVal")) : 10;
+                int val = getExtraConfigInt("fareVal", 10);
                 if (balance.getScore() < val) {
                     player.displayClientMessage(Text.translatable("gui.mtr.insufficient_balance", balance.getScore()), true);
                     return InteractionResult.PASS;
@@ -227,7 +234,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                     sendUpdateC2S();
                     return InteractionResult.SUCCESS;
                 }
-            } else if (extra.containsKey("fareType") ? Integer.parseInt(extra.get("fareType")) == 3 : false) {
+            } else if (getExtraConfigInt("fareType", 0) == 3) {
                 //TODO 自定义计费模型
                 player.displayClientMessage(Component.translatable("刷卡入闸"), true);
                 extra.put("isOpen", "true");
@@ -248,9 +255,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
 
         ObjBlockScriptContext ctx = this.scriptContext;
         Map<String, String> extra = this.extraConfigs;
-
-        if (!extra.containsKey("isOpen")) extra.put("isOpen", "false");
-        boolean isOpen = "true".equals(extra.get("isOpen"));
+        boolean isOpen = getExtraConfigBool("isOpen", false);
         if (isOpen) {
             if (worldToLocal(player.position()).z > gatePos) {
                 extraConfigs.put("isOpen", "false");
@@ -262,32 +267,11 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     @Override
     public VoxelShape setCollisionShape(BlockState state) {
 
-        Map<String, String> extra = this.extraConfigs;
-        applyShapeTransform(state);
-
-        if (!extra.containsKey("isOpen")) extra.put("isOpen", "false");
-        boolean isOpen = "true".equals(extra.get("isOpen"));
-        Direction facing = state.getValue(BaseObjBlock.FACING);
-        float rotX = this.rotateX,
-                rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot()),
-                rotZ = this.rotateZ;
-
-        if (collisionShape != null) {
-            if (!isOpen) {
-                if (doorCloseCollisionShape != null) {
-                    return Shapes.or(collisionShape.asVoxelShape(), doorCloseCollisionShape.asVoxelShape());
-                } else if (doorCloseShape != null) {
-                    return Shapes.or(collisionShape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1), doorCloseShape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1));
-                }
-            }
-            return collisionShape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1);
-        } else if (shape != null) {
-            if (!isOpen) {
-                if (doorCloseShape != null) {
-                    return Shapes.or(shape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1), doorCloseShape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1));
-                }
-            }
-            return shape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1);
+        updateShapeCache(state);
+        boolean isOpen = getExtraConfigBool("isOpen", false);
+        VoxelShape cached = isOpen ? cachedCollisionOpen : cachedCollisionClosed;
+        if (cached != null) {
+            return cached;
         }
 //        Main.LOGGER.warn("using default cbox");
         return Block.box(0, 0, 0, 0, 0, 0);
@@ -296,24 +280,11 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     @Override
     public VoxelShape setShape(BlockState state) {
 
-        Map<String, String> extra = this.extraConfigs;
-        applyShapeTransform(state);
-
-        Direction facing = state.getValue(BaseObjBlock.FACING);
-        float rotX = this.rotateX,
-                rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot()),
-                rotZ = this.rotateZ;
-
-        if (!extra.containsKey("isOpen")) extra.put("isOpen", "false");
-        boolean isOpen = "true".equals(extra.get("isOpen"));
-
-        if (shape != null) {
-            if (!isOpen) {
-                if (doorCloseShape != null) {
-                    return Shapes.or(shape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1), doorCloseShape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1));
-                }
-            }
-            return shape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 0.1f);
+        updateShapeCache(state);
+        boolean isOpen = getExtraConfigBool("isOpen", false);
+        VoxelShape cached = isOpen ? cachedShapeOpen : cachedShapeClosed;
+        if (cached != null) {
+            return cached;
         }
         return Block.box(0, 0, 0, 16, 16, 16);
     }
@@ -330,24 +301,24 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                         Component.literal("ui.fangsu.ticketbarrier.modeFareOnce"),
                         Component.literal("ui.fangsu.ticketbarrier.modeCustom")
                 ),
-                be -> extra.containsKey("fareType") ? Integer.parseInt(extra.get("fareType")) : 0,
+                be -> getExtraConfigInt("fareType", 0),
                 (be, v) -> extra.put("fareType", v.toString())
         ));
         configs.add(new BoolConfig(
                 Component.literal("ui.fangsu.ticketbarrier.isExit"),
                 new ConfigSpec("bool"),
-                be -> extra.containsKey("isExit") ? "true".equals(extra.get("isExit")) : false,
+                be -> getExtraConfigBool("isExit", false),
                 (be, v) -> extra.put("isExit", v.toString())
-        ).setShowCondition(v -> 0 == (extra.containsKey("fareType") ? Integer.parseInt(extra.get("fareType")) : 0)));
-        configs.add(new NumberConfig(
+        ).setShowCondition(v -> 0 == getExtraConfigInt("fareType", 0)));
+        configs.add(new NumberInputConfig(
                 Component.literal("ui.fangsu.ticketbarrier.fareVal"),
                 new ConfigSpec("number_input")
                         .setParam("max", new JsonPrimitive(32767))
                         .setParam("min", new JsonPrimitive(0))
                         .setParam("isInt", new JsonPrimitive(true)),
-                be -> (float) (extra.containsKey("fareVal") ? Integer.parseInt(extra.get("fareVal")) : 10),
+                be -> (float) getExtraConfigInt("fareVal", 10),
                 (be, v) -> extra.put("fareVal", String.valueOf(v.intValue()))
-        ).setShowCondition(v -> 1 == (extra.containsKey("fareType") ? Integer.parseInt(extra.get("fareType")) : 0)));
+        ).setShowCondition(v -> 1 == getExtraConfigInt("fareType", 0)));
         return configs;
     }
 
@@ -425,28 +396,82 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         }
     }
 
-    private void applyShapeTransform(BlockState state) {
+    private void updateShapeCache(BlockState state) {
         Direction facing = state.getValue(BaseObjBlock.FACING);
-        Vec3 trans = new Vec3(translateX, translateY, translateZ);
-        switch (facing) {
-            case NORTH -> trans = new Vec3(trans.x, trans.y, -trans.z);
-            case SOUTH -> trans = new Vec3(-trans.x, trans.y, trans.z);
-            case WEST -> trans = new Vec3(trans.z, trans.y, -trans.x);
-            case EAST -> trans = new Vec3(-trans.z, trans.y, trans.x);
-            default -> {
-            }
+        ShapeTransformKey key = ShapeTransformKey.of(facing, translateX, translateY, translateZ, rotateX, rotateY, rotateZ);
+        if (key.equals(lastShapeKey)) {
+            return;
         }
+        lastShapeKey = key;
+        Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
+        float rotX = this.rotateX;
+        float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
+        float rotZ = this.rotateZ;
+
         if (shape != null) {
             shape.translate(trans);
+            cachedShapeOpen = shape.asRotatedShape(Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+            if (doorCloseShape != null) {
+                doorCloseShape.translate(trans);
+                cachedShapeClosed = Shapes.or(cachedShapeOpen, doorCloseShape.asRotatedShape(Vec3.ZERO, rotX, rotY, rotZ, 0.1f));
+            } else {
+                cachedShapeClosed = cachedShapeOpen;
+            }
+        } else {
+            cachedShapeOpen = null;
+            cachedShapeClosed = null;
         }
-        if (collisionShape != null) {
-            collisionShape.translate(trans);
+
+        CollisionBoxUtil.CollisionBox baseCollision = collisionShape != null ? collisionShape : shape;
+        CollisionBoxUtil.CollisionBox closeCollision = doorCloseCollisionShape != null ? doorCloseCollisionShape : doorCloseShape;
+        if (baseCollision != null) {
+            if (baseCollision != shape) {
+                baseCollision.translate(trans);
+            }
+            cachedCollisionOpen = baseCollision.asRotatedShape(Vec3.ZERO, rotX, rotY, rotZ, 1);
+            if (closeCollision != null) {
+                if (closeCollision != doorCloseShape) {
+                    closeCollision.translate(trans);
+                }
+                cachedCollisionClosed = Shapes.or(cachedCollisionOpen, closeCollision.asRotatedShape(Vec3.ZERO, rotX, rotY, rotZ, 1));
+            } else {
+                cachedCollisionClosed = cachedCollisionOpen;
+            }
+        } else {
+            cachedCollisionOpen = null;
+            cachedCollisionClosed = null;
         }
-        if (doorCloseShape != null) {
-            doorCloseShape.translate(trans);
-        }
-        if (doorCloseCollisionShape != null) {
-            doorCloseCollisionShape.translate(trans);
+    }
+
+    private void invalidateShapeCache() {
+        lastShapeKey = null;
+        cachedShapeOpen = null;
+        cachedShapeClosed = null;
+        cachedCollisionOpen = null;
+        cachedCollisionClosed = null;
+    }
+
+    private static Vec3 transformOffset(Direction facing, Vec3 trans) {
+        return switch (facing) {
+            case NORTH -> new Vec3(trans.x, trans.y, -trans.z);
+            case SOUTH -> new Vec3(-trans.x, trans.y, trans.z);
+            case WEST -> new Vec3(trans.z, trans.y, -trans.x);
+            case EAST -> new Vec3(-trans.z, trans.y, trans.x);
+            default -> trans;
+        };
+    }
+
+    private record ShapeTransformKey(Direction facing, int tx, int ty, int tz, int rx, int ry, int rz) {
+        static ShapeTransformKey of(Direction facing, float tx, float ty, float tz, float rx, float ry, float rz) {
+            return new ShapeTransformKey(
+                    facing,
+                    Float.floatToIntBits(tx),
+                    Float.floatToIntBits(ty),
+                    Float.floatToIntBits(tz),
+                    Float.floatToIntBits(rx),
+                    Float.floatToIntBits(ry),
+                    Float.floatToIntBits(rz)
+            );
         }
     }
 }
