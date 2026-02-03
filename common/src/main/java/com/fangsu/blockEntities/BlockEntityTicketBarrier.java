@@ -59,11 +59,6 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     private DoorsInfo subInfo;
     private CollisionBoxUtil.CollisionBox shape, collisionShape, doorCloseShape, doorCloseCollisionShape;
     private AABB ticketBox, cardBox;
-    private ShapeTransformKey lastShapeKey;
-    private VoxelShape cachedShapeOpen;
-    private VoxelShape cachedShapeClosed;
-    private VoxelShape cachedCollisionOpen;
-    private VoxelShape cachedCollisionClosed;
 
     public BlockEntityTicketBarrier(BlockPos blockPos, BlockState blockState) {
         super(BLOCK_ENTITY_TICKET_BARRIER.get(), blockPos, blockState);
@@ -75,7 +70,6 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         ensureExtraConfig("fareType", "0");
         ensureExtraConfig("isExit", "false");
         ensureExtraConfig("fareVal", "10");
-        invalidateShapeCache();
 
         ObjBlockScriptContext ctx = this.scriptContext;
         BaseObjBlockEntity entity = this;
@@ -267,12 +261,9 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     @Override
     public VoxelShape setCollisionShape(BlockState state) {
 
-        updateShapeCache(state);
         boolean isOpen = getExtraConfigBool("isOpen", false);
-        VoxelShape cached = isOpen ? cachedCollisionOpen : cachedCollisionClosed;
-        if (cached != null) {
-            return cached;
-        }
+        VoxelShape resolved = buildCollisionShape(state, isOpen);
+        if (resolved != null) return resolved;
 //        Main.LOGGER.warn("using default cbox");
         return Block.box(0, 0, 0, 0, 0, 0);
     }
@@ -280,12 +271,9 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     @Override
     public VoxelShape setShape(BlockState state) {
 
-        updateShapeCache(state);
         boolean isOpen = getExtraConfigBool("isOpen", false);
-        VoxelShape cached = isOpen ? cachedShapeOpen : cachedShapeClosed;
-        if (cached != null) {
-            return cached;
-        }
+        VoxelShape resolved = buildOutlineShape(state, isOpen);
+        if (resolved != null) return resolved;
         return Block.box(0, 0, 0, 16, 16, 16);
     }
 
@@ -396,59 +384,42 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         }
     }
 
-    private void updateShapeCache(BlockState state) {
+    private VoxelShape buildOutlineShape(BlockState state, boolean isOpen) {
+        if (shape == null) return null;
         Direction facing = state.getValue(BaseObjBlock.FACING);
-        ShapeTransformKey key = ShapeTransformKey.of(facing, translateX, translateY, translateZ, rotateX, rotateY, rotateZ);
-        if (key.equals(lastShapeKey)) {
-            return;
-        }
-        lastShapeKey = key;
         Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
         float rotX = this.rotateX;
         float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
         float rotZ = this.rotateZ;
-
-        if (shape != null) {
-            shape.translate(trans);
-            cachedShapeOpen = shape.asRotatedShape(Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
-            if (doorCloseShape != null) {
-                doorCloseShape.translate(trans);
-                cachedShapeClosed = Shapes.or(cachedShapeOpen, doorCloseShape.asRotatedShape(Vec3.ZERO, rotX, rotY, rotZ, 0.1f));
-            } else {
-                cachedShapeClosed = cachedShapeOpen;
-            }
-        } else {
-            cachedShapeOpen = null;
-            cachedShapeClosed = null;
+        long posLong = worldPosition.asLong();
+        shape.translate(trans);
+        VoxelShape openShape = CollisionBoxUtil.cachedRotatedShape(posLong, shape, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+        if (isOpen || doorCloseShape == null) {
+            return openShape;
         }
-
-        CollisionBoxUtil.CollisionBox baseCollision = collisionShape != null ? collisionShape : shape;
-        CollisionBoxUtil.CollisionBox closeCollision = doorCloseCollisionShape != null ? doorCloseCollisionShape : doorCloseShape;
-        if (baseCollision != null) {
-            if (baseCollision != shape) {
-                baseCollision.translate(trans);
-            }
-            cachedCollisionOpen = baseCollision.asRotatedShape(Vec3.ZERO, rotX, rotY, rotZ, 1);
-            if (closeCollision != null) {
-                if (closeCollision != doorCloseShape) {
-                    closeCollision.translate(trans);
-                }
-                cachedCollisionClosed = Shapes.or(cachedCollisionOpen, closeCollision.asRotatedShape(Vec3.ZERO, rotX, rotY, rotZ, 1));
-            } else {
-                cachedCollisionClosed = cachedCollisionOpen;
-            }
-        } else {
-            cachedCollisionOpen = null;
-            cachedCollisionClosed = null;
-        }
+        doorCloseShape.translate(trans);
+        VoxelShape closeShape = CollisionBoxUtil.cachedRotatedShape(posLong, doorCloseShape, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+        return Shapes.or(openShape, closeShape);
     }
 
-    private void invalidateShapeCache() {
-        lastShapeKey = null;
-        cachedShapeOpen = null;
-        cachedShapeClosed = null;
-        cachedCollisionOpen = null;
-        cachedCollisionClosed = null;
+    private VoxelShape buildCollisionShape(BlockState state, boolean isOpen) {
+        CollisionBoxUtil.CollisionBox baseCollision = collisionShape != null ? collisionShape : shape;
+        if (baseCollision == null) return null;
+        CollisionBoxUtil.CollisionBox closeCollision = doorCloseCollisionShape != null ? doorCloseCollisionShape : doorCloseShape;
+        Direction facing = state.getValue(BaseObjBlock.FACING);
+        Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
+        float rotX = this.rotateX;
+        float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
+        float rotZ = this.rotateZ;
+        long posLong = worldPosition.asLong();
+        baseCollision.translate(trans);
+        VoxelShape openShape = CollisionBoxUtil.cachedRotatedShape(posLong, baseCollision, Vec3.ZERO, rotX, rotY, rotZ, 1);
+        if (isOpen || closeCollision == null) {
+            return openShape;
+        }
+        closeCollision.translate(trans);
+        VoxelShape closeShape = CollisionBoxUtil.cachedRotatedShape(posLong, closeCollision, Vec3.ZERO, rotX, rotY, rotZ, 1);
+        return Shapes.or(openShape, closeShape);
     }
 
     private static Vec3 transformOffset(Direction facing, Vec3 trans) {
@@ -461,17 +432,4 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         };
     }
 
-    private record ShapeTransformKey(Direction facing, int tx, int ty, int tz, int rx, int ry, int rz) {
-        static ShapeTransformKey of(Direction facing, float tx, float ty, float tz, float rx, float ry, float rz) {
-            return new ShapeTransformKey(
-                    facing,
-                    Float.floatToIntBits(tx),
-                    Float.floatToIntBits(ty),
-                    Float.floatToIntBits(tz),
-                    Float.floatToIntBits(rx),
-                    Float.floatToIntBits(ry),
-                    Float.floatToIntBits(rz)
-            );
-        }
-    }
 }
