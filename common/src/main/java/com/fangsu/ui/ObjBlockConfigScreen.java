@@ -1,6 +1,7 @@
 package com.fangsu.ui;
 
 import com.fangsu.blockEntities.BaseObjBlockEntity;
+import com.fangsu.extraConfig.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.*;
@@ -14,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-public class TransformScreen extends Screen {
+public class ObjBlockConfigScreen extends Screen {
 
     // 切换：true -> 实时每次滑动调用 sendUpdateC2S()
     //      false -> 只在 onClose() 时调用一次 sendUpdateC2S()
@@ -34,8 +35,9 @@ public class TransformScreen extends Screen {
     private Button closeButton;
     private List<ScrollEntry> entries = new ArrayList<>();
 
+    private final List<ConfigEntry<?>> configs;
 
-    public TransformScreen(BaseObjBlockEntity be) {
+    public ObjBlockConfigScreen(BaseObjBlockEntity be) {
         super(Component.literal("方块配置"));
         this.be = be;
 
@@ -47,10 +49,12 @@ public class TransformScreen extends Screen {
             this.rotateX = be.rotateX;
             this.rotateY = be.rotateY;
             this.rotateZ = be.rotateZ;
+            this.configs = be.getConfigs();
         } else {
             // 默认值（若 BE 为 null）
             this.translateX = this.translateY = this.translateZ = 0f;
             this.rotateX = this.rotateY = this.rotateZ = 0f;
+            this.configs = List.of();
         }
     }
 
@@ -61,24 +65,31 @@ public class TransformScreen extends Screen {
 
         // 计算布局基准
         int cx = this.width / 2;
-        int startY = this.height / 2 - 80; // 首行基线
+        int startY = 60; // 首行基线
         int spacing = 70;
         int y = startY;
 
+        int areaLeft = 40;
+        int areaRight = this.width - 40;
+        int contentWidth = areaRight - areaLeft;
+
+        int leftX = areaLeft;
+
+
         entries.add(new ScrollEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.translate").getString(), TextLabel.Align.CENTER, 0xFFFFFF, false), y));
-        y += 8;
+        y += 12;
         entries.add(new ScrollEntry(createSlider(cx - spacing, y, "X", translateX, v -> {
             translateX = v;
             if (REALTIME) sendToServer();
-        }, -1, 1, 0.0625), y));
+        }, -1, 1, 0.0625f), y));
         entries.add(new ScrollEntry(createSlider(cx, y, "Y", translateY, v -> {
             translateY = v;
             if (REALTIME) sendToServer();
-        }, -1, 1, 0.0625), y));
+        }, -1, 1, 0.0625f), y));
         entries.add(new ScrollEntry(createSlider(cx + spacing, y, "Z", translateZ, v -> {
             translateZ = v;
             if (REALTIME) sendToServer();
-        }, -1, 1, 0.0625), y));
+        }, -1, 1, 0.0625f), y));
         y += 28;
 
         entries.add(new ScrollEntry(createSlider(cx - spacing, y, "RX", rotateX, v -> {
@@ -97,7 +108,19 @@ public class TransformScreen extends Screen {
 
         if (be.getConfigs() != null) {
             entries.add(new ScrollEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.extras").getString(), TextLabel.Align.CENTER, 0xFFFFFF, false), y));
-            y += 8;
+            y += 12;
+            int labelW = (int) (width * 0.45);
+            int fieldW = (int) (width * 0.45);
+
+            for (ConfigEntry<?> c : configs) {
+                c.load(be);
+                if (!c.isVisible(be)) {
+                    continue;
+                }
+                ConfigWidget w = c.createWidget(leftX, y, labelW, fieldW);
+                addRenderableWidget(w);
+                y += w.getHeight() + 4;
+            }
         }
 
         closeButton = this.addRenderableWidget(Button.builder(Component.literal("关闭并保存"),
@@ -109,20 +132,13 @@ public class TransformScreen extends Screen {
         contentHeight = Math.max(400, startY + 200);
     }
 
-    // 创建自定义滑条（返回实例，不直接 addRenderableWidget，以便 later update positions）
-    private BetterSlider createSlider(int cx, int baseY, String label, float initialValue, Consumer<Float> setter) {
-        BetterSlider slider = new BetterSlider(cx - 30, baseY, 60, 20, Component.empty(), initialValue, label, setter);
+    public SliderWidget createSlider(int cx, int baseY, String label, float initialValue, Consumer<Float> setter, float min, float max, float step) {
+        SliderWidget slider = new SliderWidget(cx - 30, baseY, 60, 20, Component.empty(), initialValue, min, max, step, setter);
         this.addRenderableWidget(slider);
         return slider;
     }
 
-    private BetterSlider createSlider(int cx, int baseY, String label, float initialValue, Consumer<Float> setter, double min, double max, double step) {
-        BetterSlider slider = new BetterSlider(cx - 30, baseY, 60, 20, Component.empty(), initialValue, label, setter, min, max, step);
-        this.addRenderableWidget(slider);
-        return slider;
-    }
-
-    private Button createWideButton(
+    public Button createWideButton(
             int centerX,
             int baseY,
             int width,
@@ -136,7 +152,7 @@ public class TransformScreen extends Screen {
         return btn;
     }
 
-    private EditBox createEditBox(
+    public EditBox createEditBox(
             int x,
             int baseY,
             int width,
@@ -157,7 +173,7 @@ public class TransformScreen extends Screen {
         return box;
     }
 
-    private <T> CycleButton<T> createDropdown(
+    public <T> CycleButton<T> createDropdown(
             int x,
             int baseY,
             int width,
@@ -203,10 +219,8 @@ public class TransformScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // 背景（原生暗背景）
         renderBackground(graphics);
 
-        // 绘制一个半透明的浅底用于控件区域，解决“背景太深看不清文字”的问题
         int areaLeft = 40;
         int areaTop = 30;
         int areaRight = this.width - 40;
@@ -265,76 +279,13 @@ public class TransformScreen extends Screen {
 
     @Override
     public void onClose() {
-        // 如果关闭通过 ESC 或其他方式，确保在非实时模式下保存一次
-        if (!REALTIME) {
-            sendToServer();
+        for (ConfigEntry<?> c : configs) {
+            c.save(be);
         }
+        be.sendUpdateC2S();
         super.onClose();
     }
 
-    private static class BetterSlider extends AbstractSliderButton {
-        // baseY 为初始化时的参考 y（不含滚动偏移）
-        public final int baseY;
-        private final String label;
-        private final java.util.function.Consumer<Float> setter;
-
-        private double minValue = 0.0;
-        private double maxValue = 1.0;
-        private double step = 0.1;
-
-        public BetterSlider(int x, int y, int width, int height, Component message, double value, String label, java.util.function.Consumer<Float> setter) {
-            super(x, y, width, height, message, value);
-            this.baseY = y;
-            this.label = label;
-            this.setter = setter;
-            updateMessage();
-        }
-
-        public BetterSlider(int x, int y, int width, int height, Component message, double value, String label, java.util.function.Consumer<Float> setter, double minValue, double maxValue, double step) {
-            super(x, y, width, height, message, (value - minValue) / (maxValue - minValue));
-            this.baseY = y;
-            this.label = label;
-            this.setter = setter;
-            this.minValue = minValue;
-            this.maxValue = maxValue;
-            this.step = step;
-            updateMessage();
-        }
-
-        @Override
-        protected void updateMessage() {
-            double real = toReal();
-            this.setMessage(Component.literal(label + ": " + String.format("%.2f", real)));
-        }
-
-        @Override
-        protected void applyValue() {
-            float real = (float) toReal();
-            setter.accept((real));
-        }
-
-        private double toReal() {
-            double raw = this.minValue + (float) value * (this.maxValue - this.minValue);
-            return Math.round(raw / this.step) * this.step;
-        }
-
-        @Override
-        public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
-            if (!this.active) return false;
-            if (true) {
-                // 计算 normalized value，根据鼠标 x 在滑条内部的位置
-                double newValue = (mouseX - (this.getX() + 4)) / (double) (this.width - 8);
-                this.value = Mth.clamp(newValue, 0.0, 1.0);
-                // update message 每帧保持文本更新
-                updateMessage();
-                // 立即回调 setter（用于实时 UI / 数据更新）
-                float real = (float) toReal();
-                setter.accept(real);
-                return true;
-            }
-            return false;
-        }
-    }
 
     private static class TextLabel extends AbstractWidget {
         public enum Align {LEFT, CENTER, RIGHT}

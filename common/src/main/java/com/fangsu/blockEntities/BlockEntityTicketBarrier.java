@@ -2,6 +2,8 @@ package com.fangsu.blockEntities;
 
 //#if FABRIC
 
+import com.fangsu.extraConfig.*;
+import com.google.gson.JsonPrimitive;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
 import fabric.cn.zbx1425.sowcer.math.Matrices;
 //#elseif FORGE
@@ -14,10 +16,11 @@ import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.ResourceUtil;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.utils.CollisionBoxUtil;
+import com.fangsu.ticketSystem.*;
 
+import mtr.mappings.Text;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
@@ -26,12 +29,12 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.scores.Score;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -193,29 +196,44 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         boolean isOpen = "true".equals(extra.get("isOpen"));
         if (!isOpen) {
             //TODO 纸质客票系统
-//            if (cardBox != null) {
-//                if (cardBox.contains(worldToLocal(hitPos))) {
-            player.displayClientMessage(Component.translatable("刷卡入闸"), true);
-            extra.put("isOpen", "true");
-            sendUpdateC2S();
-            return InteractionResult.SUCCESS;
-//                } else {
-//                    Main.LOGGER.info("not in hitbox {} {}", hitPos, cardBox);
-//                    return InteractionResult.PASS;
-//                }
-//            } else if (cardBox == null) {
-//                player.displayClientMessage(Component.translatable("刷卡入闸"), true);
-//                extra.put("isOpen", "true");
-//                setChanged();
-//                level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
-//                this.markShapeDirty();
-//                return InteractionResult.SUCCESS;
-//            }
-
-//            if(ticketBox != null && ticketBox.contains(hitPos)) {
-//                player.displayClientMessage(Component.translatable("刷票入闸"), true);
-//            }
-
+            if (extra.containsKey("fareType") ? Integer.parseInt(extra.get("fareType")) == 0 : true) {
+                if (extra.containsKey("isExit") ? "false".equals(extra.get("isExit")) : true) {
+                    //entrance
+                    if (MtrTicketSystem.enter(level, pos, player)) {
+                        extra.put("isOpen", "true");
+                        sendUpdateC2S();
+                        return InteractionResult.SUCCESS;
+                    } else return InteractionResult.PASS;
+                } else {
+                    //exit
+                    if (MtrTicketSystem.exit(level, pos, player)) {
+                        extra.put("isOpen", "true");
+                        sendUpdateC2S();
+                        return InteractionResult.SUCCESS;
+                    } else return InteractionResult.PASS;
+                }
+            } else if (extra.containsKey("fareType") ? Integer.parseInt(extra.get("fareType")) == 1 : false) {
+                //单次扣费
+                MtrTicketSystem.addObjectivesIfMissing(level);
+                Score balance = MtrTicketSystem.getScore(level, player, MtrTicketSystem.BALANCE_OBJECTIVE);
+                int val = extra.containsKey("fareVal") ? Integer.parseInt(extra.get("fareVal")) : 10;
+                if (balance.getScore() < val) {
+                    player.displayClientMessage(Text.translatable("gui.mtr.insufficient_balance", balance.getScore()), true);
+                    return InteractionResult.PASS;
+                } else {
+                    balance.add(-val);
+                    player.displayClientMessage(Text.translatable("msg.fangsu.ticketbarrier.fareOnce", val, balance.getScore()), true);
+                    extra.put("isOpen", "true");
+                    sendUpdateC2S();
+                    return InteractionResult.SUCCESS;
+                }
+            } else if (extra.containsKey("fareType") ? Integer.parseInt(extra.get("fareType")) == 3 : false) {
+                //TODO 自定义计费模型
+                player.displayClientMessage(Component.translatable("刷卡入闸"), true);
+                extra.put("isOpen", "true");
+                sendUpdateC2S();
+                return InteractionResult.SUCCESS;
+            }
 
         }
 
@@ -295,9 +313,42 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                     return Shapes.or(shape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1), doorCloseShape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 1));
                 }
             }
-            return shape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 0.0625f);
+            return shape.asRotatedShape(new Vec3(0, 0, 0), rotX, rotY, rotZ, 0.1f);
         }
         return Block.box(0, 0, 0, 16, 16, 16);
+    }
+
+    @Override
+    public List<ConfigEntry<?>> getConfigs() {
+        List<ConfigEntry<?>> configs = new ArrayList<>();
+        Map<String, String> extra = this.extraConfigs;
+        configs.add(new EnumConfig(
+                Component.literal("模式"),
+                new ConfigSpec("list"),
+                List.of(
+                        Component.literal("ui.fangsu.ticketbarrier.modeMtr"),
+                        Component.literal("ui.fangsu.ticketbarrier.modeFareOnce"),
+                        Component.literal("ui.fangsu.ticketbarrier.modeCustom")
+                ),
+                be -> extra.containsKey("fareType") ? Integer.parseInt(extra.get("fareType")) : 0,
+                (be, v) -> extra.put("fareType", v.toString())
+        ));
+        configs.add(new BoolConfig(
+                Component.literal("ui.fangsu.ticketbarrier.isExit"),
+                new ConfigSpec("bool"),
+                be -> extra.containsKey("isExit") ? "true".equals(extra.get("isExit")) : false,
+                (be, v) -> extra.put("isExit", v.toString())
+        ).setShowCondition(v -> 0 == (extra.containsKey("fareType") ? Integer.parseInt(extra.get("fareType")) : 0)));
+        configs.add(new NumberConfig(
+                Component.literal("ui.fangsu.ticketbarrier.fareVal"),
+                new ConfigSpec("number_input")
+                        .setParam("max", new JsonPrimitive(32767))
+                        .setParam("min", new JsonPrimitive(0))
+                        .setParam("isInt", new JsonPrimitive(true)),
+                be -> (float) (extra.containsKey("fareVal") ? Integer.parseInt(extra.get("fareVal")) : 10),
+                (be, v) -> extra.put("fareVal", String.valueOf(v.intValue()))
+        ).setShowCondition(v -> 1 == (extra.containsKey("fareType") ? Integer.parseInt(extra.get("fareType")) : 0)));
+        return configs;
     }
 
     private double clamp(double num, double min, double max) {

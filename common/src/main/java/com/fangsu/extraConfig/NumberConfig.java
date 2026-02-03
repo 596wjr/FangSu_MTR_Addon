@@ -1,0 +1,100 @@
+package com.fangsu.extraConfig;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.network.chat.Component;
+
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+
+public class NumberConfig extends ConfigEntry<Float> {
+
+    private final float min;
+    private final float max;
+    private final float step;
+
+    private SliderWidget slider;
+    private EditBox input;
+
+    public NumberConfig(
+            Component title,
+            ConfigSpec spec,
+            Function<Object, Float> getter,
+            BiConsumer<Object, Float> setter
+    ) {
+        super(title, spec, getter, setter);
+        this.min = spec.getFloat("min", 0f);
+        this.max = spec.getFloat("max", 1f);
+        this.step = spec.getFloat("step", 0f);
+    }
+
+    @Override
+    public ConfigWidget createWidget(int x, int y, int labelW, int fieldW) {
+
+        int toggleW = 20;
+        int fieldAreaW = fieldW - toggleW - 4;
+
+        /* ---------- Slider ---------- */
+
+        slider = new SliderWidget(
+                x + labelW,
+                y,
+                fieldAreaW,
+                20,
+                title,
+                value,
+                min,
+                max,
+                step,
+                v -> value = v
+        );
+
+        /* ---------- Input ---------- */
+
+        input = new EditBox(
+                Minecraft.getInstance().font,
+                x + labelW,
+                y,
+                fieldAreaW,
+                20,
+                title
+        );
+        input.setValue(Float.toString(value));
+        input.setResponder(str -> {
+            try {
+                float v = Float.parseFloat(str);
+                value = v;
+                slider.setExternal(v);
+            } catch (NumberFormatException ignored) {
+            }
+        });
+
+        /* ---------- Toggle ---------- */
+
+        Button toggle = Button.builder(
+                Component.literal("≡"),
+                b -> {
+                    slider.visible = !slider.visible;
+                    input.visible = !input.visible;
+                }
+        ).bounds(
+                x + labelW + fieldAreaW + 4,
+                y,
+                toggleW,
+                20
+        ).build();
+
+        slider.visible = true;
+        input.visible = false;
+
+        return new ConfigWidget(
+                x,
+                y,
+                labelW + fieldW,
+                20,
+                title,
+                new CompoundWidget(slider, input, toggle)
+        );
+    }
+}

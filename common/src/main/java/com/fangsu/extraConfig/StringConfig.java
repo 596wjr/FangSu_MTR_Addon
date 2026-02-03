@@ -1,29 +1,50 @@
 package com.fangsu.extraConfig;
 
-import me.shedaniel.clothconfig2.api.AbstractConfigListEntry;
-import me.shedaniel.clothconfig2.api.ConfigCategory;
-import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
-import me.shedaniel.clothconfig2.gui.entries.StringListEntry;
 import net.minecraft.network.chat.Component;
 
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 
-public class StringConfig extends Config {
-    Component title;
-    Consumer<String> saveConsumer;
-    String defaultValue;
+public class StringConfig extends ConfigEntry<String> {
 
-    public StringConfig(Component title, Consumer<String> saveConsumer, String defaultValue) {
-        this.title = title;
-        this.saveConsumer = saveConsumer;
-        this.defaultValue = defaultValue;
+    private MultiLineTextWidget widget;
+
+    public StringConfig(
+            Component title,
+            ConfigSpec spec,
+            Function<Object, String> getter,
+            BiConsumer<Object, String> setter
+    ) {
+        super(title, spec, getter, setter);
     }
 
     @Override
-    public StringListEntry getEntry(ConfigEntryBuilder builder) {
-        return builder.startStrField(title, "")
-                .setDefaultValue(defaultValue)
-                .setSaveConsumer(saveConsumer)
-                .build();
+    public ConfigWidget createWidget(int x, int y, int labelW, int fieldW) {
+
+        boolean multiline = spec.getBool("multiline", false);
+        int lines = Math.max(1, spec.getInt("lines", 1));
+        int height = multiline ? lines * 12 + 4 : 20;
+
+        widget = new MultiLineTextWidget(
+                x + labelW,
+                y,
+                fieldW,
+                height,
+                value
+        );
+
+        return new ConfigWidget(
+                x, y,
+                labelW + fieldW,
+                height,
+                title,
+                widget
+        );
+    }
+
+    @Override
+    public void save(Object be) {
+        value = widget.getText();
+        super.save(be);
     }
 }

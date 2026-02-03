@@ -1,11 +1,10 @@
 package com.fangsu.blockEntities;
 
-import com.fangsu.Main;
 import com.fangsu.blocks.BaseObjBlock;
 //#if FABRIC
-import com.fangsu.extraConfig.Config;
+import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.network.ModNetwork;
-import com.fangsu.ui.TransformScreen;
+import com.fangsu.ui.ObjBlockConfigScreen;
 import dev.architectury.networking.NetworkManager;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.AbstractScriptContext;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.ScriptHolder;
@@ -36,9 +35,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -47,7 +44,6 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.List;
@@ -248,7 +244,7 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
         return setCollisionShape(state);
     }
 
-    public List<Config> getConfigs() {
+    public List<ConfigEntry<?>> getConfigs() {
         return null;
     }
 
@@ -312,7 +308,7 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
 
     public final InteractionResult useWithBrush(@NotNull BlockState state, @NotNull Level level, @NotNull BlockPos pos, @NotNull Player player, @NotNull InteractionHand hand, @NotNull BlockHitResult hit) {
         if (level.isClientSide) {
-            Minecraft.getInstance().setScreen(new TransformScreen(this));
+            Minecraft.getInstance().setScreen(new ObjBlockConfigScreen(this));
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

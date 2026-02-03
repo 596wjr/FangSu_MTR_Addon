@@ -1,10 +1,8 @@
 package com.fangsu.utils;
 
 import com.fangsu.Main;
-import com.fangsu.ui.TransformScreen;
 import dev.architectury.registry.registries.DeferredRegister;
 import dev.architectury.registry.registries.RegistrySupplier;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.MenuType;
