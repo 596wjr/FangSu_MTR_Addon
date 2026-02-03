@@ -19,66 +19,76 @@ public class CollisionBoxUtil {
 
         public CollisionBox(int... pos) {
             if (pos == null || pos.length < 6) return;
-            boxes.add(new AABB(pos[0] / 16d, pos[1] / 16d, pos[2] / 16d,
-                    pos[3] / 16d, pos[4] / 16d, pos[5] / 16d));
+            boxes.add(new AABB(
+                    pos[0] / 16d, pos[1] / 16d, pos[2] / 16d,
+                    pos[3] / 16d, pos[4] / 16d, pos[5] / 16d
+            ));
         }
 
         public CollisionBox(double... pos) {
             if (pos == null || pos.length < 6) return;
-            boxes.add(new AABB(pos[0] / 16d, pos[1] / 16d, pos[2] / 16d,
-                    pos[3] / 16d, pos[4] / 16d, pos[5] / 16d));
+            boxes.add(new AABB(
+                    pos[0] / 16d, pos[1] / 16d, pos[2] / 16d,
+                    pos[3] / 16d, pos[4] / 16d, pos[5] / 16d
+            ));
         }
 
         public CollisionBox(List<?> pos) {
             if (pos == null || pos.isEmpty()) return;
+
             if (pos.get(0) instanceof Number) {
                 if (pos.size() < 6) return;
-                boxes.add(new AABB(((Number) pos.get(0)).doubleValue() / 16d,
+                boxes.add(new AABB(
+                        ((Number) pos.get(0)).doubleValue() / 16d,
                         ((Number) pos.get(1)).doubleValue() / 16d,
                         ((Number) pos.get(2)).doubleValue() / 16d,
                         ((Number) pos.get(3)).doubleValue() / 16d,
                         ((Number) pos.get(4)).doubleValue() / 16d,
-                        ((Number) pos.get(5)).doubleValue() / 16d));
+                        ((Number) pos.get(5)).doubleValue() / 16d
+                ));
             } else if (pos.get(0) instanceof List<?>) {
                 A:
                 for (Object o : pos) {
                     if (o instanceof List<?> oo) {
                         List<Double> thisList = new ArrayList<>();
                         for (Object o2 : oo) {
-                            if (o2 instanceof Number) {
-                                thisList.add(((Number) o2).doubleValue());
-                            } else continue A;
+                            if (o2 instanceof Number n) {
+                                thisList.add(n.doubleValue());
+                            } else {
+                                continue A;
+                            }
                         }
                         if (thisList.size() < 6) continue;
-                        boxes.add(new AABB(thisList.get(0) / 16d, thisList.get(1) / 16d, thisList.get(2) / 16d,
-                                thisList.get(3) / 16d, thisList.get(4) / 16d, thisList.get(5) / 16d));
+                        boxes.add(new AABB(
+                                thisList.get(0) / 16d,
+                                thisList.get(1) / 16d,
+                                thisList.get(2) / 16d,
+                                thisList.get(3) / 16d,
+                                thisList.get(4) / 16d,
+                                thisList.get(5) / 16d
+                        ));
                     }
                 }
             }
         }
 
-        /**
-         * 记录平移偏移量
-         */
         public void translate(double dx, double dy, double dz) {
             offset = new Vec3(dx, dy, dz);
         }
 
         public void translate(Vec3 delta) {
-            if (delta != null) {
-                offset = delta;
-            }
+            if (delta != null) offset = delta;
         }
 
         public void addBox(AABB box) {
-            if (box != null) {
-                boxes.add(box);
-            }
+            if (box != null) boxes.add(box);
         }
 
         public List<AABB> getBoxes() {
             List<AABB> moved = new ArrayList<>(boxes.size());
-            for (AABB box : boxes) moved.add(box.move(offset));
+            for (AABB box : boxes) {
+                moved.add(box.move(offset));
+            }
             return moved;
         }
 
@@ -88,7 +98,7 @@ public class CollisionBoxUtil {
         }
 
         public VoxelShape asVoxelShape() {
-            if (boxes.isEmpty()) return null;
+            if (boxes.isEmpty()) return Shapes.empty();
             VoxelShape shape = Shapes.empty();
             for (AABB box : boxes) {
                 shape = Shapes.or(shape, Shapes.create(box.move(offset)));
@@ -101,17 +111,23 @@ public class CollisionBoxUtil {
             Vec3 worldOrigin = origin.add(offset);
             VoxelShape shape = Shapes.empty();
             for (AABB box : boxes) {
-                shape = Shapes.or(shape, CollisionBoxUtil.rotatedShape(box, worldOrigin, rx, ry, rz, stepSize));
+                shape = Shapes.or(
+                        shape,
+                        CollisionBoxUtil.rotatedShape(box, worldOrigin, rx, ry, rz, stepSize)
+                );
             }
             return shape.optimize();
         }
     }
 
     /* =============================
-     * 缓存机制（容忍浮点误差）
+     * 缓存机制（LRU + 泛型 Key）
      * ============================= */
+
     private static final int DEFAULT_CACHE_CAPACITY = 256;
-    private static volatile Map<ShapeCacheKey, VoxelShape> SHAPE_CACHE = createLRUCache(DEFAULT_CACHE_CAPACITY);
+    private static volatile Map<ShapeCacheKey, VoxelShape> SHAPE_CACHE =
+            createLRUCache(DEFAULT_CACHE_CAPACITY);
+
     private static volatile int cacheCapacity = DEFAULT_CACHE_CAPACITY;
 
     public static synchronized void setCacheCapacity(int capacity) {
@@ -124,19 +140,25 @@ public class CollisionBoxUtil {
         SHAPE_CACHE.clear();
     }
 
-    private static Map<ShapeCacheKey, VoxelShape> createLRUCache(int capacity) {
+    /**
+     * ✅ 泛型 LRU Cache 工具方法（关键修改点）
+     */
+    private static <K> Map<K, VoxelShape> createLRUCache(int capacity) {
         return new LinkedHashMap<>(capacity, 0.75f, true) {
             @Override
-            protected boolean removeEldestEntry(Map.Entry<ShapeCacheKey, VoxelShape> eldest) {
+            protected boolean removeEldestEntry(Map.Entry<K, VoxelShape> eldest) {
                 return size() > capacity;
             }
         };
     }
 
     private static double q(double value) {
-        // 精度 1e-4
         return Math.round(value * 1e4) / 1e4;
     }
+
+    /* =============================
+     * Rotated Box Cache
+     * ============================= */
 
     private record RotatedCacheKey(
             long pos,
@@ -145,7 +167,9 @@ public class CollisionBoxUtil {
             double step,
             int hash
     ) {
-        static RotatedCacheKey of(long pos, Vec3 origin, float rx, float ry, float rz, double step, int hash) {
+        static RotatedCacheKey of(long pos, Vec3 origin,
+                                  float rx, float ry, float rz,
+                                  double step, int hash) {
             return new RotatedCacheKey(
                     pos,
                     q(origin.x), q(origin.y), q(origin.z),
@@ -157,7 +181,8 @@ public class CollisionBoxUtil {
     }
 
     private static final int DEFAULT_BOX_CACHE_CAPACITY = 1024;
-    private static final Map<RotatedCacheKey, VoxelShape> BOX_SHAPE_CACHE = createLRUCache(DEFAULT_BOX_CACHE_CAPACITY);
+    private static final Map<RotatedCacheKey, VoxelShape> BOX_SHAPE_CACHE =
+            createLRUCache(DEFAULT_BOX_CACHE_CAPACITY);
 
     public static synchronized void clearBoxShapeCache() {
         BOX_SHAPE_CACHE.clear();
