@@ -62,6 +62,7 @@ public class ObjBlockConfigScreen extends Screen {
     protected void init() {
         super.init();
         entries.clear();
+        scrollOffset = 0;
 
         // 计算布局基准
         int cx = this.width / 2;
@@ -119,6 +120,7 @@ public class ObjBlockConfigScreen extends Screen {
                 }
                 ConfigWidget w = c.createWidget(leftX, y, labelW, fieldW);
                 addRenderableWidget(w);
+                entries.add(new ScrollEntry(w, y));
                 y += w.getHeight() + 4;
             }
         }
@@ -129,7 +131,8 @@ public class ObjBlockConfigScreen extends Screen {
                     onClose();
                 }).bounds(this.width / 2 - 50, this.height - 40, 100, 20).build());
 
-        contentHeight = Math.max(400, startY + 200);
+        int contentBottom = getActualContentBottom();
+        contentHeight = Math.max(400, contentBottom - startY + 40);
     }
 
     public SliderWidget createSlider(int cx, int baseY, String label, float initialValue, Consumer<Float> setter, float min, float max, float step) {
@@ -271,7 +274,7 @@ public class ObjBlockConfigScreen extends Screen {
     private int getActualContentBottom() {
         int bottom = 0;
         for (ScrollEntry e : entries) {
-            e.applyScroll(scrollOffset);
+            bottom = Math.max(bottom, e.baseY + e.widget.getHeight());
         }
         return bottom;
     }

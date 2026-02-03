@@ -124,6 +124,7 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
                 subModels.put(key, subModelTag.getString(key));
             }
         }
+        extraConfigs.clear();
         if (tag.contains("extraConfig")) {
             CompoundTag subConfigTag = tag.getCompound("extraConfig");
             for (String key : subConfigTag.getAllKeys()) {
@@ -144,6 +145,42 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
 
     public void setExtraConfig(String key, String value) {
         extraConfigs.put(key, value);
+    }
+
+    public void ensureExtraConfig(String key, String value) {
+        extraConfigs.putIfAbsent(key, value);
+    }
+
+    public boolean getExtraConfigBool(String key, boolean defaultValue) {
+        String value = extraConfigs.get(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        return "true".equalsIgnoreCase(value);
+    }
+
+    public int getExtraConfigInt(String key, int defaultValue) {
+        String value = extraConfigs.get(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException ignored) {
+            return defaultValue;
+        }
+    }
+
+    public float getExtraConfigFloat(String key, float defaultValue) {
+        String value = extraConfigs.get(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        try {
+            return Float.parseFloat(value);
+        } catch (NumberFormatException ignored) {
+            return defaultValue;
+        }
     }
 
     public ObjBlockProperty getProperty() {

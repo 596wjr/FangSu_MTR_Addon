@@ -17,6 +17,8 @@ public class CollisionBoxUtil {
     public static class CollisionBox {
         private final List<AABB> boxes = new ArrayList<>();
         private Vec3 offset = Vec3.ZERO; // 累积平移
+        private VoxelShape cachedVoxelShape;
+        private final Map<RotatedCacheKey, VoxelShape> rotatedCache = new java.util.concurrent.ConcurrentHashMap<>();
 
         public CollisionBox(int... pos) {
             if (pos == null || pos.length < 6) return;
@@ -63,14 +65,21 @@ public class CollisionBoxUtil {
          */
         public void translate(double dx, double dy, double dz) {
             offset = new Vec3(dx, dy, dz);
+            invalidateCache();
         }
 
         public void translate(Vec3 delta) {
-            if (delta != null) offset = delta;
+            if (delta != null) {
+                offset = delta;
+                invalidateCache();
+            }
         }
 
         public void addBox(AABB box) {
-            if (box != null) boxes.add(box);
+            if (box != null) {
+                boxes.add(box);
+                invalidateCache();
+            }
         }
 
         public List<AABB> getBoxes() {
@@ -82,24 +91,42 @@ public class CollisionBoxUtil {
         public void clear() {
             boxes.clear();
             offset = Vec3.ZERO;
+            invalidateCache();
         }
 
         public VoxelShape asVoxelShape() {
             if (boxes.isEmpty()) return null;
+            if (cachedVoxelShape != null) {
+                return cachedVoxelShape;
+            }
             VoxelShape shape = Shapes.empty();
             for (AABB box : boxes) {
                 shape = Shapes.or(shape, Shapes.create(box.move(offset)));
             }
-            return shape;
+            cachedVoxelShape = shape.optimize();
+            return cachedVoxelShape;
         }
 
         public VoxelShape asRotatedShape(Vec3 origin, float rx, float ry, float rz, double stepSize) {
-            VoxelShape shape = Shapes.empty();
+            if (boxes.isEmpty()) return Shapes.empty();
             Vec3 worldOrigin = origin.add(offset);
+            RotatedCacheKey key = RotatedCacheKey.of(worldOrigin, rx, ry, rz, stepSize);
+            VoxelShape cached = rotatedCache.get(key);
+            if (cached != null) {
+                return cached;
+            }
+            VoxelShape shape = Shapes.empty();
             for (AABB box : boxes) {
                 shape = Shapes.or(shape, CollisionBoxUtil.rotatedShape(box, worldOrigin, rx, ry, rz, stepSize));
             }
-            return shape.optimize();
+            VoxelShape optimized = shape.optimize();
+            rotatedCache.put(key, optimized);
+            return optimized;
+        }
+
+        private void invalidateCache() {
+            cachedVoxelShape = null;
+            rotatedCache.clear();
         }
     }
 
@@ -132,6 +159,20 @@ public class CollisionBoxUtil {
     private static double q(double value) {
         // 精度 1e-4
         return Math.round(value * 1e4) / 1e4;
+    }
+
+    private record RotatedCacheKey(
+            double originX, double originY, double originZ,
+            float rx, float ry, float rz,
+            double step
+    ) {
+        static RotatedCacheKey of(Vec3 origin, float rx, float ry, float rz, double step) {
+            return new RotatedCacheKey(
+                    q(origin.x), q(origin.y), q(origin.z),
+                    rx, ry, rz,
+                    q(step)
+            );
+        }
     }
 
     private record ShapeCacheKey(

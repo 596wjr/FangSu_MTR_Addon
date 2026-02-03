@@ -18,6 +18,7 @@ public final class ConfigTypes {
     static {
         register("bool", ConfigTypes::boolConfig);
         register("number", ConfigTypes::numberConfig);
+        register("number_input", ConfigTypes::numberInputConfig);
         register("string", ConfigTypes::stringConfig);
         register("list", ConfigTypes::listConfig);
     }
@@ -60,6 +61,15 @@ public final class ConfigTypes {
             BiConsumer<Object, Float> setter
     ) {
         return new NumberConfig(title, spec, getter, setter);
+    }
+
+    private static ConfigEntry<Float> numberInputConfig(
+            Component title,
+            ConfigSpec spec,
+            Function<Object, Float> getter,
+            BiConsumer<Object, Float> setter
+    ) {
+        return new NumberInputConfig(title, spec, getter, setter);
     }
 
     private static ConfigEntry<String> stringConfig(

@@ -91,6 +91,28 @@ public class ConfigWidget extends AbstractWidget {
     }
 
     @Override
+    public void setX(int x) {
+        int delta = x - getX();
+        super.setX(x);
+        if (delta != 0) {
+            for (AbstractWidget w : children) {
+                w.setX(w.getX() + delta);
+            }
+        }
+    }
+
+    @Override
+    public void setY(int y) {
+        int delta = y - getY();
+        super.setY(y);
+        if (delta != 0) {
+            for (AbstractWidget w : children) {
+                w.setY(w.getY() + delta);
+            }
+        }
+    }
+
+    @Override
     protected void updateWidgetNarration(NarrationElementOutput narration) {
         // 暂不实现
     }
