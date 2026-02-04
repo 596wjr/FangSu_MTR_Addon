@@ -14,16 +14,19 @@ import java.util.List;
 public class ConfigWidget extends AbstractWidget {
 
     private final List<AbstractWidget> children = new ArrayList<>();
+    private final int labelWidth;
 
     public ConfigWidget(
             int x,
             int y,
             int width,
             int height,
+            int labelWidth,
             Component title,
             AbstractWidget... widgets
     ) {
         super(x, y, width, height, title);
+        this.labelWidth = labelWidth;
         for (AbstractWidget w : widgets) {
             this.children.add(w);
         }
@@ -85,6 +88,20 @@ public class ConfigWidget extends AbstractWidget {
 
     @Override
     protected void renderWidget(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
+        var font = net.minecraft.client.Minecraft.getInstance().font;
+        int maxWidth = Math.max(0, labelWidth - 4);
+        String label = maxWidth > 0
+                ? font.plainSubstrByWidth(getMessage().getString(), maxWidth)
+                : getMessage().getString();
+        int textY = getY() + (height - 8) / 2;
+        gui.drawString(
+                font,
+                label,
+                getX(),
+                textY,
+                0x202020,
+                false
+        );
         for (AbstractWidget w : children) {
             w.render(gui, mouseX, mouseY, partialTick);
         }

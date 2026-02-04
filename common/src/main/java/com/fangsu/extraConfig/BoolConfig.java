@@ -25,10 +25,11 @@ public class BoolConfig extends ConfigEntry<Boolean> {
                 b -> {
                     value = !value;
                     b.setMessage(label());
+                    notifyValueChanged();
                 }
         ).bounds(x + labelW, y, fieldW, 20).build();
 
-        return new ConfigWidget(x, y, labelW + fieldW, 20, title, btn);
+        return new ConfigWidget(x, y, labelW + fieldW, 20, labelW, title, btn);
     }
 
     private Component label() {
