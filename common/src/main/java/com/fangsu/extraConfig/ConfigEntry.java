@@ -19,6 +19,8 @@ public abstract class ConfigEntry<T> {
     protected T value;
 
     protected Function<T, Boolean> showCondition;
+    private boolean saveOnChange = false;
+    private Consumer<ConfigEntry<?>> changeListener;
 
     protected ConfigEntry(
             Component title,
@@ -35,6 +37,25 @@ public abstract class ConfigEntry<T> {
     public ConfigEntry<T> setShowCondition(Function<T, Boolean> showCondition) {
         this.showCondition = showCondition;
         return this;
+    }
+
+    public ConfigEntry<T> setSaveOnChange(boolean saveOnChange) {
+        this.saveOnChange = saveOnChange;
+        return this;
+    }
+
+    public boolean isSaveOnChange() {
+        return saveOnChange;
+    }
+
+    public void setChangeListener(Consumer<ConfigEntry<?>> changeListener) {
+        this.changeListener = changeListener;
+    }
+
+    protected void notifyValueChanged() {
+        if (changeListener != null) {
+            changeListener.accept(this);
+        }
     }
 
 //    public abstract ConfigEntry<?> fromJson(JsonObject json,

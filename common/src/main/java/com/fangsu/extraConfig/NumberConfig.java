@@ -47,7 +47,10 @@ public class NumberConfig extends ConfigEntry<Float> {
                 min,
                 max,
                 step,
-                v -> value = v
+                v -> {
+                    value = v;
+                    notifyValueChanged();
+                }
         );
 
         /* ---------- Input ---------- */
@@ -66,6 +69,7 @@ public class NumberConfig extends ConfigEntry<Float> {
                 float v = Float.parseFloat(str);
                 value = v;
                 slider.setExternal(v);
+                notifyValueChanged();
             } catch (NumberFormatException ignored) {
             }
         });
@@ -93,6 +97,7 @@ public class NumberConfig extends ConfigEntry<Float> {
                 y,
                 labelW + fieldW,
                 20,
+                labelW,
                 title,
                 new CompoundWidget(slider, input, toggle)
         );

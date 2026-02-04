@@ -73,6 +73,8 @@ public class ObjBlockConfigScreen extends Screen {
         int areaLeft = 40;
         int areaRight = this.width - 40;
         int contentWidth = areaRight - areaLeft;
+        int labelW = (int) (contentWidth * 0.4f);
+        int fieldW = contentWidth - labelW;
 
         int leftX = areaLeft;
 
@@ -110,11 +112,14 @@ public class ObjBlockConfigScreen extends Screen {
         if (be.getConfigs() != null) {
             entries.add(new ScrollEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.extras").getString(), TextLabel.Align.CENTER, 0xFFFFFF, false), y));
             y += 12;
-            int labelW = (int) (width * 0.45);
-            int fieldW = (int) (width * 0.45);
-
             for (ConfigEntry<?> c : configs) {
                 c.load(be);
+                c.setChangeListener(entry -> {
+                    if (entry.isSaveOnChange()) {
+                        entry.save(be);
+                        be.sendUpdateC2S();
+                    }
+                });
                 if (!c.isVisible(be)) {
                     continue;
                 }
