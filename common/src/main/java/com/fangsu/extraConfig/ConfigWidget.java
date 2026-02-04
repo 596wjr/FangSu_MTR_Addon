@@ -38,6 +38,12 @@ public class ConfigWidget extends AbstractWidget {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         for (AbstractWidget w : children) {
             if (w.mouseClicked(mouseX, mouseY, button)) {
+                for (AbstractWidget other : children) {
+                    if (other != w) {
+                        other.setFocused(false);
+                    }
+                }
+                w.setFocused(true);
                 return true; // 让 Screen 处理焦点
             }
         }

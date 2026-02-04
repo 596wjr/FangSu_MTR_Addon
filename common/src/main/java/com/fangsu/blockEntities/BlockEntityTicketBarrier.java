@@ -291,7 +291,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                 ),
                 be -> getExtraConfigInt("fareType", 0),
                 (be, v) -> extra.put("fareType", v.toString())
-        ));
+        ).setSaveOnChange(true));
         configs.add(new BoolConfig(
                 Component.literal("ui.fangsu.ticketbarrier.isExit"),
                 new ConfigSpec("bool"),
