@@ -392,13 +392,13 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
         float rotZ = this.rotateZ;
         long posLong = worldPosition.asLong();
-        shape.translate(trans);
         VoxelShape openShape = CollisionBoxUtil.cachedRotatedShape(posLong, shape, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+        openShape = openShape.move(trans.x, trans.y, trans.z);
         if (isOpen || doorCloseShape == null) {
             return openShape;
         }
-        doorCloseShape.translate(trans);
         VoxelShape closeShape = CollisionBoxUtil.cachedRotatedShape(posLong, doorCloseShape, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+        closeShape = closeShape.move(trans.x, trans.y, trans.z);
         return Shapes.or(openShape, closeShape);
     }
 
@@ -412,13 +412,13 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
         float rotZ = this.rotateZ;
         long posLong = worldPosition.asLong();
-        baseCollision.translate(trans);
         VoxelShape openShape = CollisionBoxUtil.cachedRotatedShape(posLong, baseCollision, Vec3.ZERO, rotX, rotY, rotZ, 1);
+        openShape = openShape.move(trans.x, trans.y, trans.z);
         if (isOpen || closeCollision == null) {
             return openShape;
         }
-        closeCollision.translate(trans);
         VoxelShape closeShape = CollisionBoxUtil.cachedRotatedShape(posLong, closeCollision, Vec3.ZERO, rotX, rotY, rotZ, 1);
+        closeShape = closeShape.move(trans.x, trans.y, trans.z);
         return Shapes.or(openShape, closeShape);
     }
 

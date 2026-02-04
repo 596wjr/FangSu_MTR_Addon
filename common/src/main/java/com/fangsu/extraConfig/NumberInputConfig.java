@@ -16,9 +16,6 @@ public class NumberInputConfig extends ConfigEntry<Float> {
     private final float max;
     private final boolean isInt;
 
-    // 在 createWidget 中创建并保存引用，以便 save() 时读取最新文本
-    private EditBox inputBox;
-
     public NumberInputConfig(
             Component title,
             ConfigSpec spec,
@@ -37,7 +34,7 @@ public class NumberInputConfig extends ConfigEntry<Float> {
         int fieldX = x + labelW;
 
         // 创建 EditBox，初始值使用当前 value（load() 后 value 已经被设置）
-        inputBox = new EditBox(
+        EditBox inputBox = new EditBox(
                 Minecraft.getInstance().font,
                 fieldX,
                 y,
@@ -64,13 +61,14 @@ public class NumberInputConfig extends ConfigEntry<Float> {
                     float fv = Float.parseFloat(text.trim());
                     value = clamp(fv);
                 }
+                notifyValueChanged();
             } catch (NumberFormatException ignored) {
                 // 不合法输入时，不改变 value（等用户修正）
             }
         });
 
         // 初始可见 / 可用性由 ConfigEntry.isVisible() 决定
-        return new ConfigWidget(x, y, labelW + fieldW, height, title, inputBox);
+        return new ConfigWidget(x, y, labelW + fieldW, height, labelW, title, inputBox);
     }
 
     @Override
@@ -92,29 +90,6 @@ public class NumberInputConfig extends ConfigEntry<Float> {
             float def = spec.getFloat("default", Float.NaN);
             if (!Float.isNaN(def)) value = def;
         }
-    }
-
-    @Override
-    public void save(Object be) {
-        // 当 UI 关闭时由外层统一调用此方法 → 把 inputBox 的文本解析并写回 BE
-        if (inputBox != null) {
-            String txt = inputBox.getValue();
-            if (txt != null && !txt.isEmpty()) {
-                try {
-                    if (isInt) {
-                        int iv = Integer.parseInt(txt.trim());
-                        value = clamp(iv);
-                    } else {
-                        float fv = Float.parseFloat(txt.trim());
-                        value = clamp(fv);
-                    }
-                } catch (NumberFormatException ignored) {
-                    // 解析失败则不改变 value（或可选择设置为 default）
-                }
-            }
-        }
-        // 最终写回 BE（由你传入的 setter 处理具体写法）
-        setter.accept(be, value);
     }
 
     /* ============ 辅助 ============ */

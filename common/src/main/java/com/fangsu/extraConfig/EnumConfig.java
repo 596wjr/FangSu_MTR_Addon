@@ -30,6 +30,7 @@ public class EnumConfig extends ConfigEntry<Integer> {
                 b -> {
                     value = (value + 1) % entries.size();
                     b.setMessage(entries.get(value));
+                    notifyValueChanged();
                 }
         ).bounds(x + labelW, y, fieldW, 20).build();
 
@@ -37,6 +38,7 @@ public class EnumConfig extends ConfigEntry<Integer> {
                 x, y,
                 labelW + fieldW,
                 20,
+                labelW,
                 title,
                 btn
         );

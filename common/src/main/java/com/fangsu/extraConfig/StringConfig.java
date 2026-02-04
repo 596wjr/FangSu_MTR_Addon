@@ -30,13 +30,18 @@ public class StringConfig extends ConfigEntry<String> {
                 y,
                 fieldW,
                 height,
-                value
+                value,
+                text -> {
+                    value = text;
+                    notifyValueChanged();
+                }
         );
 
         return new ConfigWidget(
                 x, y,
                 labelW + fieldW,
                 height,
+                labelW,
                 title,
                 widget
         );
