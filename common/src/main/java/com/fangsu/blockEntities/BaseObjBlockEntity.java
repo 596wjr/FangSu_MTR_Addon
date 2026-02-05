@@ -2,10 +2,6 @@ package com.fangsu.blockEntities;
 
 import com.fangsu.blocks.BaseObjBlock;
 //#if FABRIC
-import com.fangsu.extraConfig.ConfigEntry;
-import com.fangsu.network.ModNetwork;
-import com.fangsu.ui.ObjBlockConfigScreen;
-import dev.architectury.networking.NetworkManager;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.AbstractScriptContext;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.ScriptHolder;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.eyecandy.EyeCandyDrawCalls;
@@ -23,6 +19,10 @@ import fabric.cn.zbx1425.sowcerext.model.ModelCluster;
 //$$ import forge.cn.zbx1425.sowcer.math.Matrix4f;
 //$$ import forge.cn.zbx1425.sowcerext.model.ModelCluster;
 //#endif
+import com.fangsu.extraConfig.ConfigEntry;
+import com.fangsu.network.ModNetwork;
+import com.fangsu.ui.ObjBlockConfigScreen;
+import dev.architectury.networking.NetworkManager;
 import io.netty.buffer.Unpooled;
 import mtr.mappings.BlockEntityClientSerializableMapper;
 import net.minecraft.client.Minecraft;

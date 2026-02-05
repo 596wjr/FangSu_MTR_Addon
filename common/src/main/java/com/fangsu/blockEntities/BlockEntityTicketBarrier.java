@@ -2,8 +2,6 @@ package com.fangsu.blockEntities;
 
 //#if FABRIC
 
-import com.fangsu.extraConfig.*;
-import com.google.gson.JsonPrimitive;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
 import fabric.cn.zbx1425.sowcer.math.Matrices;
 //#elseif FORGE
@@ -17,6 +15,9 @@ import com.fangsu.utils.ResourceUtil;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.utils.CollisionBoxUtil;
 import com.fangsu.ticketSystem.*;
+import com.fangsu.extraConfig.*;
+
+import com.google.gson.JsonPrimitive;
 
 import mtr.mappings.Text;
 import net.minecraft.core.BlockPos;
