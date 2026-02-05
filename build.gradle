@@ -54,7 +54,12 @@ subprojects {
             allowInsecureProtocol = true
         }
 
-        maven { name = 'aliyun-mirror'; url = 'https://maven.aliyun.com/repository/public' }
+        repositories {
+            maven {
+                url 'https://maven.aliyun.com/repository/public'
+            }
+            mavenCentral()
+        }
         maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
         maven { url = 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
         maven { url = 'https://mirrors.huaweicloud.com/repository/maven/' }
@@ -96,6 +101,10 @@ subprojects {
 
     tasks.withType(JavaCompile).configureEach {
         it.options.release = 17
+    }
+
+    tasks.matching { it.name == "sourcesJar" }.configureEach {
+        dependsOn(tasks.named("processConditionalSources"))
     }
 
     // ---- 条件编译预处理：每个子工程单独注册 task（避免 root 没有 src/main/java 导致问题） ----
