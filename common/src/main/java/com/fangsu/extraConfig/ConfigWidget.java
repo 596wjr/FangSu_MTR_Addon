@@ -36,58 +36,33 @@ public class ConfigWidget extends AbstractWidget {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        for (AbstractWidget w : children) {
-            if (w.mouseClicked(mouseX, mouseY, button)) {
-                for (AbstractWidget other : children) {
-                    if (other != w) {
-                        other.setFocused(false);
-                    }
-                }
-                w.setFocused(true);
-                return true; // 让 Screen 处理焦点
+        return forwardToChildren(widget -> {
+            if (widget.mouseClicked(mouseX, mouseY, button)) {
+                syncFocus(widget);
+                return true;
             }
-        }
-        return false;
+            return false;
+        });
     }
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        for (AbstractWidget w : children) {
-            if (w.mouseReleased(mouseX, mouseY, button)) {
-                return true;
-            }
-        }
-        return false;
+        return forwardToChildren(w -> w.mouseReleased(mouseX, mouseY, button));
     }
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
-        for (AbstractWidget w : children) {
-            if (w.mouseDragged(mouseX, mouseY, button, dx, dy)) {
-                return true;
-            }
-        }
-        return false;
+        return forwardToChildren(w -> w.mouseDragged(mouseX, mouseY, button, dx, dy));
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        for (AbstractWidget w : children) {
-            if (w.isFocused() && w.keyPressed(keyCode, scanCode, modifiers)) {
-                return true;
-            }
-        }
-        return false;
+        return forwardToChildren(w -> w.isFocused() && w.keyPressed(keyCode, scanCode, modifiers));
     }
 
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
-        for (AbstractWidget w : children) {
-            if (w.isFocused() && w.charTyped(codePoint, modifiers)) {
-                return true;
-            }
-        }
-        return false;
+        return forwardToChildren(w -> w.isFocused() && w.charTyped(codePoint, modifiers));
     }
 
     /* ================== 渲染 ================== */
@@ -138,5 +113,26 @@ public class ConfigWidget extends AbstractWidget {
     @Override
     protected void updateWidgetNarration(NarrationElementOutput narration) {
         // 暂不实现
+    }
+
+    /**
+     * 统一处理子控件事件转发，减少重复代码。
+     */
+    private boolean forwardToChildren(java.util.function.Predicate<AbstractWidget> handler) {
+        for (AbstractWidget w : children) {
+            if (handler.test(w)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 控制同一行配置控件的焦点互斥。
+     */
+    private void syncFocus(AbstractWidget focused) {
+        for (AbstractWidget other : children) {
+            other.setFocused(other == focused);
+        }
     }
 }

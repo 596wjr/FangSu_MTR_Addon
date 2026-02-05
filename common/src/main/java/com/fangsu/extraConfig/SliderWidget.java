@@ -51,7 +51,7 @@ public class SliderWidget extends AbstractWidget {
      * 供 NumberConfig / 输入框调用
      */
     public void setExternal(float v) {
-        v = clamp(v);
+        v = snap(v);
         this.value = v;
         slider.setFromExternal(v);
     }

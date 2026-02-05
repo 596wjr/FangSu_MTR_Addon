@@ -29,13 +29,14 @@ public class ObjBlockConfigScreen extends Screen {
 
     // 可滚动区域偏移（向上为正）
     private int scrollOffset = 0;
-    private int contentHeight = 300; // 内容总高度，后面需要扩展时调整
 
     // 存放所有动态创建的控件，便于在滚动时调整位置
     private Button closeButton;
-    private List<ScrollEntry> entries = new ArrayList<>();
+    private final List<ScrollEntry> entries = new ArrayList<>();
 
     private final List<ConfigEntry<?>> configs;
+    private boolean useSliderInput = true;
+    private boolean pendingRebuild = false;
 
     public ObjBlockConfigScreen(BaseObjBlockEntity be) {
         super(Component.literal("方块配置"));
@@ -78,39 +79,30 @@ public class ObjBlockConfigScreen extends Screen {
 
         int leftX = areaLeft;
 
+        Button toggleInputButton = Button.builder(getInputToggleLabel(), btn -> {
+            useSliderInput = !useSliderInput;
+            requestRebuild();
+        }).bounds(this.width - 170, 34, 130, 20).build();
+        addRenderableWidget(toggleInputButton);
 
-        entries.add(new ScrollEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.translate").getString(), TextLabel.Align.CENTER, 0xFFFFFF, false), y));
+        addEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.translate").getString(), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
         y += 12;
-        entries.add(new ScrollEntry(createSlider(cx - spacing, y, "X", translateX, v -> {
-            translateX = v;
-            if (REALTIME) sendToServer();
-        }, -1, 1, 0.0625f), y));
-        entries.add(new ScrollEntry(createSlider(cx, y, "Y", translateY, v -> {
-            translateY = v;
-            if (REALTIME) sendToServer();
-        }, -1, 1, 0.0625f), y));
-        entries.add(new ScrollEntry(createSlider(cx + spacing, y, "Z", translateZ, v -> {
-            translateZ = v;
-            if (REALTIME) sendToServer();
-        }, -1, 1, 0.0625f), y));
+        y = addAxisControls(cx, spacing, y, "X", "Y", "Z",
+                -1, 1, 0.0625f,
+                v -> translateX = v,
+                v -> translateY = v,
+                v -> translateZ = v);
         y += 28;
 
-        entries.add(new ScrollEntry(createSlider(cx - spacing, y, "RX", rotateX, v -> {
-            rotateX = v;
-            if (REALTIME) sendToServer();
-        }, -180, 180, 5), y));
-        entries.add(new ScrollEntry(createSlider(cx, y, "RY", rotateY, v -> {
-            rotateY = v;
-            if (REALTIME) sendToServer();
-        }, -180, 180, 5), y));
-        entries.add(new ScrollEntry(createSlider(cx + spacing, y, "RZ", rotateZ, v -> {
-            rotateZ = v;
-            if (REALTIME) sendToServer();
-        }, -180, 180, 5), y));
+        y = addAxisControls(cx, spacing, y, "RX", "RY", "RZ",
+                -180, 180, 5,
+                v -> rotateX = v,
+                v -> rotateY = v,
+                v -> rotateZ = v);
         y += 28;
 
-        if (be.getConfigs() != null) {
-            entries.add(new ScrollEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.extras").getString(), TextLabel.Align.CENTER, 0xFFFFFF, false), y));
+        if (!configs.isEmpty()) {
+            addEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.extras").getString(), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
             y += 12;
             for (ConfigEntry<?> c : configs) {
                 c.load(be);
@@ -119,13 +111,14 @@ public class ObjBlockConfigScreen extends Screen {
                         entry.save(be);
                         be.sendUpdateC2S();
                     }
+                    requestRebuild();
                 });
                 if (!c.isVisible(be)) {
                     continue;
                 }
                 ConfigWidget w = c.createWidget(leftX, y, labelW, fieldW);
                 addRenderableWidget(w);
-                entries.add(new ScrollEntry(w, y));
+                addEntry(w, y);
                 y += w.getHeight() + 4;
             }
         }
@@ -136,80 +129,110 @@ public class ObjBlockConfigScreen extends Screen {
                     onClose();
                 }).bounds(this.width / 2 - 50, this.height - 40, 100, 20).build());
 
-        int contentBottom = getActualContentBottom();
-        contentHeight = Math.max(400, contentBottom - startY + 40);
     }
 
-    public SliderWidget createSlider(int cx, int baseY, String label, float initialValue, Consumer<Float> setter, float min, float max, float step) {
+    private Component getInputToggleLabel() {
+        return Component.literal(useSliderInput ? "切换为输入框" : "切换为滑块");
+    }
+
+    private void requestRebuild() {
+        pendingRebuild = true;
+    }
+
+    private int addAxisControls(
+            int centerX,
+            int spacing,
+            int baseY,
+            String labelX,
+            String labelY,
+            String labelZ,
+            float min,
+            float max,
+            float step,
+            Consumer<Float> setX,
+            Consumer<Float> setY,
+            Consumer<Float> setZ
+    ) {
+        if (useSliderInput) {
+            addEntry(createSlider(centerX - spacing, baseY, labelX, getAxisValue(labelX), v -> {
+                setX.accept(v);
+                if (REALTIME) sendToServer();
+            }, min, max, step), baseY);
+            addEntry(createSlider(centerX, baseY, labelY, getAxisValue(labelY), v -> {
+                setY.accept(v);
+                if (REALTIME) sendToServer();
+            }, min, max, step), baseY);
+            addEntry(createSlider(centerX + spacing, baseY, labelZ, getAxisValue(labelZ), v -> {
+                setZ.accept(v);
+                if (REALTIME) sendToServer();
+            }, min, max, step), baseY);
+            return baseY;
+        }
+        addEntry(createAxisInput(centerX - spacing, baseY, labelX, getAxisValue(labelX), min, max, step, setX), baseY);
+        addEntry(createAxisInput(centerX, baseY, labelY, getAxisValue(labelY), min, max, step, setY), baseY);
+        addEntry(createAxisInput(centerX + spacing, baseY, labelZ, getAxisValue(labelZ), min, max, step, setZ), baseY);
+        return baseY;
+    }
+
+    private float getAxisValue(String label) {
+        return switch (label) {
+            case "X" -> translateX;
+            case "Y" -> translateY;
+            case "Z" -> translateZ;
+            case "RX" -> rotateX;
+            case "RY" -> rotateY;
+            case "RZ" -> rotateZ;
+            default -> 0f;
+        };
+    }
+
+    private AbstractWidget createAxisInput(
+            int x,
+            int baseY,
+            String label,
+            float initialValue,
+            float min,
+            float max,
+            float step,
+            Consumer<Float> setter
+    ) {
+        int width = 60;
+        int height = 20;
+        int labelY = baseY - 10;
+        addEntry(createTextLabel(x, labelY, label, TextLabel.Align.CENTER, 0xFFFFFF, false), labelY);
+        EditBox box = new EditBox(this.font, x - width / 2, baseY, width, height, Component.empty());
+        box.setValue(formatValue(initialValue));
+        box.setResponder(text -> {
+            Float value = parseFloat(text);
+            if (value == null) {
+                return;
+            }
+            float snapped = snap(value, min, max, step);
+            setter.accept(snapped);
+            if (REALTIME) sendToServer();
+        });
+        this.addRenderableWidget(box);
+        return box;
+    }
+
+    /**
+     * 创建带步进的滑块。
+     */
+    private SliderWidget createSlider(int cx, int baseY, String label, float initialValue, Consumer<Float> setter, float min, float max, float step) {
         SliderWidget slider = new SliderWidget(cx - 30, baseY, 60, 20, Component.empty(), initialValue, min, max, step, setter);
         this.addRenderableWidget(slider);
         return slider;
     }
 
-    public Button createWideButton(
-            int centerX,
-            int baseY,
-            int width,
-            String text,
-            Runnable onClick
-    ) {
-        Button btn = Button.builder(Component.literal(text), b -> onClick.run())
-                .bounds(centerX - width / 2, baseY, width, 20)
-                .build();
-        this.addRenderableWidget(btn);
-        return btn;
-    }
-
-    public EditBox createEditBox(
-            int x,
-            int baseY,
-            int width,
-            String placeholder,
-            String initialValue,
-            java.util.function.Consumer<String> onChanged
-    ) {
-        EditBox box = new EditBox(this.font, x, baseY, width, 20, Component.empty());
-        box.setValue(initialValue);
-        box.setHint(Component.literal(placeholder));
-
-        box.setResponder(text -> {
-            onChanged.accept(text);
-            if (REALTIME) sendToServer();
-        });
-
-        this.addRenderableWidget(box);
-        return box;
-    }
-
-    public <T> CycleButton<T> createDropdown(
-            int x,
-            int baseY,
-            int width,
-            String label,
-            List<T> values,
-            T initial,
-            java.util.function.Consumer<T> onChanged
-    ) {
-        CycleButton<T> btn = CycleButton.<T>builder(v -> Component.literal(label + ": " + v))
-                .withValues(values)
-                .withInitialValue(initial)
-                .create(x, baseY, width, 20, Component.empty(),
-                        (b, v) -> {
-                            onChanged.accept(v);
-                            if (REALTIME) sendToServer();
-                        });
-
-        this.addRenderableWidget(btn);
-        return btn;
-    }
-
     private TextLabel createTextLabel(int x, int y, String text, TextLabel.Align align, int color, boolean bold) {
         TextLabel label = new TextLabel(x, y, text, align, color, bold);
         this.addRenderableWidget(label);
-        entries.add(new ScrollEntry(label, y));
         return label;
     }
 
+    private void addEntry(AbstractWidget widget, int baseY) {
+        entries.add(new ScrollEntry(widget, baseY));
+    }
 
     // 将本地副本的数据写回 BE 并调用 sendUpdateC2S()
     private void sendToServer() {
@@ -227,6 +250,11 @@ public class ObjBlockConfigScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        if (pendingRebuild) {
+            pendingRebuild = false;
+            clearWidgets();
+            init();
+        }
         renderBackground(graphics);
 
         int areaLeft = 40;
@@ -284,13 +312,35 @@ public class ObjBlockConfigScreen extends Screen {
         return bottom;
     }
 
+    private Float parseFloat(String text) {
+        try {
+            return Float.parseFloat(text);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private float snap(float value, float min, float max, float step) {
+        float clamped = Mth.clamp(value, min, max);
+        if (step <= 0) {
+            return clamped;
+        }
+        return Math.round(clamped / step) * step;
+    }
+
+    private String formatValue(float value) {
+        return String.format("%.3f", value);
+    }
+
 
     @Override
     public void onClose() {
-        for (ConfigEntry<?> c : configs) {
-            c.save(be);
+        if (be != null) {
+            for (ConfigEntry<?> c : configs) {
+                c.save(be);
+            }
+            be.sendUpdateC2S();
         }
-        be.sendUpdateC2S();
         super.onClose();
     }
 
