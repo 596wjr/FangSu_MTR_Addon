@@ -412,12 +412,12 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
         float rotZ = this.rotateZ;
         long posLong = worldPosition.asLong();
-        VoxelShape openShape = CollisionBoxUtil.cachedRotatedShape(posLong, baseCollision, Vec3.ZERO, rotX, rotY, rotZ, 1);
+        VoxelShape openShape = CollisionBoxUtil.cachedRotatedShape(posLong, baseCollision, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
         openShape = openShape.move(trans.x, trans.y, trans.z);
         if (isOpen || closeCollision == null) {
             return openShape;
         }
-        VoxelShape closeShape = CollisionBoxUtil.cachedRotatedShape(posLong, closeCollision, Vec3.ZERO, rotX, rotY, rotZ, 1);
+        VoxelShape closeShape = CollisionBoxUtil.cachedRotatedShape(posLong, closeCollision, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
         closeShape = closeShape.move(trans.x, trans.y, trans.z);
         return Shapes.or(openShape, closeShape);
     }
