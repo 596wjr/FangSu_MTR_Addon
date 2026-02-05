@@ -41,9 +41,9 @@ dependencies {
 //        modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
 //    }
 
-    modApi("me.shedaniel.cloth:cloth-config-fabric:11.1.136") {
-        exclude(group: "net.fabricmc.fabric-api")
-    }
+//    modApi("me.shedaniel.cloth:cloth-config-fabric:11.1.136") {
+//        exclude(group: "net.fabricmc.fabric-api")
+//    }
 }
 
 sourceSets {
