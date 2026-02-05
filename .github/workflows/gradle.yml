@@ -1,29 +1,52 @@
-name: Gradle Build
+name: Build Mod
 
 on:
   push:
     branches: [ "**" ]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      # 1. 拉取代码
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. 设置 JDK 17（Minecraft 1.20.1 必须）
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: 17
+          distribution: 'temurin'
+          java-version: '17'
+          cache: gradle
 
-      - name: Set up Gradle
-        uses: gradle/gradle-build-action@v3
+      # 3. 给 gradlew 执行权限（Linux runner 必须）
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # 4. Fabric 构建
+      - name: Build Fabric
+        run: ./gradlew :fabric:build --no-daemon
+
+      # 5. Forge 构建（在 Fabric 完成之后）
+      - name: Build Forge
+        run: ./gradlew :forge:build --no-daemon
+
+      # 6. 上传 Fabric 构建产物
+      - name: Upload Fabric artifacts
+        uses: actions/upload-artifact@v4
         with:
-          gradle-version: 8.7
-          cache-read-only: false
+          name: fabric-jar
+          path: |
+            fabric/build/libs/*.jar
 
-      - name: Build
-        run: gradle build --no-daemon
+      # 7. 上传 Forge 构建产物
+      - name: Upload Forge artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-jar
+          path: |
+            forge/build/libs/*.jar
