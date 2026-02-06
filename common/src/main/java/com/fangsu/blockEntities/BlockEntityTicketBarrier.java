@@ -2,10 +2,6 @@ package com.fangsu.blockEntities;
 
 //#if FABRIC
 
-import com.fangsu.customItem.ModelSelectInfo;
-import com.fangsu.customItem.SubModelDispInfo;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
 import fabric.cn.zbx1425.sowcer.math.Matrices;
 //#elseif FORGE
@@ -13,6 +9,10 @@ import fabric.cn.zbx1425.sowcer.math.Matrices;
 //$$ import forge.cn.zbx1425.sowcer.math.Matrices;
 //#endif
 
+import com.fangsu.customItem.ModelSelectInfo;
+import com.fangsu.customItem.SubModelDispInfo;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.fangsu.customItem.CustomItemLoader;
 import com.fangsu.Main;
 import com.fangsu.utils.CustomItemHelper;

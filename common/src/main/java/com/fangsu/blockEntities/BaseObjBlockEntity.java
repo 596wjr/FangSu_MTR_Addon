@@ -1,9 +1,10 @@
 package com.fangsu.blockEntities;
 
 import com.fangsu.blocks.BaseObjBlock;
-//#if FABRIC
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
+//#if FABRIC
+
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.AbstractScriptContext;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.ScriptHolder;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.eyecandy.EyeCandyDrawCalls;
