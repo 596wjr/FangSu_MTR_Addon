@@ -1,6 +1,8 @@
 package com.fangsu.forge;
 
 import dev.architectury.platform.forge.EventBuses;
+import net.minecraft.client.Minecraft;
+import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -23,10 +25,18 @@ public final class MainForge {
             FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onClientSetup);
         }
     }
+
     private void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
             // 客户端初始化
             Main.initClient();
+
+            ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();
+            initResources(resourceManager);
         });
+    }
+
+    private void initResources(ResourceManager resourceManager) {
+        Main.initResources(resourceManager);
     }
 }

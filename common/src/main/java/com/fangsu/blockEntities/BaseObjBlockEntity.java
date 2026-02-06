@@ -2,6 +2,8 @@ package com.fangsu.blockEntities;
 
 import com.fangsu.blocks.BaseObjBlock;
 //#if FABRIC
+import com.fangsu.customItem.ModelSelectInfo;
+import com.fangsu.customItem.SubModelDispInfo;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.AbstractScriptContext;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.ScriptHolder;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.eyecandy.EyeCandyDrawCalls;
@@ -59,7 +61,7 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
     public boolean fullLight = false;
 
     public String mainModel;
-    public Map<String, String> subModels;
+    public Map<String, String> subModels = new HashMap<>();
 
     Map<String, String> extraConfigs = new HashMap<>();
 
@@ -293,9 +295,16 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
         buf.writeFloat(rotateX);
         buf.writeFloat(rotateY);
         buf.writeFloat(rotateZ);
+        buf.writeUtf(mainModel);
         buf.writeInt(extraConfigs.size());
         for (String key : extraConfigs.keySet()) {
             String value = extraConfigs.get(key);
+            buf.writeUtf(key);
+            buf.writeUtf(value);
+        }
+        buf.writeInt(subModels.size());
+        for (String key : subModels.keySet()) {
+            String value = subModels.get(key);
             buf.writeUtf(key);
             buf.writeUtf(value);
         }
@@ -309,11 +318,19 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
         rotateX = buf.readFloat();
         rotateY = buf.readFloat();
         rotateZ = buf.readFloat();
+        mainModel = buf.readUtf();
         int size = buf.readInt();
         for (int i = 0; i < size; i++) {
             String key = buf.readUtf(64);
             String value = buf.readUtf(128);
             extraConfigs.put(key, value);
+        }
+
+        size = buf.readInt();
+        for (int i = 0; i < size; i++) {
+            String key = buf.readUtf(64);
+            String value = buf.readUtf(128);
+            subModels.put(key, value);
         }
         if (level != null && level.isClientSide == false) {
             level.sendBlockUpdated(
@@ -350,6 +367,10 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
             Minecraft.getInstance().setScreen(new ObjBlockConfigScreen(this));
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
+    }
+
+    public List<SubModelDispInfo> getSubModelInfos() {
+        return null;
     }
 
     protected void markShapeDirty() {

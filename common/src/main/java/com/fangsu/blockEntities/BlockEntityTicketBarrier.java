@@ -2,6 +2,10 @@ package com.fangsu.blockEntities;
 
 //#if FABRIC
 
+import com.fangsu.customItem.ModelSelectInfo;
+import com.fangsu.customItem.SubModelDispInfo;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
 import fabric.cn.zbx1425.sowcer.math.Matrices;
 //#elseif FORGE
@@ -39,6 +43,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraft.world.scores.Score;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -102,12 +107,16 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
             }
             if (current.containsKey("collisionShape") && current.get("collisionShape") instanceof List<?> s) {
                 collisionShape = new CollisionBoxUtil.CollisionBox(s);
+            } else {
+                collisionShape = new CollisionBoxUtil.CollisionBox(List.of(List.of(-1, 0, 0, 1, 24, 16), List.of(15, 0, 0, 17, 24, 16)));
             }
             if (current.containsKey("doorCloseShape") && current.get("doorCloseShape") instanceof List<?> s) {
                 doorCloseShape = new CollisionBoxUtil.CollisionBox(s);
             }
             if (current.containsKey("doorCloseCollisionShape") && current.get("doorCloseCollisionShape") instanceof List<?> s) {
                 doorCloseCollisionShape = new CollisionBoxUtil.CollisionBox(s);
+            } else {
+                doorCloseCollisionShape = new CollisionBoxUtil.CollisionBox(List.of(List.of(1, 0, 12, 15, 24, 15)));
             }
 
             if (current.containsKey("gatePos") && current.get("gatePos") instanceof Number pos) {
@@ -172,7 +181,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                 Matrices mat = new Matrices();
                 mat.translate(door.pos[0], door.pos[1], door.pos[2]);
                 if (subInfo.doorType == 1) {
-                    if (door.side == 0) mat.rotateZ((float) (door.step * doorAngle * Math.PI));
+                    mat.rotateZ((float) (door.step * doorAngle * Math.PI));
                 }
                 if (subInfo.doorType == 2) {
                     if (door.side == 0) mat.rotateY((float) (0.5 * doorAngle * Math.PI));
@@ -318,6 +327,32 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         return Main_MODEL_KEY;
     }
 
+    @Override
+    public List<SubModelDispInfo> getSubModelInfos() {
+        List<SubModelDispInfo> infos = new ArrayList<>();
+        List<ModelSelectInfo> thisInfo = new ArrayList<>();
+        try {
+            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(this.mainModel));
+            for (String key : loaded.keySet()) {
+                Map<String, Object> item = loaded.get(key);
+                String text = "";
+                String content = "";
+                String contentText = null;
+                if (item.containsKey("text") && item.get("text") instanceof String s) text = s;
+                if (item.containsKey("id") && item.get("id") instanceof String s) content = s;
+                if (item.containsKey("contentText") && item.get("contentText") instanceof String s) contentText = s;
+                if (contentText != null) thisInfo.add(new ModelSelectInfo(text, content, contentText));
+                else thisInfo.add(new ModelSelectInfo(text, content));
+            }
+        } catch (Exception e) {
+            return null;
+        }
+        infos.add(new SubModelDispInfo(Component.translatable("ui.fangsu.block.subModelSelect"), thisInfo,
+                (be) -> this.subModels.getOrDefault("subModel", DEFAULT_SUB_MODEL),
+                (be, v) -> this.subModels.put("subModel", v)));
+        return infos;
+    }
+
     private double clamp(double num, double min, double max) {
         return Math.min(Math.max(num, min), max);
     }
@@ -374,9 +409,10 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
 
                         // step
                         Object stepObj = thisMap.get("step");
-                        Integer step = null;
-                        if (stepObj instanceof Number n) {
-                            step = n.intValue();
+                        Double step = null;
+                        if (stepObj instanceof Double n) {
+                            step = n;
+                            Main.LOGGER.info("step:" + step);
                         }
 
                         // 只有 subModel 和 posArray 非空才添加
@@ -388,7 +424,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
             }
         }
 
-        private record Door(DynamicModelHolder dmh, Double[] pos, Integer side, Integer step) {
+        private record Door(DynamicModelHolder dmh, Double[] pos, Integer side, Double step) {
         }
     }
 

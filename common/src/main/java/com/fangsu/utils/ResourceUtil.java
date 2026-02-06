@@ -29,6 +29,7 @@ import java.util.List;
 
 public class ResourceUtil {
     private static final Map<String, Object> register = new HashMap<>();
+    private static ResourceManager resourceManager;
 
     /**
      * 从文件加载字符串数组
@@ -58,7 +59,10 @@ public class ResourceUtil {
             return (String[]) register.get(GlobalRegisterKey);
         }
         List<String> lines = new ArrayList<>();
-        ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();
+        if (resourceManager == null) {
+            throw new IOException("ResourceManager is null");
+        }
+
         ;
         Optional<Resource> resource = resourceManager.getResource(location);
 
@@ -84,7 +88,9 @@ public class ResourceUtil {
         if (register.containsKey(GlobalRegisterKey)) {
             return (InputStream) register.get(GlobalRegisterKey);
         }
-        ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();
+        if (resourceManager == null) {
+            throw new IOException("ResourceManager is null");
+        }
         ;
         Optional<Resource> resource = resourceManager.getResource(location);
 
@@ -139,7 +145,9 @@ public class ResourceUtil {
             return (BufferedImage) register.get(GlobalRegisterKey);
         }
 
-        ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();
+        if (resourceManager == null) {
+            throw new IOException("ResourceManager is null");
+        }
         ;
         Optional<Resource> resource = resourceManager.getResource(location);
 
@@ -161,7 +169,9 @@ public class ResourceUtil {
         if (register.containsKey(GlobalRegisterKey)) {
             return (RawModel) register.get(GlobalRegisterKey);
         }
-        ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();
+        if (resourceManager == null) {
+            throw new IOException("ResourceManager is null");
+        }
         RawModel model = ObjModelLoader.loadModel(resourceManager, location, null);
         if (flipV) model.applyUVMirror(false, true);
         register.put(GlobalRegisterKey, model);
@@ -173,7 +183,9 @@ public class ResourceUtil {
         if (register.containsKey(GlobalRegisterKey)) {
             return (Map<String, RawModel>) register.get(GlobalRegisterKey);
         }
-        ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();
+        if (resourceManager == null) {
+            throw new IOException("ResourceManager is null");
+        }
         Map<String, RawModel> models = ObjModelLoader.loadModels(resourceManager, location, null);
         if (flipV)
             for (Map.Entry<String, RawModel> entry : models.entrySet()) {
@@ -255,9 +267,6 @@ public class ResourceUtil {
      * @return 合并后的JsonElement，如果所有资源包都没有该文件返回null
      */
     public static JsonElement loadAsJSON(ResourceLocation location) {
-
-        ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();
-        ;
         List<Resource> resources = new ArrayList<>();
 
         try {
@@ -394,5 +403,9 @@ public class ResourceUtil {
 
         // 5. 如果不足 12 位，左补 '0'
         return String.format("%12s", s).replace(' ', '0');
+    }
+
+    public static void init(ResourceManager mgr) {
+        resourceManager = mgr;
     }
 }

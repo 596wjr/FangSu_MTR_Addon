@@ -5,7 +5,9 @@ import com.fangsu.customItem.CustomItems;
 import com.fangsu.network.ModNetwork;
 import com.fangsu.ui.ModMenus;
 import com.fangsu.utils.RegisterUtil;
+import com.fangsu.utils.ResourceUtil;
 import dev.architectury.platform.Platform;
+import net.minecraft.server.packs.resources.ResourceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +35,10 @@ public final class Main {
     public static void initClient() {
         ModBlocks.initClient();
         ModMenus.initClient();
+    }
+
+    public static void initResources(ResourceManager resourceManager) {
+        ResourceUtil.init(resourceManager);
         CustomItems.init();
     }
 }

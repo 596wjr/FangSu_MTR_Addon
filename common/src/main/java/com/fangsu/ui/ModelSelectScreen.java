@@ -8,7 +8,6 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.ComponentUtils;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
@@ -22,11 +21,14 @@ public class ModelSelectScreen extends Screen {
     private static final int PADDING = 12;
     private static final int LIST_ITEM_HEIGHT = 20;
     private static final int BUTTON_HEIGHT = 20;
+    private static final int LIST_WIDTH = 90;
 
     private final BaseObjBlockEntity be;
     private final List<ModelSelectInfo> options;
-    private final Function<BaseObjBlockEntity, ModelSelectInfo> initialGetter;
+    private final Function<BaseObjBlockEntity, String> initialGetter;
     private final BiConsumer<BaseObjBlockEntity, String> setter;
+
+    private Screen parent = null;
 
     private final List<ScrollEntry> listEntries = new ArrayList<>();
     private final List<Button> listButtons = new ArrayList<>();
@@ -41,7 +43,7 @@ public class ModelSelectScreen extends Screen {
             Component title,
             BaseObjBlockEntity be,
             List<ModelSelectInfo> options,
-            Function<BaseObjBlockEntity, ModelSelectInfo> initialGetter,
+            Function<BaseObjBlockEntity, String> initialGetter,
             BiConsumer<BaseObjBlockEntity, String> setter
     ) {
         super(title);
@@ -49,6 +51,22 @@ public class ModelSelectScreen extends Screen {
         this.options = options == null ? List.of() : List.copyOf(options);
         this.initialGetter = initialGetter;
         this.setter = setter;
+    }
+
+    public ModelSelectScreen(
+            Component title,
+            BaseObjBlockEntity be,
+            List<ModelSelectInfo> options,
+            Function<BaseObjBlockEntity, String> initialGetter,
+            BiConsumer<BaseObjBlockEntity, String> setter,
+            Screen parent
+    ) {
+        super(title);
+        this.be = be;
+        this.options = options == null ? List.of() : List.copyOf(options);
+        this.initialGetter = initialGetter;
+        this.setter = setter;
+        this.parent = parent;
     }
 
     @Override
@@ -61,23 +79,20 @@ public class ModelSelectScreen extends Screen {
 
         selected = null;
         if (be != null && initialGetter != null) {
-            ModelSelectInfo initial = initialGetter.apply(be);
+            String initial = initialGetter.apply(be);
             if (initial != null) {
                 selected = options.stream()
-                        .filter(info -> Objects.equals(info.content(), initial.content()))
+                        .filter(info -> Objects.equals(info.content(), initial))
                         .findFirst()
-                        .orElse(initial);
+                        .orElse(null);
             }
         }
 
-        int listLeft = getListLeft();
-        int listWidth = getListWidth();
-        int listTop = getContentTop();
-        int y = listTop;
+        int y = getContentTop();
         for (ModelSelectInfo info : options) {
             int baseY = y;
-            Button button = Button.builder(Component.literal(info.text()), btn -> setSelected(info))
-                    .bounds(listLeft, baseY, listWidth, LIST_ITEM_HEIGHT)
+            Button button = Button.builder(Component.translatable(info.text()), btn -> setSelected(info))
+                    .bounds(getListLeft(), baseY, LIST_WIDTH, LIST_ITEM_HEIGHT)
                     .build();
             addRenderableWidget(button);
             listButtons.add(button);
@@ -85,14 +100,28 @@ public class ModelSelectScreen extends Screen {
             y += LIST_ITEM_HEIGHT + 2;
         }
 
-        confirmButton = addRenderableWidget(Button.builder(Component.literal("确认"), btn -> {
-            if (selected != null && be != null && setter != null) {
-                setter.accept(be, selected.content());
-            }
-            onClose();
-        }).bounds(getContentLeft(), getPanelBottom() + 10, 100, BUTTON_HEIGHT).build());
+        confirmButton = addRenderableWidget(
+                Button.builder(Component.translatable("ui.fangsu.block.confirm"), btn -> {
+                    if (selected != null && be != null && setter != null) {
+                        setter.accept(be, selected.content());
+//                        be.sendUpdateC2S();
+                    }
+                    onClose();
+                }).bounds(
+                        getContentAreaLeft(),
+                        getPanelBottom() - BUTTON_HEIGHT - PADDING,
+                        getContentAreaRight() - getContentAreaLeft(),
+                        BUTTON_HEIGHT
+                ).build()
+        );
+
         updateConfirmState();
         updateButtonStyles();
+    }
+
+    @Override
+    public void onClose() {
+        this.minecraft.setScreen(parent);
     }
 
     private void setSelected(ModelSelectInfo info) {
@@ -113,9 +142,9 @@ public class ModelSelectScreen extends Screen {
             Button button = listButtons.get(i);
             ModelSelectInfo info = options.get(i);
             if (selected != null && Objects.equals(selected.content(), info.content())) {
-                button.setMessage(Component.literal("▶ " + info.text()));
+                button.setMessage(Component.literal(">" + Component.translatable(info.text()).getString() + "<"));
             } else {
-                button.setMessage(Component.literal(info.text()));
+                button.setMessage(Component.translatable(info.text()));
             }
         }
     }
@@ -124,14 +153,16 @@ public class ModelSelectScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(graphics);
 
-        int panelLeft = getPanelLeft();
-        int panelTop = getPanelTop();
-        int panelRight = getPanelRight();
-        int panelBottom = getPanelBottom();
-        graphics.fill(panelLeft, panelTop, panelRight, panelBottom, 0xCCFFFFFF);
+        graphics.fill(getPanelLeft(), getPanelTop(), getPanelRight(), getPanelBottom(), 0xCCFFFFFF);
 
-        int titleX = this.width / 2 - this.font.width(this.title) / 2;
-        graphics.drawString(this.font, this.title, titleX, panelTop - 18, 0x101010, false);
+        graphics.drawString(
+                this.font,
+                this.title,
+                this.width / 2 - this.font.width(this.title) / 2,
+                getPanelTop() - 18,
+                0x101010,
+                false
+        );
 
         for (ScrollEntry entry : listEntries) {
             entry.applyScroll(listScrollOffset);
@@ -144,54 +175,62 @@ public class ModelSelectScreen extends Screen {
         graphics.disableScissor();
 
         renderContentPanel(graphics);
-
         confirmButton.render(graphics, mouseX, mouseY, partialTick);
     }
 
     private void renderContentPanel(GuiGraphics graphics) {
-        int contentLeft = getContentAreaLeft();
-        int contentRight = getContentAreaRight();
-        int contentTop = getContentTop();
-        int contentBottom = getContentBottom();
-        int textLeft = contentLeft + 6;
-        int textWidth = contentRight - textLeft - 6;
+        graphics.fill(
+                getContentAreaLeft(),
+                getContentTop(),
+                getContentAreaRight(),
+                getContentBottom(),
+                0x55FFFFFF
+        );
 
-        graphics.fill(contentLeft, contentTop, contentRight, contentBottom, 0x55FFFFFF);
+        int textLeft = getContentAreaLeft() + 6;
+        int textWidth = getContentAreaRight() - textLeft - 6;
 
         List<Component> lines = getSelectedContentLines(textWidth);
         int lineHeight = Minecraft.getInstance().font.lineHeight;
         int totalHeight = lines.size() * lineHeight;
 
-        contentScrollOffset = Mth.clamp(contentScrollOffset, Math.min(0, contentBottom - contentTop - totalHeight), 0);
+        contentScrollOffset = Mth.clamp(
+                contentScrollOffset,
+                Math.min(0, getContentBottom() - getContentTop() - totalHeight),
+                0
+        );
 
-        graphics.enableScissor(contentLeft, contentTop, contentRight, contentBottom);
-        int y = contentTop + 6 + contentScrollOffset;
+        graphics.enableScissor(
+                getContentAreaLeft(),
+                getContentTop(),
+                getContentAreaRight(),
+                getContentBottom()
+        );
+
+        int y = getContentTop() + 6 + contentScrollOffset;
         for (Component line : lines) {
             graphics.drawString(this.font, line, textLeft, y, 0x202020, false);
             y += lineHeight;
         }
+
         graphics.disableScissor();
     }
 
     private List<Component> getSelectedContentLines(int width) {
         String text = selected == null ? "" : selected.contentText();
-
-        return this.font
-                .split(Component.literal(text), width)
-                .stream()
+        return this.font.split(Component.literal(text), width).stream()
                 .map(this::sequenceToComponent)
                 .toList();
     }
 
     private Component sequenceToComponent(FormattedCharSequence sequence) {
         StringBuilder builder = new StringBuilder();
-        sequence.accept((index, style, codePoint) -> {
-            builder.appendCodePoint(codePoint);
+        sequence.accept((i, s, c) -> {
+            builder.appendCodePoint(c);
             return true;
         });
         return Component.literal(builder.toString());
     }
-
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
@@ -205,37 +244,31 @@ public class ModelSelectScreen extends Screen {
     }
 
     private boolean scrollList(double delta) {
-        int visibleHeight = getContentBottom() - getContentTop();
-        int contentHeight = listEntries.isEmpty() ? 0 : listEntries.get(listEntries.size() - 1).baseY - getContentTop() + LIST_ITEM_HEIGHT;
-        if (contentHeight <= visibleHeight) {
+        int visible = getContentBottom() - getContentTop();
+        int total = listEntries.isEmpty() ? 0 :
+                listEntries.get(listEntries.size() - 1).baseY - getContentTop() + LIST_ITEM_HEIGHT;
+        if (total <= visible) {
             listScrollOffset = 0;
             return false;
         }
-        listScrollOffset += delta * 12;
-        int minOffset = visibleHeight - contentHeight;
-        listScrollOffset = Mth.clamp(listScrollOffset, minOffset, 0);
+        listScrollOffset = Mth.clamp(listScrollOffset + (int) (delta * 12), visible - total, 0);
         return true;
     }
 
     private boolean scrollContent(double delta) {
-        int contentLeft = getContentAreaLeft();
-        int contentRight = getContentAreaRight();
-        int textWidth = contentRight - contentLeft - 12;
-        List<Component> lines = getSelectedContentLines(textWidth);
-        int totalHeight = lines.size() * Minecraft.getInstance().font.lineHeight;
-        int visibleHeight = getContentBottom() - getContentTop() - 12;
-        if (totalHeight <= visibleHeight) {
+        int textWidth = getContentAreaRight() - getContentAreaLeft() - 12;
+        int total = getSelectedContentLines(textWidth).size() * Minecraft.getInstance().font.lineHeight;
+        int visible = getContentBottom() - getContentTop() - 12;
+        if (total <= visible) {
             contentScrollOffset = 0;
             return false;
         }
-        contentScrollOffset += delta * 12;
-        int minOffset = visibleHeight - totalHeight;
-        contentScrollOffset = Mth.clamp(contentScrollOffset, minOffset, 0);
+        contentScrollOffset = Mth.clamp(contentScrollOffset + (int) (delta * 12), visible - total, 0);
         return true;
     }
 
-    private boolean isPointInside(double mouseX, double mouseY, int left, int top, int right, int bottom) {
-        return mouseX >= left && mouseX <= right && mouseY >= top && mouseY <= bottom;
+    private boolean isPointInside(double x, double y, int l, int t, int r, int b) {
+        return x >= l && x <= r && y >= t && y <= b;
     }
 
     private int getPanelLeft() {
@@ -251,11 +284,7 @@ public class ModelSelectScreen extends Screen {
     }
 
     private int getPanelBottom() {
-        return this.height - 60;
-    }
-
-    private int getContentLeft() {
-        return getPanelLeft() + PADDING;
+        return this.height - 30;
     }
 
     private int getContentTop() {
@@ -263,19 +292,15 @@ public class ModelSelectScreen extends Screen {
     }
 
     private int getContentBottom() {
-        return getPanelBottom() - PADDING;
+        return getPanelBottom() - BUTTON_HEIGHT - PADDING * 2;
     }
 
     private int getListLeft() {
-        return getContentLeft();
+        return getPanelLeft() + PADDING;
     }
 
     private int getListRight() {
-        return getContentLeft() + getListWidth();
-    }
-
-    private int getListWidth() {
-        return (getPanelRight() - getPanelLeft()) / 3;
+        return getListLeft() + LIST_WIDTH;
     }
 
     private int getContentAreaLeft() {
@@ -299,5 +324,4 @@ public class ModelSelectScreen extends Screen {
             widget.setY(baseY + offset);
         }
     }
-
 }

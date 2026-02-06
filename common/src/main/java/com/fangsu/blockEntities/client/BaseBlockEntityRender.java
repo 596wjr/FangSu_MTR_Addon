@@ -4,9 +4,11 @@ package com.fangsu.blockEntities.client;
 
 import fabric.cn.zbx1425.mtrsteamloco.MainClient;
 import fabric.cn.zbx1425.sowcer.math.Matrix4f;
+import fabric.cn.zbx1425.sowcerext.reuse.DrawScheduler;
 //#elseif FORGE
 //$$ import forge.cn.zbx1425.mtrsteamloco.MainClient;
 //$$ import forge.cn.zbx1425.sowcer.math.Matrix4f;
+//$$ import forge.cn.zbx1425.sowcerext.reuse.DrawScheduler;
 //#endif
 
 import com.fangsu.Main;
@@ -77,8 +79,8 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> extends BlockEn
 
                 Method commitMethod = scriptResult.getClass().getMethod(
                         "commit",
-                        MainClient.drawScheduler.getClass(),
-                        candyPose.getClass(),
+                        DrawScheduler.class,
+                        Matrix4f.class,
                         Matrix4f.class,
                         int.class
                 );

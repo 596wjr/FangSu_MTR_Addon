@@ -1,6 +1,9 @@
 package com.fangsu.ui;
 
+import com.fangsu.Main;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
+import com.fangsu.customItem.CustomItems;
+import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.extraConfig.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -39,6 +42,8 @@ public class ObjBlockConfigScreen extends Screen {
     private boolean useSliderInput = true;
     private boolean pendingRebuild = false;
 
+    private boolean firstBuild = true;
+
     public ObjBlockConfigScreen(BaseObjBlockEntity be) {
         super(Component.translatable("ui.fangsu.block.title"));
         this.be = be;
@@ -65,7 +70,7 @@ public class ObjBlockConfigScreen extends Screen {
         super.init();
         entries.clear();
         fixedWidgets.clear();
-        scrollOffset = 0;
+//        scrollOffset = 0;
 
         // 计算布局基准
         int cx = this.width / 2;
@@ -90,9 +95,64 @@ public class ObjBlockConfigScreen extends Screen {
 
         addEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.modelSelect"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
         y += 12;
-        addEntry(addButton(areaLeft, y, areaRight - areaLeft, 24, Component.translatable("ui.fangsu.block.mainModelSelect"), (b) -> {
-        }), y);
+        addEntry(addButton(areaLeft, y, areaRight - areaLeft, 24, Component.translatable("ui.fangsu.block.mainModelSelect"),
+                (b) -> {
+                    Minecraft.getInstance().setScreen(new ModelSelectScreen(
+                            Component.translatable("ui.fangsu.block.mainModelSelect"),
+                            this.be,
+                            CustomItems.items.get(this.be.getMainModelKey()),
+                            (be) -> be.mainModel,
+                            (be, v) -> be.mainModel = v, this
+                    ));
+                }
+        ), y);
         y += 28;
+
+        if (be.getSubModelInfos() != null) {
+            List<SubModelDispInfo> infos = be.getSubModelInfos();
+            for (int i = 0; i < infos.size(); i++) {
+                SubModelDispInfo info = infos.get(i);
+                if (i + 1 == infos.size()) {
+                    addEntry(addButton(areaLeft, y, areaRight - areaLeft, 24, info.name(),
+                            (b) -> {
+                                Minecraft.getInstance().setScreen(new ModelSelectScreen(
+                                        info.name(),
+                                        this.be,
+                                        info.infos(),
+                                        info.initialGetter(),
+                                        info.setter(), this
+                                ));
+                            }
+                    ), y);
+                    y += 28;
+                } else if (i % 2 != 0) {
+                    addEntry(addButton(areaLeft, y, areaRight - areaLeft / 2 - 2, 24, info.name(),
+                            (b) -> {
+                                Minecraft.getInstance().setScreen(new ModelSelectScreen(
+                                        info.name(),
+                                        this.be,
+                                        info.infos(),
+                                        info.initialGetter(),
+                                        info.setter(), this
+                                ));
+                            }
+                    ), y);
+                } else {
+                    addEntry(addButton(areaLeft + ((areaRight - areaLeft) / 2) + 4, y, areaRight - areaLeft / 2 - 2, 24, info.name(),
+                            (b) -> {
+                                Minecraft.getInstance().setScreen(new ModelSelectScreen(
+                                        info.name(),
+                                        this.be,
+                                        info.infos(),
+                                        info.initialGetter(),
+                                        info.setter(), this
+                                ));
+                            }
+                    ), y);
+                    y += 28;
+                }
+            }
+        }
 
         addEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.translate"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
         y += 12;
@@ -150,7 +210,8 @@ public class ObjBlockConfigScreen extends Screen {
                     onClose();
                 }).bounds(this.width / 2 - 50, this.height - 40, 100, 20).build());
         fixedWidgets.add(closeButton);
-
+        if (firstBuild) requestRebuild();
+        firstBuild = false;
     }
 
     private Component getInputToggleLabel() {
@@ -250,10 +311,10 @@ public class ObjBlockConfigScreen extends Screen {
         entries.add(new ScrollEntry(widget, baseY));
     }
 
-    // 预留方法：添加按钮（可自定义宽高）
     private Button addButton(int x, int y, int width, int height, Component label, Button.OnPress onPress) {
         Button button = Button.builder(label, onPress).bounds(x, y, width, height).build();
-        return addFixedWidget(button);
+        addRenderableWidget(button);
+        return button;
     }
 
     private Button addFixedWidget(Button button) {
@@ -272,7 +333,6 @@ public class ObjBlockConfigScreen extends Screen {
         be.rotateY = rotateY;
         be.rotateZ = rotateZ;
 
-        // 你提供的封装方法
         be.sendUpdateC2S();
     }
 
@@ -297,21 +357,30 @@ public class ObjBlockConfigScreen extends Screen {
         int titleY = areaTop - 18;
         graphics.drawString(this.font, this.title, titleX, titleY, 0x101010, false);
 
-        // 在渲染每一帧之前，给 sliders 应用 scrollOffset —— 修改它们的 y 值
+        // 在渲染每一帧之前，给 entries 应用 scrollOffset —— 修改它们的 y 值
         for (ScrollEntry e : entries) {
             e.applyScroll(scrollOffset);
         }
 
+        // 先渲染那些固定控件（例如关闭按钮、开关等）——它们不受内容区剪裁影响
         for (AbstractWidget fixedWidget : fixedWidgets) {
             fixedWidget.render(graphics, mouseX, mouseY, partialTick);
         }
 
-        graphics.enableScissor(getContentLeft(), getContentTop(), getContentRight(), getContentBottom());
+        int scissorX = getContentLeft();
+        int scissorY = getContentTop();
+        int scissorW = getContentRight();
+        int scissorH = getContentBottom();
+        graphics.enableScissor(scissorX, scissorY, scissorW, scissorH);
+
+        // 渲染可滚动条目
         for (ScrollEntry e : entries) {
             e.widget.render(graphics, mouseX, mouseY, partialTick);
         }
+
         graphics.disableScissor();
     }
+
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {

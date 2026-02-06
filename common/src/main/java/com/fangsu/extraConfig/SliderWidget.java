@@ -60,6 +60,13 @@ public class SliderWidget extends AbstractWidget {
         return value;
     }
 
+    @Override
+    public void setY(int y) {
+        super.setY(y);
+        slider.setY(y);
+    }
+
+
     /* ====================================================== */
 
     @Override
