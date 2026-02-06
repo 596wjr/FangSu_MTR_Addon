@@ -2,7 +2,6 @@ package com.fangsu.blockEntities;
 
 //#if FABRIC
 
-import com.fangsu.customItem.CustomItemLoader;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
 import fabric.cn.zbx1425.sowcer.math.Matrices;
 //#elseif FORGE
@@ -10,6 +9,7 @@ import fabric.cn.zbx1425.sowcer.math.Matrices;
 //$$ import forge.cn.zbx1425.sowcer.math.Matrices;
 //#endif
 
+import com.fangsu.customItem.CustomItemLoader;
 import com.fangsu.Main;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.ResourceUtil;
