@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  build-fabric:
     runs-on: ubuntu-latest
 
     steps:
@@ -24,8 +24,6 @@ jobs:
 
       - name: Build Fabric
         run: ./gradlew :fabric:build --no-daemon
-      - name: Build Forge
-        run: ./gradlew :forge:build --no-daemon
 
       # ===== Fabric artifacts =====
       - name: Upload Fabric jars
@@ -45,6 +43,24 @@ jobs:
             !fabric/build/libs/*.jar
             !fabric/build/libs/*-dev-shadow.jar
             fabric/build/libs/*-sources.jar
+  build-forge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Forge
+        run: ./gradlew :forge:build --no-daemon
 
       # ===== Forge artifacts =====
       - name: Upload Forge jars
