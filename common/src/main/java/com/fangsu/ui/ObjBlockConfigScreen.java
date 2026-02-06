@@ -32,6 +32,7 @@ public class ObjBlockConfigScreen extends Screen {
 
     // 存放所有动态创建的控件，便于在滚动时调整位置
     private Button closeButton;
+    private final List<AbstractWidget> fixedWidgets = new ArrayList<>();
     private final List<ScrollEntry> entries = new ArrayList<>();
 
     private final List<ConfigEntry<?>> configs;
@@ -63,16 +64,17 @@ public class ObjBlockConfigScreen extends Screen {
     protected void init() {
         super.init();
         entries.clear();
+        fixedWidgets.clear();
         scrollOffset = 0;
 
         // 计算布局基准
         int cx = this.width / 2;
-        int startY = 60; // 首行基线
+        int startY = getContentTop(); // 首行基线
         int spacing = 70;
         int y = startY;
 
-        int areaLeft = 40;
-        int areaRight = this.width - 40;
+        int areaLeft = getPanelLeft();
+        int areaRight = getPanelRight();
         int contentWidth = areaRight - areaLeft;
         int labelW = (int) (contentWidth * 0.4f);
         int fieldW = contentWidth - labelW;
@@ -83,7 +85,10 @@ public class ObjBlockConfigScreen extends Screen {
             useSliderInput = !useSliderInput;
             requestRebuild();
         }).bounds(this.width - 170, 34, 130, 20).build();
-        addRenderableWidget(toggleInputButton);
+        addFixedWidget(toggleInputButton);
+
+        addFixedWidget(addButton(areaLeft, 34, 90, 20, Component.literal("添加按钮"), btn -> {
+        }));
 
         addEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.translate"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
         y += 12;
@@ -140,6 +145,7 @@ public class ObjBlockConfigScreen extends Screen {
                     if (!REALTIME) sendToServer();
                     onClose();
                 }).bounds(this.width / 2 - 50, this.height - 40, 100, 20).build());
+        fixedWidgets.add(closeButton);
 
     }
 
@@ -240,6 +246,18 @@ public class ObjBlockConfigScreen extends Screen {
         entries.add(new ScrollEntry(widget, baseY));
     }
 
+    // 预留方法：添加按钮（可自定义宽高）
+    private Button addButton(int x, int y, int width, int height, Component label, Button.OnPress onPress) {
+        Button button = Button.builder(label, onPress).bounds(x, y, width, height).build();
+        return addFixedWidget(button);
+    }
+
+    private Button addFixedWidget(Button button) {
+        addRenderableWidget(button);
+        fixedWidgets.add(button);
+        return button;
+    }
+
     // 将本地副本的数据写回 BE 并调用 sendUpdateC2S()
     private void sendToServer() {
         if (be == null) return;
@@ -263,10 +281,10 @@ public class ObjBlockConfigScreen extends Screen {
         }
         renderBackground(graphics);
 
-        int areaLeft = 40;
-        int areaTop = 30;
-        int areaRight = this.width - 40;
-        int areaBottom = this.height - 60;
+        int areaLeft = getPanelLeft();
+        int areaTop = getPanelTop();
+        int areaRight = getPanelRight();
+        int areaBottom = getPanelBottom();
         graphics.fill(areaLeft, areaTop, areaRight, areaBottom, 0xCCFFFFFF); // 半透明白
 
         // 标题（居中，使用深色文本以便在浅底上清晰显示）
@@ -280,15 +298,24 @@ public class ObjBlockConfigScreen extends Screen {
             e.applyScroll(scrollOffset);
         }
 
-        // 现在调用父类渲染（会渲染所有 child widgets）
-        super.render(graphics, mouseX, mouseY, partialTick);
+        for (AbstractWidget fixedWidget : fixedWidgets) {
+            fixedWidget.render(graphics, mouseX, mouseY, partialTick);
+        }
+
+        graphics.enableScissor(getContentLeft(), getContentTop(), getContentRight(), getContentBottom());
+        for (ScrollEntry e : entries) {
+            e.widget.render(graphics, mouseX, mouseY, partialTick);
+        }
+        graphics.disableScissor();
+
+        renderTooltip(graphics, mouseX, mouseY);
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
 
-        int visibleTop = 30;
-        int visibleBottom = this.height - 60;
+        int visibleTop = getContentTop();
+        int visibleBottom = getContentBottom();
         int visibleHeight = visibleBottom - visibleTop;
 
         int contentBottom = getActualContentBottom();
@@ -309,6 +336,41 @@ public class ObjBlockConfigScreen extends Screen {
         return true;
     }
 
+    private int getPanelLeft() {
+        return 40;
+    }
+
+    private int getPanelRight() {
+        return this.width - 40;
+    }
+
+    private int getPanelTop() {
+        return 30;
+    }
+
+    private int getPanelBottom() {
+        return this.height - 60;
+    }
+
+    private int getContentPadding() {
+        return 12;
+    }
+
+    private int getContentLeft() {
+        return getPanelLeft() + getContentPadding();
+    }
+
+    private int getContentRight() {
+        return getPanelRight() - getContentPadding();
+    }
+
+    private int getContentTop() {
+        return getPanelTop() + getContentPadding() + 12;
+    }
+
+    private int getContentBottom() {
+        return getPanelBottom() - getContentPadding();
+    }
 
     private int getActualContentBottom() {
         int bottom = 0;
