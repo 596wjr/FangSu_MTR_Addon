@@ -26,6 +26,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 
+import java.lang.reflect.Method;
+
 public class BaseBlockEntityRender<T extends BaseObjBlockEntity> extends BlockEntityRendererMapper<T> {
     private static final RegistryObject<ItemStack> BARRIER_ITEM_STACK = new RegistryObject<>(() -> new ItemStack(net.minecraft.world.item.Items.BARRIER, 1));
 
@@ -71,11 +73,23 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> extends BlockEn
         } catch (Exception e) {
             try {
                 Matrix4f worldPose = new Matrix4f(matrices.last().pose()).copy();
-                //#if FORGE
-                //$$ blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, worldPose, lightToUse);
-                //#elseif FABRIC
-                //$$ blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, worldPose, lightToUse);
-                //#endif
+                Object scriptResult = blockEntity.scriptContext.scriptResult;
+
+                Method commitMethod = scriptResult.getClass().getMethod(
+                        "commit",
+                        MainClient.drawScheduler.getClass(),
+                        candyPose.getClass(),
+                        Matrix4f.class,
+                        int.class
+                );
+
+                commitMethod.invoke(
+                        scriptResult,
+                        MainClient.drawScheduler,
+                        candyPose,
+                        worldPose,
+                        lightToUse
+                );
             } catch (Exception ignored) {
             }
         }
