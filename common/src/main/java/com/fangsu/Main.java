@@ -1,6 +1,7 @@
 package com.fangsu;
 
 import com.fangsu.blocks.ModBlocks;
+import com.fangsu.customItem.CustomItems;
 import com.fangsu.network.ModNetwork;
 import com.fangsu.ui.ModMenus;
 import com.fangsu.utils.RegisterUtil;
@@ -32,5 +33,6 @@ public final class Main {
     public static void initClient() {
         ModBlocks.initClient();
         ModMenus.initClient();
+        CustomItems.init();
     }
 }

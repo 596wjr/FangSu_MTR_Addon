@@ -2,6 +2,7 @@ package com.fangsu.blockEntities;
 
 //#if FABRIC
 
+import com.fangsu.customItem.CustomItemLoader;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
 import fabric.cn.zbx1425.sowcer.math.Matrices;
 //#elseif FORGE
@@ -80,7 +81,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         String subModel = CustomItemHelper.checkSubModel(entity, "subModel", DEFAULT_SUB_MODEL);
 
         try {
-            loaded = CustomItemHelper.optimizeCustomItemJSON(new ResourceLocation(entity.mainModel));
+            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(entity.mainModel));
             if (!loaded.containsKey(subModel)) {
                 entity.mainModel = DEFAULT_MAIN_MODEL;
                 entity.subModels.put("subModel", DEFAULT_SUB_MODEL);

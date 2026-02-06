@@ -12,6 +12,7 @@
   "ui.fangsu.block.toggle_input": "切换为输入框",
   "ui.fangsu.block.toggle_slider": "切换为滑块",
   "ui.fangsu.block.close_and_save": "关闭并保存",
+  "ui.fangsu.block.no_detail": "无详情",
   "ui.fangsu.ticketbarrier.mode": "模式",
   "ui.fangsu.ticketbarrier.isExit": "是否为出口",
   "ui.fangsu.ticketbarrier.fareVal": "扣款金额",
