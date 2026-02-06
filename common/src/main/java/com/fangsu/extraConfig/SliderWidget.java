@@ -99,7 +99,8 @@ public class SliderWidget extends AbstractWidget {
         @Override
         protected void updateMessage() {
             setMessage(
-                    Component.literal(
+                    Component.translatable(
+                            "ui.fangsu.common.value",
                             format(denormalize(value))
                     )
             );
