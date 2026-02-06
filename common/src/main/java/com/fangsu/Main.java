@@ -5,8 +5,6 @@ import com.fangsu.network.ModNetwork;
 import com.fangsu.ui.ModMenus;
 import com.fangsu.utils.RegisterUtil;
 import dev.architectury.platform.Platform;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
