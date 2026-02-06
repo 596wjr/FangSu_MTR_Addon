@@ -40,7 +40,7 @@ dependencies {
     shadowBundle project(path: ':common', configuration: 'transformProductionForge')
 
     modImplementation "maven.modrinth:minecraft-transit-railway:$rootProject.mtr_version_forge"
-//    if(rootProject.require_nte){
+//    if (rootProject.require_nte) {
 //        modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
 //    }
 //    modImplementation("me.shedaniel.cloth:cloth-config-forge:11.1.136")

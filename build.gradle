@@ -27,15 +27,12 @@ ext {
     } else if (taskNames.contains("forge")) {
         platform = "FORGE"
     } else if (taskNames.contains("neoforge")) {
-        // 预留，不启用
         platform = "NEOFORGE"
     }
 }
 
 println "[Build] Current platform = ${platform}"
 
-// 加载你放在外部脚本里的处理器（processAccessWidener 等）
-// 确保 build_process.gradle 中定义了 processAccessWidener 并把其放入 ext (eg. ext.processAccessWidener)
 apply from: "build_process.gradle"
 
 subprojects {
@@ -54,12 +51,7 @@ subprojects {
             allowInsecureProtocol = true
         }
 
-        repositories {
-            maven {
-                url 'https://maven.aliyun.com/repository/public'
-            }
-            mavenCentral()
-        }
+        maven { name = 'aliyun-mirror'; url = 'https://maven.aliyun.com/repository/public' }
         maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
         maven { url = 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
         maven { url = 'https://mirrors.huaweicloud.com/repository/maven/' }
@@ -86,11 +78,10 @@ subprojects {
         minecraft "net.minecraft:minecraft:$rootProject.minecraft_version"
         mappings loom.officialMojangMappings()
 
-        compileOnly "maven.modrinth:minecraft-transit-railway:${rootProject.mtr_version_forge}"
-
         if (rootProject.require_nte) {
             modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
         }
+        compileOnly "maven.modrinth:minecraft-transit-railway:${rootProject.mtr_version_forge}"
     }
 
     java {
