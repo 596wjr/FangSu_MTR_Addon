@@ -326,6 +326,8 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
 
     }
 
+    public abstract String getMainModelKey();
+
     void syncToServer() {
         if (level == null || level.isClientSide) {
             if (!level.hasChunk(getBlockPos().getX() >> 4, getBlockPos().getZ() >> 4)) return;

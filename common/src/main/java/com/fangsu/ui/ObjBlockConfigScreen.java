@@ -76,7 +76,7 @@ public class ObjBlockConfigScreen extends Screen {
         int areaLeft = getPanelLeft();
         int areaRight = getPanelRight();
         int contentWidth = areaRight - areaLeft;
-        int labelW = (int) (contentWidth * 0.4f);
+        int labelW = (int) (contentWidth * 0.3f);
         int fieldW = contentWidth - labelW;
 
         int leftX = areaLeft;
@@ -86,9 +86,12 @@ public class ObjBlockConfigScreen extends Screen {
             requestRebuild();
         }).bounds(this.width - 170, 34, 130, 20).build();
         addFixedWidget(toggleInputButton);
+        y += 28;
 
-        addFixedWidget(addButton(areaLeft, 34, 90, 20, Component.literal("添加按钮"), btn -> {
-        }));
+        addEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.modelSelect"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
+        y += 12;
+        addEntry(addButton(areaLeft, y, areaRight - areaLeft, 24, Component.translatable("ui.fangsu.block.mainModelSelect"), (b) -> {
+        }), y);
 
         addEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.translate"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
         y += 12;
@@ -307,8 +310,6 @@ public class ObjBlockConfigScreen extends Screen {
             e.widget.render(graphics, mouseX, mouseY, partialTick);
         }
         graphics.disableScissor();
-
-        renderTooltip(graphics, mouseX, mouseY);
     }
 
     @Override

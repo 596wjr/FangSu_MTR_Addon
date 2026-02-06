@@ -7,6 +7,8 @@
   "ui.fangsu.block.rotY": "Y旋转",
   "ui.fangsu.block.rotZ": "Z旋转",
   "ui.fangsu.block.config": "物件配置",
+  "ui.fangsu.block.modelSelect": "模型选择",
+  "ui.fangsu.block.mainModelSelect": "主模型选择",
   "ui.fangsu.block.translate": "物件偏移",
   "ui.fangsu.block.extras": "物件额外配置",
   "ui.fangsu.block.toggle_input": "切换为输入框",

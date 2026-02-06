@@ -47,6 +47,7 @@ import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_TICKET_BARRIER;
 public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     public static final String DEFAULT_MAIN_MODEL = "fangsu:ticketbarrier/mtr_ticketbarrier.json";
     public static final String DEFAULT_SUB_MODEL = "mtr_ticketbarrier_1";
+    public static final String Main_MODEL_KEY = "ticketBarrier";
 
     private boolean cacheIsOpen = false;
     private long closeTime = 0;
@@ -310,6 +311,11 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                 (be, v) -> extra.put("fareVal", String.valueOf(v.intValue()))
         ).setShowCondition(v -> 1 == getExtraConfigInt("fareType", 0)));
         return configs;
+    }
+
+    @Override
+    public java.lang.String getMainModelKey() {
+        return Main_MODEL_KEY;
     }
 
     private double clamp(double num, double min, double max) {
