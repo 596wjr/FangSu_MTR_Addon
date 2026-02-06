@@ -2,9 +2,8 @@ name: Build (Preview)
 
 on:
   push:
-    branches:
-      [ "**" ]
-  pull_request: [ "**" ]
+    branches: [ "**" ]
+  pull_request:
 
 jobs:
   build:
