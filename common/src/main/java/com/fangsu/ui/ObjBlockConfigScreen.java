@@ -39,7 +39,7 @@ public class ObjBlockConfigScreen extends Screen {
     private boolean pendingRebuild = false;
 
     public ObjBlockConfigScreen(BaseObjBlockEntity be) {
-        super(Component.literal("方块配置"));
+        super(Component.translatable("ui.fangsu.block.title"));
         this.be = be;
 
         // 从 BE 读取初始值（防空）
@@ -85,16 +85,28 @@ public class ObjBlockConfigScreen extends Screen {
         }).bounds(this.width - 170, 34, 130, 20).build();
         addRenderableWidget(toggleInputButton);
 
-        addEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.translate").getString(), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
+        addEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.translate"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
         y += 12;
-        y = addAxisControls(cx, spacing, y, "X", "Y", "Z",
+        y = addAxisControls(cx, spacing, y,
+                Component.translatable("ui.fangsu.block.transX"),
+                Component.translatable("ui.fangsu.block.transY"),
+                Component.translatable("ui.fangsu.block.transZ"),
+                translateX,
+                translateY,
+                translateZ,
                 -1, 1, 0.0625f,
                 v -> translateX = v,
                 v -> translateY = v,
                 v -> translateZ = v);
         y += 28;
 
-        y = addAxisControls(cx, spacing, y, "RX", "RY", "RZ",
+        y = addAxisControls(cx, spacing, y,
+                Component.translatable("ui.fangsu.block.rotX"),
+                Component.translatable("ui.fangsu.block.rotY"),
+                Component.translatable("ui.fangsu.block.rotZ"),
+                rotateX,
+                rotateY,
+                rotateZ,
                 -180, 180, 5,
                 v -> rotateX = v,
                 v -> rotateY = v,
@@ -102,7 +114,7 @@ public class ObjBlockConfigScreen extends Screen {
         y += 28;
 
         if (!configs.isEmpty()) {
-            addEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.extras").getString(), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
+            addEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.extras"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
             y += 12;
             for (ConfigEntry<?> c : configs) {
                 c.load(be);
@@ -110,8 +122,8 @@ public class ObjBlockConfigScreen extends Screen {
                     if (entry.isSaveOnChange()) {
                         entry.save(be);
                         be.sendUpdateC2S();
+                        requestRebuild();
                     }
-                    requestRebuild();
                 });
                 if (!c.isVisible(be)) {
                     continue;
@@ -123,7 +135,7 @@ public class ObjBlockConfigScreen extends Screen {
             }
         }
 
-        closeButton = this.addRenderableWidget(Button.builder(Component.literal("关闭并保存"),
+        closeButton = this.addRenderableWidget(Button.builder(Component.translatable("ui.fangsu.block.close_and_save"),
                 btn -> {
                     if (!REALTIME) sendToServer();
                     onClose();
@@ -132,7 +144,9 @@ public class ObjBlockConfigScreen extends Screen {
     }
 
     private Component getInputToggleLabel() {
-        return Component.literal(useSliderInput ? "切换为输入框" : "切换为滑块");
+        return Component.translatable(useSliderInput
+                ? "ui.fangsu.block.toggle_input"
+                : "ui.fangsu.block.toggle_slider");
     }
 
     private void requestRebuild() {
@@ -143,9 +157,12 @@ public class ObjBlockConfigScreen extends Screen {
             int centerX,
             int spacing,
             int baseY,
-            String labelX,
-            String labelY,
-            String labelZ,
+            Component labelX,
+            Component labelY,
+            Component labelZ,
+            float valueX,
+            float valueY,
+            float valueZ,
             float min,
             float max,
             float step,
@@ -154,42 +171,30 @@ public class ObjBlockConfigScreen extends Screen {
             Consumer<Float> setZ
     ) {
         if (useSliderInput) {
-            addEntry(createSlider(centerX - spacing, baseY, labelX, getAxisValue(labelX), v -> {
+            addEntry(createSlider(centerX - spacing, baseY, valueX, v -> {
                 setX.accept(v);
                 if (REALTIME) sendToServer();
             }, min, max, step), baseY);
-            addEntry(createSlider(centerX, baseY, labelY, getAxisValue(labelY), v -> {
+            addEntry(createSlider(centerX, baseY, valueY, v -> {
                 setY.accept(v);
                 if (REALTIME) sendToServer();
             }, min, max, step), baseY);
-            addEntry(createSlider(centerX + spacing, baseY, labelZ, getAxisValue(labelZ), v -> {
+            addEntry(createSlider(centerX + spacing, baseY, valueZ, v -> {
                 setZ.accept(v);
                 if (REALTIME) sendToServer();
             }, min, max, step), baseY);
             return baseY;
         }
-        addEntry(createAxisInput(centerX - spacing, baseY, labelX, getAxisValue(labelX), min, max, step, setX), baseY);
-        addEntry(createAxisInput(centerX, baseY, labelY, getAxisValue(labelY), min, max, step, setY), baseY);
-        addEntry(createAxisInput(centerX + spacing, baseY, labelZ, getAxisValue(labelZ), min, max, step, setZ), baseY);
+        addEntry(createAxisInput(centerX - spacing, baseY, labelX, valueX, min, max, step, setX), baseY);
+        addEntry(createAxisInput(centerX, baseY, labelY, valueY, min, max, step, setY), baseY);
+        addEntry(createAxisInput(centerX + spacing, baseY, labelZ, valueZ, min, max, step, setZ), baseY);
         return baseY;
-    }
-
-    private float getAxisValue(String label) {
-        return switch (label) {
-            case "X" -> translateX;
-            case "Y" -> translateY;
-            case "Z" -> translateZ;
-            case "RX" -> rotateX;
-            case "RY" -> rotateY;
-            case "RZ" -> rotateZ;
-            default -> 0f;
-        };
     }
 
     private AbstractWidget createAxisInput(
             int x,
             int baseY,
-            String label,
+            Component label,
             float initialValue,
             float min,
             float max,
@@ -218,13 +223,13 @@ public class ObjBlockConfigScreen extends Screen {
     /**
      * 创建带步进的滑块。
      */
-    private SliderWidget createSlider(int cx, int baseY, String label, float initialValue, Consumer<Float> setter, float min, float max, float step) {
+    private SliderWidget createSlider(int cx, int baseY, float initialValue, Consumer<Float> setter, float min, float max, float step) {
         SliderWidget slider = new SliderWidget(cx - 30, baseY, 60, 20, Component.empty(), initialValue, min, max, step, setter);
         this.addRenderableWidget(slider);
         return slider;
     }
 
-    private TextLabel createTextLabel(int x, int y, String text, TextLabel.Align align, int color, boolean bold) {
+    private TextLabel createTextLabel(int x, int y, Component text, TextLabel.Align align, int color, boolean bold) {
         TextLabel label = new TextLabel(x, y, text, align, color, bold);
         this.addRenderableWidget(label);
         return label;
@@ -264,10 +269,10 @@ public class ObjBlockConfigScreen extends Screen {
         graphics.fill(areaLeft, areaTop, areaRight, areaBottom, 0xCCFFFFFF); // 半透明白
 
         // 标题（居中，使用深色文本以便在浅底上清晰显示）
-        String title = this.title.getString();
-        int titleX = this.width / 2 - this.font.width(title) / 2;
+        String titleText = this.title.getString();
+        int titleX = this.width / 2 - this.font.width(titleText) / 2;
         int titleY = areaTop - 18;
-        graphics.drawString(this.font, Component.literal(title), titleX, titleY, 0x101010, false);
+        graphics.drawString(this.font, this.title, titleX, titleY, 0x101010, false);
 
         // 在渲染每一帧之前，给 sliders 应用 scrollOffset —— 修改它们的 y 值
         for (ScrollEntry e : entries) {
@@ -348,12 +353,12 @@ public class ObjBlockConfigScreen extends Screen {
     private static class TextLabel extends AbstractWidget {
         public enum Align {LEFT, CENTER, RIGHT}
 
-        private final String text;
+        private final Component text;
         private final int color;
         private final boolean bold;
         private final Align align;
 
-        public TextLabel(int x, int y, String text, Align align, int color, boolean bold) {
+        public TextLabel(int x, int y, Component text, Align align, int color, boolean bold) {
             super(x, y, 0, 0, Component.empty());
             this.text = text;
             this.align = align;
@@ -367,7 +372,8 @@ public class ObjBlockConfigScreen extends Screen {
             int drawX = this.getX();
 
             // 根据对齐方式调整 x
-            int textWidth = font.width(text);
+            String labelText = text.getString();
+            int textWidth = font.width(labelText);
             switch (align) {
                 case CENTER -> drawX = this.getX() - textWidth / 2;
                 case RIGHT -> drawX = this.getX() - textWidth;
@@ -376,7 +382,7 @@ public class ObjBlockConfigScreen extends Screen {
 
             // 绘制文本，可加粗
             if (bold) {
-                graphics.drawString(font, Component.literal(text).withStyle(style -> style.withBold(true)), drawX, this.getY(), color, false);
+                graphics.drawString(font, text.copy().withStyle(style -> style.withBold(true)), drawX, this.getY(), color, false);
             } else {
                 graphics.drawString(font, text, drawX, this.getY(), color, false);
             }

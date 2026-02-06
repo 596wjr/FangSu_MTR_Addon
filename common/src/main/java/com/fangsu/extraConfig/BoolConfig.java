@@ -33,6 +33,8 @@ public class BoolConfig extends ConfigEntry<Boolean> {
     }
 
     private Component label() {
-        return Component.literal(value ? "ON" : "OFF");
+        return Component.translatable(value
+                ? "ui.fangsu.common.on"
+                : "ui.fangsu.common.off");
     }
 }

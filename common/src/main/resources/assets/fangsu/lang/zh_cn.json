@@ -9,10 +9,18 @@
   "ui.fangsu.block.config": "物件配置",
   "ui.fangsu.block.translate": "物件偏移",
   "ui.fangsu.block.extras": "物件额外配置",
+  "ui.fangsu.block.toggle_input": "切换为输入框",
+  "ui.fangsu.block.toggle_slider": "切换为滑块",
+  "ui.fangsu.block.close_and_save": "关闭并保存",
+  "ui.fangsu.ticketbarrier.mode": "模式",
   "ui.fangsu.ticketbarrier.isExit": "是否为出口",
   "ui.fangsu.ticketbarrier.fareVal": "扣款金额",
   "ui.fangsu.ticketbarrier.modeMtr": "MTR计费",
   "ui.fangsu.ticketbarrier.modeFareOnce": "固定收费",
   "ui.fangsu.ticketbarrier.modeCustom": "自定义(还没做)",
+  "ui.fangsu.common.on": "开",
+  "ui.fangsu.common.off": "关",
+  "ui.fangsu.common.toggle_input": "≡",
+  "ui.fangsu.common.value": "%s",
   "msg.fangsu.ticketbarrier.fareOnce": "扣费 %s 余额 %s"
 }

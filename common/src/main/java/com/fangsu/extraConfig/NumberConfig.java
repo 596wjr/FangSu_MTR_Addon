@@ -77,7 +77,7 @@ public class NumberConfig extends ConfigEntry<Float> {
         /* ---------- Toggle ---------- */
 
         Button toggle = Button.builder(
-                Component.literal("≡"),
+                Component.translatable("ui.fangsu.common.toggle_input"),
                 b -> {
                     slider.visible = !slider.visible;
                     input.visible = !input.visible;

@@ -283,24 +283,24 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         List<ConfigEntry<?>> configs = new ArrayList<>();
         Map<String, String> extra = this.extraConfigs;
         configs.add(new EnumConfig(
-                Component.literal("模式"),
+                Component.translatable("ui.fangsu.ticketbarrier.mode"),
                 new ConfigSpec("list"),
                 List.of(
-                        Component.literal("ui.fangsu.ticketbarrier.modeMtr"),
-                        Component.literal("ui.fangsu.ticketbarrier.modeFareOnce"),
-                        Component.literal("ui.fangsu.ticketbarrier.modeCustom")
+                        Component.translatable("ui.fangsu.ticketbarrier.modeMtr"),
+                        Component.translatable("ui.fangsu.ticketbarrier.modeFareOnce"),
+                        Component.translatable("ui.fangsu.ticketbarrier.modeCustom")
                 ),
                 be -> getExtraConfigInt("fareType", 0),
                 (be, v) -> extra.put("fareType", v.toString())
         ).setSaveOnChange(true));
         configs.add(new BoolConfig(
-                Component.literal("ui.fangsu.ticketbarrier.isExit"),
+                Component.translatable("ui.fangsu.ticketbarrier.isExit"),
                 new ConfigSpec("bool"),
                 be -> getExtraConfigBool("isExit", false),
                 (be, v) -> extra.put("isExit", v.toString())
         ).setShowCondition(v -> 0 == getExtraConfigInt("fareType", 0)));
         configs.add(new NumberInputConfig(
-                Component.literal("ui.fangsu.ticketbarrier.fareVal"),
+                Component.translatable("ui.fangsu.ticketbarrier.fareVal"),
                 new ConfigSpec("number_input")
                         .setParam("max", new JsonPrimitive(32767))
                         .setParam("min", new JsonPrimitive(0))

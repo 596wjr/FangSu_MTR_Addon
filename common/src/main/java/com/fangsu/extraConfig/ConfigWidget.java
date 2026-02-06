@@ -36,6 +36,9 @@ public class ConfigWidget extends AbstractWidget {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (!visible || !active) {
+            return false;
+        }
         return forwardToChildren(widget -> {
             if (widget.mouseClicked(mouseX, mouseY, button)) {
                 syncFocus(widget);
@@ -47,21 +50,33 @@ public class ConfigWidget extends AbstractWidget {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (!visible || !active) {
+            return false;
+        }
         return forwardToChildren(w -> w.mouseReleased(mouseX, mouseY, button));
     }
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
+        if (!visible || !active) {
+            return false;
+        }
         return forwardToChildren(w -> w.mouseDragged(mouseX, mouseY, button, dx, dy));
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (!visible || !active) {
+            return false;
+        }
         return forwardToChildren(w -> w.isFocused() && w.keyPressed(keyCode, scanCode, modifiers));
     }
 
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
+        if (!visible || !active) {
+            return false;
+        }
         return forwardToChildren(w -> w.isFocused() && w.charTyped(codePoint, modifiers));
     }
 

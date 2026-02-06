@@ -96,7 +96,7 @@ public final class ConfigTypes {
          */
         var arr = spec.params.get("values").getAsJsonArray();
         List<MutableComponent> values = arr.asList().stream()
-                .map(e -> Component.literal(e.getAsString()))
+                .map(e -> Component.translatable(e.getAsString()))
                 .toList();
 
         return new EnumConfig(title, spec, values, getter, setter);

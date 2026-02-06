@@ -1,3 +1,24 @@
 {
-  "ui.fangsu.block.title": "Block Config"
+  "ui.fangsu.block.title": "Block Config",
+  "ui.fangsu.block.transX": "X Offset",
+  "ui.fangsu.block.transY": "Y Offset",
+  "ui.fangsu.block.transZ": "Z Offset",
+  "ui.fangsu.block.rotX": "X Rotation",
+  "ui.fangsu.block.rotY": "Y Rotation",
+  "ui.fangsu.block.rotZ": "Z Rotation",
+  "ui.fangsu.block.translate": "Object Offset",
+  "ui.fangsu.block.extras": "Extra Settings",
+  "ui.fangsu.block.toggle_input": "Switch to Input",
+  "ui.fangsu.block.toggle_slider": "Switch to Slider",
+  "ui.fangsu.block.close_and_save": "Close & Save",
+  "ui.fangsu.ticketbarrier.mode": "Mode",
+  "ui.fangsu.ticketbarrier.isExit": "Exit Gate",
+  "ui.fangsu.ticketbarrier.fareVal": "Fare Amount",
+  "ui.fangsu.ticketbarrier.modeMtr": "MTR Fare",
+  "ui.fangsu.ticketbarrier.modeFareOnce": "Flat Fare",
+  "ui.fangsu.ticketbarrier.modeCustom": "Custom (TBD)",
+  "ui.fangsu.common.on": "ON",
+  "ui.fangsu.common.off": "OFF",
+  "ui.fangsu.common.toggle_input": "≡",
+  "ui.fangsu.common.value": "%s"
 }
