@@ -24,8 +24,10 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build Fabric and Forge
-        run: ./gradlew buildAll --no-daemon
+      - name: Build Fabric
+        run: ./gradlew :fabric:build --no-daemon
+      - name: Build Forge
+        run: ./gradlew :forge:build --no-daemon
 
       # ===== Fabric artifacts =====
       - name: Upload Fabric jars

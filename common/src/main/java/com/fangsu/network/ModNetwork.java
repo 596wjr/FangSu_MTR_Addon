@@ -1,7 +1,6 @@
 package com.fangsu.network;
 
 
-import com.fangsu.Main;
 import com.fangsu.blockEntities.Syncable;
 import dev.architectury.networking.NetworkManager;
 import net.minecraft.core.BlockPos;
@@ -10,10 +9,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Supplier;
 
 public class ModNetwork {
     public static final ResourceLocation BE_SYNC =

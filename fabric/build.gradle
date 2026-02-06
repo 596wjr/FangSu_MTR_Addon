@@ -37,13 +37,6 @@ dependencies {
     shadowBundle project(path: ':common', configuration: 'transformProductionFabric')
 
     modImplementation "maven.modrinth:minecraft-transit-railway:$rootProject.mtr_version_fabric"
-//    if(rootProject.require_nte){
-//        modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
-//    }
-
-//    modApi("me.shedaniel.cloth:cloth-config-fabric:11.1.136") {
-//        exclude(group: "net.fabricmc.fabric-api")
-//    }
 }
 
 sourceSets {

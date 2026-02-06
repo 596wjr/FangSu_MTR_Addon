@@ -185,6 +185,7 @@ public class ObjBlockConfigScreen extends Screen {
             }, min, max, step), baseY);
             return baseY;
         }
+        baseY += 12;
         addEntry(createAxisInput(centerX - spacing, baseY, labelX, valueX, min, max, step, setX), baseY);
         addEntry(createAxisInput(centerX, baseY, labelY, valueY, min, max, step, setY), baseY);
         addEntry(createAxisInput(centerX + spacing, baseY, labelZ, valueZ, min, max, step, setZ), baseY);

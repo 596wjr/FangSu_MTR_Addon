@@ -20,7 +20,7 @@ public final class Main {
         //#if FABRIC
         //$$ LOGGER.info("Fangsu is running on FABRIC");
         //#elseif FORGE
-        LOGGER.info("Fangsu is running on FORGE");
+        //$$ LOGGER.info("Fangsu is running on FORGE");
         //#endif
 
         ModBlocks.init();
