@@ -69,7 +69,15 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> extends BlockEn
         try {
             blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, lightToUse);
         } catch (Exception e) {
-            Main.LOGGER.error(e.getMessage());
+            try {
+                Matrix4f worldPose = new Matrix4f(matrices.last().pose()).copy();
+                //#if FORGE
+                //$$ blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, worldPose, lightToUse);
+                //#elseif FABRIC
+                //$$ blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, worldPose, lightToUse);
+                //#endif
+            } catch (Exception ignored) {
+            }
         }
 //            }
 //            prop.script.tryCallRenderFunctionAsync(blockEntity.scriptContext);
