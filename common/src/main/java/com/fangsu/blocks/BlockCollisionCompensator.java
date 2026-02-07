@@ -61,7 +61,8 @@ public class BlockCollisionCompensator extends Block {
                     }
                     BlockPos targetPos = pos.offset(dx, dy, dz);
                     BlockState targetState = level.getBlockState(targetPos);
-                    if (targetState.getBlock() == this) {
+                    Block targetBlock = targetState.getBlock();
+                    if (targetBlock == this || !isObjBasedBlock(targetBlock)) {
                         continue;
                     }
                     VoxelShape interactionShape = targetState.getInteractionShape(level, targetPos);
@@ -89,7 +90,8 @@ public class BlockCollisionCompensator extends Block {
             return InteractionResult.PASS;
         }
         Direction redirectedDirection = resolveHitDirection(bestWorldShape, hitLocation, hit.getDirection());
-        BlockHitResult redirectedHit = new BlockHitResult(hitLocation, redirectedDirection, bestPos, hit.isInside());
+        Vec3 redirectedLocation = redirectHitLocation(hitLocation, pos, bestPos);
+        BlockHitResult redirectedHit = new BlockHitResult(redirectedLocation, redirectedDirection, bestPos, hit.isInside());
         return bestState.getBlock().use(bestState, level, bestPos, player, hand, redirectedHit);
     }
 
@@ -127,7 +129,8 @@ public class BlockCollisionCompensator extends Block {
                     }
                     BlockPos targetPos = pos.offset(dx, dy, dz);
                     BlockState targetState = world.getBlockState(targetPos);
-                    if (targetState.getBlock() == this) {
+                    Block targetBlock = targetState.getBlock();
+                    if (targetBlock == this || !isObjBasedBlock(targetBlock)) {
                         continue;
                     }
                     VoxelShape targetShape = collision
@@ -177,6 +180,24 @@ public class BlockCollisionCompensator extends Block {
             return Shapes.empty();
         }
         return shape.move(targetPos.getX(), targetPos.getY(), targetPos.getZ());
+    }
+
+    private Vec3 redirectHitLocation(Vec3 hitLocation, BlockPos sourcePos, BlockPos targetPos) {
+        double offsetX = targetPos.getX() - sourcePos.getX();
+        double offsetY = targetPos.getY() - sourcePos.getY();
+        double offsetZ = targetPos.getZ() - sourcePos.getZ();
+        return hitLocation.add(offsetX, offsetY, offsetZ);
+    }
+
+    private boolean isObjBasedBlock(Block block) {
+        Class<?> currentClass = block.getClass();
+        while (currentClass != null) {
+            if ("ObjBasedBlock".equals(currentClass.getSimpleName())) {
+                return true;
+            }
+            currentClass = currentClass.getSuperclass();
+        }
+        return false;
     }
 
     private boolean containsPoint(VoxelShape shape, Vec3 point) {
