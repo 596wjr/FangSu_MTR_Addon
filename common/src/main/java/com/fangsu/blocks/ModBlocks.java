@@ -17,7 +17,18 @@ public class ModBlocks {
 
     public static final RegistrySupplier<Item> ITEM_TICKET_BARRIER = RegisterUtil.addBlockItem("ticket_barrier", BLOCK_TICKET_BARRIER);
 
-    public static final RegistrySupplier<CreativeModeTab> FANGSU_MAIN = RegisterUtil.addCreativeTab("main", "tab", ITEM_TICKET_BARRIER, ITEM_TICKET_BARRIER);
+    public static final RegistrySupplier<Block> BLOCK_COLLISION_COMPENSATOR =
+            RegisterUtil.addBlock("collision_compensation_block", BlockCollisionCompensator::new);
+    public static final RegistrySupplier<Item> ITEM_COLLISION_COMPENSATOR =
+            RegisterUtil.addBlockItem("collision_compensation_block", BLOCK_COLLISION_COMPENSATOR);
+
+    public static final RegistrySupplier<CreativeModeTab> FANGSU_MAIN = RegisterUtil.addCreativeTab(
+            "main",
+            "tab",
+            ITEM_TICKET_BARRIER,
+            ITEM_TICKET_BARRIER,
+            ITEM_COLLISION_COMPENSATOR
+    );
 
     public static void init() {
     }
