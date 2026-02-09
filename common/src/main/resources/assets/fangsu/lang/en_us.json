@@ -21,5 +21,7 @@
   "ui.fangsu.common.off": "OFF",
   "ui.fangsu.common.toggle_input": "≡",
   "ui.fangsu.common.value": "%s",
-  "block.fangsu.collision_compensation_block": "碰撞箱补偿方块"
+  "tab.fangsu.main": "FangSu · Main",
+  "block.fangsu.ticket_barrier": "Ticket Barrier",
+  "block.fangsu.collision_compensation_block": "Collision Compensation Block"
 }

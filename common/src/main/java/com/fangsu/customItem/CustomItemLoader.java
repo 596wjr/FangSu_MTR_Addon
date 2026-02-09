@@ -28,28 +28,94 @@ public class CustomItemLoader {
     /**
      * 将自定义 JSON 解析成 Map，并进行缓存。
      */
-    public static Map<String, Map<String, Object>> optimizeCustomItemJSON(ResourceLocation location, String baseKey) throws Exception {
-        String globalRegisterKey = "Identifier" + location.getPath() + "@JsonObject";
+    public static Map<String, Map<String, Object>> optimizeCustomItemJSON(ResourceLocation location, String nestedKeyPath) throws Exception {
+        String globalRegisterKey = "Identifier" + location.getPath() + "@JsonObject@" + nestedKeyPath;
         if (register.containsKey(globalRegisterKey)) {
             return (Map<String, Map<String, Object>>) register.get(globalRegisterKey);
         }
+
         JsonObject json = ResourceUtil.loadAsJSON(location).getAsJsonObject();
-        Map<String, Map<String, Object>> baseMap = new HashMap<>();
-        if (json.has(baseKey) && json.get(baseKey).isJsonArray()) {
-            JsonArray baseArray = json.get(baseKey).getAsJsonArray();
-            for (int i = 0; i < baseArray.size(); i++) {
-                JsonElement element = baseArray.get(i);
+        Map<String, Map<String, Object>> resultMap = new HashMap<>();
+
+        // 解析嵌套路径
+        JsonElement targetElement = getNestedJsonElement(json, nestedKeyPath);
+
+        if (targetElement == null) return null;
+
+        if (targetElement.isJsonArray()) {
+            JsonArray targetArray = targetElement.getAsJsonArray();
+
+            for (int i = 0; i < targetArray.size(); i++) {
+                JsonElement element = targetArray.get(i);
                 if (!element.isJsonObject()) {
                     continue;
                 }
                 JsonObject obj = element.getAsJsonObject();
                 if (obj.has("id")) {
-                    baseMap.put(obj.get("id").getAsString(), serializeJsonObject(obj));
+                    resultMap.put(obj.get("id").getAsString(), serializeJsonObject(obj));
                 }
             }
         }
-        register.put(globalRegisterKey, baseMap);
-        return baseMap;
+
+        register.put(globalRegisterKey, resultMap);
+        return resultMap;
+    }
+
+    /**
+     * 根据嵌套路径获取JSON元素
+     * 支持格式: "key1.key2.key3" 或 "key1[0].key2"
+     */
+    private static JsonElement getNestedJsonElement(JsonObject json, String path) {
+        if (path == null || path.isEmpty()) {
+            return json;
+        }
+
+        String[] parts = path.split("\\.");
+        JsonElement current = json;
+
+        for (String part : parts) {
+            if (current == null || current.isJsonNull()) {
+                return null;
+            }
+
+            // 检查是否为数组索引
+            if (part.matches(".+\\[\\d+\\]$")) {
+                // 处理数组索引，如 "door.left[0]"
+                String[] arrayParts = part.split("\\[");
+                String arrayKey = arrayParts[0];
+                int index = Integer.parseInt(arrayParts[1].replace("]", ""));
+
+                if (current.isJsonObject()) {
+                    JsonObject obj = current.getAsJsonObject();
+                    if (obj.has(arrayKey) && obj.get(arrayKey).isJsonArray()) {
+                        JsonArray array = obj.get(arrayKey).getAsJsonArray();
+                        if (index >= 0 && index < array.size()) {
+                            current = array.get(index);
+                        } else {
+                            return null;
+                        }
+                    } else {
+                        return null;
+                    }
+                } else {
+                    return null;
+                }
+            } else {
+                // 普通对象键
+                if (current.isJsonObject()) {
+                    JsonObject obj = current.getAsJsonObject();
+                    if (obj.has(part)) {
+                        current = obj.get(part);
+                    } else {
+                        return null;
+                    }
+                } else {
+                    return null;
+                }
+            }
+        }
+
+        return current;
     }
 
     /**

@@ -24,6 +24,7 @@ public class BlockTicketBarrier extends BaseObjBlock {
 
     @Override
     public BlockEntityMapper createBlockEntity(BlockPos blockPos, BlockState blockState) {
-        return new BlockEntityTicketBarrier(blockPos, blockState);
+        BlockEntityTicketBarrier be = new BlockEntityTicketBarrier(blockPos, blockState);
+        return be;
     }
 }

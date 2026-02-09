@@ -4,10 +4,12 @@ package com.fangsu.blockEntities.client;
 
 import fabric.cn.zbx1425.mtrsteamloco.MainClient;
 import fabric.cn.zbx1425.sowcer.math.Matrix4f;
+import fabric.cn.zbx1425.sowcer.math.PoseStackUtil;
 import fabric.cn.zbx1425.sowcerext.reuse.DrawScheduler;
 //#elseif FORGE
 //$$ import forge.cn.zbx1425.mtrsteamloco.MainClient;
 //$$ import forge.cn.zbx1425.sowcer.math.Matrix4f;
+//$$ import forge.cn.zbx1425.sowcer.math.PoseStackUtil;
 //$$ import forge.cn.zbx1425.sowcerext.reuse.DrawScheduler;
 //#endif
 
@@ -18,11 +20,13 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import mtr.RegistryObject;
 import mtr.block.IBlock;
 import mtr.mappings.BlockEntityRendererMapper;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -59,15 +63,25 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> extends BlockEn
 
         final BlockPos pos = blockEntity.getBlockPos();
         final Direction facing = IBlock.getStatePropertySafe(world, pos, BaseObjBlock.FACING);
+
+        if (blockEntity.isMarkedError()) {
+//            matrices.pushPose();
+//            matrices.translate(pos.getX(), pos.getY(), pos.getZ());
+//            matrices.translate(0.5f, 0.5f, 0.5f);
+//            PoseStackUtil.rotY(matrices, (float) ((System.currentTimeMillis() % 1000) * (Math.PI * 2 / 1000)));
+//            Minecraft.getInstance().getItemRenderer().renderStatic(BARRIER_ITEM_STACK.get(), ItemDisplayContext.GROUND, lightToUse, 0, matrices, multiBufferSource, world, 0);
+            return;
+        }
+
         candyPose.translate(0.5f, 0f, 0.5f);
         candyPose.translate(blockEntity.translateX, blockEntity.translateY, blockEntity.translateZ);
         candyPose.rotateY(-(float) Math.toRadians(facing.toYRot()) + (float) (Math.PI));
         candyPose.rotateX(blockEntity.rotateX);
         candyPose.rotateY(blockEntity.rotateY);
         candyPose.rotateZ(blockEntity.rotateZ);
-        if (prop.model != null) {
-            MainClient.drawScheduler.enqueue(prop.model, candyPose, lightToUse);
-        }
+//        if (prop.model != null) {
+//            MainClient.drawScheduler.enqueue(prop.model, candyPose, lightToUse);
+//        }
 //        if (prop.script != null) {
 //            synchronized (blockEntity.scriptContext) {
         try {

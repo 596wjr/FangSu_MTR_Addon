@@ -13,18 +13,20 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.EntityCollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.minecraft.world.phys.AABB;
 import mtr.Items;
 import org.jetbrains.annotations.NotNull;
 
+import static com.fangsu.blocks.ModBlocks.ITEM_COLLISION_COMPENSATOR;
+
 public class BlockCollisionCompensator extends Block {
+
     private static final int SEARCH_RADIUS = 2;
-    private static final double EPSILON = 1.0E-7;
 
     public BlockCollisionCompensator(Properties properties) {
         super(properties);
@@ -53,45 +55,50 @@ public class BlockCollisionCompensator extends Block {
         BlockState bestState = null;
         VoxelShape bestWorldShape = null;
         double bestDistance = Double.MAX_VALUE;
+
         for (int dx = -SEARCH_RADIUS; dx <= SEARCH_RADIUS; dx++) {
             for (int dy = -SEARCH_RADIUS; dy <= SEARCH_RADIUS; dy++) {
                 for (int dz = -SEARCH_RADIUS; dz <= SEARCH_RADIUS; dz++) {
-                    if (dx == 0 && dy == 0 && dz == 0) {
-                        continue;
-                    }
+                    if (dx == 0 && dy == 0 && dz == 0) continue;
+
                     BlockPos targetPos = pos.offset(dx, dy, dz);
                     BlockState targetState = level.getBlockState(targetPos);
                     Block targetBlock = targetState.getBlock();
-                    if (targetBlock == this || !isObjBasedBlock(targetBlock)) {
-                        continue;
+
+                    if (targetBlock == this || !isObjBasedBlock(targetBlock)) continue;
+
+                    VoxelShape shape = targetState.getInteractionShape(level, targetPos);
+                    if (shape.isEmpty()) {
+                        shape = targetState.getCollisionShape(level, targetPos);
                     }
-                    VoxelShape interactionShape = targetState.getInteractionShape(level, targetPos);
-                    VoxelShape targetWorldShape = toWorldShape(interactionShape, targetPos);
-                    VoxelShape clippedWorld = getClippedWorldShape(targetWorldShape, pos);
-                    if (clippedWorld.isEmpty() && !targetState.getCollisionShape(level, targetPos).isEmpty()) {
-                        VoxelShape collisionShape = targetState.getCollisionShape(level, targetPos);
-                        targetWorldShape = toWorldShape(collisionShape, targetPos);
-                        clippedWorld = getClippedWorldShape(targetWorldShape, pos);
-                    }
-                    if (clippedWorld.isEmpty() || !containsPoint(clippedWorld, hitLocation)) {
-                        continue;
-                    }
-                    double distance = distanceToShapeSquared(clippedWorld, hitLocation);
+                    if (shape.isEmpty()) continue;
+
+                    VoxelShape worldShape = toWorldShape(shape, targetPos);
+                    VoxelShape clipped = clipToBlock(worldShape, pos);
+
+                    if (clipped.isEmpty() || !containsPoint(clipped, hitLocation)) continue;
+
+                    double distance = distanceToShapeSquared(clipped, hitLocation);
                     if (distance < bestDistance) {
                         bestDistance = distance;
                         bestPos = targetPos;
                         bestState = targetState;
-                        bestWorldShape = targetWorldShape;
+                        bestWorldShape = worldShape;
                     }
                 }
             }
         }
-        if (bestPos == null || bestState == null || bestWorldShape == null) {
+
+        if (bestPos == null) {
             return InteractionResult.PASS;
         }
+
         Direction redirectedDirection = resolveHitDirection(bestWorldShape, hitLocation, hit.getDirection());
         Vec3 redirectedLocation = redirectHitLocation(hitLocation, pos, bestPos);
-        BlockHitResult redirectedHit = new BlockHitResult(redirectedLocation, redirectedDirection, bestPos, hit.isInside());
+        BlockHitResult redirectedHit = new BlockHitResult(
+                redirectedLocation, redirectedDirection, bestPos, hit.isInside()
+        );
+
         return bestState.getBlock().use(bestState, level, bestPos, player, hand, redirectedHit);
     }
 
@@ -116,174 +123,121 @@ public class BlockCollisionCompensator extends Block {
     }
 
     private VoxelShape getCompensationShape(BlockGetter world, BlockPos pos, CollisionContext context, boolean collision) {
-        if (!collision && context instanceof EntityCollisionContext entityContext
-                && entityContext.isHoldingItem(Items.BRUSH.get())) {
+        if (!collision && context instanceof EntityCollisionContext ecc
+                && (ecc.isHoldingItem(Items.BRUSH.get()) || ecc.isHoldingItem(ITEM_COLLISION_COMPENSATOR.get()))) {
             return Shapes.block();
         }
+
         VoxelShape merged = Shapes.empty();
+
         for (int dx = -SEARCH_RADIUS; dx <= SEARCH_RADIUS; dx++) {
             for (int dy = -SEARCH_RADIUS; dy <= SEARCH_RADIUS; dy++) {
                 for (int dz = -SEARCH_RADIUS; dz <= SEARCH_RADIUS; dz++) {
-                    if (dx == 0 && dy == 0 && dz == 0) {
-                        continue;
-                    }
+                    if (dx == 0 && dy == 0 && dz == 0) continue;
+
                     BlockPos targetPos = pos.offset(dx, dy, dz);
                     BlockState targetState = world.getBlockState(targetPos);
                     Block targetBlock = targetState.getBlock();
-                    if (targetBlock == this || !isObjBasedBlock(targetBlock)) {
-                        continue;
-                    }
-                    VoxelShape targetShape = collision
+
+                    if (targetBlock == this || !isObjBasedBlock(targetBlock)) continue;
+
+                    VoxelShape shape = collision
                             ? targetState.getCollisionShape(world, targetPos, context)
                             : targetState.getShape(world, targetPos, context);
-                    if (targetShape.isEmpty()) {
-                        continue;
-                    }
-                    VoxelShape clippedLocal = getClippedLocalShape(targetShape, pos, targetPos);
-                    if (!clippedLocal.isEmpty()) {
-                        merged = Shapes.or(merged, clippedLocal);
+
+                    if (shape.isEmpty()) continue;
+
+                    VoxelShape local = clipToBlock(
+                            toWorldShape(shape, targetPos),
+                            pos
+                    ).move(-pos.getX(), -pos.getY(), -pos.getZ());
+
+                    if (!local.isEmpty()) {
+                        merged = Shapes.or(merged, local);
                     }
                 }
             }
         }
+
         return merged;
     }
 
-    private VoxelShape getClippedLocalShape(VoxelShape targetShape, BlockPos pos, BlockPos targetPos) {
-        VoxelShape targetWorldShape = toWorldShape(targetShape, targetPos);
-        VoxelShape clippedWorld = getClippedWorldShape(targetWorldShape, pos);
-        if (clippedWorld.isEmpty()) {
-            return Shapes.empty();
-        }
-        return clippedWorld.move(-pos.getX(), -pos.getY(), -pos.getZ());
+    /**
+     * 核心：严格裁剪到当前方块的 world-space 立方体
+     */
+    private VoxelShape clipToBlock(VoxelShape worldShape, BlockPos blockPos) {
+        if (worldShape.isEmpty()) return Shapes.empty();
+        VoxelShape blockWorld = Shapes.create(new AABB(blockPos));
+        return Shapes.join(worldShape, blockWorld, BooleanOp.AND);
     }
 
-    private VoxelShape getClippedWorldShape(VoxelShape targetWorldShape, BlockPos pos) {
-        if (targetWorldShape.isEmpty()) {
-            return Shapes.empty();
-        }
-        AABB blockBox = new AABB(pos);
-        VoxelShape clipped = Shapes.empty();
-        for (AABB box : targetWorldShape.toAabbs()) {
-            AABB intersection = box.intersect(blockBox);
-            if ((intersection.maxX - intersection.minX) > EPSILON
-                    && (intersection.maxY - intersection.minY) > EPSILON
-                    && (intersection.maxZ - intersection.minZ) > EPSILON) {
-                clipped = Shapes.or(clipped, Shapes.create(intersection));
-            }
-        }
-        return clipped;
-    }
-
-    private VoxelShape toWorldShape(VoxelShape shape, BlockPos targetPos) {
-        if (shape.isEmpty()) {
-            return Shapes.empty();
-        }
-        return shape.move(targetPos.getX(), targetPos.getY(), targetPos.getZ());
+    private VoxelShape toWorldShape(VoxelShape shape, BlockPos pos) {
+        return shape.move(pos.getX(), pos.getY(), pos.getZ());
     }
 
     private Vec3 redirectHitLocation(Vec3 hitLocation, BlockPos sourcePos, BlockPos targetPos) {
-        double offsetX = targetPos.getX() - sourcePos.getX();
-        double offsetY = targetPos.getY() - sourcePos.getY();
-        double offsetZ = targetPos.getZ() - sourcePos.getZ();
-        return hitLocation.add(offsetX, offsetY, offsetZ);
+        return hitLocation.add(
+                targetPos.getX() - sourcePos.getX(),
+                targetPos.getY() - sourcePos.getY(),
+                targetPos.getZ() - sourcePos.getZ()
+        );
     }
 
     private boolean isObjBasedBlock(Block block) {
-        Class<?> currentClass = block.getClass();
-        while (currentClass != null) {
-            if ("ObjBasedBlock".equals(currentClass.getSimpleName())) {
-                return true;
-            }
-            currentClass = currentClass.getSuperclass();
-        }
-        return false;
+        return block instanceof BaseObjBlock;
     }
 
     private boolean containsPoint(VoxelShape shape, Vec3 point) {
         for (AABB box : shape.toAabbs()) {
-            if (box.inflate(EPSILON).contains(point)) {
-                return true;
-            }
+            if (box.contains(point)) return true;
         }
         return false;
     }
 
-    private Direction resolveHitDirection(VoxelShape targetWorldShape, Vec3 hitLocation, Direction fallback) {
-        Direction bestDirection = null;
-        double bestDistance = Double.MAX_VALUE;
-        for (AABB box : targetWorldShape.toAabbs()) {
-            if (isWithin(hitLocation.y, box.minY, box.maxY) && isWithin(hitLocation.z, box.minZ, box.maxZ)) {
-                BestFace best = updateBestDirection(hitLocation.x, box.minX, Direction.WEST, bestDirection, bestDistance);
-                bestDirection = best.direction;
-                bestDistance = best.distance;
-                best = updateBestDirection(hitLocation.x, box.maxX, Direction.EAST, bestDirection, bestDistance);
-                bestDirection = best.direction;
-                bestDistance = best.distance;
-            }
-            if (isWithin(hitLocation.x, box.minX, box.maxX) && isWithin(hitLocation.z, box.minZ, box.maxZ)) {
-                BestFace best = updateBestDirection(hitLocation.y, box.minY, Direction.DOWN, bestDirection, bestDistance);
-                bestDirection = best.direction;
-                bestDistance = best.distance;
-                best = updateBestDirection(hitLocation.y, box.maxY, Direction.UP, bestDirection, bestDistance);
-                bestDirection = best.direction;
-                bestDistance = best.distance;
-            }
-            if (isWithin(hitLocation.x, box.minX, box.maxX) && isWithin(hitLocation.y, box.minY, box.maxY)) {
-                BestFace best = updateBestDirection(hitLocation.z, box.minZ, Direction.NORTH, bestDirection, bestDistance);
-                bestDirection = best.direction;
-                bestDistance = best.distance;
-                best = updateBestDirection(hitLocation.z, box.maxZ, Direction.SOUTH, bestDirection, bestDistance);
-                bestDirection = best.direction;
-                bestDistance = best.distance;
-            }
+    private Direction resolveHitDirection(VoxelShape worldShape, Vec3 hit, Direction fallback) {
+        Direction best = null;
+        double bestDist = Double.MAX_VALUE;
+
+        for (AABB box : worldShape.toAabbs()) {
+            best = updateFace(hit.x, box.minX, Direction.WEST, best, bestDist);
+            bestDist = updateDist(hit.x, box.minX, bestDist);
+
+            best = updateFace(hit.x, box.maxX, Direction.EAST, best, bestDist);
+            bestDist = updateDist(hit.x, box.maxX, bestDist);
+
+            best = updateFace(hit.y, box.minY, Direction.DOWN, best, bestDist);
+            bestDist = updateDist(hit.y, box.minY, bestDist);
+
+            best = updateFace(hit.y, box.maxY, Direction.UP, best, bestDist);
+            bestDist = updateDist(hit.y, box.maxY, bestDist);
+
+            best = updateFace(hit.z, box.minZ, Direction.NORTH, best, bestDist);
+            bestDist = updateDist(hit.z, box.minZ, bestDist);
+
+            best = updateFace(hit.z, box.maxZ, Direction.SOUTH, best, bestDist);
+            bestDist = updateDist(hit.z, box.maxZ, bestDist);
         }
-        return bestDirection == null ? fallback : bestDirection;
+
+        return best == null ? fallback : best;
     }
 
-    private boolean isWithin(double value, double min, double max) {
-        return value >= min - EPSILON && value <= max + EPSILON;
+    private Direction updateFace(double value, double face, Direction dir, Direction current, double bestDist) {
+        double d = Math.abs(value - face);
+        return d < bestDist ? dir : current;
     }
 
-    private BestFace updateBestDirection(double value, double face, Direction direction, Direction bestDirection, double bestDistance) {
-        double distance = Math.abs(value - face);
-        if (distance < bestDistance) {
-            return new BestFace(direction, distance);
-        }
-        return new BestFace(bestDirection, bestDistance);
-    }
-
-    private static class BestFace {
-        private final Direction direction;
-        private final double distance;
-
-        private BestFace(Direction direction, double distance) {
-            this.direction = direction;
-            this.distance = distance;
-        }
+    private double updateDist(double value, double face, double bestDist) {
+        return Math.min(bestDist, Math.abs(value - face));
     }
 
     private double distanceToShapeSquared(VoxelShape shape, Vec3 point) {
         double best = Double.MAX_VALUE;
         for (AABB box : shape.toAabbs()) {
-            double dx = distanceToRange(point.x, box.minX, box.maxX);
-            double dy = distanceToRange(point.y, box.minY, box.maxY);
-            double dz = distanceToRange(point.z, box.minZ, box.maxZ);
-            double distance = dx * dx + dy * dy + dz * dz;
-            if (distance < best) {
-                best = distance;
-            }
+            double dx = Math.max(0, Math.max(box.minX - point.x, point.x - box.maxX));
+            double dy = Math.max(0, Math.max(box.minY - point.y, point.y - box.maxY));
+            double dz = Math.max(0, Math.max(box.minZ - point.z, point.z - box.maxZ));
+            best = Math.min(best, dx * dx + dy * dy + dz * dz);
         }
         return best;
-    }
-
-    private double distanceToRange(double value, double min, double max) {
-        if (value < min) {
-            return min - value;
-        }
-        if (value > max) {
-            return value - max;
-        }
-        return 0;
     }
 }

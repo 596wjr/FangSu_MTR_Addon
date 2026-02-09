@@ -64,6 +64,8 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
     public String mainModel;
     public Map<String, String> subModels = new HashMap<>();
 
+    protected boolean markedError = false;
+
     Map<String, String> extraConfigs = new HashMap<>();
 
     public BaseObjBlockEntity(BlockEntityType<?> blockEntityType, BlockPos blockPos, BlockState blockState) {
@@ -200,6 +202,10 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
 
     public VoxelShape setShape(BlockState state) {
         return Block.box(0, 0, 0, 16, 16, 16);
+    }
+
+    public boolean isMarkedError() {
+        return markedError;
     }
 
     public static class ObjBlockProperty {
@@ -348,6 +354,7 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
 
     void syncToServer() {
         if (level == null || level.isClientSide) {
+            this.whenSaving(this.extraConfigs);
             if (!level.hasChunk(getBlockPos().getX() >> 4, getBlockPos().getZ() >> 4)) return;
             FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
             buf.writeBlockPos(getBlockPos());

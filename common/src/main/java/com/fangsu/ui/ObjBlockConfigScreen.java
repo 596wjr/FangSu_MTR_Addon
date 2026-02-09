@@ -182,7 +182,7 @@ public class ObjBlockConfigScreen extends Screen {
                 v -> rotateZ = v);
         y += 28;
 
-        if (!configs.isEmpty()) {
+        if (configs != null && !configs.isEmpty()) {
             addEntry(createTextLabel(cx, y, Component.translatable("ui.fangsu.block.extras"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
             y += 12;
             for (ConfigEntry<?> c : configs) {
@@ -475,9 +475,10 @@ public class ObjBlockConfigScreen extends Screen {
     @Override
     public void onClose() {
         if (be != null) {
-            for (ConfigEntry<?> c : configs) {
-                c.save(be);
-            }
+            if (configs != null)
+                for (ConfigEntry<?> c : configs) {
+                    c.save(be);
+                }
             be.sendUpdateC2S();
         }
         super.onClose();

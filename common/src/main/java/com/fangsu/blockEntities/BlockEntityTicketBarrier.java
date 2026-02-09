@@ -11,8 +11,6 @@ import fabric.cn.zbx1425.sowcer.math.Matrices;
 
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.fangsu.customItem.CustomItemLoader;
 import com.fangsu.Main;
 import com.fangsu.utils.CustomItemHelper;
@@ -43,7 +41,6 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraft.world.scores.Score;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -52,7 +49,7 @@ import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_TICKET_BARRIER;
 public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     public static final String DEFAULT_MAIN_MODEL = "fangsu:ticketbarrier/mtr_ticketbarrier.json";
     public static final String DEFAULT_SUB_MODEL = "mtr_ticketbarrier_1";
-    public static final String Main_MODEL_KEY = "ticketBarrier";
+    public static final String MAIN_MODEL_KEY = "ticketBarrier";
 
     private boolean cacheIsOpen = false;
     private long closeTime = 0;
@@ -83,14 +80,14 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         BaseObjBlockEntity entity = this;
         ObjBlockProperty property = this.getProperty();
 
-        String mainModel = CustomItemHelper.checkMainModel(entity, DEFAULT_MAIN_MODEL);
-        String subModel = CustomItemHelper.checkSubModel(entity, "subModel", DEFAULT_SUB_MODEL);
+        String mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
+        String subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
 
         try {
             loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(entity.mainModel));
             if (!loaded.containsKey(subModel)) {
-                entity.mainModel = DEFAULT_MAIN_MODEL;
-                entity.subModels.put("subModel", DEFAULT_SUB_MODEL);
+                markedError = true;
+                return;
             }
             Map<String, Object> current = loaded.get(subModel);
             mainDmh = ResourceUtil.loadDmh(new ResourceLocation((String) current.get("model")), (Boolean) current.get("flipV"));
@@ -324,7 +321,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
 
     @Override
     public java.lang.String getMainModelKey() {
-        return Main_MODEL_KEY;
+        return MAIN_MODEL_KEY;
     }
 
     @Override

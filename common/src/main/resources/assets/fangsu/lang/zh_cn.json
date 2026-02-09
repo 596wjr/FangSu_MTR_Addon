@@ -23,9 +23,16 @@
   "ui.fangsu.ticketbarrier.modeMtr": "MTR计费",
   "ui.fangsu.ticketbarrier.modeFareOnce": "固定收费",
   "ui.fangsu.ticketbarrier.modeCustom": "自定义(还没做)",
+  "ui.fangsu.screendoor.doorSide": "开门方向",
+  "ui.fangsu.screendoor.doorSideLeft": "左",
+  "ui.fangsu.screendoor.doorSideRight": "右",
+  "ui.fangsu.screendoor.doorSideFlex": "灵活",
   "ui.fangsu.common.on": "开",
   "ui.fangsu.common.off": "关",
   "ui.fangsu.common.toggle_input": "≡",
   "ui.fangsu.common.value": "%s",
-  "msg.fangsu.ticketbarrier.fareOnce": "扣费 %s 余额 %s"
+  "msg.fangsu.ticketbarrier.fareOnce": "扣费 %s 余额 %s",
+  "tab.fangsu.main": "方速 · 核心",
+  "block.fangsu.ticket_barrier": "检票闸机",
+  "block.fangsu.collision_compensation_block": "碰撞箱补偿方块"
 }

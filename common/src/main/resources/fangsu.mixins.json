@@ -6,6 +6,7 @@
   "client": [
   ],
   "mixins": [
+    "TrainMixin"
   ],
   "injectors": {
     "defaultRequire": 1
