@@ -85,7 +85,13 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> extends BlockEn
 //        if (prop.script != null) {
 //            synchronized (blockEntity.scriptContext) {
         try {
+            //#if NTE
             blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, lightToUse);
+            //#elseif ANTE
+            //$$ Matrix4f worldPose = new Matrix4f(matrices.last().pose()).copy();
+            //$$ blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose,worldPose, lightToUse);
+            //#endif
+
         } catch (Exception e) {
             try {
                 Matrix4f worldPose = new Matrix4f(matrices.last().pose()).copy();

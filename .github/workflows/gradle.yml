@@ -25,6 +25,9 @@ jobs:
       - name: Build Fabric
         run: ./gradlew :fabric:build --no-daemon
 
+      - name: Build Fabric For ANTE
+        run: ./gradlew :fabric:build --no-daemon -Pbuild_for_ante=true
+
       # ===== Fabric artifacts =====
       - name: Upload Fabric jars
         uses: actions/upload-artifact@v4
@@ -61,6 +64,9 @@ jobs:
 
       - name: Build Forge
         run: ./gradlew :forge:build --no-daemon
+
+      - name: Build Forge For ANTE
+        run: ./gradlew :forge:build --no-daemon -Pbuild_for_ante=true
 
       # ===== Forge artifacts =====
       - name: Upload Forge jars

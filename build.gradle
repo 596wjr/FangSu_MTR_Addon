@@ -31,7 +31,10 @@ ext {
     }
 }
 
+def buildForAnte = rootProject.findProperty("build_for_ante")
+
 println "[Build] Current platform = ${platform}"
+println "[Build] Build for ANTE : ${buildForAnte}"
 
 apply from: "build_process.gradle"
 
@@ -41,7 +44,8 @@ subprojects {
     apply plugin: 'maven-publish'
 
     base {
-        archivesName = "$rootProject.mod_prefix$rootProject.archives_name-mc$project.minecraft_version-${platform}"
+        archivesName = "$rootProject.mod_prefix$rootProject.archives_name-mc$project.minecraft_version-${platform}" +
+                (buildForAnte ? "-ANTE" : "")
     }
 
     repositories {
@@ -74,14 +78,33 @@ subprojects {
         silentMojangMappingsLicense()
     }
 
+    def nteVariant = buildForAnte
+            ? "ante"
+            : "nte"
+
+    def nteDep = nteVariant == "ante"
+            ? "maven.modrinth:mtr-ante:${rootProject.ante_version}"
+            : "maven.modrinth:mtr-nte:${rootProject.nte_version}"
+
     dependencies {
         minecraft "net.minecraft:minecraft:$rootProject.minecraft_version"
         mappings loom.officialMojangMappings()
 
-        if (rootProject.require_nte) {
-            modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
-        }
+//        if (rootProject.require_nte == true) {
+//            if (rootProject.build_for_ante == true) {
+//                modImplementation "maven.modrinth:mtr-ante:$rootProject.ante_version"
+////                compileOnly "maven.modrinth:mtr-ante:$rootProject.ante_version"
+//            } else {
+//                modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
+//
+//            }
+//
+//        }
+//        modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
+        modImplementation nteDep
+
         compileOnly "maven.modrinth:minecraft-transit-railway:${rootProject.mtr_version_forge}"
+
     }
 
     java {

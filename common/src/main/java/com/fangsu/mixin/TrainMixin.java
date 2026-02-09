@@ -16,8 +16,16 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+//#if FABRIC
+//$$ import fabric.cn.zbx1425.mtrsteamloco.block.BlockEyeCandy;
+//#elseif FORGE
+//$$ import forge.cn.zbx1425.mtrsteamloco.block.BlockEyeCandy;
+//#endif
 
-@Mixin(value = Train.class, remap = false)
+import java.util.HashSet;
+import java.util.Set;
+
+@Mixin(value = Train.class, remap = false, priority = 1100)
 public abstract class TrainMixin {
 
     /* ==========================================================
@@ -73,6 +81,9 @@ public abstract class TrainMixin {
 
         final Vec3 offsetVec = new Vec3(1, 0, 0).yRot(checkYaw).xRot(pitch);
         final Vec3 traverseVec = new Vec3(0, 0, 1).yRot(checkYaw).xRot(pitch);
+        //#if ANTE
+        Set<BlockPos> OKPos = new HashSet<>();
+        //#endif
 
         boolean isClientSide = world.isClientSide();
 
@@ -91,9 +102,7 @@ public abstract class TrainMixin {
                     if (block instanceof BlockPlatform || block instanceof BlockPSDAPGBase || IBlockPlatformClass.isInstance(block)) {
                         openDoors(world, block, pos, dwellTicks);
                         hasPlatform = true;
-                    }
-
-                    if (block instanceof IBlockPlatform) {
+                    } else if (block instanceof IBlockPlatform) {
                         openDoors(world, block, pos, dwellTicks);
                         BlockEntity entity = world.getBlockEntity(pos);
                         if (isClientSide)
@@ -103,11 +112,50 @@ public abstract class TrainMixin {
                             }
                         hasPlatform = true;
                     }
+
+                    //#if ANTE
+                    //$$ else if (block instanceof BlockEyeCandy) {
+                    //$$     if (OKPos.contains(pos)) continue;
+                    //$$     int[] dir = new int[]{1, -1};
+                    //$$     int[] f = new int[]{1, 0, 0, 1, 0, 0};
+                    //$$     if (checkEyeCandy(world, pos, isClientSide)) hasPlatform = true;
+                    //$$     for (int i = 0; i < 3; i++) {
+                    //$$         for (int j = 0; j < 2; j++) {
+                    //$$             for (int k = 1; k <= 40; k++) {
+                    //$$                 int v = dir[j] * k;
+                    //$$                 BlockPos thisPos = pos.offset(f[i] * v, f[i + 1] * v, f[i + 2] * v);
+                    //$$                 if (OKPos.contains(thisPos)) break;
+                    //$$                 OKPos.add(thisPos);
+                    //$$                 if (checkEyeCandy(world, thisPos, isClientSide)) hasPlatform = true;
+                    //$$                 else break;
+                    //$$             }
+                    //$$         }
+                    //$$     }
+                    //$$ }
+                    //#endif
                 }
             }
         }
 
         ci.setReturnValue(hasPlatform);
-        ci.cancel(); // ⭐ 必须
+        ci.cancel();
     }
+
+    //#if ANTE
+    //$$ private boolean checkEyeCandy(Level world, BlockPos pos, boolean isClientSide) {
+    //$$ 		final BlockEntity entity = world.getBlockEntity(pos);
+    //$$ 		if (entity instanceof BlockEyeCandy.BlockEntityEyeCandy) {
+    //$$ 			BlockEyeCandy.BlockEntityEyeCandy e = (BlockEyeCandy.BlockEntityEyeCandy) entity;
+    //$$ 			if (e.isPlatform()) {
+    //$$ 				if (isClientSide) {
+    //$$ 					e.setDoorTarget(doorTarget);
+    //$$ 					e.setDoorValue(doorValue);
+    //$$ 				}
+    //$$ 				return true;
+    //$$ 			} else return false;
+    //$$ 		} else {
+    //$$ 			return false;
+    //$$ 		}
+    //$$ 	}
+    //#endif
 }

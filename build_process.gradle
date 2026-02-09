@@ -4,6 +4,13 @@ def processAccessWidener(inputFile, outputFile) {
     // 当前平台：FABRIC / FORGE
     def currentPlatform = project.findProperty("platform")?.toString()?.toUpperCase()
 
+    // 自定义条件
+    def buildForAnte = project.hasProperty("build_for_ante") && project.property("build_for_ante") == "true"
+    def conditionVars = [
+            "ANTE": buildForAnte,
+            "NTE" : !buildForAnte
+    ]
+
     def outputLines = []
 
     // 条件栈，支持嵌套
@@ -19,18 +26,19 @@ def processAccessWidener(inputFile, outputFile) {
 
         // //#if XXX
         if (line.startsWith("//#if ")) {
-            def platform = line.substring(6).trim().toUpperCase()
-            conditionStack.add(platform == currentPlatform)
+            def cond = line.substring(6).trim().toUpperCase()
+            def value = conditionVars.containsKey(cond) ? conditionVars[cond] : (cond == currentPlatform)
+            conditionStack.add(value)
             return
         }
 
         // //#elseif XXX
         if (line.startsWith("//#elseif ")) {
-            def platform = line.substring(10).trim().toUpperCase()
+            def cond = line.substring(10).trim().toUpperCase()
             if (!conditionStack.isEmpty()) {
                 def last = conditionStack.remove(conditionStack.size() - 1)
-                // 只有上一个 if/elseif 没命中，elseif 才可能命中
-                conditionStack.add(!last && platform == currentPlatform)
+                def value = conditionVars.containsKey(cond) ? conditionVars[cond] : (cond == currentPlatform)
+                conditionStack.add(!last && value)
             }
             return
         }
@@ -61,7 +69,6 @@ def processAccessWidener(inputFile, outputFile) {
             }
             return
         }
-
 
         // 普通代码
         if (isActive()) {
