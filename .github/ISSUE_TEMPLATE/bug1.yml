@@ -1,0 +1,164 @@
+name: Bug Report / Feature Report（这不是 Bug，这是特性）
+description: |
+  Report a bug or a "feature".
+  提交 Bug，或者那个“这不是 Bug，这是特性”的东西。
+title: "[Bug / Feature]: "
+labels:
+  - bug
+    assignees: [ ]
+
+body:
+  - type: checkboxes
+    id: precheck
+    attributes:
+    label: Pre-check / 提交前确认
+    description: |
+    Please confirm the following before submitting this issue.
+    在提交 Issue 之前，请确认以下内容。
+    options:
+      - label: |
+    I have searched the Issues page and confirmed that this bug / feature has not been reported.
+    我已在 Issues 页面中搜索，确认该 Bug / 特性未被提交过。
+    required: true
+      - label: |
+    I have checked the FAQ / documentation and confirmed this is not a known issue.
+    我已查看常见问题（FAQ）或文档，确认这不是一个已知问题。
+    required: true
+
+  - type: textarea
+    id: description
+    attributes:
+    label: Describe the Bug / Feature（描述 Bug / 特性）
+    description: |
+    Clearly describe what happened, or what you think is a "feature".
+    清晰描述发生了什么，或者你认为这是个“特性”的地方。
+    placeholder: |
+    What happened?
+    发生了什么？
+    validations:
+    required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+    label: Steps to Reproduce（复现步骤）
+    description: |
+    Steps to reproduce the behavior.
+    如果这是一个 Bug，请提供复现步骤。
+    If this is a "feature", explain how to trigger it.
+    如果这是“特性”，请说明它是如何出现的。
+    placeholder: |
+    1. Go to '...'
+    2. Click on '...'
+    3. Scroll to '...'
+    4. Something interesting happens
+    validations:
+    required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+    label: Expected Behavior（期望结果）
+    description: |
+    What did you expect to happen?
+    你原本期望发生什么？
+    placeholder: |
+    Describe what you expected.
+    描述你期望的行为。
+    validations:
+    required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+    label: Actual Behavior（实际结果）
+    description: |
+    What actually happened?
+    实际发生了什么？
+    placeholder: |
+    Describe what actually happened.
+    描述实际发生的情况。
+    validations:
+    required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+    label: Screenshots / Logs（截图 / 日志）
+    description: |
+    Add screenshots or logs if applicable.
+    如果有帮助，请提供截图或日志文件。
+    placeholder: |
+    You can drag and drop images or log files here.
+    可以直接拖拽截图或日志到这里。
+
+  - type: dropdown
+    id: os
+    attributes:
+    label: Operating System（操作系统）
+    description: |
+    The operating system you are using.
+    你正在使用的操作系统。
+    options:
+      - Windows
+      - Linux
+      - macOS
+      - Android
+      - Other / 其他
+    validations:
+    required: true
+
+  - type: dropdown
+    id: loader
+    attributes:
+    label: Mod Loader（模组加载器）
+    description: |
+    The mod loader you are using.
+    你正在使用的模组加载器。
+    options:
+      - Forge
+      - Fabric
+      - Quilt
+      - Other / 其他
+    validations:
+    required: true
+
+  - type: input
+    id: mod_version
+    attributes:
+    label: Mod Version（模组版本）
+    description: |
+    Version of this mod.
+    当前模组版本号。
+    placeholder: e.g. 0.0.1
+    validations:
+    required: true
+
+  - type: input
+    id: mtr_version
+    attributes:
+    label: MTR Version（MTR 版本）
+    description: |
+    Version of MTR you are using.
+    你正在使用的 MTR 版本。
+    placeholder: e.g. 3.2.2 hotfix 1
+
+  - type: input
+    id: nte_version
+    attributes:
+    label: NTE Version（NTE 版本，仅 MTR 3）
+    description: |
+    Only required if you are using MTR 3.
+    仅在使用 MTR 3 时填写。
+    placeholder: e.g. 0.5.4
+
+  - type: textarea
+    id: additional
+    attributes:
+    label: Additional Context（补充信息）
+    description: |
+    Any other context that may help.
+    任何可能有助于理解问题的补充信息。
+    placeholder: |
+    Add any other context here.
+    在这里补充其他信息。
