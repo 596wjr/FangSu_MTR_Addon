@@ -65,11 +65,11 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> extends BlockEn
         final Direction facing = IBlock.getStatePropertySafe(world, pos, BaseObjBlock.FACING);
 
         if (blockEntity.isMarkedError()) {
-//            matrices.pushPose();
-//            matrices.translate(pos.getX(), pos.getY(), pos.getZ());
-//            matrices.translate(0.5f, 0.5f, 0.5f);
-//            PoseStackUtil.rotY(matrices, (float) ((System.currentTimeMillis() % 1000) * (Math.PI * 2 / 1000)));
-//            Minecraft.getInstance().getItemRenderer().renderStatic(BARRIER_ITEM_STACK.get(), ItemDisplayContext.GROUND, lightToUse, 0, matrices, multiBufferSource, world, 0);
+            matrices.pushPose();
+            matrices.translate(pos.getX(), pos.getY(), pos.getZ());
+            matrices.translate(0.5f, 0.5f, 0.5f);
+            PoseStackUtil.rotY(matrices, (float) ((System.currentTimeMillis() % 1000) * (Math.PI * 2 / 1000)));
+            Minecraft.getInstance().getItemRenderer().renderStatic(BARRIER_ITEM_STACK.get(), ItemDisplayContext.GROUND, lightToUse, 0, matrices, multiBufferSource, world, 0);
             return;
         }
 

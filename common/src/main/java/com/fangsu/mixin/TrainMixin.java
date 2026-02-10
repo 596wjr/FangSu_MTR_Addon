@@ -102,7 +102,8 @@ public abstract class TrainMixin {
                     if (block instanceof BlockPlatform || block instanceof BlockPSDAPGBase || IBlockPlatformClass.isInstance(block)) {
                         openDoors(world, block, pos, dwellTicks);
                         hasPlatform = true;
-                    } else if (block instanceof IBlockPlatform) {
+                    }
+                    if (block instanceof IBlockPlatform) {
                         openDoors(world, block, pos, dwellTicks);
                         BlockEntity entity = world.getBlockEntity(pos);
                         if (isClientSide)
@@ -114,7 +115,7 @@ public abstract class TrainMixin {
                     }
 
                     //#if ANTE
-                    //$$ else if (block instanceof BlockEyeCandy) {
+                    //$$ if (block instanceof BlockEyeCandy) {
                     //$$     if (OKPos.contains(pos)) continue;
                     //$$     int[] dir = new int[]{1, -1};
                     //$$     int[] f = new int[]{1, 0, 0, 1, 0, 0};

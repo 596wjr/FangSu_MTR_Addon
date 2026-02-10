@@ -112,7 +112,7 @@ public class ObjBlockConfigScreen extends Screen {
             List<SubModelDispInfo> infos = be.getSubModelInfos();
             for (int i = 0; i < infos.size(); i++) {
                 SubModelDispInfo info = infos.get(i);
-                if (i + 1 == infos.size()) {
+                if (i + 1 == infos.size() && i % 2 == 0) {
                     addEntry(addButton(areaLeft, y, areaRight - areaLeft, 24, info.name(),
                             (b) -> {
                                 Minecraft.getInstance().setScreen(new ModelSelectScreen(
@@ -125,8 +125,8 @@ public class ObjBlockConfigScreen extends Screen {
                             }
                     ), y);
                     y += 28;
-                } else if (i % 2 != 0) {
-                    addEntry(addButton(areaLeft, y, areaRight - areaLeft / 2 - 2, 24, info.name(),
+                } else if (i % 2 == 0) {
+                    addEntry(addButton(areaLeft, y, (areaRight - areaLeft) / 2 - 2, 24, info.name(),
                             (b) -> {
                                 Minecraft.getInstance().setScreen(new ModelSelectScreen(
                                         info.name(),
@@ -138,7 +138,7 @@ public class ObjBlockConfigScreen extends Screen {
                             }
                     ), y);
                 } else {
-                    addEntry(addButton(areaLeft + ((areaRight - areaLeft) / 2) + 4, y, areaRight - areaLeft / 2 - 2, 24, info.name(),
+                    addEntry(addButton(areaLeft + ((areaRight - areaLeft) / 2) + 2, y, (areaRight - areaLeft) / 2 - 2, 24, info.name(),
                             (b) -> {
                                 Minecraft.getInstance().setScreen(new ModelSelectScreen(
                                         info.name(),

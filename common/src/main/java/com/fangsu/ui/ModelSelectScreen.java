@@ -218,7 +218,7 @@ public class ModelSelectScreen extends Screen {
 
     private List<Component> getSelectedContentLines(int width) {
         String text = selected == null ? "" : selected.contentText();
-        return this.font.split(Component.literal(text), width).stream()
+        return this.font.split(Component.translatable(text), width).stream()
                 .map(this::sequenceToComponent)
                 .toList();
     }

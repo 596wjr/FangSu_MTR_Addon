@@ -78,7 +78,7 @@ subprojects {
         silentMojangMappingsLicense()
     }
 
-    def nteVariant = buildForAnte
+    def nteVariant = buildForAnte == true
             ? "ante"
             : "nte"
 

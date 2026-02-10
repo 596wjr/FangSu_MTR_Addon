@@ -10,6 +10,8 @@
   "ui.fangsu.block.modelSelect": "模型选择",
   "ui.fangsu.block.mainModelSelect": "主模型选择",
   "ui.fangsu.block.subModelSelect": "副模型选择",
+  "ui.fangsu.block.subModelLeftSelect": "副模型(左)选择",
+  "ui.fangsu.block.subModelRightSelect": "副模型(右)选择",
   "ui.fangsu.block.translate": "物件偏移",
   "ui.fangsu.block.extras": "物件额外配置",
   "ui.fangsu.block.toggle_input": "切换为输入框",
@@ -34,5 +36,7 @@
   "msg.fangsu.ticketbarrier.fareOnce": "扣费 %s 余额 %s",
   "tab.fangsu.main": "方速 · 核心",
   "block.fangsu.ticket_barrier": "检票闸机",
+  "block.fangsu.screendoor_door": "屏蔽门 (门)",
+  "block.fangsu.screendoor_glass": "屏蔽门 (玻璃)",
   "block.fangsu.collision_compensation_block": "碰撞箱补偿方块"
 }
