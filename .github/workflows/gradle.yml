@@ -79,77 +79,77 @@ jobs:
             !forge/build/libs/*.jar
             !forge/build/libs/*-dev-shadow.jar
             forge/build/libs/*-sources.jar
-    build-fabric-ante:
-      runs-on: ubuntu-latest
+  build-fabric-ante:
+    runs-on: ubuntu-latest
 
-      steps:
-        - name: Checkout repository
-          uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-        - name: Set up JDK 21
-          uses: actions/setup-java@v4
-          with:
-            distribution: temurin
-            java-version: 21
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
 
-        - name: Grant execute permission for gradlew
-          run: chmod +x gradlew
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
 
-        - name: Build Fabric For ANTE
-          run: ./gradlew :fabric:build --no-daemon -Pbuild_for_ante=true
+      - name: Build Fabric For ANTE
+        run: ./gradlew :fabric:build --no-daemon -Pbuild_for_ante=true
 
-        # ===== Fabric artifacts =====
-        - name: Upload Fabric jars
-          uses: actions/upload-artifact@v4
-          with:
-            name: fabric-jar
-            path: |
-              fabric/build/libs/*.jar
-              !fabric/build/libs/*-dev-shadow.jar
-              !fabric/build/libs/*-sources.jar
+      # ===== Fabric artifacts =====
+      - name: Upload Fabric jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: fabric-jar
+          path: |
+            fabric/build/libs/*.jar
+            !fabric/build/libs/*-dev-shadow.jar
+            !fabric/build/libs/*-sources.jar
 
-        - name: Upload Fabric sources jars
-          uses: actions/upload-artifact@v4
-          with:
-            name: fabric-sources-jar
-            path: |
-              !fabric/build/libs/*.jar
-              !fabric/build/libs/*-dev-shadow.jar
-              fabric/build/libs/*-sources.jar
-    build-forge-ante:
-      runs-on: ubuntu-latest
+      - name: Upload Fabric sources jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: fabric-sources-jar
+          path: |
+            !fabric/build/libs/*.jar
+            !fabric/build/libs/*-dev-shadow.jar
+            fabric/build/libs/*-sources.jar
+  build-forge-ante:
+    runs-on: ubuntu-latest
 
-      steps:
-        - name: Checkout repository
-          uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-        - name: Set up JDK 21
-          uses: actions/setup-java@v4
-          with:
-            distribution: temurin
-            java-version: 21
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
 
-        - name: Grant execute permission for gradlew
-          run: chmod +x gradlew
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
 
-        - name: Build Forge For ANTE
-          run: ./gradlew :forge:build --no-daemon -Pbuild_for_ante=true
+      - name: Build Forge For ANTE
+        run: ./gradlew :forge:build --no-daemon -Pbuild_for_ante=true
 
-        # ===== Forge artifacts =====
-        - name: Upload Forge jars
-          uses: actions/upload-artifact@v4
-          with:
-            name: forge-jar
-            path: |
-              forge/build/libs/*.jar
-              !forge/build/libs/*-dev-shadow.jar
-              !forge/build/libs/*-sources.jar
+      # ===== Forge artifacts =====
+      - name: Upload Forge jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-jar
+          path: |
+            forge/build/libs/*.jar
+            !forge/build/libs/*-dev-shadow.jar
+            !forge/build/libs/*-sources.jar
 
-        - name: Upload Forge sources jars
-          uses: actions/upload-artifact@v4
-          with:
-            name: forge-sources-jar
-            path: |
-              !forge/build/libs/*.jar
-              !forge/build/libs/*-dev-shadow.jar
-              forge/build/libs/*-sources.jar
+      - name: Upload Forge sources jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-sources-jar
+          path: |
+            !forge/build/libs/*.jar
+            !forge/build/libs/*-dev-shadow.jar
+            forge/build/libs/*-sources.jar
