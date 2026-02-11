@@ -2,6 +2,7 @@ package com.fangsu.ui;
 
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.customItem.ModelSelectInfo;
+import com.google.gson.JsonElement;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -13,6 +14,7 @@ import net.minecraft.util.Mth;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -104,6 +106,13 @@ public class ModelSelectScreen extends Screen {
                 Button.builder(Component.translatable("ui.fangsu.block.confirm"), btn -> {
                     if (selected != null && be != null && setter != null) {
                         setter.accept(be, selected.content());
+                        if (selected.defaultItem() != null) {
+                            for (Map.Entry<String, JsonElement> entry : selected.defaultItem().entrySet()) {
+                                String key = entry.getKey();
+                                String value = entry.getValue().getAsString();
+                                be.subModels.put(key, value);
+                            }
+                        }
 //                        be.sendUpdateC2S();
                     }
                     onClose();

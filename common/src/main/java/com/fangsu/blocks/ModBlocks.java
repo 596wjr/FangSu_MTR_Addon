@@ -1,8 +1,6 @@
 package com.fangsu.blocks;
 
-import com.fangsu.blockEntities.BlockEntityScreendoor;
-import com.fangsu.blockEntities.BlockEntityScreendoorGlass;
-import com.fangsu.blockEntities.BlockEntityTicketBarrier;
+import com.fangsu.blockEntities.*;
 import com.fangsu.blockEntities.client.BaseBlockEntityRender;
 import com.fangsu.utils.RegisterUtil;
 import dev.architectury.registry.client.rendering.BlockEntityRendererRegistry;
@@ -17,17 +15,21 @@ public class ModBlocks {
     public static final RegistrySupplier<Block> BLOCK_TICKET_BARRIER = RegisterUtil.addBlock("ticket_barrier", BlockTicketBarrier::new);
     public static final RegistrySupplier<Block> BLOCK_SCREENDOOR = RegisterUtil.addBlock("screendoor_door", BlockScreendoor::new);
     public static final RegistrySupplier<Block> BLOCK_SCREENDOOR_GLASS = RegisterUtil.addBlock("screendoor_glass", BlockScreendoorGlass::new);
+    public static final RegistrySupplier<Block> BLOCK_DIAOBAN = RegisterUtil.addBlock("hanging_panel", BlockSign::new);
 
-    public static final RegistrySupplier<BlockEntityType<BlockEntityTicketBarrier>> BLOCK_ENTITY_TICKET_BARRIER =
+    public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_TICKET_BARRIER =
             RegisterUtil.addBlockEntity("block_entity_ticket_barrier", BLOCK_TICKET_BARRIER, BlockEntityTicketBarrier::new);
-    public static final RegistrySupplier<BlockEntityType<BlockEntityScreendoor>> BLOCK_ENTITY_SCREENDOOR =
+    public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_SCREENDOOR =
             RegisterUtil.addBlockEntity("block_entity_screendoor_door", BLOCK_SCREENDOOR, BlockEntityScreendoor::new);
-    public static final RegistrySupplier<BlockEntityType<BlockEntityScreendoorGlass>> BLOCK_ENTITY_SCREENDOOR_GLASS =
+    public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_SCREENDOOR_GLASS =
             RegisterUtil.addBlockEntity("block_entity_screendoor_glass", BLOCK_SCREENDOOR_GLASS, BlockEntityScreendoorGlass::new);
+    public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_DIAOBAN =
+            RegisterUtil.addBlockEntity("block_entity_hanging_panel", BLOCK_DIAOBAN, BlockEntitySign::new);
 
     public static final RegistrySupplier<Item> ITEM_TICKET_BARRIER = RegisterUtil.addBlockItem("ticket_barrier", BLOCK_TICKET_BARRIER);
     public static final RegistrySupplier<Item> ITEM_SCREENDOOR = RegisterUtil.addBlockItem("screendoor_door", BLOCK_SCREENDOOR);
     public static final RegistrySupplier<Item> ITEM_SCREENDOOR_GLASS = RegisterUtil.addBlockItem("screendoor_glass", BLOCK_SCREENDOOR_GLASS);
+    public static final RegistrySupplier<Item> ITEM_DIAOBAN = RegisterUtil.addBlockItem("hanging_panel", BLOCK_DIAOBAN);
 
     public static final RegistrySupplier<Block> BLOCK_COLLISION_COMPENSATOR =
             RegisterUtil.addBlock("collision_compensation_block", BlockCollisionCompensator::new);
@@ -41,6 +43,7 @@ public class ModBlocks {
             ITEM_TICKET_BARRIER,
             ITEM_SCREENDOOR,
             ITEM_SCREENDOOR_GLASS,
+            ITEM_DIAOBAN,
             ITEM_COLLISION_COMPENSATOR
     );
 
@@ -58,6 +61,10 @@ public class ModBlocks {
         );
         BlockEntityRendererRegistry.register(
                 BLOCK_ENTITY_SCREENDOOR_GLASS.get(),
+                ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
+        );
+        BlockEntityRendererRegistry.register(
+                BLOCK_ENTITY_DIAOBAN.get(),
                 ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
         );
     }

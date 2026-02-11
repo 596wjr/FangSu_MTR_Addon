@@ -21,15 +21,15 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.util.*;
 
 //#if FABRIC
 import fabric.cn.zbx1425.sowcer.math.Matrices;
 import fabric.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
-import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
 //#elseif FORGE
 //$$ import forge.cn.zbx1425.sowcer.math.Matrices;
 //$$ import forge.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
@@ -57,7 +57,7 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
     DynamicModelHolder dhmLeft, dhmRight;
     CollisionBoxUtil.CollisionBox shapeLeft, shapeRight;
 
-    // ★ auto 延迟 / 重算控制
+    // auto 延迟 / 重算控制
     private boolean pendingAuto = false;
 
     public BlockEntityScreendoorGlass(BlockPos blockPos, BlockState blockState) {

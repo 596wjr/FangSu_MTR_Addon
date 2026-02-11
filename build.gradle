@@ -45,7 +45,7 @@ subprojects {
 
     base {
         archivesName = "$rootProject.mod_prefix$rootProject.archives_name-mc$project.minecraft_version-${platform}" +
-                (buildForAnte ? "-ANTE" : "")
+                (buildForAnte == "true" ? "-ANTE" : "")
     }
 
     repositories {
@@ -78,7 +78,7 @@ subprojects {
         silentMojangMappingsLicense()
     }
 
-    def nteVariant = buildForAnte == true
+    def nteVariant = buildForAnte == "true"
             ? "ante"
             : "nte"
 
