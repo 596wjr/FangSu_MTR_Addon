@@ -34,5 +34,7 @@
   "msg.fangsu.ticketbarrier.fareOnce": "Deducted %s | Balance: %s",
   "tab.fangsu.main": "FangSu · Core",
   "block.fangsu.ticket_barrier": "Ticket Barrier",
-  "block.fangsu.collision_compensation_block": "Collision Compensation Block"
+  "block.fangsu.collision_compensation_block": "Collision Compensation Block",
+  "ui.fangsu.sign.title": "Sign Configuration",
+  "ui.fangsu.sign.editing": "Editing"
 }
