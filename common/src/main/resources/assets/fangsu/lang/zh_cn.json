@@ -38,5 +38,7 @@
   "block.fangsu.ticket_barrier": "检票闸机",
   "block.fangsu.screendoor_door": "屏蔽门 (门)",
   "block.fangsu.screendoor_glass": "屏蔽门 (玻璃)",
-  "block.fangsu.collision_compensation_block": "碰撞箱补偿方块"
+  "block.fangsu.collision_compensation_block": "碰撞箱补偿方块",
+  "ui.fangsu.sign.title": "标识牌配置",
+  "ui.fangsu.sign.editing": "正在编辑"
 }
