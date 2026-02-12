@@ -117,9 +117,10 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
 
     private JsonObject toItemsJson(Map<String, List<SignItem>> items) {
         JsonObject json = new JsonObject();
-        json.add("left", toItemsJsonArray(items.get("left")));
-        json.add("center", toItemsJsonArray(items.get("center")));
-        json.add("right", toItemsJsonArray(items.get("right")));
+        if (items == null || items.isEmpty()) return json;
+        if (items.containsKey("left")) json.add("left", toItemsJsonArray(items.get("left")));
+        if (items.containsKey("center")) json.add("center", toItemsJsonArray(items.get("center")));
+        if (items.containsKey("right")) json.add("right", toItemsJsonArray(items.get("right")));
         return json;
     }
 

@@ -30,6 +30,8 @@ public abstract class ConfigEntry<T> {
         this.spec = spec;
         this.getter = getter;
         this.setter = setter;
+
+        this.value = getter.get();
     }
 
     public ConfigEntry<T> setShowCondition(Function<T, Boolean> showCondition) {

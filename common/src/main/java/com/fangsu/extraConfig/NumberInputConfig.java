@@ -4,19 +4,19 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
  * 用单行输入框输入数字的配置项（支持 float / int，保存只在 save() 时写回 BE）
+ * 新增 isHex 开关：当 isInt 且 isHex 为 true 时，使用十六进制解析与格式化
  */
 public class NumberInputConfig extends ConfigEntry<Float> {
 
     private final float min;
     private final float max;
     private final boolean isInt;
+    private final boolean isHex;   // 是否使用十六进制（仅当 isInt = true 时有效）
 
     public NumberInputConfig(
             Component title,
@@ -28,6 +28,7 @@ public class NumberInputConfig extends ConfigEntry<Float> {
         this.min = spec.getFloat("min", Float.NEGATIVE_INFINITY);
         this.max = spec.getFloat("max", Float.POSITIVE_INFINITY);
         this.isInt = spec.getBool("isInt", false);
+        this.isHex = spec.getBool("isHex", false);   // 从 spec 读取开关，默认为 false
     }
 
     @Override
@@ -35,7 +36,6 @@ public class NumberInputConfig extends ConfigEntry<Float> {
         int height = 20;
         int fieldX = x + labelW;
 
-        // 创建 EditBox，初始值使用当前 value（load() 后 value 已经被设置）
         EditBox inputBox = new EditBox(
                 Minecraft.getInstance().font,
                 fieldX,
@@ -45,41 +45,50 @@ public class NumberInputConfig extends ConfigEntry<Float> {
                 title
         );
 
-        // 显示格式：整数显示无小数，浮点用默认格式
+        // 根据当前 value 设置初始显示文本（支持十六进制格式）
         inputBox.setValue(formatValue(value));
 
-        // 编辑时立即更新 entry 的 value（但不写回 BE）
         inputBox.setResponder(text -> {
             if (text == null || text.isEmpty()) {
-                // 保持当前 value（空输入不立即覆盖）
                 return;
             }
             try {
                 if (isInt) {
-                    int iv = Integer.parseInt(text.trim());
+                    int iv;
+                    if (isHex) {
+                        // 去除十六进制常见前缀（0x、0X、#）
+                        String trimmed = text.trim();
+                        if (trimmed.startsWith("0x") || trimmed.startsWith("0X")) {
+                            trimmed = trimmed.substring(2);
+                        } else if (trimmed.startsWith("#")) {
+                            trimmed = trimmed.substring(1);
+                        }
+                        iv = Integer.parseInt(trimmed, 16);   // 十六进制解析
+                    } else {
+                        iv = Integer.parseInt(text.trim());    // 十进制解析
+                    }
                     float fv = clamp(iv);
-                    value = (float) Math.round(fv); // 保证整数语义
+                    value = (float) Math.round(fv);
+                    notifyValueChanged();
                 } else {
+                    // 浮点数模式忽略 isHex
                     float fv = Float.parseFloat(text.trim());
                     value = clamp(fv);
+                    notifyValueChanged();
                 }
-                notifyValueChanged();
             } catch (NumberFormatException ignored) {
-                // 不合法输入时，不改变 value（等用户修正）
+                // 非法输入不更新 value
             }
         });
 
-        // 初始可见 / 可用性由 ConfigEntry.isVisible() 决定
         return new ConfigWidget(x, y, labelW + fieldW, height, labelW, title, inputBox);
     }
 
     @Override
     public void load(Object be) {
-        // 从 BE 安全地读取（getter 可能返回 null）
         try {
             Float v = getter.get();
             if (v == null) {
-                // 使用 spec 中的 default（如果有），否则保持原来的 value
                 float def = spec.getFloat("default", Float.NaN);
                 if (!Float.isNaN(def)) {
                     value = def;
@@ -88,7 +97,6 @@ public class NumberInputConfig extends ConfigEntry<Float> {
                 value = clamp(v);
             }
         } catch (Throwable t) {
-            // 出错时尽量使用 spec 的 default，或保留现有 value
             float def = spec.getFloat("default", Float.NaN);
             if (!Float.isNaN(def)) value = def;
         }
@@ -107,10 +115,19 @@ public class NumberInputConfig extends ConfigEntry<Float> {
         return clamp(v);
     }
 
+    /**
+     * 根据 isInt / isHex 格式化当前值显示在输入框中
+     */
     private String formatValue(Float v) {
         if (v == null) return "";
         if (isInt) {
-            return String.valueOf(Math.round(v));
+            int intVal = Math.round(v);
+            if (isHex) {
+                // 十六进制格式：0x + 大写十六进制（负数会显示完整的无符号表示）
+                return "0x" + Integer.toHexString(intVal).toUpperCase();
+            } else {
+                return String.valueOf(intVal);
+            }
         } else {
             return String.valueOf(v);
         }

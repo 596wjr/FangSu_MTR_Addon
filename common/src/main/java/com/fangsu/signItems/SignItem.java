@@ -48,8 +48,6 @@ public abstract class SignItem {
 
     /**
      * 额外配置
-     *
-     * @return List\<ConfigEntry\>
      */
     public List<ConfigEntry<?>> getConfigs() {
         return null;

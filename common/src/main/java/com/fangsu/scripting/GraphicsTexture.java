@@ -73,7 +73,9 @@ public class GraphicsTexture implements AutoCloseable {
                 int r = (argb >> 16) & 0xFF;
                 int g = (argb >> 8) & 0xFF;
                 int b = argb & 0xFF;
-                nativeImage.setPixelRGBA(x, y, (r << 24) | (g << 16) | (b << 8) | a);
+                // 在 upload() 中，组装 ABGR
+                int abgr = (a << 24) | (b << 16) | (g << 8) | r;
+                nativeImage.setPixelRGBA(x, y, abgr);
             }
         }
 

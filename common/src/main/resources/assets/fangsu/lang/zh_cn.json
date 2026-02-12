@@ -34,6 +34,12 @@
   "ui.fangsu.common.off": "关",
   "ui.fangsu.common.toggle_input": "≡",
   "ui.fangsu.common.value": "%s",
+  "ui.fangsu.common.text": "文本",
+  "ui.fangsu.common.color": "颜色",
+  "ui.fangsu.common.align": "对齐",
+  "ui.fangsu.common.alignLeft": "左对齐",
+  "ui.fangsu.common.alignRight": "右对齐",
+  "ui.fangsu.common.alignCenter": "居中",
   "msg.fangsu.ticketbarrier.fareOnce": "扣费 %s 余额 %s",
   "tab.fangsu.main": "方速 · 核心",
   "block.fangsu.ticket_barrier": "检票闸机",
@@ -44,9 +50,6 @@
   "ui.fangsu.sign.editing": "正在编辑",
   "ui.fangsu.sign.front": "正面",
   "ui.fangsu.sign.back": "反面",
-  "ui.fangsu.sign.left": "左对齐",
-  "ui.fangsu.sign.right": "右对齐",
-  "ui.fangsu.sign.middle": "居中",
   "ui.fangsu.sign.tooltip1": "编辑中: %s",
   "ui.fangsu.sign.tooltip2": "ESC: 返回"
 }

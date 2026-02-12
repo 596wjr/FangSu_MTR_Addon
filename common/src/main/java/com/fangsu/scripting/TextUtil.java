@@ -33,7 +33,7 @@ public class TextUtil {
         if (src.contains("||")) {
             return src.split("\\|\\|", 2)[extra ? 1 : 0].trim();
         } else {
-            return "";
+            return extra ? "" : src;
         }
     }
 
