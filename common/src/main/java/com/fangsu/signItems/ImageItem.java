@@ -31,7 +31,12 @@ public class ImageItem extends SignItem {
 
     @Override
     protected JsonObject saveToJson() {
-        return null;
+        JsonObject json = new JsonObject();
+        if (imageLocation != null) {
+            json.addProperty("image", imageLocation.toString());
+        }
+        json.addProperty("scale", scale);
+        return json;
     }
 
     @Override
@@ -41,7 +46,7 @@ public class ImageItem extends SignItem {
 
     @Override
     public float getWidth(Graphics2D g, float unit) {
-        return 1;
+        return 1f;
     }
 
     @Override

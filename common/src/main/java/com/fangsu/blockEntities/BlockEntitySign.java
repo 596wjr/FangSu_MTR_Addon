@@ -59,7 +59,8 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
 
     @Override
     public void whenSaving(Map<String, String> extraConfigs) {
-
+        extraConfigs.put("itemsFront", toItemsJson(itemsFront).toString());
+        extraConfigs.put("itemsBack", toItemsJson(itemsBack).toString());
     }
 
     @Override
@@ -112,5 +113,24 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
             items.add(currentItem);
         }
         return items;
+    }
+
+    private JsonObject toItemsJson(Map<String, List<SignItem>> items) {
+        JsonObject json = new JsonObject();
+        json.add("left", toItemsJsonArray(items.get("left")));
+        json.add("center", toItemsJsonArray(items.get("center")));
+        json.add("right", toItemsJsonArray(items.get("right")));
+        return json;
+    }
+
+    private JsonArray toItemsJsonArray(List<SignItem> items) {
+        JsonArray array = new JsonArray();
+        if (items == null) {
+            return array;
+        }
+        for (SignItem item : items) {
+            array.add(item.toJson());
+        }
+        return array;
     }
 }
