@@ -56,5 +56,13 @@
   "ui.fangsu.common.length": "长度",
   "ui.fangsu.sign.left": "左侧",
   "ui.fangsu.sign.center": "居中",
-  "ui.fangsu.sign.right": "右侧"
+  "ui.fangsu.sign.right": "右侧",
+  "ui.fangsu.sign.edit_hint": "左键编辑  右键删除",
+  "ui.fangsu.sign.layout_title": "多行布局",
+  "ui.fangsu.sign.layout_hint": "左键编辑，右键删除，点击上/下槽切换",
+  "ui.fangsu.sign.item.str": "文本",
+  "ui.fangsu.sign.item.img": "图片",
+  "ui.fangsu.sign.item.space": "间隔",
+  "ui.fangsu.sign.item.multiline": "多行布局",
+  "ui.fangsu.sign.item.unknown": "未知项目"
 }
