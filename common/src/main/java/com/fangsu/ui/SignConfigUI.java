@@ -3,9 +3,11 @@ package com.fangsu.ui;
 import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.signItems.SignDrawContext;
 import com.fangsu.signItems.SignItem;
+import com.fangsu.signItems.TextItem;
 import com.fangsu.utils.ResourceUtil;
 import com.fangsu.utils.ScreenUtil;
-import com.google.gson.*;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -28,7 +30,6 @@ public class SignConfigUI extends Screen {
     List<                       //第几面
             Map<String,         //左中右
                     List<SignItem>>> dispItems;
-    private final List<SignItem> signItems = new ArrayList<>();
     private final Consumer<List<Map<String, List<SignItem>>>> setter;
 
     private int modeFlag = 0;
@@ -113,10 +114,12 @@ public class SignConfigUI extends Screen {
 
                 drawLane(g2d, lane, startX, rowY / 7f, part, u);
 
-                if (mouseClickInfo != null) {
+                if (mouseClickInfo != null && mouseClickInfo.button == 0) {
                     if (mouseClickInfo.mouseY >= rowY && mouseClickInfo.mouseY <= rowBottom) {
                         modeFlag = 1;
                         inEditingRow = new LaneRef(side, part, lane);
+                        paletteScroll = 0;
+                        sideEditing = lane.isEmpty() ? -2 : -1;
                     }
                 }
 
@@ -170,9 +173,15 @@ public class SignConfigUI extends Screen {
         boolean blink = (System.currentTimeMillis() / 400) % 2 == 0;
 
         // 头部加号
+        float headIndicatorX = x - u * 0.25f;
         if (lane != null && (lane.isEmpty() || sideEditing == -2)) {
             if (blink) {
-                drawAddIndicator(graphics, x - u * 0.25f, y, u);
+                drawAddIndicator(graphics, headIndicatorX, y, u);
+            }
+            if (mouseClickInfo != null && mouseClickInfo.button == 0 &&
+                    mouseClickInfo.mouseX >= headIndicatorX && mouseClickInfo.mouseX <= headIndicatorX + u * 0.5f &&
+                    mouseClickInfo.mouseY >= y && mouseClickInfo.mouseY <= y + u) {
+                sideEditing = -2;
             }
         }
 
@@ -192,6 +201,10 @@ public class SignConfigUI extends Screen {
 
                 if (addHover || (sideEditing == idx && blink)) {
                     drawAddIndicator(graphics, x + tokenW, y, u);
+                }
+
+                if (mouseClickInfo != null && mouseClickInfo.button == 0 && addHover) {
+                    sideEditing = idx;
                 }
 
                 boolean hover =
@@ -222,8 +235,13 @@ public class SignConfigUI extends Screen {
                 if (mouseClickInfo != null &&
                         mouseClickInfo.mouseY >= y && mouseClickInfo.mouseY <= y + u &&
                         mouseClickInfo.mouseX >= x && mouseClickInfo.mouseX <= x + tokenW) {
-                    if (token.getConfigs() != null && !token.getConfigs().isEmpty()) {
+                    if (mouseClickInfo.button == 1) {
+                        lane.remove(idx);
+                        sideEditing = -1;
+                        break;
+                    } else if (token.getConfigs() != null && !token.getConfigs().isEmpty()) {
                         mouseClickInfo = null;
+                        sideEditing = -1;
                         Screen configScreen = new ConfigScreen(Component.translatable("ui.fangsu.common.config"), token.getConfigs(), this);
                         Minecraft.getInstance().setScreen(configScreen);
                     }
@@ -260,8 +278,65 @@ public class SignConfigUI extends Screen {
             if (hover) {
                 graphics.drawString(font, "+", x + 9, y + 8, 0xFFFFFF, false);
             }
+
+            if (hover && mouseClickInfo != null &&
+                    (mouseClickInfo.button == 0 || mouseClickInfo.button == 1 || mouseClickInfo.button == 2)) {
+                insertItemFromPalette(lane, token, mouseClickInfo.button);
+                sideEditing = -1;
+            }
         }
         graphics.disableScissor();
+    }
+
+    private void insertItemFromPalette(List<SignItem> lane, SignItem token, int button) {
+        SignItem newItem = copySignItem(token);
+        if (newItem == null) {
+            return;
+        }
+
+        int insertIndex;
+        if (sideEditing == -2) {
+            insertIndex = 0;
+        } else if (sideEditing >= 0 && sideEditing < lane.size()) {
+            insertIndex = sideEditing + 1;
+        } else {
+            insertIndex = lane.size();
+        }
+
+        if (token.withText && token.text != null && !token.text.isEmpty()) {
+            SignItem textItem = createTextItem(token.text);
+            if (button == 0) {
+                // 左键：文本在图标左侧
+                lane.add(insertIndex, textItem);
+                lane.add(insertIndex + 1, newItem);
+                return;
+            } else if (button == 1) {
+                // 右键：文本在图标右侧
+                lane.add(insertIndex, newItem);
+                lane.add(insertIndex + 1, textItem);
+                return;
+            }
+        }
+
+        // 中键，或无附加文本时
+        lane.add(insertIndex, newItem);
+    }
+
+    private SignItem createTextItem(String text) {
+        JsonObject json = new JsonObject();
+        json.addProperty("text", text);
+        return new TextItem(json);
+    }
+
+    private SignItem copySignItem(SignItem item) {
+        try {
+            JsonObject json = item.toJson();
+            String type = json.get("type").getAsString();
+            json.remove("type");
+            return com.fangsu.signItems.SignItemFactory.get(type).apply(deepCopy(json));
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private void drawLane(Graphics2D g, List<SignItem> lane, float startX, float y, int align, float u) {
@@ -310,10 +385,10 @@ public class SignConfigUI extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         if (modeFlag == 0) {
-            int rowHeight = Math.max(40, (int) (height * 0.14f));
+            int rowHeight = (height - 12) / ROW_COUNT;
             for (int i = 0; i < ROW_COUNT; i++) {
-                int rowY = 40 + i * rowHeight;
-                if (mouseY >= rowY && mouseY <= rowY + rowHeight - 4) {
+                int rowY = 12 + i * rowHeight;
+                if (mouseY >= rowY && mouseY <= rowY + rowHeight) {
                     rowScroll[i] += (float) (delta * 8f);
                     return true;
                 }
@@ -322,7 +397,7 @@ public class SignConfigUI extends Screen {
         } else if (modeFlag == 1) {
             if (mouseY >= 110) {
                 paletteScroll += (float) (delta * 10f);
-                float min = -Math.max(0, (float) Math.ceil((double) signItems.size() / Math.max(1, (width - 24) / 30)) * 28f - (height - 122));
+                float min = -Math.max(0, (float) Math.ceil((double) EDITOR_ITEMS.size() / Math.max(1, (width - 24) / 30)) * 28f - (height - 122));
                 paletteScroll = Math.max(min, Math.min(0, paletteScroll));
                 return true;
             }
