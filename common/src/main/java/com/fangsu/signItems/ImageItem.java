@@ -1,11 +1,18 @@
 package com.fangsu.signItems;
 
+import com.fangsu.extraConfig.ConfigEntry;
+import com.fangsu.extraConfig.ConfigSpec;
+import com.fangsu.extraConfig.NumberInputConfig;
+import com.fangsu.extraConfig.StringConfig;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonObject;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 import java.awt.*;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ImageItem extends SignItem {
     private ResourceLocation imageLocation;
@@ -56,7 +63,6 @@ public class ImageItem extends SignItem {
         float x = ctx.x();
         float y = ctx.y();
         float corner = u * (1 - scale) / 2;
-        int align = ctx.align();
         if (image == null) {
             try {
                 image = ResourceUtil.loadImage(imageLocation);
@@ -72,5 +78,28 @@ public class ImageItem extends SignItem {
     @Override
     public ResourceLocation getIconLocation() {
         return imageLocation;
+    }
+
+    @Override
+    public List<ConfigEntry<?>> getConfigs() {
+        List<ConfigEntry<?>> configs = new ArrayList<>();
+        configs.add(new StringConfig(
+                Component.translatable("ui.fangsu.common.text"),
+                new ConfigSpec("str"),
+                () -> imageLocation == null ? "" : imageLocation.toString(),
+                (v) -> {
+                    if (v != null && !v.isBlank()) {
+                        imageLocation = new ResourceLocation(v);
+                        image = null;
+                    }
+                }
+        ));
+        configs.add(new NumberInputConfig(
+                Component.translatable("ui.fangsu.common.scale"),
+                new ConfigSpec("num").setParam("min", new com.google.gson.JsonPrimitive(0.1f)).setParam("max", new com.google.gson.JsonPrimitive(2f)),
+                () -> scale,
+                v -> scale = v
+        ));
+        return configs;
     }
 }

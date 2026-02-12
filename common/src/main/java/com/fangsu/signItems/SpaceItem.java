@@ -1,9 +1,14 @@
 package com.fangsu.signItems;
 
+import com.fangsu.extraConfig.ConfigEntry;
+import com.fangsu.extraConfig.ConfigSpec;
+import com.fangsu.extraConfig.NumberInputConfig;
 import com.google.gson.JsonObject;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 import java.awt.*;
+import java.util.List;
 
 public class SpaceItem extends SignItem {
     private float length = 1f;
@@ -39,5 +44,15 @@ public class SpaceItem extends SignItem {
     @Override
     public ResourceLocation getIconLocation() {
         return new ResourceLocation("fangsu:textures/signitems/space.png");
+    }
+
+    @Override
+    public List<ConfigEntry<?>> getConfigs() {
+        return List.of(new NumberInputConfig(
+                Component.translatable("ui.fangsu.common.length"),
+                new ConfigSpec("num").setParam("min", new com.google.gson.JsonPrimitive(0.1f)).setParam("max", new com.google.gson.JsonPrimitive(8f)),
+                () -> length,
+                v -> length = v
+        ));
     }
 }

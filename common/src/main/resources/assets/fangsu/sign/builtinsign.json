@@ -15,6 +15,14 @@
             }
         },
         {
+            "type": "multiline",
+            "icon": "fangsu:sign/texts.png",
+            "content": {
+                "top": [],
+                "bottom": []
+            }
+        },
+        {
             "type": "img",
             "icon": "fangsu:sign/al.png",
             "content": {

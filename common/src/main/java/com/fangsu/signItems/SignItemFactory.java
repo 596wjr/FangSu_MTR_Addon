@@ -22,6 +22,7 @@ public final class SignItemFactory {
         REGISTRY.put("str", TextItem::new);
         REGISTRY.put("img", ImageItem::new);
         REGISTRY.put("space", SpaceItem::new);
+        REGISTRY.put("multiline", MultiLineItem::new);
     }
 
     public static Function<JsonObject, SignItem> get(String type) {
