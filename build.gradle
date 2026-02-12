@@ -31,7 +31,7 @@ ext {
     }
 }
 
-def buildForAnte = rootProject.findProperty("build_for_ante")
+def boolean buildForAnte = project.hasProperty("build_for_ante") && project.property("build_for_ante") == "true"
 
 println "[Build] Current platform = ${platform}"
 println "[Build] Build for ANTE : ${buildForAnte}"
@@ -45,7 +45,7 @@ subprojects {
 
     base {
         archivesName = "$rootProject.mod_prefix$rootProject.archives_name-mc$project.minecraft_version-${platform}" +
-                (buildForAnte == "true" ? "-ANTE" : "")
+                (buildForAnte ? "-ANTE" : "")
     }
 
     repositories {
@@ -78,7 +78,7 @@ subprojects {
         silentMojangMappingsLicense()
     }
 
-    def nteVariant = buildForAnte == "true"
+    def nteVariant = buildForAnte == true
             ? "ante"
             : "nte"
 

@@ -298,14 +298,14 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                         Component.translatable("ui.fangsu.ticketbarrier.modeFareOnce"),
                         Component.translatable("ui.fangsu.ticketbarrier.modeCustom")
                 ),
-                be -> getExtraConfigInt("fareType", 0),
-                (be, v) -> extra.put("fareType", v.toString())
+                () -> getExtraConfigInt("fareType", 0),
+                (v) -> extra.put("fareType", v.toString())
         ).setSaveOnChange(true));
         configs.add(new BoolConfig(
                 Component.translatable("ui.fangsu.ticketbarrier.isExit"),
                 new ConfigSpec("bool"),
-                be -> getExtraConfigBool("isExit", false),
-                (be, v) -> extra.put("isExit", v.toString())
+                () -> getExtraConfigBool("isExit", false),
+                (v) -> extra.put("isExit", v.toString())
         ).setShowCondition(v -> 0 == getExtraConfigInt("fareType", 0)));
         configs.add(new NumberInputConfig(
                 Component.translatable("ui.fangsu.ticketbarrier.fareVal"),
@@ -313,8 +313,8 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                         .setParam("max", new JsonPrimitive(32767))
                         .setParam("min", new JsonPrimitive(0))
                         .setParam("isInt", new JsonPrimitive(true)),
-                be -> (float) getExtraConfigInt("fareVal", 10),
-                (be, v) -> extra.put("fareVal", String.valueOf(v.intValue()))
+                () -> (float) getExtraConfigInt("fareVal", 10),
+                (v) -> extra.put("fareVal", String.valueOf(v.intValue()))
         ).setShowCondition(v -> 1 == getExtraConfigInt("fareType", 0)));
         return configs;
     }

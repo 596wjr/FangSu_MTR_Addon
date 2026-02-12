@@ -3,7 +3,9 @@ package com.fangsu.extraConfig;
 import net.minecraft.network.chat.Component;
 
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class StringConfig extends ConfigEntry<String> {
 
@@ -12,8 +14,8 @@ public class StringConfig extends ConfigEntry<String> {
     public StringConfig(
             Component title,
             ConfigSpec spec,
-            Function<Object, String> getter,
-            BiConsumer<Object, String> setter
+            Supplier<String> getter,
+            Consumer<String> setter
     ) {
         super(title, spec, getter, setter);
     }

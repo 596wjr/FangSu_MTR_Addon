@@ -155,7 +155,7 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
                         requestRebuild();
                     }
                 });
-                if (!c.isVisible(be)) {
+                if (!c.isVisible()) {
                     continue;
                 }
                 ConfigWidget w = c.createWidget(layout.areaLeft, y, layout.labelWidth, layout.fieldWidth);

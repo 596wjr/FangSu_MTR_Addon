@@ -5,7 +5,9 @@ import net.minecraft.network.chat.Component;
 
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class EnumConfig extends ConfigEntry<Integer> {
 
@@ -15,8 +17,8 @@ public class EnumConfig extends ConfigEntry<Integer> {
             Component title,
             ConfigSpec spec,
             List<? extends Component> entries,
-            Function<Object, Integer> getter,
-            BiConsumer<Object, Integer> setter
+            Supplier<Integer> getter,
+            Consumer<Integer> setter
     ) {
         super(title, spec, getter, setter);
         this.entries = entries;

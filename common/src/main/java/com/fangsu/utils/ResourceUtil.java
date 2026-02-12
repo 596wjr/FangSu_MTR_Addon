@@ -224,6 +224,23 @@ public class ResourceUtil {
         return map;
     }
 
+    public static Font loadFont(ResourceLocation location) throws IOException {
+        String GlobalRegisterKey = "Identifier" + location.toString() + "@Font";
+        if (register.containsKey(GlobalRegisterKey)) {
+            return (Font) register.get(GlobalRegisterKey);
+        }
+        if (resourceManager == null) {
+            throw new IOException("ResourceManager is null");
+        }
+        try (InputStream stream = loadInputStream(location)) {
+            if (location.getPath().endsWith(".ttf") || location.getPath().endsWith(".otf"))
+                return Font.createFont(Font.TRUETYPE_FONT, stream);
+        } catch (IOException | FontFormatException e) {
+            throw new IOException(e);
+        }
+        return new Font(Font.SANS_SERIF, Font.PLAIN, 12);
+    }
+
     /**
      * 检查资源是否存在
      */

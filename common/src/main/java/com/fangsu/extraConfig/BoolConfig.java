@@ -4,15 +4,17 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class BoolConfig extends ConfigEntry<Boolean> {
 
     public BoolConfig(
             Component title,
             ConfigSpec spec,
-            Function<Object, Boolean> getter,
-            BiConsumer<Object, Boolean> setter
+            Supplier<Boolean> getter,
+            Consumer<Boolean> setter
     ) {
         super(title, spec, getter, setter);
     }

@@ -298,8 +298,8 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
         configs.add(new BoolConfig(
                 Component.translatable("ui.fangsu.screendoor.isAuto"),
                 new ConfigSpec("bool"),
-                be -> extra.getOrDefault("isAuto", "true").equals("true"),
-                (be, v) -> extra.put("isAuto", v ? "true" : "false")
+                () -> extra.getOrDefault("isAuto", "true").equals("true"),
+                (v) -> extra.put("isAuto", v ? "true" : "false")
         ).setSaveOnChange(true));
         configs.add(new EnumConfig(
                 Component.translatable("ui.fangsu.screendoor.doorSide"),
@@ -309,8 +309,8 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
                         Component.translatable("ui.fangsu.screendoor.doorSideRight"),
                         Component.translatable("ui.fangsu.screendoor.doorSideFlex")
                 ),
-                be -> getExtraConfigInt("doorSide", 0),
-                (be, v) -> extra.put("doorSide", v.toString())
+                () -> getExtraConfigInt("doorSide", 0),
+                (v) -> extra.put("doorSide", v.toString())
         ).setSaveOnChange(true).setShowCondition(v -> extra.getOrDefault("isAuto", "true").equals("false")));
 
         return configs;

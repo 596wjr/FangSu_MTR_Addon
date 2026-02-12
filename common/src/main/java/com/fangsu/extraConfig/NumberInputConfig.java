@@ -5,7 +5,9 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * 用单行输入框输入数字的配置项（支持 float / int，保存只在 save() 时写回 BE）
@@ -19,8 +21,8 @@ public class NumberInputConfig extends ConfigEntry<Float> {
     public NumberInputConfig(
             Component title,
             ConfigSpec spec,
-            Function<Object, Float> getter,
-            BiConsumer<Object, Float> setter
+            Supplier<Float> getter,
+            Consumer<Float> setter
     ) {
         super(title, spec, getter, setter);
         this.min = spec.getFloat("min", Float.NEGATIVE_INFINITY);
@@ -75,7 +77,7 @@ public class NumberInputConfig extends ConfigEntry<Float> {
     public void load(Object be) {
         // 从 BE 安全地读取（getter 可能返回 null）
         try {
-            Float v = getter.apply(be);
+            Float v = getter.get();
             if (v == null) {
                 // 使用 spec 中的 default（如果有），否则保持原来的 value
                 float def = spec.getFloat("default", Float.NaN);

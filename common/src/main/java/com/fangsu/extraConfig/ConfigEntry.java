@@ -1,20 +1,18 @@
 package com.fangsu.extraConfig;
 
-import com.google.gson.JsonObject;
-import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public abstract class ConfigEntry<T> {
 
     protected final Component title;
     protected final ConfigSpec spec;
 
-    protected final Function<Object, T> getter;
-    protected final BiConsumer<Object, T> setter;
+    protected final Supplier<T> getter;
+    protected final Consumer<T> setter;
 
     protected T value;
 
@@ -25,8 +23,8 @@ public abstract class ConfigEntry<T> {
     protected ConfigEntry(
             Component title,
             ConfigSpec spec,
-            Function<Object, T> getter,
-            BiConsumer<Object, T> setter
+            Supplier<T> getter,
+            Consumer<T> setter
     ) {
         this.title = title;
         this.spec = spec;
@@ -62,18 +60,18 @@ public abstract class ConfigEntry<T> {
 //                                            Consumer<Object> onChanged);
 
     public void load(Object be) {
-        value = getter.apply(be);
+        value = getter.get();
     }
 
     public void save(Object be) {
-        setter.accept(be, value);
+        setter.accept(value);
     }
 
     public abstract ConfigWidget createWidget(
             int x, int y, int labelWidth, int fieldWidth
     );
 
-    public boolean isVisible(Object be) {
+    public boolean isVisible() {
         if (showCondition == null) return true;
         return showCondition.apply(value);
     }

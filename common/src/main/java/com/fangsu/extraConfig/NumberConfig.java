@@ -6,7 +6,9 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class NumberConfig extends ConfigEntry<Float> {
 
@@ -20,8 +22,8 @@ public class NumberConfig extends ConfigEntry<Float> {
     public NumberConfig(
             Component title,
             ConfigSpec spec,
-            Function<Object, Float> getter,
-            BiConsumer<Object, Float> setter
+            Supplier<Float> getter,
+            Consumer<Float> setter
     ) {
         super(title, spec, getter, setter);
         this.min = spec.getFloat("min", 0f);

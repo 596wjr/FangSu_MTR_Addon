@@ -1,4 +1,4 @@
-package com.fangsu.configFriendlyUtil;
+package com.fangsu.scripting;
 
 import java.util.*;
 import java.util.regex.Matcher;

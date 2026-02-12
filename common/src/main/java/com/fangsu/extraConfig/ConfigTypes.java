@@ -7,7 +7,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public final class ConfigTypes {
 
@@ -33,8 +35,8 @@ public final class ConfigTypes {
     public static <T> ConfigEntry<T> create(
             Component title,
             ConfigSpec spec,
-            Function<Object, T> getter,
-            BiConsumer<Object, T> setter
+            Supplier<T> getter,
+            Consumer<T> setter
     ) {
         Factory<T> factory = (Factory<T>) REGISTRY.get(spec.type);
         if (factory == null) {
@@ -48,8 +50,8 @@ public final class ConfigTypes {
     private static ConfigEntry<Boolean> boolConfig(
             Component title,
             ConfigSpec spec,
-            Function<Object, Boolean> getter,
-            BiConsumer<Object, Boolean> setter
+            Supplier<Boolean> getter,
+            Consumer<Boolean> setter
     ) {
         return new BoolConfig(title, spec, getter, setter);
     }
@@ -57,8 +59,8 @@ public final class ConfigTypes {
     private static ConfigEntry<Float> numberConfig(
             Component title,
             ConfigSpec spec,
-            Function<Object, Float> getter,
-            BiConsumer<Object, Float> setter
+            Supplier<Float> getter,
+            Consumer<Float> setter
     ) {
         return new NumberConfig(title, spec, getter, setter);
     }
@@ -66,8 +68,8 @@ public final class ConfigTypes {
     private static ConfigEntry<Float> numberInputConfig(
             Component title,
             ConfigSpec spec,
-            Function<Object, Float> getter,
-            BiConsumer<Object, Float> setter
+            Supplier<Float> getter,
+            Consumer<Float> setter
     ) {
         return new NumberInputConfig(title, spec, getter, setter);
     }
@@ -75,8 +77,8 @@ public final class ConfigTypes {
     private static ConfigEntry<String> stringConfig(
             Component title,
             ConfigSpec spec,
-            Function<Object, String> getter,
-            BiConsumer<Object, String> setter
+            Supplier<String> getter,
+            Consumer<String> setter
     ) {
         return new StringConfig(title, spec, getter, setter);
     }
@@ -84,8 +86,8 @@ public final class ConfigTypes {
     private static ConfigEntry<Integer> listConfig(
             Component title,
             ConfigSpec spec,
-            Function<Object, Integer> getter,
-            BiConsumer<Object, Integer> setter
+            Supplier<Integer> getter,
+            Consumer<Integer> setter
     ) {
         /*
          * list 的 values 通常来自 JSON：
@@ -109,8 +111,8 @@ public final class ConfigTypes {
         ConfigEntry<T> create(
                 Component title,
                 ConfigSpec spec,
-                Function<Object, T> getter,
-                BiConsumer<Object, T> setter
+                Supplier<T> getter,
+                Consumer<T> setter
         );
     }
 
