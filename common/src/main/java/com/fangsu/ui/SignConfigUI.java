@@ -4,7 +4,6 @@ import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.signItems.SignDrawContext;
 import com.fangsu.signItems.SignItem;
 import com.fangsu.signItems.TextItem;
-import com.fangsu.utils.ResourceUtil;
 import com.fangsu.utils.ScreenUtil;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -14,8 +13,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 import java.awt.*;
-import java.awt.image.BufferedImage;
-import java.io.IOException;
 import java.util.*;
 import java.util.List;
 import java.util.function.Consumer;
@@ -56,7 +53,13 @@ public class SignConfigUI extends Screen {
         if (rowScroll.length != ROW_COUNT) {
             rowScroll = new float[ROW_COUNT];
         }
-        g2dLayer = new GraphicsTexture(width, height);
+        if (g2dLayer == null) {
+            g2dLayer = new GraphicsTexture(Minecraft.getInstance().getWindow().getWidth(), Minecraft.getInstance().getWindow().getHeight());
+            g2dLayer.graphics.setRenderingHint(
+                    RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON
+            );
+        }
     }
 
     @Override
@@ -75,9 +78,20 @@ public class SignConfigUI extends Screen {
 
         graphics.drawString(font, this.title, 10, 2, 0xFFFFFF, false);
         g2dLayer.upload();
-        graphics.blit(g2dLayer.identifier, 0, 0, width, height, width, height);
+        graphics.blit(g2dLayer.identifier, 0, 0, 0, 0, width, height, g2dLayer.width, g2dLayer.height);
 
         mouseClickInfo = null;
+    }
+
+    @Override
+    public void resize(Minecraft client, int width, int height) {
+        super.resize(client, width, height);
+        if (g2dLayer != null) g2dLayer.close();
+        g2dLayer = new GraphicsTexture(width, height);
+        g2dLayer.graphics.setRenderingHint(
+                RenderingHints.KEY_ANTIALIASING,
+                RenderingHints.VALUE_ANTIALIAS_ON
+        );
     }
 
     private void drawSelectionScreen(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -112,14 +126,14 @@ public class SignConfigUI extends Screen {
                 float scrollX = rowScroll[i];
                 float startX = scrollX;
 
-                drawLane(g2d, lane, startX, rowY / 7f, part, u);
+                drawLane(g2d, lane, getG2dX((int) startX), getG2dY(rowY), part, getG2dU((int) u));
 
                 if (mouseClickInfo != null && mouseClickInfo.button == 0) {
                     if (mouseClickInfo.mouseY >= rowY && mouseClickInfo.mouseY <= rowBottom) {
                         modeFlag = 1;
                         inEditingRow = new LaneRef(side, part, lane);
                         paletteScroll = 0;
-                        sideEditing = lane.isEmpty() ? -2 : -1;
+                        sideEditing = lane == null || lane.isEmpty() ? -2 : -1;
                     }
                 }
 
@@ -133,6 +147,7 @@ public class SignConfigUI extends Screen {
         if (inEditingRow == null) modeFlag = 0;
         LaneRef laneRef = inEditingRow;
         List<SignItem> lane = laneRef.lane;
+        if (lane == null) lane = new ArrayList<>();
 
         graphics.fill(12, 24, width - 12, 78, 0x441E1E1E);
         graphics.drawString(
@@ -191,7 +206,7 @@ public class SignConfigUI extends Screen {
                 SignItem token = lane.get(idx);
                 float tokenW = getTokenWidth(g, token, u, laneRef.part());
 
-                drawTokenG2D(g, token, x, y, u, laneRef.part());
+                drawTokenG2D(g, token, getG2dX((int) x), getG2dY((int) y), getG2dU((int) u), laneRef.part());
 
                 boolean addHover =
                         mouseX >= x + tokenW &&
@@ -256,39 +271,74 @@ public class SignConfigUI extends Screen {
 
     private void drawPalette(GuiGraphics graphics, int mouseX, int mouseY, LaneRef laneRef, List<SignItem> lane) {
         int top = 110;
-        int lineItems = Math.max(1, (width - 24) / 30);
-        int cell = 24;
-        int gap = 4;
+        int cell = 26;
+        int gap = 6;
+
+        int usableWidth = width - 32;
+        int lineItems = Math.max(1, usableWidth / (cell + gap));
+
+        int contentHeight = ((EDITOR_ITEMS.size() + lineItems - 1) / lineItems) * (cell + gap);
 
         graphics.enableScissor(12, top, width - 12, height - 12);
+
         for (int idx = 0; idx < EDITOR_ITEMS.size(); idx++) {
+
             int row = idx / lineItems;
             int col = idx % lineItems;
+
             int x = 16 + col * (cell + gap);
             int y = top + (int) paletteScroll + row * (cell + gap);
-            boolean hover = mouseX >= x && mouseX <= x + cell && mouseY >= y && mouseY <= y + cell;
 
-            graphics.fill(x, y, x + cell, y + cell, hover ? 0x33FFFFFF : 0x22000000);
+            if (y > height || y + cell < top) continue;
+
+            boolean hover = mouseX >= x && mouseX <= x + cell &&
+                    mouseY >= y && mouseY <= y + cell;
+
+            // 背景
+            int bgColor = 0x22000000;
+            if (hover) bgColor = 0x33FFFFFF;
+
+            graphics.fill(x, y, x + cell, y + cell, bgColor);
+
+            // 边框（hover时更明显）
+            int border = hover ? 0x88FFFFFF : 0x44000000;
+            graphics.fill(x, y, x + cell, y + 1, border);
+            graphics.fill(x, y + cell - 1, x + cell, y + cell, border);
+            graphics.fill(x, y, x + 1, y + cell, border);
+            graphics.fill(x + cell - 1, y, x + cell, y + cell, border);
+
             SignItem token = EDITOR_ITEMS.get(idx);
-            try {
-                drawTokenIconG2D(g2dLayer.graphics, token, x + 2, y + 2, cell - 4, laneRef.part());
-            } catch (IOException e) {
 
-            }
+            // === 直接 blit 图标 ===
+            var icon = token.getIconLocation();
+            graphics.blit(icon, x + 3, y + 3, 0, 0, cell - 6, cell - 6, cell - 6, cell - 6);
+
+            // hover 提示 +
             if (hover) {
-                graphics.drawString(font, "+", x + 9, y + 8, 0xFFFFFF, false);
+                graphics.drawString(font, "+", x + cell / 2 - 3, y + cell / 2 - 4, 0xFFFFFF, false);
             }
 
+            // 插入逻辑
             if (hover && mouseClickInfo != null &&
-                    (mouseClickInfo.button == 0 || mouseClickInfo.button == 1 || mouseClickInfo.button == 2)) {
+                    (mouseClickInfo.button == 0 ||
+                            mouseClickInfo.button == 1 ||
+                            mouseClickInfo.button == 2)) {
+
                 insertItemFromPalette(lane, token, mouseClickInfo.button);
                 sideEditing = -1;
             }
         }
+
         graphics.disableScissor();
+
+        // === 滚动限制 ===
+        float minScroll = -Math.max(0, contentHeight - (height - top - 12));
+        paletteScroll = Math.max(minScroll, Math.min(0, paletteScroll));
     }
 
+
     private void insertItemFromPalette(List<SignItem> lane, SignItem token, int button) {
+
         SignItem newItem = copySignItem(token);
         if (newItem == null) {
             return;
@@ -304,16 +354,16 @@ public class SignConfigUI extends Screen {
         }
 
         if (token.withText && token.text != null && !token.text.isEmpty()) {
-            SignItem textItem = createTextItem(token.text);
+            TextItem textItem = createTextItem(token.text);
             if (button == 0) {
                 // 左键：文本在图标左侧
-                lane.add(insertIndex, textItem);
+                lane.add(insertIndex, textItem.setAlign(2));
                 lane.add(insertIndex + 1, newItem);
                 return;
             } else if (button == 1) {
                 // 右键：文本在图标右侧
                 lane.add(insertIndex, newItem);
-                lane.add(insertIndex + 1, textItem);
+                lane.add(insertIndex + 1, textItem.setAlign(0));
                 return;
             }
         }
@@ -322,7 +372,7 @@ public class SignConfigUI extends Screen {
         lane.add(insertIndex, newItem);
     }
 
-    private SignItem createTextItem(String text) {
+    private TextItem createTextItem(String text) {
         JsonObject json = new JsonObject();
         json.addProperty("text", text);
         return new TextItem(json);
@@ -368,12 +418,6 @@ public class SignConfigUI extends Screen {
     private void drawTokenG2D(Graphics2D g, SignItem token, float x, float y, float unit, int align) {
         SignDrawContext ctx = new SignDrawContext(g, x, y, unit, align);
         token.draw(ctx);
-    }
-
-    private void drawTokenIconG2D(Graphics2D g, SignItem token, float x, float y, float unit, int align) throws IOException {
-        BufferedImage image = ResourceUtil.loadImage(token.getIconLocation());
-        g.drawImage(image, (int) x, (int) y, (int) unit, (int) unit, null);
-
     }
 
     @Override
@@ -428,6 +472,7 @@ public class SignConfigUI extends Screen {
             sideEditing = -1;
         } else if (this.modeFlag < 0) {
             setter.accept(dispItems);
+            g2dLayer.close();
             super.onClose();
         }
     }
@@ -515,4 +560,15 @@ public class SignConfigUI extends Screen {
         );
     }
 
+    private int getG2dX(int p) {
+        return p;
+    }
+
+    private int getG2dY(int p) {
+        return p;
+    }
+
+    private int getG2dU(int p) {
+        return p;
+    }
 }

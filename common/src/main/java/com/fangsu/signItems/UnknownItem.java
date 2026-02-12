@@ -24,7 +24,7 @@ public class UnknownItem extends SignItem {
 
     @Override
     public float getWidth(Graphics2D g, float unit) {
-        return 1;
+        return unit;
     }
 
     @Override
@@ -36,10 +36,10 @@ public class UnknownItem extends SignItem {
         int u = (int) ctx.unit();
         int baseX = x + (align == 2 ? -u : 0);
         g.setColor(Color.black);
-        g.fillRect(baseX, y - u, u, u);
+        g.fillRect(baseX, y, u, u);
         g.setColor(new Color(255, 100, 100));
-        g.drawRect(baseX, y - u, u / 2, u / 2);
-        g.drawRect(baseX + u / 2, y - u / 2, u, u);
+        g.fillRect(baseX, y, u / 2, u / 2);
+        g.fillRect(baseX + u / 2, y + u / 2, u, u);
     }
 
     @Override

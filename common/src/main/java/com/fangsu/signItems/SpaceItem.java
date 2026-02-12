@@ -6,7 +6,7 @@ import net.minecraft.resources.ResourceLocation;
 import java.awt.*;
 
 public class SpaceItem extends SignItem {
-    private float length;
+    private float length = 1f;
 
     public SpaceItem(JsonObject json) {
         if (json.has("length") && json.get("length").isJsonPrimitive()) {
@@ -28,7 +28,7 @@ public class SpaceItem extends SignItem {
 
     @Override
     public float getWidth(Graphics2D g, float unit) {
-        return length;
+        return Math.max(length, 0.1f) * unit;
     }
 
     @Override

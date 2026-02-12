@@ -9,7 +9,7 @@ import java.io.IOException;
 
 public class ImageItem extends SignItem {
     private ResourceLocation imageLocation;
-    private int scale;
+    private float scale;
 
     private Image image;
 
@@ -21,8 +21,8 @@ public class ImageItem extends SignItem {
             this.imageLocation = new ResourceLocation(json.get("image").getAsString());
         }
         if (json.has("scale") && json.get("scale").isJsonPrimitive()) {
-            this.scale = json.get("scale").getAsInt();
-        }
+            this.scale = json.get("scale").getAsFloat();
+        } else scale = 1f;
         if (json.has("text") && json.get("text").isJsonPrimitive()) {
             this.text = json.get("text").getAsString();
             this.withText = true;
@@ -46,7 +46,7 @@ public class ImageItem extends SignItem {
 
     @Override
     public float getWidth(Graphics2D g, float unit) {
-        return 1f;
+        return unit;
     }
 
     @Override
@@ -65,7 +65,7 @@ public class ImageItem extends SignItem {
             }
         }
         if (image != null) {
-            g.drawImage(image, (int) (x + (align == 2 ? -u : 0) + corner), (int) (y - u + corner), (int) (u - 2 * corner), (int) (u - 2 * corner), null);
+            g.drawImage(image, (int) (x + corner), (int) (y + corner), (int) (u - 2 * corner), (int) (u - 2 * corner), null);
         }
     }
 
