@@ -30,16 +30,19 @@ public class UnknownItem extends SignItem {
     @Override
     public void draw(SignDrawContext ctx) {
         Graphics2D g = ctx.graphics();
-        int x = (int) ctx.x();
-        int y = (int) ctx.y();
-        int align = ctx.align();
-        int u = (int) ctx.unit();
-        int baseX = x + (align == 2 ? -u : 0);
-        g.setColor(Color.black);
-        g.fillRect(baseX, y, u, u);
-        g.setColor(new Color(255, 100, 100));
-        g.fillRect(baseX, y, u / 2, u / 2);
-        g.fillRect(baseX + u / 2, y + u / 2, u, u);
+        int x = Math.round(ctx.x());
+        int y = Math.round(ctx.y());
+        int u = Math.round(ctx.unit());
+        g.setColor(new Color(34, 34, 34));
+        g.fillRect(x, y, u, u);
+        int bar = Math.max(2, u / 5);
+        g.setColor(new Color(220, 60, 60));
+        g.fillRect(x, y, u, bar);
+        g.fillRect(x, y + u - bar, u, bar);
+        g.fillRect(x, y, bar, u);
+        g.fillRect(x + u - bar, y, bar, u);
+        g.setColor(new Color(255, 180, 180));
+        g.fillRect(x + bar, y + bar, Math.max(1, u - bar * 2), Math.max(1, u - bar * 2));
     }
 
     @Override

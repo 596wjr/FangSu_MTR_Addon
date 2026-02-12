@@ -21,6 +21,7 @@ import static com.fangsu.signItems.SignItemFactory.EDITOR_ITEMS;
 public class SignConfigUI extends Screen {
 
     private static final int ROW_COUNT = 6;
+    private static final int G2D_SCALE = 2;
 
     private List<Map<String, List<SignItem>>> dispItems;
     private final Consumer<List<Map<String, List<SignItem>>>> setter;
@@ -31,6 +32,7 @@ public class SignConfigUI extends Screen {
     private int sideEditing = -1; // -2 = head insert
     private float[] rowScroll = new float[ROW_COUNT];
     private float paletteScroll = 0;
+    private float editingPreviewScroll = 0;
     private int faces = 2;
 
     private GraphicsTexture g2dLayer;
@@ -86,14 +88,14 @@ public class SignConfigUI extends Screen {
         if (g2dLayer != null) g2dLayer.close();
         int texW = Math.max(1, width);
         int texH = Math.max(1, height);
-        g2dLayer = new GraphicsTexture(texW, texH);
+        g2dLayer = new GraphicsTexture(texW * G2D_SCALE, texH * G2D_SCALE);
         g2dLayer.graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
     }
 
     private void drawSelectionScreen(GuiGraphics graphics, int mouseX, int mouseY) {
         int rowHeight = (height - 12) / ROW_COUNT;
         int i = 0;
-        float u = (rowHeight / 7f) * 6f;
+        float u = Math.min(30f, rowHeight * 0.5f);
         Graphics2D g2d = g2dLayer.graphics;
 
         for (int side = 0; side < faces; side++) {
@@ -116,6 +118,7 @@ public class SignConfigUI extends Screen {
                     modeFlag = 1;
                     inEditingRow = new LaneRef(side, part, lane);
                     paletteScroll = 0;
+                    editingPreviewScroll = 0;
                     sideEditing = lane.isEmpty() ? -2 : -1;
                 }
                 i++;
@@ -147,12 +150,15 @@ public class SignConfigUI extends Screen {
         float totalWidth = 0;
         for (SignItem token : lane) totalWidth += getTokenWidth(g2dLayer.graphics, token, u) + u * 0.35f;
 
-        float x;
-        switch (laneRef.part()) {
-            case 2 -> x = width - 24 - totalWidth;
-            case 1 -> x = (width - totalWidth) / 2f;
-            default -> x = 24;
-        }
+        float baseX = switch (laneRef.part()) {
+            case 2 -> width - 24 - totalWidth;
+            case 1 -> (width - totalWidth) / 2f;
+            default -> 24;
+        };
+        float minPreviewScroll = Math.min(0, width - 24 - (baseX + totalWidth));
+        float maxPreviewScroll = Math.max(0, 24 - baseX);
+        editingPreviewScroll = Math.max(minPreviewScroll, Math.min(maxPreviewScroll, editingPreviewScroll));
+        float x = baseX + editingPreviewScroll;
 
         boolean blink = (System.currentTimeMillis() / 400) % 2 == 0;
         float headIndicatorX = x - u * 0.25f;
@@ -177,7 +183,7 @@ public class SignConfigUI extends Screen {
             boolean hover = mouseX >= x && mouseX <= x + tokenW && mouseY >= y && mouseY <= y + u;
             if (hover) {
                 graphics.fill((int) x, (int) y, (int) (x + tokenW), (int) (y + u), 0x33FFFFFF);
-                graphics.drawString(font, "L:edit  R:del", (int) x, (int) (y - 10), 0xE0E0E0, false);
+                graphics.drawString(font, Component.translatable("ui.fangsu.sign.edit_hint"), (int) x, (int) (y - 10), 0xE0E0E0, false);
             }
 
             if (mouseClickInfo != null && hover) {
@@ -215,8 +221,8 @@ public class SignConfigUI extends Screen {
 
         LayoutItem layoutItem = layoutEditRef.layoutItem;
         graphics.fill(12, 24, width - 12, 140, 0x441E1E1E);
-        graphics.drawString(font, Component.literal("MultiLine Layout"), 16, 32, 0xFFFFFF, false);
-        graphics.drawString(font, Component.literal("左键编辑，右键删除，点击上/下槽切换"), 16, 45, 0xCCCCCC, false);
+        graphics.drawString(font, Component.translatable("ui.fangsu.sign.layout_title"), 16, 32, 0xFFFFFF, false);
+        graphics.drawString(font, Component.translatable("ui.fangsu.sign.layout_hint"), 16, 45, 0xCCCCCC, false);
 
         int boxX = 20;
         int boxW = width - 40;
@@ -294,6 +300,9 @@ public class SignConfigUI extends Screen {
             SignItem token = EDITOR_ITEMS.get(idx);
             graphics.blit(token.getIconLocation(), x + 3, y + 3, 0, 0, cell - 6, cell - 6, cell - 6, cell - 6);
             if (hover) graphics.drawString(font, "+", x + cell / 2 - 3, y + cell / 2 - 4, 0xFFFFFF, false);
+            if (hover) {
+                graphics.renderTooltip(font, Component.translatable("ui.fangsu.sign.item." + token.getType()), mouseX, mouseY);
+            }
 
             if (hover && mouseClickInfo != null && (mouseClickInfo.button == 0 || mouseClickInfo.button == 1 || mouseClickInfo.button == 2)) {
                 SignItem newItem = copySignItem(token);
@@ -401,6 +410,10 @@ public class SignConfigUI extends Screen {
                 }
             }
         } else {
+            if (modeFlag == 1 && mouseY >= 24 && mouseY <= 78) {
+                editingPreviewScroll += (float) (delta * 10f);
+                return true;
+            }
             if (mouseY >= 170) {
                 paletteScroll += (float) (delta * 10f);
                 return true;
@@ -421,6 +434,7 @@ public class SignConfigUI extends Screen {
             if (modeFlag < 0) onClose();
             else if (modeFlag == 0) {
                 inEditingRow = null;
+                editingPreviewScroll = 0;
                 sideEditing = -1;
             }
             return true;
@@ -435,6 +449,7 @@ public class SignConfigUI extends Screen {
             layoutEditRef = null;
         } else if (modeFlag == 0) {
             inEditingRow = null;
+            editingPreviewScroll = 0;
             sideEditing = -1;
         } else if (this.modeFlag < 0) {
             setter.accept(dispItems);
