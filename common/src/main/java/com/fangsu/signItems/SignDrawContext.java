@@ -8,6 +8,7 @@ public record SignDrawContext(
         float x,
         float y,
         float unit,
-        int align          // 0 左 1 中 2 右
+        int align,         // 0 左 1 中 2 右
+        boolean selected
 ) {
 }

@@ -36,5 +36,21 @@
   "block.fangsu.ticket_barrier": "Ticket Barrier",
   "block.fangsu.collision_compensation_block": "Collision Compensation Block",
   "ui.fangsu.sign.title": "Sign Configuration",
-  "ui.fangsu.sign.editing": "Editing"
+  "ui.fangsu.sign.editing": "Editing",
+  "ui.fangsu.common.config": "Config Menu",
+  "ui.fangsu.common.text": "Text",
+  "ui.fangsu.common.color": "Color",
+  "ui.fangsu.common.align": "Alignment",
+  "ui.fangsu.common.alignLeft": "Align Left",
+  "ui.fangsu.common.alignRight": "Align Right",
+  "ui.fangsu.common.alignCenter": "Align Center",
+  "ui.fangsu.common.scale": "Scale",
+  "ui.fangsu.common.length": "Length",
+  "ui.fangsu.sign.front": "Front",
+  "ui.fangsu.sign.back": "Back",
+  "ui.fangsu.sign.left": "Left",
+  "ui.fangsu.sign.center": "Center",
+  "ui.fangsu.sign.right": "Right",
+  "ui.fangsu.sign.tooltip1": "Editing: %s",
+  "ui.fangsu.sign.tooltip2": "ESC: Back"
 }

@@ -51,5 +51,10 @@
   "ui.fangsu.sign.front": "正面",
   "ui.fangsu.sign.back": "反面",
   "ui.fangsu.sign.tooltip1": "编辑中: %s",
-  "ui.fangsu.sign.tooltip2": "ESC: 返回"
+  "ui.fangsu.sign.tooltip2": "ESC: 返回",
+  "ui.fangsu.common.scale": "缩放",
+  "ui.fangsu.common.length": "长度",
+  "ui.fangsu.sign.left": "左侧",
+  "ui.fangsu.sign.center": "居中",
+  "ui.fangsu.sign.right": "右侧"
 }

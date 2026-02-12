@@ -41,6 +41,7 @@ public class TextItem extends SignItem {
         json.addProperty("color", color.getRGB());
         json.addProperty("text", text);
         json.addProperty("font", fontLocation.toString());
+        json.addProperty("align", align);
         return json;
     }
 

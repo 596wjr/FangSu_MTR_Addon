@@ -1,6 +1,7 @@
 package com.fangsu.ui;
 
 import com.fangsu.scripting.GraphicsTexture;
+import com.fangsu.signItems.LayoutItem;
 import com.fangsu.signItems.SignDrawContext;
 import com.fangsu.signItems.SignItem;
 import com.fangsu.signItems.TextItem;
@@ -13,8 +14,9 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 import java.awt.*;
-import java.util.*;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import static com.fangsu.signItems.SignItemFactory.EDITOR_ITEMS;
@@ -23,18 +25,15 @@ public class SignConfigUI extends Screen {
 
     private static final int ROW_COUNT = 6;
 
-    private
-    List<                       //第几面
-            Map<String,         //左中右
-                    List<SignItem>>> dispItems;
+    private List<Map<String, List<SignItem>>> dispItems;
     private final Consumer<List<Map<String, List<SignItem>>>> setter;
 
     private int modeFlag = 0;
     private LaneRef inEditingRow = null;
+    private LayoutEditRef layoutEditRef = null;
     private int sideEditing = -1; // -2 = head insert
     private float[] rowScroll = new float[ROW_COUNT];
     private float paletteScroll = 0;
-    private float editScroll = 0;
     private int faces = 2;
 
     private GraphicsTexture g2dLayer;
@@ -53,32 +52,29 @@ public class SignConfigUI extends Screen {
         if (rowScroll.length != ROW_COUNT) {
             rowScroll = new float[ROW_COUNT];
         }
-        if (g2dLayer == null) {
-            g2dLayer = new GraphicsTexture(Minecraft.getInstance().getWindow().getWidth(), Minecraft.getInstance().getWindow().getHeight());
-            g2dLayer.graphics.setRenderingHint(
-                    RenderingHints.KEY_ANTIALIASING,
-                    RenderingHints.VALUE_ANTIALIAS_ON
-            );
-        }
+        recreateG2dLayer();
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(graphics);
         graphics.fill(0, 0, width, height, 0xFF101010);
-        g2dLayer.graphics.setComposite(AlphaComposite.Clear);      // 设置为清除模式
-        g2dLayer.graphics.fillRect(0, 0, width, height);              // 填充整个画布
-        g2dLayer.graphics.setComposite(AlphaComposite.SrcOver);    // 恢复默认绘制模式
+
+        g2dLayer.graphics.setComposite(AlphaComposite.Clear);
+        g2dLayer.graphics.fillRect(0, 0, g2dLayer.width, g2dLayer.height);
+        g2dLayer.graphics.setComposite(AlphaComposite.SrcOver);
 
         if (modeFlag == 0) {
             drawSelectionScreen(graphics, mouseX, mouseY);
         } else if (modeFlag == 1) {
             drawEditingScreen(graphics, mouseX, mouseY);
+        } else if (modeFlag == 2) {
+            drawLayoutEditingScreen(graphics, mouseX, mouseY);
         }
 
         graphics.drawString(font, this.title, 10, 2, 0xFFFFFF, false);
         g2dLayer.upload();
-        graphics.blit(g2dLayer.identifier, 0, 0, 0, 0, width, height, g2dLayer.width, g2dLayer.height);
+        graphics.blit(g2dLayer.identifier, 0, 0, 0, 0, width, height, width, height);
 
         mouseClickInfo = null;
     }
@@ -86,18 +82,21 @@ public class SignConfigUI extends Screen {
     @Override
     public void resize(Minecraft client, int width, int height) {
         super.resize(client, width, height);
+        recreateG2dLayer();
+    }
+
+    private void recreateG2dLayer() {
         if (g2dLayer != null) g2dLayer.close();
-        g2dLayer = new GraphicsTexture(width, height);
-        g2dLayer.graphics.setRenderingHint(
-                RenderingHints.KEY_ANTIALIASING,
-                RenderingHints.VALUE_ANTIALIAS_ON
-        );
+        int texW = Math.max(1, width);
+        int texH = Math.max(1, height);
+        g2dLayer = new GraphicsTexture(texW, texH);
+        g2dLayer.graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
     }
 
     private void drawSelectionScreen(GuiGraphics graphics, int mouseX, int mouseY) {
         int rowHeight = (height - 12) / ROW_COUNT;
         int i = 0;
-        float u = (rowHeight / 7f) * 6f; // token 单位大小
+        float u = (rowHeight / 7f) * 6f;
         Graphics2D g2d = g2dLayer.graphics;
 
         for (int side = 0; side < faces; side++) {
@@ -105,78 +104,48 @@ public class SignConfigUI extends Screen {
             for (int part = 0; part < 3; part++) {
                 int rowY = 12 + i * rowHeight;
                 int rowBottom = rowY + rowHeight;
-
-                // 背景条纹
                 int stripeColor = (i % 2 == 0) ? 0x22ffffff : 0x00ffffff;
-                if (mouseY >= rowY && mouseY <= rowBottom) {
-                    stripeColor = 0x33ffffff;
-                }
+                if (mouseY >= rowY && mouseY <= rowBottom) stripeColor = 0x33ffffff;
                 graphics.fill(0, rowY, width, rowY + rowHeight, stripeColor);
 
-                // 文本
                 ScreenUtil.drawString(graphics,
                         Component.translatable("ui.fangsu.sign." + faceName(side)).getString() + " - " + Component.translatable("ui.fangsu.sign." + partName(part)).getString(),
-                        16,
-                        rowY + rowHeight / 8,
-                        0xffffffff,
-                        rowHeight / 8, false);
+                        16, rowY + rowHeight / 8, 0xffffffff, rowHeight / 8, false);
 
-                // lane token
-                List<SignItem> lane = faceLanes.get(partName(part));
-                float scrollX = rowScroll[i];
-                float startX = scrollX;
+                List<SignItem> lane = faceLanes.computeIfAbsent(partName(part), k -> new ArrayList<>());
+                drawLane(g2d, lane, rowScroll[i], rowY, part, u, false);
 
-                drawLane(g2d, lane, getG2dX((int) startX), getG2dY(rowY), part, getG2dU((int) u));
-
-                if (mouseClickInfo != null && mouseClickInfo.button == 0) {
-                    if (mouseClickInfo.mouseY >= rowY && mouseClickInfo.mouseY <= rowBottom) {
-                        modeFlag = 1;
-                        inEditingRow = new LaneRef(side, part, lane);
-                        paletteScroll = 0;
-                        sideEditing = lane == null || lane.isEmpty() ? -2 : -1;
-                    }
+                if (mouseClickInfo != null && mouseClickInfo.button == 0 && mouseClickInfo.mouseY >= rowY && mouseClickInfo.mouseY <= rowBottom) {
+                    modeFlag = 1;
+                    inEditingRow = new LaneRef(side, part, lane);
+                    paletteScroll = 0;
+                    sideEditing = lane.isEmpty() ? -2 : -1;
                 }
-
                 i++;
             }
         }
     }
 
-
     private void drawEditingScreen(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (inEditingRow == null) modeFlag = 0;
+        if (inEditingRow == null) {
+            modeFlag = 0;
+            return;
+        }
         LaneRef laneRef = inEditingRow;
         List<SignItem> lane = laneRef.lane;
         if (lane == null) lane = new ArrayList<>();
 
         graphics.fill(12, 24, width - 12, 78, 0x441E1E1E);
-        graphics.drawString(
-                font,
+        graphics.drawString(font,
                 Component.translatable("ui.fangsu.sign.tooltip1", Component.translatable("ui.fangsu.sign." + faceName(laneRef.face)).getString() + " - " + Component.translatable("ui.fangsu.sign." + partName(laneRef.part)).getString()),
-                16,
-                32,
-                0xFFFFFF,
-                false
-        );
-
-        graphics.drawString(
-                font,
-                Component.translatable("ui.fangsu.sign.tooltip2"),
-                width - 80,
-                32,
-                0xCCCCCC,
-                false
-        );
-
+                16, 32, 0xFFFFFF, false);
+        graphics.drawString(font, Component.translatable("ui.fangsu.sign.tooltip2"), width - 80, 32, 0xCCCCCC, false);
 
         float u = 24;
-        float y = 50 + editScroll;
+        float y = 50;
 
         float totalWidth = 0;
-        if (lane != null && !lane.isEmpty())
-            for (SignItem token : lane) {
-                totalWidth += getTokenWidth(g2dLayer.graphics, token, u, laneRef.part()) + u * 0.5f;
-            }
+        for (SignItem token : lane) totalWidth += getTokenWidth(g2dLayer.graphics, token, u) + u * 0.35f;
 
         float x;
         switch (laneRef.part()) {
@@ -186,121 +155,135 @@ public class SignConfigUI extends Screen {
         }
 
         boolean blink = (System.currentTimeMillis() / 400) % 2 == 0;
-
-        // 头部加号
         float headIndicatorX = x - u * 0.25f;
-        if (lane != null && (lane.isEmpty() || sideEditing == -2)) {
-            if (blink) {
-                drawAddIndicator(graphics, headIndicatorX, y, u);
-            }
-            if (mouseClickInfo != null && mouseClickInfo.button == 0 &&
-                    mouseClickInfo.mouseX >= headIndicatorX && mouseClickInfo.mouseX <= headIndicatorX + u * 0.5f &&
-                    mouseClickInfo.mouseY >= y && mouseClickInfo.mouseY <= y + u) {
+        if (lane.isEmpty() || sideEditing == -2) {
+            if (blink) drawAddIndicator(graphics, headIndicatorX, y, u);
+            if (mouseClickInfo != null && mouseClickInfo.button == 0 && mouseClickInfo.mouseX >= headIndicatorX && mouseClickInfo.mouseX <= headIndicatorX + u * 0.5f && mouseClickInfo.mouseY >= y && mouseClickInfo.mouseY <= y + u) {
                 sideEditing = -2;
             }
         }
 
         Graphics2D g = g2dLayer.graphics;
-        if (lane != null) {
-            for (int idx = 0; idx < lane.size(); idx++) {
-                SignItem token = lane.get(idx);
-                float tokenW = getTokenWidth(g, token, u, laneRef.part());
+        for (int idx = 0; idx < lane.size(); idx++) {
+            SignItem token = lane.get(idx);
+            float tokenW = getTokenWidth(g, token, u);
 
-                drawTokenG2D(g, token, getG2dX((int) x), getG2dY((int) y), getG2dU((int) u), laneRef.part());
+            drawTokenG2D(g, token, x, y, u, laneRef.part(), false);
 
-                boolean addHover =
-                        mouseX >= x + tokenW &&
-                                mouseX <= x + tokenW + u * 0.5f &&
-                                mouseY >= y &&
-                                mouseY <= y + u;
+            boolean addHover = mouseX >= x + tokenW && mouseX <= x + tokenW + u * 0.5f && mouseY >= y && mouseY <= y + u;
+            if (addHover || (sideEditing == idx && blink)) drawAddIndicator(graphics, x + tokenW, y, u);
+            if (mouseClickInfo != null && mouseClickInfo.button == 0 && addHover) sideEditing = idx;
 
-                if (addHover || (sideEditing == idx && blink)) {
-                    drawAddIndicator(graphics, x + tokenW, y, u);
-                }
-
-                if (mouseClickInfo != null && mouseClickInfo.button == 0 && addHover) {
-                    sideEditing = idx;
-                }
-
-                boolean hover =
-                        mouseX >= x &&
-                                mouseX <= x + tokenW &&
-                                mouseY >= y &&
-                                mouseY <= y + u;
-
-                if (hover) {
-                    graphics.fill(
-                            (int) x,
-                            (int) y,
-                            (int) (x + tokenW),
-                            (int) (y + u),
-                            0x33FFFFFF
-                    );
-
-                    graphics.drawString(
-                            font,
-                            "L:edit  R:del",
-                            (int) x,
-                            (int) (y - 10),
-                            0xE0E0E0,
-                            false
-                    );
-                }
-
-                if (mouseClickInfo != null &&
-                        mouseClickInfo.mouseY >= y && mouseClickInfo.mouseY <= y + u &&
-                        mouseClickInfo.mouseX >= x && mouseClickInfo.mouseX <= x + tokenW) {
-                    if (mouseClickInfo.button == 1) {
-                        lane.remove(idx);
-                        sideEditing = -1;
-                        break;
-                    } else if (token.getConfigs() != null && !token.getConfigs().isEmpty()) {
-                        mouseClickInfo = null;
-                        sideEditing = -1;
-                        Screen configScreen = new ConfigScreen(Component.translatable("ui.fangsu.common.config"), token.getConfigs(), this);
-                        Minecraft.getInstance().setScreen(configScreen);
-                    }
-                }
-
-                x += tokenW + u * 0.35f;
+            boolean hover = mouseX >= x && mouseX <= x + tokenW && mouseY >= y && mouseY <= y + u;
+            if (hover) {
+                graphics.fill((int) x, (int) y, (int) (x + tokenW), (int) (y + u), 0x33FFFFFF);
+                graphics.drawString(font, "L:edit  R:del", (int) x, (int) (y - 10), 0xE0E0E0, false);
             }
+
+            if (mouseClickInfo != null && hover) {
+                if (mouseClickInfo.button == 1) {
+                    lane.remove(idx);
+                    sideEditing = -1;
+                    break;
+                } else if (mouseClickInfo.button == 0 && token instanceof LayoutItem layoutItem) {
+                    modeFlag = 2;
+                    layoutEditRef = new LayoutEditRef(lane, idx, layoutItem, layoutItem.getLane("top").isEmpty() ? "top" : "bottom");
+                    paletteScroll = 0;
+                    break;
+                } else if (token.getConfigs() != null && !token.getConfigs().isEmpty()) {
+                    mouseClickInfo = null;
+                    sideEditing = -1;
+                    Minecraft.getInstance().setScreen(new ConfigScreen(Component.translatable("ui.fangsu.common.config"), token.getConfigs(), this));
+                    break;
+                }
+            }
+            x += tokenW + u * 0.35f;
         }
 
-        drawPalette(graphics, mouseX, mouseY, laneRef, lane);
+        drawPalette(graphics, mouseX, mouseY, lane, item -> {
+            int insertIndex = sideEditing == -2 ? 0 : (sideEditing >= 0 && sideEditing < lane.size() ? sideEditing + 1 : lane.size());
+            lane.add(insertIndex, item);
+        });
     }
 
-    private void drawPalette(GuiGraphics graphics, int mouseX, int mouseY, LaneRef laneRef, List<SignItem> lane) {
-        int top = 110;
+    private void drawLayoutEditingScreen(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (layoutEditRef == null) {
+            modeFlag = 1;
+            return;
+        }
+
+        LayoutItem layoutItem = layoutEditRef.layoutItem;
+        graphics.fill(12, 24, width - 12, 140, 0x441E1E1E);
+        graphics.drawString(font, Component.literal("MultiLine Layout"), 16, 32, 0xFFFFFF, false);
+        graphics.drawString(font, Component.literal("左键编辑，右键删除，点击上/下槽切换"), 16, 45, 0xCCCCCC, false);
+
+        int boxX = 20;
+        int boxW = width - 40;
+        int topY = 62;
+        int rowH = 28;
+
+        drawSubLaneEditor(graphics, layoutItem, "top", boxX, topY, boxW, rowH, mouseX, mouseY);
+        drawSubLaneEditor(graphics, layoutItem, "bottom", boxX, topY + rowH + 8, boxW, rowH, mouseX, mouseY);
+
+        drawPalette(graphics, mouseX, mouseY, layoutItem.getLane(layoutEditRef.selectedLaneKey), item ->
+                layoutItem.getLane(layoutEditRef.selectedLaneKey).add(item)
+        );
+    }
+
+    private void drawSubLaneEditor(GuiGraphics graphics, LayoutItem layoutItem, String laneKey, int x, int y, int w, int h, int mouseX, int mouseY) {
+        boolean selectedLane = layoutEditRef != null && laneKey.equals(layoutEditRef.selectedLaneKey);
+        graphics.fill(x, y, x + w, y + h, selectedLane ? 0x33336699 : 0x22000000);
+
+        List<SignItem> lane = layoutItem.getLane(laneKey);
+        Graphics2D g = g2dLayer.graphics;
+        float unit = h;
+        float drawX = x + 8;
+        for (int i = 0; i < lane.size(); i++) {
+            SignItem token = lane.get(i);
+            float tokenW = token.getWidth(g, unit);
+            drawTokenG2D(g, token, drawX, y, unit, 0, false);
+
+            boolean hover = mouseX >= drawX && mouseX <= drawX + tokenW && mouseY >= y && mouseY <= y + h;
+            if (hover && mouseClickInfo != null) {
+                if (mouseClickInfo.button == 1) {
+                    lane.remove(i);
+                    break;
+                } else if (mouseClickInfo.button == 0 && token.getConfigs() != null && !token.getConfigs().isEmpty()) {
+                    mouseClickInfo = null;
+                    Minecraft.getInstance().setScreen(new ConfigScreen(Component.translatable("ui.fangsu.common.config"), token.getConfigs(), this));
+                    return;
+                }
+            }
+            drawX += tokenW + unit * 0.2f;
+        }
+
+        if (lane.isEmpty() && selectedLane) {
+            drawDashedRect(g, x + 8, y + 3, w - 16, h - 6, new Color(255, 255, 255, 200));
+        }
+
+        if (mouseClickInfo != null && mouseClickInfo.button == 0 && mouseClickInfo.mouseX >= x && mouseClickInfo.mouseX <= x + w && mouseClickInfo.mouseY >= y && mouseClickInfo.mouseY <= y + h) {
+            layoutEditRef = new LayoutEditRef(layoutEditRef.parentLane, layoutEditRef.itemIndex, layoutEditRef.layoutItem, laneKey);
+        }
+    }
+
+    private void drawPalette(GuiGraphics graphics, int mouseX, int mouseY, List<SignItem> targetLane, Consumer<SignItem> inserter) {
+        int top = 180;
         int cell = 26;
         int gap = 6;
-
         int usableWidth = width - 32;
         int lineItems = Math.max(1, usableWidth / (cell + gap));
-
         int contentHeight = ((EDITOR_ITEMS.size() + lineItems - 1) / lineItems) * (cell + gap);
 
         graphics.enableScissor(12, top, width - 12, height - 12);
-
         for (int idx = 0; idx < EDITOR_ITEMS.size(); idx++) {
-
             int row = idx / lineItems;
             int col = idx % lineItems;
-
             int x = 16 + col * (cell + gap);
             int y = top + (int) paletteScroll + row * (cell + gap);
-
             if (y > height || y + cell < top) continue;
 
-            boolean hover = mouseX >= x && mouseX <= x + cell &&
-                    mouseY >= y && mouseY <= y + cell;
-
-            // 背景
-            int bgColor = 0x22000000;
-            if (hover) bgColor = 0x33FFFFFF;
-
-            graphics.fill(x, y, x + cell, y + cell, bgColor);
-
-            // 边框（hover时更明显）
+            boolean hover = mouseX >= x && mouseX <= x + cell && mouseY >= y && mouseY <= y + cell;
+            graphics.fill(x, y, x + cell, y + cell, hover ? 0x33FFFFFF : 0x22000000);
             int border = hover ? 0x88FFFFFF : 0x44000000;
             graphics.fill(x, y, x + cell, y + 1, border);
             graphics.fill(x, y + cell - 1, x + cell, y + cell, border);
@@ -308,68 +291,39 @@ public class SignConfigUI extends Screen {
             graphics.fill(x + cell - 1, y, x + cell, y + cell, border);
 
             SignItem token = EDITOR_ITEMS.get(idx);
+            graphics.blit(token.getIconLocation(), x + 3, y + 3, 0, 0, cell - 6, cell - 6, cell - 6, cell - 6);
+            if (hover) graphics.drawString(font, "+", x + cell / 2 - 3, y + cell / 2 - 4, 0xFFFFFF, false);
 
-            // === 直接 blit 图标 ===
-            var icon = token.getIconLocation();
-            graphics.blit(icon, x + 3, y + 3, 0, 0, cell - 6, cell - 6, cell - 6, cell - 6);
-
-            // hover 提示 +
-            if (hover) {
-                graphics.drawString(font, "+", x + cell / 2 - 3, y + cell / 2 - 4, 0xFFFFFF, false);
-            }
-
-            // 插入逻辑
-            if (hover && mouseClickInfo != null &&
-                    (mouseClickInfo.button == 0 ||
-                            mouseClickInfo.button == 1 ||
-                            mouseClickInfo.button == 2)) {
-
-                insertItemFromPalette(lane, token, mouseClickInfo.button);
+            if (hover && mouseClickInfo != null && (mouseClickInfo.button == 0 || mouseClickInfo.button == 1 || mouseClickInfo.button == 2)) {
+                SignItem newItem = copySignItem(token);
+                if (newItem == null) continue;
+                if (token.withText && token.text != null && !token.text.isEmpty() && targetLane != null && modeFlag == 1) {
+                    insertWithText(targetLane, inserter, newItem, token, mouseClickInfo.button);
+                } else {
+                    inserter.accept(newItem);
+                }
                 sideEditing = -1;
             }
         }
-
         graphics.disableScissor();
 
-        // === 滚动限制 ===
         float minScroll = -Math.max(0, contentHeight - (height - top - 12));
         paletteScroll = Math.max(minScroll, Math.min(0, paletteScroll));
     }
 
-
-    private void insertItemFromPalette(List<SignItem> lane, SignItem token, int button) {
-
-        SignItem newItem = copySignItem(token);
-        if (newItem == null) {
-            return;
-        }
-
-        int insertIndex;
-        if (sideEditing == -2) {
-            insertIndex = 0;
-        } else if (sideEditing >= 0 && sideEditing < lane.size()) {
-            insertIndex = sideEditing + 1;
+    private void insertWithText(List<SignItem> lane, Consumer<SignItem> inserter, SignItem newItem, SignItem token, int button) {
+        TextItem textItem = createTextItem(token.text);
+        int beforeSize = lane.size();
+        if (button == 0) {
+            inserter.accept(textItem.setAlign(2));
+            inserter.accept(newItem);
+        } else if (button == 1) {
+            inserter.accept(newItem);
+            inserter.accept(textItem.setAlign(0));
         } else {
-            insertIndex = lane.size();
+            inserter.accept(newItem);
         }
-
-        if (token.withText && token.text != null && !token.text.isEmpty()) {
-            TextItem textItem = createTextItem(token.text);
-            if (button == 0) {
-                // 左键：文本在图标左侧
-                lane.add(insertIndex, textItem.setAlign(2));
-                lane.add(insertIndex + 1, newItem);
-                return;
-            } else if (button == 1) {
-                // 右键：文本在图标右侧
-                lane.add(insertIndex, newItem);
-                lane.add(insertIndex + 1, textItem.setAlign(0));
-                return;
-            }
-        }
-
-        // 中键，或无附加文本时
-        lane.add(insertIndex, newItem);
+        if (beforeSize == lane.size()) inserter.accept(newItem);
     }
 
     private TextItem createTextItem(String text) {
@@ -389,35 +343,43 @@ public class SignConfigUI extends Screen {
         }
     }
 
-    private void drawLane(Graphics2D g, List<SignItem> lane, float startX, float y, int align, float u) {
+    private void drawLane(Graphics2D g, List<SignItem> lane, float startX, float y, int align, float u, boolean selected) {
         if (lane == null || lane.isEmpty()) return;
         Shape oriClip = g.getClip();
         float x = startX;
-        if (align == 2) { // 右对齐
+        if (align == 2) {
             float totalWidth = 0;
-            for (SignItem token : lane) totalWidth += getTokenWidth(g2dLayer.graphics, token, u, align) + u * 0.1f;
+            for (SignItem token : lane) totalWidth += getTokenWidth(g, token, u) + u * 0.1f;
             x = startX - totalWidth;
-        } else if (align == 1) { // 居中
+        } else if (align == 1) {
             float totalWidth = 0;
-            for (SignItem token : lane) totalWidth += getTokenWidth(g2dLayer.graphics, token, u, align) + u * 0.1f;
+            for (SignItem token : lane) totalWidth += getTokenWidth(g, token, u) + u * 0.1f;
             x = startX + (this.width - totalWidth) / 2f;
         }
         for (SignItem token : lane) {
-            float tokenWidth = getTokenWidth(g, token, u, align);
-            g.setClip(new Rectangle((int) (x + (align == 2 ? -1 : 1) * (tokenWidth)), (int) y, (int) tokenWidth, (int) u));
-            drawTokenG2D(g, token, x, y, u, align);
-            x += (align == 2 ? -1 : 1) * (tokenWidth + u * 0.1f);
+            float tokenWidth = getTokenWidth(g, token, u);
+            g.setClip(new Rectangle((int) x, (int) y, (int) tokenWidth, (int) u));
+            drawTokenG2D(g, token, x, y, u, align, selected);
+            x += tokenWidth + u * 0.1f;
             g.setClip(oriClip);
         }
     }
 
-    private float getTokenWidth(Graphics2D graphics, SignItem token, float unit, int align) {
+    private float getTokenWidth(Graphics2D graphics, SignItem token, float unit) {
         return token.getWidth(graphics, unit);
     }
 
-    private void drawTokenG2D(Graphics2D g, SignItem token, float x, float y, float unit, int align) {
-        SignDrawContext ctx = new SignDrawContext(g, x, y, unit, align);
+    private void drawTokenG2D(Graphics2D g, SignItem token, float x, float y, float unit, int align, boolean selected) {
+        SignDrawContext ctx = new SignDrawContext(g, getG2dX(x), getG2dY(y), getG2dU(unit), align, selected);
         token.draw(ctx);
+    }
+
+    private void drawDashedRect(Graphics2D g, int x, int y, int w, int h, Color color) {
+        Stroke original = g.getStroke();
+        g.setColor(color);
+        g.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 1f, new float[]{4f, 4f}, 0));
+        g.drawRect(getG2dX(x), getG2dY(y), getG2dU(w), getG2dU(h));
+        g.setStroke(original);
     }
 
     @Override
@@ -437,15 +399,11 @@ public class SignConfigUI extends Screen {
                     return true;
                 }
             }
-            return super.mouseScrolled(mouseX, mouseY, delta);
-        } else if (modeFlag == 1) {
-            if (mouseY >= 110) {
+        } else {
+            if (mouseY >= 170) {
                 paletteScroll += (float) (delta * 10f);
-                float min = -Math.max(0, (float) Math.ceil((double) EDITOR_ITEMS.size() / Math.max(1, (width - 24) / 30)) * 28f - (height - 122));
-                paletteScroll = Math.max(min, Math.min(0, paletteScroll));
                 return true;
             }
-            return super.mouseScrolled(mouseX, mouseY, delta);
         }
         return super.mouseScrolled(mouseX, mouseY, delta);
     }
@@ -453,6 +411,11 @@ public class SignConfigUI extends Screen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == 256) {
+            if (modeFlag == 2) {
+                modeFlag = 1;
+                layoutEditRef = null;
+                return true;
+            }
             modeFlag--;
             if (modeFlag < 0) onClose();
             else if (modeFlag == 0) {
@@ -467,7 +430,9 @@ public class SignConfigUI extends Screen {
     @Override
     public void onClose() {
         this.modeFlag--;
-        if (modeFlag == 0) {
+        if (modeFlag == 1) {
+            layoutEditRef = null;
+        } else if (modeFlag == 0) {
             inEditingRow = null;
             sideEditing = -1;
         } else if (this.modeFlag < 0) {
@@ -480,7 +445,7 @@ public class SignConfigUI extends Screen {
     private String partName(int part) {
         return switch (part) {
             case 0 -> "left";
-            case 1 -> "middle";
+            case 1 -> "center";
             case 2 -> "right";
             default -> "unknown";
         };
@@ -501,74 +466,46 @@ public class SignConfigUI extends Screen {
     private record LaneRef(int face, int part, List<SignItem> lane) {
     }
 
+    private record LayoutEditRef(List<SignItem> parentLane, int itemIndex, LayoutItem layoutItem, String selectedLaneKey) {
+    }
+
     private record MouseClickInfo(double mouseX, double mouseY, int button) {
     }
 
     private void drawAddIndicator(GuiGraphics g, float x, float y, float u) {
+        int color = 0xFFFFFFFF;
+        int w = Math.round(u * 0.5f);
+        int h = Math.round(u);
+        int px = Math.round(x);
+        int py = Math.round(y);
+        int shortEdge = Math.max(1, Math.round(u * 0.075f));
+        int longEdge = Math.round(u * 0.15f);
+        int plusLongEdge = Math.round(u * 0.25f);
 
-        int hhh = 0xFFFFFFFF;
+        g.fill(px, py, px + shortEdge, py + longEdge, color);
+        g.fill(px, py, px + longEdge, py + shortEdge, color);
+        g.fill(px + w - shortEdge, py, px + w, py + longEdge, color);
+        g.fill(px + w - longEdge, py, px + w, py + shortEdge, color);
+        g.fill(px, py + h - longEdge, px + shortEdge, py + h, color);
+        g.fill(px, py + h - shortEdge, px + longEdge, py + h, color);
+        g.fill(px + w - shortEdge, py + h - longEdge, px + w, py + h, color);
+        g.fill(px + w - longEdge, py + h - shortEdge, px + w, py + h, color);
 
-        int fff = Math.round(u * 0.5f);                     //w
-        int ggg = Math.round(u);                            //h
-
-        int aaa = Math.round(x);                            //x
-        int bbb = Math.round(y);                            //y
-
-        int ccc = Math.max(1, Math.round(u * 0.075f));       // 框短边 + 加号短边
-        int ddd = Math.round(u * 0.15f);                     // 框长边
-        int eee = Math.round(u * 0.25f);                     // 加号长边
-
-        // ===== 四角框 =====
-
-        // 左上
-        g.fill(aaa, bbb, aaa + ccc, bbb + ddd, hhh);
-        g.fill(aaa, bbb, aaa + ddd, bbb + ccc, hhh);
-
-        // 右上
-        g.fill(aaa + fff - ccc, bbb, aaa + fff, bbb + ddd, hhh);
-        g.fill(aaa + fff - ddd, bbb, aaa + fff, bbb + ccc, hhh);
-
-        // 左下
-        g.fill(aaa, bbb + ggg - ddd, aaa + ccc, bbb + ggg, hhh);
-        g.fill(aaa, bbb + ggg - ccc, aaa + ddd, bbb + ggg, hhh);
-
-        // 右下
-        g.fill(aaa + fff - ccc, bbb + ggg - ddd, aaa + fff, bbb + ggg, hhh);
-        g.fill(aaa + fff - ddd, bbb + ggg - ccc, aaa + fff, bbb + ggg, hhh);
-
-        // ===== 中间加号 =====
-
-        int centerX = aaa + fff / 2;
-        int centerY = bbb + ggg / 2;
-
-        // 横线
-        g.fill(
-                centerX - eee / 2,
-                centerY - ccc / 2,
-                centerX + eee / 2,
-                centerY + ccc / 2,
-                hhh
-        );
-
-        // 竖线（已修正宽度为 shortEdge）
-        g.fill(
-                centerX - ccc / 2,
-                centerY - eee / 2,
-                centerX + ccc / 2,
-                centerY + eee / 2,
-                hhh
-        );
+        int centerX = px + w / 2;
+        int centerY = py + h / 2;
+        g.fill(centerX - plusLongEdge / 2, centerY - shortEdge / 2, centerX + plusLongEdge / 2, centerY + shortEdge / 2, color);
+        g.fill(centerX - shortEdge / 2, centerY - plusLongEdge / 2, centerX + shortEdge / 2, centerY + plusLongEdge / 2, color);
     }
 
-    private int getG2dX(int p) {
-        return p;
+    private int getG2dX(float p) {
+        return Math.round(p * ((float) g2dLayer.width / Math.max(1, width)));
     }
 
-    private int getG2dY(int p) {
-        return p;
+    private int getG2dY(float p) {
+        return Math.round(p * ((float) g2dLayer.height / Math.max(1, height)));
     }
 
-    private int getG2dU(int p) {
-        return p;
+    private int getG2dU(float p) {
+        return Math.max(1, Math.round(p * ((float) g2dLayer.height / Math.max(1, height))));
     }
 }
