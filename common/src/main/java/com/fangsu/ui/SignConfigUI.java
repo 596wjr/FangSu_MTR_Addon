@@ -1,10 +1,7 @@
 package com.fangsu.ui;
 
 import com.fangsu.scripting.GraphicsTexture;
-import com.fangsu.signItems.LayoutItem;
-import com.fangsu.signItems.SignDrawContext;
-import com.fangsu.signItems.SignItem;
-import com.fangsu.signItems.TextItem;
+import com.fangsu.signItems.*;
 import com.fangsu.utils.ScreenUtil;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -134,6 +131,9 @@ public class SignConfigUI extends Screen {
         LaneRef laneRef = inEditingRow;
         List<SignItem> lane = laneRef.lane;
         if (lane == null) lane = new ArrayList<>();
+        else {
+            lane = laneRef.lane;
+        }
 
         graphics.fill(12, 24, width - 12, 78, 0x441E1E1E);
         graphics.drawString(font,
@@ -200,9 +200,10 @@ public class SignConfigUI extends Screen {
             x += tokenW + u * 0.35f;
         }
 
+        List<SignItem> finalLane = lane;
         drawPalette(graphics, mouseX, mouseY, lane, item -> {
-            int insertIndex = sideEditing == -2 ? 0 : (sideEditing >= 0 && sideEditing < lane.size() ? sideEditing + 1 : lane.size());
-            lane.add(insertIndex, item);
+            int insertIndex = sideEditing == -2 ? 0 : (sideEditing >= 0 && sideEditing < finalLane.size() ? sideEditing + 1 : finalLane.size());
+            finalLane.add(insertIndex, item);
         });
     }
 
@@ -337,7 +338,7 @@ public class SignConfigUI extends Screen {
             JsonObject json = item.toJson();
             String type = json.get("type").getAsString();
             json.remove("type");
-            return com.fangsu.signItems.SignItemFactory.get(type).apply(deepCopy(json));
+            return SignItemFactory.get(type).apply(deepCopy(json));
         } catch (Exception ignored) {
             return null;
         }
@@ -466,7 +467,8 @@ public class SignConfigUI extends Screen {
     private record LaneRef(int face, int part, List<SignItem> lane) {
     }
 
-    private record LayoutEditRef(List<SignItem> parentLane, int itemIndex, LayoutItem layoutItem, String selectedLaneKey) {
+    private record LayoutEditRef(List<SignItem> parentLane, int itemIndex, LayoutItem layoutItem,
+                                 String selectedLaneKey) {
     }
 
     private record MouseClickInfo(double mouseX, double mouseY, int button) {
