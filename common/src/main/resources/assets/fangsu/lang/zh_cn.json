@@ -52,6 +52,7 @@
   "ui.fangsu.sign.back": "反面",
   "ui.fangsu.sign.tooltip1": "编辑中: %s",
   "ui.fangsu.sign.tooltip2": "ESC: 返回",
+  "ui.fangsu.sign.tooltip3": "左: 文本+图片 中: 图片 右: 图片+文本",
   "ui.fangsu.common.scale": "缩放",
   "ui.fangsu.common.length": "长度",
   "ui.fangsu.sign.left": "左侧",
@@ -60,9 +61,9 @@
   "ui.fangsu.sign.edit_hint": "左键编辑  右键删除",
   "ui.fangsu.sign.layout_title": "多行布局",
   "ui.fangsu.sign.layout_hint": "左键编辑，右键删除，点击上/下槽切换",
-  "ui.fangsu.sign.item.str": "文本",
-  "ui.fangsu.sign.item.img": "图片",
-  "ui.fangsu.sign.item.space": "间隔",
-  "ui.fangsu.sign.item.multiline": "多行布局",
-  "ui.fangsu.sign.item.unknown": "未知项目"
+  "ui.fangsu.sign.dispLeftPole": "是否显示左杆",
+  "ui.fangsu.sign.leftPolePos": "左杆位置",
+  "ui.fangsu.sign,dispRightPole": "是否显示右杆",
+  "ui.fangsu.sign.rightPolePos": "右杆位置",
+  "ui.fangsu.sign.editSign": "指示牌内容编辑"
 }

@@ -36,12 +36,12 @@ public class UnknownItem extends SignItem {
         g.setColor(new Color(34, 34, 34));
         g.fillRect(x, y, u, u);
         int bar = Math.max(2, u / 5);
-        g.setColor(new Color(220, 60, 60));
+        g.setColor(new Color(0, 0, 0));
         g.fillRect(x, y, u, bar);
         g.fillRect(x, y + u - bar, u, bar);
         g.fillRect(x, y, bar, u);
         g.fillRect(x + u - bar, y, bar, u);
-        g.setColor(new Color(255, 180, 180));
+        g.setColor(new Color(255, 90, 255));
         g.fillRect(x + bar, y + bar, Math.max(1, u - bar * 2), Math.max(1, u - bar * 2));
     }
 

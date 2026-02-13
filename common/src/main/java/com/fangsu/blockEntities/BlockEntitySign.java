@@ -1,17 +1,29 @@
 package com.fangsu.blockEntities;
 
 import com.fangsu.Main;
+import com.fangsu.customItem.CustomItemLoader;
+import com.fangsu.customItem.ModelSelectInfo;
+import com.fangsu.customItem.SubModelDispInfo;
+import com.fangsu.customItem.SubModelMethodInfo;
+import com.fangsu.extraConfig.BoolConfig;
+import com.fangsu.extraConfig.ConfigEntry;
+import com.fangsu.extraConfig.ConfigSpec;
+import com.fangsu.extraConfig.NumberInputConfig;
+import com.fangsu.scripting.GraphicsTexture;
+import com.fangsu.scripting.ModelHelper;
+import com.fangsu.signItems.SignDrawContext;
 import com.fangsu.signItems.SignItem;
 import com.fangsu.signItems.SignItemFactory;
 import com.fangsu.ui.SignConfigUI;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import fabric.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
-import fabric.cn.zbx1425.mtrsteamloco.render.scripting.util.GraphicsTexture;
+import com.fangsu.utils.CollisionBoxUtil;
+import com.fangsu.utils.CustomItemHelper;
+import com.fangsu.utils.ResourceUtil;
+import com.google.gson.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -19,10 +31,23 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+//#if FABRIC
+import fabric.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
+import fabric.cn.zbx1425.sowcerext.model.integration.RawMeshBuilder;
+import fabric.cn.zbx1425.sowcer.math.Matrices;
+import fabric.cn.zbx1425.sowcerext.model.RawModel;
+//#elseif FORGE
+//$$ import forge.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
+//$$ import forge.cn.zbx1425.sowcerext.model.integration.RawMeshBuilder;
+//$$ import forge.cn.zbx1425.sowcer.math.Matrices;
+//$$ import forge.cn.zbx1425.sowcerext.model.RawModel;
+//#endif
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_SIGN;
 
@@ -30,9 +55,18 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
     private static final String DEFAULT_MAIN_MODEL = "fangsu:sign/beijing/beijing_sign.json";
     private static final String DEFAULT_SUB_MODEL = "beijing_sign_a";
     private static final String MAIN_MODEL_KEY = "sign";
+    protected String subModel;
 
-    private DynamicModelHolder dmhLeft, dmhCenter, dmhRight, dmhDisp;
-    private GraphicsTexture gt;
+    private Map<String, Map<String, Object>> loaded;
+
+    private DynamicModelHolder dmhLeft, dmhCenter, dmhRight, dmhDispFront, dmhDispBack, dmhPole;
+    private GraphicsTexture gtFront, gtBack;
+    private CollisionBoxUtil.CollisionBox shapeLeft, shapeCenter, shapeRight, shapePole;
+    private int unit = 8;
+
+    private double length = 2;
+    private boolean showLeftPole = true, showRightPole = true;
+    private int leftPolePos = 8, rightPolePos = 8;
 
     private boolean requiresRedraw = true;
 
@@ -47,39 +81,298 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
         ensureExtraConfig("length", "2");
         ensureExtraConfig("itemsFront", "{}");
         ensureExtraConfig("itemsBack", "{}");
+        ensureExtraConfig("showLeftPole", "true");
+        ensureExtraConfig("leftPolePos", "8");
+        ensureExtraConfig("showRightPole", "true");
+        ensureExtraConfig("rightPolePos", "8");
 
         itemsFront = initItems(extraConfigs.get("itemsFront"));
         itemsBack = initItems(extraConfigs.get("itemsBack"));
+
+        length = Double.parseDouble(extraConfigs.get("length"));
+        showLeftPole = "true".equals(extraConfigs.get("showLeftPole"));
+        showRightPole = "true".equals(extraConfigs.get("showRightPole"));
+        leftPolePos = Integer.parseInt(extraConfigs.get("leftPolePos"));
+        rightPolePos = Integer.parseInt(extraConfigs.get("rightPolePos"));
+
+        mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
+        subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
+
+        try {
+            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(mainModel), "common");
+            if (loaded == null || !loaded.containsKey(subModel)) {
+                markedError = true;
+                return;
+            }
+            Map<String, Object> current = loaded.get(subModel);
+            boolean flipV = current.containsKey("flipV") && (boolean) current.get("flipV");
+            String model = (String) current.get("model");
+            Map<String, DynamicModelHolder> models = ResourceUtil.loadPartedDmh(new ResourceLocation(model), flipV);
+            if (current.containsKey("unit") && current.get("unit") instanceof Number v) unit = v.intValue();
+            if (current.get("main") instanceof Map<?, ?> main) {
+                String modelKey = (String) main.get("subModel");
+                dmhCenter = models.get(modelKey);
+                if (main.containsKey("shape") && main.get("shape") instanceof List<?> l)
+                    shapeCenter = new CollisionBoxUtil.CollisionBox(l);
+            }
+            if (current.get("side") instanceof Map<?, ?> side) {
+                if (side.get("left") instanceof Map<?, ?> left) {
+                    String modelKey = (String) left.get("subModel");
+                    dmhLeft = models.get(modelKey);
+                    if (left.containsKey("shape") && left.get("shape") instanceof List<?> l) {
+                        shapeLeft = new CollisionBoxUtil.CollisionBox(l);
+                    }
+                }
+                if (side.get("right") instanceof Map<?, ?> right) {
+                    String modelKey = (String) right.get("subModel");
+                    dmhRight = models.get(modelKey);
+                    if (right.containsKey("shape") && right.get("shape") instanceof List<?> l) {
+                        shapeRight = new CollisionBoxUtil.CollisionBox(l);
+                    }
+                }
+            }
+            if (current.containsKey("pole") && current.get("pole") instanceof Map<?, ?> pole) {
+                String modelKey = (String) pole.get("subModel");
+                dmhPole = models.get(modelKey);
+                if (pole.containsKey("shape") && pole.get("shape") instanceof List<?> l) {
+                    shapePole = new CollisionBoxUtil.CollisionBox(l);
+                }
+            }
+
+            RawMeshBuilder rawModelBuilderFront = new RawMeshBuilder(4, "light", new ResourceLocation("fangsu:sign/def_face1.png")),
+                    rawMeshBuilderBack = new RawMeshBuilder(4, "light", new ResourceLocation("fangsu:sign/def_face1.png"));
+            RawModel dispRawModelFront = new RawModel(),
+                    dispRawModelBack = new RawModel();
+            List<?> texZone = (List<?>) current.get("tex");
+            double y1 = (double) ((List<?>) texZone.get(0)).get(0),
+                    z1 = (double) ((List<?>) texZone.get(0)).get(1);
+            double y2 = (double) ((List<?>) texZone.get(1)).get(0),
+                    z2 = (double) ((List<?>) texZone.get(1)).get(1);
+            List<List<Double>> finalSlotFront = List.of(
+                    List.of(-0.5 * unit * length / 16, y2, z2),
+                    List.of(-0.5 * unit * length / 16, y1, z1),
+                    List.of(0.5 * unit * length / 16, y1, z1),
+                    List.of(0.5 * unit * length / 16, y2, z2)
+            );
+            List<List<Double>> finalSlotBack = List.of(
+                    List.of(0.5 * unit * length / 16, y2, -z2),
+                    List.of(0.5 * unit * length / 16, y1, -z1),
+                    List.of(-0.5 * unit * length / 16, y1, -z1),
+                    List.of(-0.5 * unit * length / 16, y2, -z2)
+            );
+            addQuad(rawModelBuilderFront, finalSlotFront, false);
+            addQuad(rawMeshBuilderBack, finalSlotBack, true);
+            dispRawModelFront.append(rawModelBuilderFront.getMesh());
+            dispRawModelFront.generateNormals();
+            dispRawModelBack.append(rawMeshBuilderBack.getMesh());
+            dispRawModelBack.generateNormals();
+            dmhDispFront = new DynamicModelHolder();
+            dmhDispFront.uploadLater(dispRawModelFront);
+            dmhDispBack = new DynamicModelHolder();
+            dmhDispBack.uploadLater(dispRawModelBack);
+
+            requiresRedraw = true;
+        } catch (Exception e) {
+            Main.LOGGER.warn(e.getMessage());
+        }
     }
 
     @Override
     public void whenRendering() {
+        ObjBlockScriptContext ctx = this.scriptContext;
+        if (requiresRedraw) {
+            itemsFront = initItems(extraConfigs.get("itemsFront"));
+            itemsBack = initItems(extraConfigs.get("itemsBack"));
 
+            if (gtFront != null) gtFront.closeLater();
+            if (gtBack != null) gtBack.closeLater();
+            gtFront = new GraphicsTexture((int) (unit * 72 * length + 1), unit * 72 + 1);
+            gtBack = new GraphicsTexture((int) (unit * 72 * length + 1), unit * 72 + 1);
+
+
+            if (gtFront != null && !gtFront.isClosed) {
+                var g = gtFront.graphics;
+                g.setComposite(AlphaComposite.Clear); // 设置透明混合模式
+                g.fillRect(0, 0, gtFront.width, gtFront.height);   // 填充整个区域
+                g.setComposite(AlphaComposite.SrcOver); // 恢复默认混合模式
+                if (itemsFront != null) {
+                    if (itemsFront.containsKey("left"))
+                        drawLane(gtFront, itemsFront.get("left"), 0, gtFront.height * 0.1f, 0, gtFront.height * 0.8f);
+                    if (itemsFront.containsKey("right"))
+                        drawLane(gtFront, itemsFront.get("right"), gtFront.width, gtFront.height * 0.1f, 2, gtFront.height * 0.8f);
+                    if (itemsFront.containsKey("center"))
+                        drawLane(gtFront, itemsFront.get("center"), gtFront.width * 0.5f, gtFront.height * 0.1f, 1, gtFront.height * 0.8f);
+                }
+                gtFront.upload();
+            }
+            if (gtBack != null && !gtBack.isClosed) {
+                var g = gtBack.graphics;
+                g.setComposite(AlphaComposite.Clear);
+                g.fillRect(0, 0, gtBack.width, gtBack.height);
+                g.setComposite(AlphaComposite.SrcOver);
+                if (itemsBack != null) {
+                    if (itemsBack.containsKey("left"))
+                        drawLane(gtBack, itemsBack.get("left"), 0, gtBack.height * 0.1f, 0, gtBack.height * 0.8f);
+                    if (itemsBack.containsKey("right"))
+                        drawLane(gtBack, itemsBack.get("right"), gtBack.width, gtFront.height * 0.1f, 2, gtBack.height * 0.8f);
+                    if (itemsBack.containsKey("center"))
+                        drawLane(gtBack, itemsBack.get("center"), gtBack.width * 0.5f, gtFront.height * 0.1f, 1, gtBack.height * 0.8f);
+                }
+                gtBack.upload();
+            }
+            requiresRedraw = false;
+        }
+        if (dmhDispFront != null && dmhDispFront.getUploadedModel() != null) {
+            dmhDispFront.getUploadedModel().replaceAllTexture(gtFront.identifier);
+        }
+        ctx.drawModel(dmhDispFront, null);
+        if (dmhDispBack != null && dmhDispBack.getUploadedModel() != null) {
+            dmhDispBack.getUploadedModel().replaceAllTexture(gtBack.identifier);
+        }
+        ctx.drawModel(dmhDispBack, null);
+
+        Matrices mat = new Matrices();
+        mat.pushPose();
+        mat.translate(-0.5 * unit * length / 16, 0, 0);
+        mat.pushPose();
+        ctx.drawModel(dmhLeft, mat);
+        for (int i = 0; i < length / (unit / 8d); i++) {
+            if (i != 0) mat.translate(unit / 16d, 0, 0);
+            else mat.translate(unit / 32d, 0, 0);
+            ctx.drawModel(dmhCenter, mat);
+        }
+        mat.translate(unit / 32d, 0, 0);
+        ctx.drawModel(dmhRight, mat);
+        mat.popPose();
+        if (dmhPole != null) {
+            if (showLeftPole) {
+                mat.pushPose();
+                mat.translate(leftPolePos / 16d, 0, 0);
+                ctx.drawModel(dmhPole, mat);
+                mat.popPose();
+            }
+            if (showRightPole) {
+                mat.pushPose();
+                mat.translate(unit * length / 16, 0, 0);
+                mat.translate(-rightPolePos / 16d, 0, 0);
+                ctx.drawModel(dmhPole, mat);
+                mat.popPose();
+            }
+        } else mat.popPose();
     }
 
     @Override
     public void whenSaving(Map<String, String> extraConfigs) {
         extraConfigs.put("itemsFront", toItemsJson(itemsFront).toString());
         extraConfigs.put("itemsBack", toItemsJson(itemsBack).toString());
+        extraConfigs.put("length", length + "");
+        extraConfigs.put("showLeftPole", showLeftPole ? "true" : "false");
+        extraConfigs.put("showRightPole", showRightPole ? "true" : "false");
+        extraConfigs.put("leftPolePos", leftPolePos + "");
+        extraConfigs.put("rightPolePos", rightPolePos + "");
     }
 
     @Override
     public InteractionResult whenUseWithinBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-        Minecraft.getInstance().execute(() -> {
-            Minecraft.getInstance().setScreen(new SignConfigUI(2, List.of(itemsFront, itemsBack),
-                    (list) -> {
-                        itemsFront = list.get(0);
-                        itemsBack = list.get(1);
-                        requiresRedraw = true;
-                        sendUpdateC2S();
-                    }));
-        });
         return InteractionResult.PASS;
     }
 
     @Override
     public String getMainModelKey() {
         return MAIN_MODEL_KEY;
+    }
+
+    @Override
+    public List<ConfigEntry<?>> getConfigs() {
+        List<ConfigEntry<?>> configs = new ArrayList<>();
+        configs.add(new NumberInputConfig(
+                Component.translatable("ui.fangsu.common.length"),
+                new ConfigSpec("num").setParam("isInt", new JsonPrimitive(true)).setParam("min", new JsonPrimitive(2)),
+                () -> (float) (this.length),
+                (v) -> {
+                    this.length = v.intValue();
+                    extraConfigs.put("length", length + "");
+                }
+        ));
+        configs.add(new BoolConfig(
+                Component.translatable("ui.fangsu.sign.dispLeftPole"),
+                new ConfigSpec("bool"),
+                () -> this.showLeftPole,
+                (v) -> {
+                    this.showLeftPole = v;
+                    extraConfigs.put("showLeftPole", showLeftPole ? "true" : "false");
+                }
+        ).setSaveOnChange(true));
+        configs.add(new NumberInputConfig(
+                Component.translatable("ui.fangsu.sign.leftPolePos"),
+                new ConfigSpec("num").setParam("isInt", new JsonPrimitive(true)),
+                () -> this.leftPolePos + 0f,
+                (v) -> {
+                    this.leftPolePos = v.intValue();
+                    extraConfigs.put("leftPolePos", leftPolePos + "");
+                }
+        ).setShowCondition((v) -> this.showLeftPole));
+        configs.add(new BoolConfig(
+                Component.translatable("ui.fangsu.sign.dispRightPole"),
+                new ConfigSpec("bool"),
+                () -> this.showRightPole,
+                (v) -> {
+                    this.showRightPole = v;
+                    extraConfigs.put("showRightPole", showRightPole ? "true" : "false");
+                }
+        ).setSaveOnChange(true));
+        configs.add(new NumberInputConfig(
+                Component.translatable("ui.fangsu.sign.rightPolePos"),
+                new ConfigSpec("num").setParam("isInt", new JsonPrimitive(true)),
+                () -> this.rightPolePos + 0f,
+                (v) -> {
+                    this.rightPolePos = v.intValue();
+                    extraConfigs.put("rightPolePos", rightPolePos + "");
+                }
+        ).setShowCondition((v) -> this.showRightPole));
+        return configs;
+    }
+
+    @Override
+    public List<SubModelDispInfo> getSubModelInfos() {
+        List<SubModelDispInfo> infos = new ArrayList<>();
+        List<ModelSelectInfo> thisInfo = new ArrayList<>();
+        try {
+            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(this.mainModel), "common");
+            for (String key : loaded.keySet()) {
+                Map<String, Object> item = loaded.get(key);
+                String text = "";
+                String content = "";
+                String contentText = null;
+                if (item.containsKey("text") && item.get("text") instanceof String s) text = s;
+                if (item.containsKey("id") && item.get("id") instanceof String s) content = s;
+                if (item.containsKey("contentText") && item.get("contentText") instanceof String s) contentText = s;
+                if (contentText != null) thisInfo.add(new ModelSelectInfo(text, content, contentText));
+                else thisInfo.add(new ModelSelectInfo(text, content));
+            }
+        } catch (Exception ignored) {
+        }
+        infos.add(new SubModelDispInfo(
+                Component.translatable("ui.fangsu.block.subModelSelect"),
+                thisInfo,
+                (be) -> this.subModels.getOrDefault("subModel", DEFAULT_SUB_MODEL),
+                (be, v) -> this.subModels.put("subModel", v)));
+        infos.add(new SubModelMethodInfo(Component.translatable("ui.fangsu.sign.editSign"), () -> {
+            if (itemsFront == null) itemsFront = new HashMap<>();
+            if (itemsBack == null) itemsBack = new HashMap<>();
+            Minecraft.getInstance().execute(() -> {
+                Minecraft.getInstance().setScreen(new SignConfigUI(2, List.of(itemsFront, itemsBack),
+                        (list) -> {
+                            itemsFront = list.get(0);
+                            itemsBack = list.get(1);
+                            extraConfigs.put("itemsFront", toItemsJson(itemsFront).toString());
+                            extraConfigs.put("itemsBack", toItemsJson(itemsBack).toString());
+                            requiresRedraw = true;
+                            sendUpdateC2S();
+                        }));
+            });
+        }));
+        return infos;
     }
 
     private Map<String, List<SignItem>> initItems(String src) {
@@ -101,6 +394,49 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
         items.put("center", itemsCenter);
         items.put("right", itemsRight);
         return items;
+    }
+
+    @Override
+    public void readC2S(FriendlyByteBuf buf) {
+        translateX = buf.readFloat();
+        translateY = buf.readFloat();
+        translateZ = buf.readFloat();
+        rotateX = buf.readFloat();
+        rotateY = buf.readFloat();
+        rotateZ = buf.readFloat();
+        mainModel = buf.readUtf();
+        int size = buf.readInt();
+        for (int i = 0; i < size; i++) {
+            String key = buf.readUtf(64);
+            String value = buf.readUtf(16384);
+            extraConfigs.put(key, value);
+        }
+
+        size = buf.readInt();
+        for (int i = 0; i < size; i++) {
+            String key = buf.readUtf(64);
+            String value = buf.readUtf(128);
+            subModels.put(key, value);
+        }
+        if (level != null && level.isClientSide == false) {
+            level.sendBlockUpdated(
+                    worldPosition,
+                    getBlockState(),
+                    getBlockState(),
+                    3
+            );
+        }
+        requiresRedraw = true;
+
+        itemsFront = initItems(extraConfigs.get("itemsFront"));
+        itemsBack = initItems(extraConfigs.get("itemsBack"));
+
+        length = Double.parseDouble(extraConfigs.getOrDefault("length", "2"));
+        showLeftPole = "true".equals(extraConfigs.get("showLeftPole"));
+        showRightPole = "true".equals(extraConfigs.get("showRightPole"));
+        leftPolePos = Integer.parseInt(extraConfigs.getOrDefault("leftPolePos", "8"));
+        rightPolePos = Integer.parseInt(extraConfigs.getOrDefault("rightPolePos", "8"));
+
     }
 
     private List<SignItem> getItems(JsonArray src) {
@@ -134,4 +470,53 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
         }
         return array;
     }
+
+    private void addQuad(RawMeshBuilder builder, List<List<Double>> quad, boolean reverse) {
+        float[] normal = ModelHelper.calculateNormal(quad.get(0), quad.get(1), quad.get(2));
+
+        // 如果需要反转法向（比如背面）
+        if (reverse) {
+            normal[0] *= -1;
+            normal[1] *= -1;
+            normal[2] *= -1;
+        }
+
+        builder.vertex(quad.get(0).get(0), quad.get(0).get(1), quad.get(0).get(2))
+                .normal(normal[0], normal[1], normal[2]).uv(0, 0).endVertex()
+                .vertex(quad.get(1).get(0), quad.get(1).get(1), quad.get(1).get(2))
+                .normal(normal[0], normal[1], normal[2]).uv(0, 1).endVertex()
+                .vertex(quad.get(2).get(0), quad.get(2).get(1), quad.get(2).get(2))
+                .normal(normal[0], normal[1], normal[2]).uv(1, 1).endVertex()
+                .vertex(quad.get(3).get(0), quad.get(3).get(1), quad.get(3).get(2))
+                .normal(normal[0], normal[1], normal[2]).uv(1, 0).endVertex();
+    }
+
+    private void drawLane(GraphicsTexture gt, List<SignItem> lane, float startX, float y, int align, float u) {
+        Graphics2D g = gt.graphics;
+        if (lane == null || lane.isEmpty()) return;
+//        Shape oriClip = g.getClip();
+        float x = startX;
+        if (align == 2) {
+            float totalWidth = 0;
+            for (SignItem token : lane) totalWidth += getTokenWidth(g, token, u) + u * 0.1f;
+            x = startX - totalWidth;
+        } else if (align == 1) {
+            float totalWidth = 0;
+            for (SignItem token : lane) totalWidth += getTokenWidth(g, token, u) + u * 0.1f;
+            x = startX + (totalWidth) / 2f;
+        }
+        for (SignItem token : lane) {
+            float tokenWidth = getTokenWidth(g, token, u);
+//            g.setClip(new Rectangle((int) x, (int) y, (int) tokenWidth, (int) u));
+            SignDrawContext ctx = new SignDrawContext(g, (x), (y), (u), align, false);
+            token.draw(ctx);
+            x += tokenWidth + u * 0.1f;
+//            g.setClip(oriClip);
+        }
+    }
+
+    private float getTokenWidth(Graphics2D graphics, SignItem token, float unit) {
+        return token.getWidth(graphics, unit);
+    }
+
 }

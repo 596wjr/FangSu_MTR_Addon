@@ -70,6 +70,7 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> extends BlockEn
             matrices.translate(0.5f, 0.5f, 0.5f);
             PoseStackUtil.rotY(matrices, (float) ((System.currentTimeMillis() % 1000) * (Math.PI * 2 / 1000)));
             Minecraft.getInstance().getItemRenderer().renderStatic(BARRIER_ITEM_STACK.get(), ItemDisplayContext.GROUND, lightToUse, 0, matrices, multiBufferSource, world, 0);
+            matrices.popPose();
             return;
         }
 

@@ -5,7 +5,7 @@ def processAccessWidener(inputFile, outputFile) {
     def currentPlatform = project.findProperty("platform")?.toString()?.toUpperCase()
 
     // 自定义条件
-    def buildForAnte = project.hasProperty("build_for_ante") && project.property("build_for_ante") == "true"
+    boolean buildForAnte = project.hasProperty("build_for_ante") && project.property("build_for_ante") == "true"
     def conditionVars = [
             "ANTE": buildForAnte,
             "NTE" : !buildForAnte

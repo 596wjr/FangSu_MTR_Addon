@@ -3,6 +3,7 @@ package com.fangsu.ui;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.customItem.CustomItems;
 import com.fangsu.customItem.SubModelDispInfo;
+import com.fangsu.customItem.SubModelMethodInfo;
 import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.extraConfig.ConfigWidget;
 import net.minecraft.client.Minecraft;
@@ -10,6 +11,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 public class ObjBlockConfigScreen extends BasicConfigScreen {
 
@@ -82,25 +84,26 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
             List<SubModelDispInfo> infos = be.getSubModelInfos();
             for (int i = 0; i < infos.size(); i++) {
                 SubModelDispInfo info = infos.get(i);
+                Button.OnPress c;
+                if (info instanceof SubModelMethodInfo m) {
+                    c = (b) -> m.getAction().run();
+                } else
+                    c = (b) -> Minecraft.getInstance().setScreen(new ModelSelectScreen(
+                            info.name(), this.be, info.infos(), info.initialGetter(), info.setter(), this
+                    ));
                 if (i + 1 == infos.size() && i % 2 == 0) {
                     addEntry(addButton(layout.areaLeft, y, layout.areaRight - layout.areaLeft, 24, info.name(),
-                            (b) -> Minecraft.getInstance().setScreen(new ModelSelectScreen(
-                                    info.name(), this.be, info.infos(), info.initialGetter(), info.setter(), this
-                            ))
+                            c
                     ), y);
                     y += 28;
                 } else if (i % 2 == 0) {
                     addEntry(addButton(layout.areaLeft, y, (layout.areaRight - layout.areaLeft) / 2 - 2, 24, info.name(),
-                            (b) -> Minecraft.getInstance().setScreen(new ModelSelectScreen(
-                                    info.name(), this.be, info.infos(), info.initialGetter(), info.setter(), this
-                            ))
+                            c
                     ), y);
                 } else {
                     addEntry(addButton(layout.areaLeft + ((layout.areaRight - layout.areaLeft) / 2) + 2, y,
                             (layout.areaRight - layout.areaLeft) / 2 - 2, 24, info.name(),
-                            (b) -> Minecraft.getInstance().setScreen(new ModelSelectScreen(
-                                    info.name(), this.be, info.infos(), info.initialGetter(), info.setter(), this
-                            ))
+                            c
                     ), y);
                     y += 28;
                 }

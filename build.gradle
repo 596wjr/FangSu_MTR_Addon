@@ -31,7 +31,7 @@ ext {
     }
 }
 
-def boolean buildForAnte = project.hasProperty("build_for_ante") && project.property("build_for_ante") == "true"
+boolean buildForAnte = project.hasProperty("build_for_ante") && project.property("build_for_ante") == "true"
 
 println "[Build] Current platform = ${platform}"
 println "[Build] Build for ANTE : ${buildForAnte}"

@@ -21,7 +21,7 @@ import static com.fangsu.signItems.SignItemFactory.EDITOR_ITEMS;
 public class SignConfigUI extends Screen {
 
     private static final int ROW_COUNT = 6;
-    private static final int G2D_SCALE = 2;
+    private static final int G2D_SCALE = 4;
 
     private List<Map<String, List<SignItem>>> dispItems;
     private final Consumer<List<Map<String, List<SignItem>>>> setter;
@@ -95,7 +95,7 @@ public class SignConfigUI extends Screen {
     private void drawSelectionScreen(GuiGraphics graphics, int mouseX, int mouseY) {
         int rowHeight = (height - 12) / ROW_COUNT;
         int i = 0;
-        float u = Math.min(30f, rowHeight * 0.5f);
+        float u = Math.min(30f, rowHeight * 0.65f);
         Graphics2D g2d = g2dLayer.graphics;
 
         for (int side = 0; side < faces; side++) {
@@ -112,7 +112,7 @@ public class SignConfigUI extends Screen {
                         16, rowY + rowHeight / 8, 0xffffffff, rowHeight / 8, false);
 
                 List<SignItem> lane = faceLanes.computeIfAbsent(partName(part), k -> new ArrayList<>());
-                drawLane(g2d, lane, rowScroll[i], rowY, part, u, false);
+                drawLane(g2d, lane, rowScroll[i], rowY + rowHeight * 0.3f, part, u, false);
 
                 if (mouseClickInfo != null && mouseClickInfo.button == 0 && mouseClickInfo.mouseY >= rowY && mouseClickInfo.mouseY <= rowBottom) {
                     modeFlag = 1;
@@ -274,13 +274,12 @@ public class SignConfigUI extends Screen {
     }
 
     private void drawPalette(GuiGraphics graphics, int mouseX, int mouseY, List<SignItem> targetLane, Consumer<SignItem> inserter) {
-        int top = 180;
+        int top = height / 2;
         int cell = 26;
         int gap = 6;
         int usableWidth = width - 32;
         int lineItems = Math.max(1, usableWidth / (cell + gap));
         int contentHeight = ((EDITOR_ITEMS.size() + lineItems - 1) / lineItems) * (cell + gap);
-
         graphics.enableScissor(12, top, width - 12, height - 12);
         for (int idx = 0; idx < EDITOR_ITEMS.size(); idx++) {
             int row = idx / lineItems;
@@ -288,7 +287,6 @@ public class SignConfigUI extends Screen {
             int x = 16 + col * (cell + gap);
             int y = top + (int) paletteScroll + row * (cell + gap);
             if (y > height || y + cell < top) continue;
-
             boolean hover = mouseX >= x && mouseX <= x + cell && mouseY >= y && mouseY <= y + cell;
             graphics.fill(x, y, x + cell, y + cell, hover ? 0x33FFFFFF : 0x22000000);
             int border = hover ? 0x88FFFFFF : 0x44000000;
@@ -296,14 +294,12 @@ public class SignConfigUI extends Screen {
             graphics.fill(x, y + cell - 1, x + cell, y + cell, border);
             graphics.fill(x, y, x + 1, y + cell, border);
             graphics.fill(x + cell - 1, y, x + cell, y + cell, border);
-
             SignItem token = EDITOR_ITEMS.get(idx);
             graphics.blit(token.getIconLocation(), x + 3, y + 3, 0, 0, cell - 6, cell - 6, cell - 6, cell - 6);
             if (hover) graphics.drawString(font, "+", x + cell / 2 - 3, y + cell / 2 - 4, 0xFFFFFF, false);
-            if (hover) {
-                graphics.renderTooltip(font, Component.translatable("ui.fangsu.sign.item." + token.getType()), mouseX, mouseY);
+            if (hover && token.withText) {
+                graphics.drawString(font, Component.translatable("ui.fangsu.sign.tooltip3"), width - 80, 32, 0xCCCCCC, false);
             }
-
             if (hover && mouseClickInfo != null && (mouseClickInfo.button == 0 || mouseClickInfo.button == 1 || mouseClickInfo.button == 2)) {
                 SignItem newItem = copySignItem(token);
                 if (newItem == null) continue;
@@ -316,7 +312,6 @@ public class SignConfigUI extends Screen {
             }
         }
         graphics.disableScissor();
-
         float minScroll = -Math.max(0, contentHeight - (height - top - 12));
         paletteScroll = Math.max(minScroll, Math.min(0, paletteScroll));
     }
@@ -325,11 +320,11 @@ public class SignConfigUI extends Screen {
         TextItem textItem = createTextItem(token.text);
         int beforeSize = lane.size();
         if (button == 0) {
-            inserter.accept(textItem.setAlign(2));
+            inserter.accept(textItem.setAlign(0));
             inserter.accept(newItem);
         } else if (button == 1) {
             inserter.accept(newItem);
-            inserter.accept(textItem.setAlign(0));
+            inserter.accept(textItem.setAlign(2));
         } else {
             inserter.accept(newItem);
         }
@@ -355,7 +350,7 @@ public class SignConfigUI extends Screen {
 
     private void drawLane(Graphics2D g, List<SignItem> lane, float startX, float y, int align, float u, boolean selected) {
         if (lane == null || lane.isEmpty()) return;
-        Shape oriClip = g.getClip();
+//        Shape oriClip = g.getClip();
         float x = startX;
         if (align == 2) {
             float totalWidth = 0;
@@ -368,10 +363,10 @@ public class SignConfigUI extends Screen {
         }
         for (SignItem token : lane) {
             float tokenWidth = getTokenWidth(g, token, u);
-            g.setClip(new Rectangle((int) x, (int) y, (int) tokenWidth, (int) u));
+//            g.setClip(new Rectangle((int) x, (int) y, (int) tokenWidth, (int) u));
             drawTokenG2D(g, token, x, y, u, align, selected);
             x += tokenWidth + u * 0.1f;
-            g.setClip(oriClip);
+//            g.setClip(oriClip);
         }
     }
 

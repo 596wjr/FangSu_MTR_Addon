@@ -22,6 +22,7 @@ public class GraphicsTexture implements AutoCloseable {
     public final Graphics2D graphics;
     public final int width;
     public final int height;
+    public boolean isClosed;
 
     public GraphicsTexture(int width, int height) {
         this.width = width;
@@ -44,6 +45,7 @@ public class GraphicsTexture implements AutoCloseable {
         this.graphics = this.bufferedImage.createGraphics();
         this.graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         this.graphics.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+        this.isClosed = false;
     }
 
     /**
@@ -90,9 +92,19 @@ public class GraphicsTexture implements AutoCloseable {
      */
     @Override
     public void close() {
+        this.isClosed = true;
         Minecraft.getInstance().execute(() ->
                 Minecraft.getInstance().getTextureManager().release(this.identifier)
         );
         this.graphics.dispose();
+    }
+
+    /**
+     * 在客户端主线程的下一帧关闭资源
+     */
+    public void closeLater() {
+        this.isClosed = true;
+        Minecraft mc = Minecraft.getInstance();
+        mc.tell(() -> mc.execute(this::close));
     }
 }

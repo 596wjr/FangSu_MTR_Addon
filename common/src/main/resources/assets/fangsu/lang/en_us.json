@@ -53,12 +53,8 @@
   "ui.fangsu.sign.right": "Right",
   "ui.fangsu.sign.tooltip1": "Editing: %s",
   "ui.fangsu.sign.tooltip2": "ESC: Back",
+  "ui.fangsu.sign.tooltip3": "L: txt+img M: img R: img+txt",
   "ui.fangsu.sign.edit_hint": "L: edit  R: delete",
   "ui.fangsu.sign.layout_title": "MultiLine Layout",
-  "ui.fangsu.sign.layout_hint": "Left click to edit, right click to delete, click top/bottom slot to switch",
-  "ui.fangsu.sign.item.str": "Text",
-  "ui.fangsu.sign.item.img": "Image",
-  "ui.fangsu.sign.item.space": "Spacer",
-  "ui.fangsu.sign.item.multiline": "MultiLine",
-  "ui.fangsu.sign.item.unknown": "Unknown Item"
+  "ui.fangsu.sign.layout_hint": "Left click to edit, right click to delete, click top/bottom slot to switch"
 }
