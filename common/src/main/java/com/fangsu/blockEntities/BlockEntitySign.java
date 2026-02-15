@@ -1,6 +1,7 @@
 package com.fangsu.blockEntities;
 
 import com.fangsu.Main;
+import com.fangsu.client.ClientHooks;
 import com.fangsu.customItem.CustomItemLoader;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
@@ -14,14 +15,10 @@ import com.fangsu.scripting.ModelHelper;
 import com.fangsu.signItems.SignDrawContext;
 import com.fangsu.signItems.SignItem;
 import com.fangsu.signItems.SignItemFactory;
-import com.fangsu.ui.PlatformSelectionScreen;
-import com.fangsu.ui.RouteSelectionScreen;
-import com.fangsu.ui.SignConfigUI;
 import com.fangsu.utils.CollisionBoxUtil;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.*;
-import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -355,16 +352,13 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
         infos.add(new SubModelMethodInfo(Component.translatable("ui.fangsu.sign.editSign"), () -> {
             if (itemsFront == null) itemsFront = new HashMap<>();
             if (itemsBack == null) itemsBack = new HashMap<>();
-            Minecraft.getInstance().execute(() -> {
-                Minecraft.getInstance().setScreen(new SignConfigUI(2, List.of(itemsFront, itemsBack),
-                        (list) -> {
-                            itemsFront = list.get(0);
-                            itemsBack = list.get(1);
-                            extraConfigs.put("itemsFront", toItemsJson(itemsFront).toString());
-                            extraConfigs.put("itemsBack", toItemsJson(itemsBack).toString());
-                            requiresRedraw = true;
-                            sendUpdateC2S();
-                        }));
+            ClientHooks.openSignConfigScreen(itemsFront, itemsBack, (front, back) -> {
+                itemsFront = front;
+                itemsBack = back;
+                extraConfigs.put("itemsFront", toItemsJson(itemsFront).toString());
+                extraConfigs.put("itemsBack", toItemsJson(itemsBack).toString());
+                requiresRedraw = true;
+                sendUpdateC2S();
             });
         }));
         return infos;
