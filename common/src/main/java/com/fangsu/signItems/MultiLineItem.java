@@ -57,6 +57,6 @@ public class MultiLineItem extends LayoutItem {
 
     @Override
     public ResourceLocation getIconLocation() {
-        return new ResourceLocation("fangsu:sign/texts.png");
+        return new ResourceLocation("fangsu:textures/signitems/multi_line.png");
     }
 }

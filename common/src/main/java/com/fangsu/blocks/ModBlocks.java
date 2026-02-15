@@ -1,9 +1,8 @@
 package com.fangsu.blocks;
 
 import com.fangsu.blockEntities.*;
-import com.fangsu.blockEntities.client.BaseBlockEntityRender;
+import com.fangsu.blocks.client.ModBlockClient;
 import com.fangsu.utils.RegisterUtil;
-import dev.architectury.registry.client.rendering.BlockEntityRendererRegistry;
 import dev.architectury.registry.registries.RegistrySupplier;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
@@ -51,21 +50,6 @@ public class ModBlocks {
     }
 
     public static void initClient() {
-        BlockEntityRendererRegistry.register(
-                BLOCK_ENTITY_TICKET_BARRIER.get(),
-                ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
-        );
-        BlockEntityRendererRegistry.register(
-                BLOCK_ENTITY_SCREENDOOR.get(),
-                ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
-        );
-        BlockEntityRendererRegistry.register(
-                BLOCK_ENTITY_SCREENDOOR_GLASS.get(),
-                ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
-        );
-        BlockEntityRendererRegistry.register(
-                BLOCK_ENTITY_SIGN.get(),
-                ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
-        );
+        ModBlockClient.initClient();
     }
 }

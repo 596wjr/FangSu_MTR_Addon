@@ -14,6 +14,8 @@ import com.fangsu.scripting.ModelHelper;
 import com.fangsu.signItems.SignDrawContext;
 import com.fangsu.signItems.SignItem;
 import com.fangsu.signItems.SignItemFactory;
+import com.fangsu.ui.PlatformSelectionScreen;
+import com.fangsu.ui.RouteSelectionScreen;
 import com.fangsu.ui.SignConfigUI;
 import com.fangsu.utils.CollisionBoxUtil;
 import com.fangsu.utils.CustomItemHelper;
@@ -263,13 +265,6 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
 
     @Override
     public void whenSaving(Map<String, String> extraConfigs) {
-        extraConfigs.put("itemsFront", toItemsJson(itemsFront).toString());
-        extraConfigs.put("itemsBack", toItemsJson(itemsBack).toString());
-        extraConfigs.put("length", length + "");
-        extraConfigs.put("showLeftPole", showLeftPole ? "true" : "false");
-        extraConfigs.put("showRightPole", showRightPole ? "true" : "false");
-        extraConfigs.put("leftPolePos", leftPolePos + "");
-        extraConfigs.put("rightPolePos", rightPolePos + "");
     }
 
     @Override
@@ -425,7 +420,9 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                     getBlockState(),
                     3
             );
+            this.setChanged();
         }
+
         requiresRedraw = true;
 
         itemsFront = initItems(extraConfigs.get("itemsFront"));
@@ -503,7 +500,7 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
         } else if (align == 1) {
             float totalWidth = 0;
             for (SignItem token : lane) totalWidth += getTokenWidth(g, token, u) + u * 0.1f;
-            x = startX + (totalWidth) / 2f;
+            x = startX - (totalWidth) / 2f;
         }
         for (SignItem token : lane) {
             float tokenWidth = getTokenWidth(g, token, u);

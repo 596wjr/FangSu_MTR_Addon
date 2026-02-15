@@ -1,5 +1,6 @@
 package com.fangsu.utils;
 
+import com.fangsu.Main;
 import mtr.block.BlockNode;
 import mtr.client.ClientCache;
 import mtr.data.*;
@@ -62,7 +63,7 @@ public class MtrUtil {
     /**
      * 获取站台对应的路线详情。
      */
-    public static List<ClientCache.PlatformRouteDetails> getRouteByPlatform(long platformId){
+    public static List<ClientCache.PlatformRouteDetails> getRouteByPlatform(long platformId) {
         return ClientData.DATA_CACHE.requestPlatformIdToRoutes(platformId);
     }
 
@@ -70,8 +71,8 @@ public class MtrUtil {
      * 根据站台 ID 查找站台。
      */
     public static Platform getPlatformById(long platformId) {
-        for(Platform p:ClientData.PLATFORMS){
-            if(p.id==platformId) return p;
+        for (Platform p : ClientData.PLATFORMS) {
+            if (p.id == platformId) return p;
         }
         return null;
     }
@@ -80,8 +81,8 @@ public class MtrUtil {
      * 根据车站 ID 查找车站。
      */
     public static Station getStationById(long stationId) {
-        for(Station s:ClientData.STATIONS){
-            if(s.id==stationId) return s;
+        for (Station s : ClientData.STATIONS) {
+            if (s.id == stationId) return s;
         }
         return null;
     }
@@ -90,8 +91,8 @@ public class MtrUtil {
      * 根据路线 ID 查找路线。
      */
     public static Route getRouteById(long routeId) {
-        for(Route r:ClientData.ROUTES){
-            if(r.id==routeId) return r;
+        for (Route r : ClientData.ROUTES) {
+            if (r.id == routeId) return r;
         }
         return null;
     }
@@ -101,7 +102,7 @@ public class MtrUtil {
      */
     public static Station getStationByPlatform(Platform platform) {
         try {
-            var posCentral = new Vector3f((Vector3fc) platform.getMidPos());
+            var posCentral = new Vector3f(platform.getMidPos().getCenter().toVector3f());
             return getStationAt(posCentral);
         } catch (Exception ignored) {
             return null;
@@ -112,11 +113,10 @@ public class MtrUtil {
      * 获取车站的所有站台。
      */
     public static List<Platform> getPlatformByStation(Station station) {
-        try{
+        try {
             var platforms = ClientData.DATA_CACHE.requestStationIdToPlatforms((station.id));
             return new ArrayList<>(platforms.values());
-        }
-        catch (Exception ignored) {
+        } catch (Exception ignored) {
             return null;
         }
     }
@@ -125,13 +125,13 @@ public class MtrUtil {
      * 获取站台对应的所有路线。
      */
     public static List<Route> getRouteByPlatform(Platform platform) {
-        if(platform==null) return null;
+        if (platform == null) return null;
         List<Route> routes = new ArrayList<>();
-        for(Route r:ClientData.ROUTES){
-            for(Route.RoutePlatform rp:r.platformIds){
-                Platform p=getPlatformById(rp.platformId);
-                if(p==null) continue;
-                if(p.equals(platform)) routes.add(r);
+        for (Route r : ClientData.ROUTES) {
+            for (Route.RoutePlatform rp : r.platformIds) {
+                Platform p = getPlatformById(rp.platformId);
+                if (p == null) continue;
+                if (p.equals(platform)) routes.add(r);
             }
         }
         return routes;
@@ -144,12 +144,11 @@ public class MtrUtil {
         if (route == null) return "undefined";
         try {
             Route.RoutePlatform destinationRoutePlatform = route.platformIds.get(route.platformIds.size() - 1);
-            Platform destinationPlatform = getPlatformById((destinationRoutePlatform.platformId));
+            Platform destinationPlatform = getPlatformById(destinationRoutePlatform.platformId);
             Station station = getStationByPlatform(destinationPlatform);
-            if (station!=null) return station.name;
+            if (station != null) return station.name;
             else return "未命名|Undefined";
-        }
-        catch (Exception ignored) {
+        } catch (Exception ignored) {
             return "undefined";
         }
     }
@@ -158,18 +157,17 @@ public class MtrUtil {
      * 根据站台获取所有终点站名称（去重且按字典序拼接）。
      */
     public static String getDestinationByPlatform(Platform platform) {
-        if(platform==null) return "undefined";
-        try{
+        if (platform == null) return "undefined";
+        try {
             List<Route> routes = getRouteByPlatform(platform);
-            if(routes==null) return "";
+            if (routes == null) return "";
             List<String> destinations = new ArrayList<>();
-            for(Route route:routes){
+            for (Route route : routes) {
                 destinations.add(getDestinationByRoute(route));
             }
             destinations.sort(String::compareTo);
             return String.join("/", destinations);
-        }
-        catch (Exception ignored) {
+        } catch (Exception ignored) {
             return "undefined";
         }
     }

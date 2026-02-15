@@ -55,11 +55,7 @@ public class TextItem extends SignItem {
         String[] lines = TextUtil.getNonExtraParts(text).split("\\|");
         g.setColor(color);
         Font font;
-        try {
-            font = ResourceUtil.loadFont(fontLocation);
-        } catch (IOException e) {
-            font = new Font(Font.SANS_SERIF, Font.PLAIN, 12);
-        }
+        font = ResourceUtil.loadFont(fontLocation);
         return G2dTextHelper.getMultiLinesWidth(g, font, (int) unit, lines);
     }
 
@@ -70,11 +66,7 @@ public class TextItem extends SignItem {
         float u = ctx.unit();
         g.setColor(color);
         Font font;
-        try {
-            font = ResourceUtil.loadFont(fontLocation);
-        } catch (IOException e) {
-            font = new Font(Font.SANS_SERIF, Font.PLAIN, 12);
-        }
+        font = ResourceUtil.loadFont(fontLocation);
         G2dTextHelper.drawStrMultiLines(g, font, (int) ctx.x(), (int) ctx.y(), (int) u, align, lines);
     }
 
@@ -108,6 +100,12 @@ public class TextItem extends SignItem {
                 ),
                 () -> this.align,
                 (v) -> this.align = v
+        ));
+        configs.add(new StringConfig(
+                Component.translatable("ui.fangsu.common.fontLocation"),
+                new ConfigSpec("str"),
+                () -> this.fontLocation.toString(),
+                (v) -> this.fontLocation = new ResourceLocation(v)
         ));
         return configs;
     }

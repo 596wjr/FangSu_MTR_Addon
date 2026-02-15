@@ -4,7 +4,6 @@ import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.*;
@@ -23,6 +22,8 @@ public final class SignItemFactory {
         REGISTRY.put("img", ImageItem::new);
         REGISTRY.put("space", SpaceItem::new);
         REGISTRY.put("multiline", MultiLineItem::new);
+        REGISTRY.put("diving_line", DivingLineItem::new);
+        REGISTRY.put("route", RouteItem::new);
     }
 
     public static Function<JsonObject, SignItem> get(String type) {
@@ -33,11 +34,16 @@ public final class SignItemFactory {
         return item;
     }
 
+    private static void registerBuiltInSign() {
+        EDITOR_ITEMS.add(new DivingLineItem(new JsonObject()));
+    }
+
     public static boolean has(String type) {
         return REGISTRY.containsKey(type);
     }
 
     public static void init() {
+        registerBuiltInSign();
         JsonElement builtInSign = ResourceUtil.loadAsJSON(new ResourceLocation("fangsu:sign/builtinsign.json"));
         if (builtInSign != null && builtInSign.isJsonObject()) {
             JsonObject obj = builtInSign.getAsJsonObject();

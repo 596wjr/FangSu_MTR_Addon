@@ -24,6 +24,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.ItemDisplayContext;
@@ -34,11 +35,11 @@ import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.Method;
 
-public class BaseBlockEntityRender<T extends BaseObjBlockEntity> extends BlockEntityRendererMapper<T> {
+public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements BlockEntityRenderer<T> {
     private static final RegistryObject<ItemStack> BARRIER_ITEM_STACK = new RegistryObject<>(() -> new ItemStack(net.minecraft.world.item.Items.BARRIER, 1));
 
     public BaseBlockEntityRender(BlockEntityRenderDispatcher dispatcher) {
-        super(dispatcher);
+        super();
     }
 
     @Override

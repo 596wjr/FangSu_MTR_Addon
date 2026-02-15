@@ -3,7 +3,6 @@ package com.fangsu.blocks;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.blockEntities.BlockEntityScreendoor;
 import com.fangsu.blockEntities.IPlatformDoor;
-import mtr.mappings.BlockEntityMapper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
@@ -24,12 +23,6 @@ public class BlockScreendoor extends BaseObjBlock implements IBlockPlatform {
     @Override
     public @Nullable BaseObjBlockEntity newBlockEntity(@NotNull BlockPos pos, @NotNull BlockState state) {
         return new BlockEntityScreendoor(pos, state);
-    }
-
-    @Override
-    public BlockEntityMapper createBlockEntity(BlockPos blockPos, BlockState blockState) {
-        BlockEntityScreendoor be = new BlockEntityScreendoor(blockPos, blockState);
-        return be;
     }
 
     @Override

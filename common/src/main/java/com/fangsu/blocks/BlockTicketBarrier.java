@@ -2,7 +2,6 @@ package com.fangsu.blocks;
 
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.blockEntities.BlockEntityTicketBarrier;
-import mtr.mappings.BlockEntityMapper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
@@ -22,9 +21,4 @@ public class BlockTicketBarrier extends BaseObjBlock {
         return new BlockEntityTicketBarrier(pos, state);
     }
 
-    @Override
-    public BlockEntityMapper createBlockEntity(BlockPos blockPos, BlockState blockState) {
-        BlockEntityTicketBarrier be = new BlockEntityTicketBarrier(blockPos, blockState);
-        return be;
-    }
 }

@@ -83,31 +83,21 @@ public class ResourceUtil {
     }
 
 
-    public static InputStream loadInputStream(ResourceLocation location) throws IOException {
-        String GlobalRegisterKey = "Identifier" + location.toString() + "@loadInputStream";
-        if (register.containsKey(GlobalRegisterKey)) {
-            return (InputStream) register.get(GlobalRegisterKey);
-        }
+    public static byte[] loadResourceBytes(ResourceLocation location) throws IOException {
         if (resourceManager == null) {
             throw new IOException("ResourceManager is null");
         }
-        ;
+
         Optional<Resource> resource = resourceManager.getResource(location);
-
-        InputStream stream = null;
-
-        if (resource.isPresent()) {
-            try (InputStream is = resource.get().open();
-            ) {
-                stream = new BufferedInputStream(is);
-            }
-        } else {
-            Main.LOGGER.warn("Resource not found: {}", location);
+        if (resource.isEmpty()) {
             throw new IOException("Resource not found: " + location);
         }
-        register.put(GlobalRegisterKey, stream);
-        return stream;
+
+        try (InputStream is = resource.get().open()) {
+            return is.readAllBytes();
+        }
     }
+
 
     /**
      * 从文件加载字符串
@@ -224,20 +214,23 @@ public class ResourceUtil {
         return map;
     }
 
-    public static Font loadFont(ResourceLocation location) throws IOException {
-        String GlobalRegisterKey = "Identifier" + location.toString() + "@Font";
-        if (register.containsKey(GlobalRegisterKey)) {
-            return (Font) register.get(GlobalRegisterKey);
+    public static Font loadFont(ResourceLocation location) {
+        String key = "Identifier" + location + "@Font";
+        if (register.containsKey(key)) {
+            return (Font) register.get(key);
         }
-        if (resourceManager == null) {
-            throw new IOException("ResourceManager is null");
-        }
-        try (InputStream stream = loadInputStream(location)) {
-            if (location.getPath().endsWith(".ttf") || location.getPath().endsWith(".otf"))
-                return Font.createFont(Font.TRUETYPE_FONT, stream);
+
+        try {
+            byte[] data = loadResourceBytes(location);
+            try (ByteArrayInputStream bais = new ByteArrayInputStream(data)) {
+                Font font = Font.createFont(Font.TRUETYPE_FONT, bais);
+                register.put(key, font);
+                return font;
+            }
         } catch (IOException | FontFormatException e) {
-            throw new IOException(e);
+            Main.LOGGER.error("Failed to load font: {}", location, e);
         }
+
         return new Font(Font.SANS_SERIF, Font.PLAIN, 12);
     }
 

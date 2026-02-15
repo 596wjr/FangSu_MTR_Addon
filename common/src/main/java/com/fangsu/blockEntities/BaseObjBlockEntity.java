@@ -33,13 +33,18 @@ import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
@@ -51,7 +56,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMapper implements Syncable {
+public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable {
     private ObjBlockProperty property;
     public ObjBlockScriptContext scriptContext;
 
@@ -74,8 +79,8 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
     }
 
     @Override
-    public void writeCompoundTag(@NotNull CompoundTag tag) {
-//        super.saveAdditional(tag);
+    public void saveAdditional(@NotNull CompoundTag tag) {
+        super.saveAdditional(tag);
 
         tag.putBoolean("fullLight", fullLight);
 
@@ -108,8 +113,8 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
     }
 
     @Override
-    public void readCompoundTag(@NotNull CompoundTag tag) {
-//        super.load(tag);
+    public void load(@NotNull CompoundTag tag) {
+        super.load(tag);
 
         fullLight = tag.getBoolean("fullLight");
 
@@ -338,7 +343,7 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
             String value = buf.readUtf(128);
             subModels.put(key, value);
         }
-        if (level != null && level.isClientSide == false) {
+        if (level != null && !level.isClientSide) {
             level.sendBlockUpdated(
                     worldPosition,
                     getBlockState(),
@@ -346,7 +351,25 @@ public abstract class BaseObjBlockEntity extends BlockEntityClientSerializableMa
                     3
             );
         }
+        this.setChanged();
+    }
 
+    public void syncData() {
+        if (level instanceof ServerLevel) {
+            ((ServerLevel) level).getChunkSource().blockChanged(worldPosition);
+        }
+    }
+
+    @Override
+    public Packet<ClientGamePacketListener> getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
+    }
+
+    @Override
+    public final @NotNull CompoundTag getUpdateTag() {
+        final CompoundTag compoundTag = super.getUpdateTag();
+        saveAdditional(compoundTag);
+        return compoundTag;
     }
 
     public abstract String getMainModelKey();

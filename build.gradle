@@ -30,13 +30,11 @@ ext {
         platform = "NEOFORGE"
     }
 }
-
+apply from: "build_process.gradle"
 boolean buildForAnte = project.hasProperty("build_for_ante") && project.property("build_for_ante") == "true"
 
 println "[Build] Current platform = ${platform}"
 println "[Build] Build for ANTE : ${buildForAnte}"
-
-apply from: "build_process.gradle"
 
 subprojects {
     apply plugin: 'dev.architectury.loom'

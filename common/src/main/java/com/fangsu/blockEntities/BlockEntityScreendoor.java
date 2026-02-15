@@ -85,7 +85,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
         doorSide = Integer.parseInt(extraConfigs.get("doorSide"));
         isAutoDoorSide = extraConfigs.getOrDefault("isAuto", "true").equals("true");
 
-        // ★ 不在 loading 阶段直接算
+        // 不在 loading 阶段直接算
         pendingAutoDoorSide = true;
 
         dispDoorValue = (getDoorValue() >= 0.4f && getDoorTarget()) ? 1.0 : 0.0;

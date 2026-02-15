@@ -1,8 +1,9 @@
 package com.fangsu.blocks;
 
 import com.fangsu.blockEntities.BaseObjBlockEntity;
-import mtr.mappings.EntityBlockMapper;
+import mtr.mappings.BlockEntityMapper;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
@@ -10,9 +11,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.HorizontalDirectionalBlock;
-import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -27,7 +26,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public abstract class BaseObjBlock extends HorizontalDirectionalBlock implements EntityBlockMapper {
+public abstract class BaseObjBlock extends Block implements EntityBlock {
     public static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
 
     public BaseObjBlock(Properties properties) {
@@ -130,5 +129,20 @@ public abstract class BaseObjBlock extends HorizontalDirectionalBlock implements
             return shape == null ? Shapes.block() : shape;
         }
         return Shapes.block();
+    }
+
+    public BlockState rotate(BlockState blockState, Rotation rotation) {
+        return (BlockState) blockState.setValue(FACING, rotation.rotate((Direction) blockState.getValue(FACING)));
+    }
+
+    public BlockState mirror(BlockState blockState, Mirror mirror) {
+        return blockState.rotate(mirror.getRotation((Direction) blockState.getValue(FACING)));
+    }
+
+    <T extends BlockEntityMapper> void tick(Level world, BlockPos pos, T blockEntity) {
+    }
+
+    BlockEntityType<? extends BlockEntity> getType() {
+        return null;
     }
 }
