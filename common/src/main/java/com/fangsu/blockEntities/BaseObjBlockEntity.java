@@ -1,6 +1,7 @@
 package com.fangsu.blockEntities;
 
 import com.fangsu.blocks.BaseObjBlock;
+import com.fangsu.client.ClientHooks;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 //#if FABRIC
@@ -23,11 +24,9 @@ import fabric.cn.zbx1425.sowcerext.model.ModelCluster;
 //#endif
 import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.network.ModNetwork;
-import com.fangsu.ui.ObjBlockConfigScreen;
 import dev.architectury.networking.NetworkManager;
 import io.netty.buffer.Unpooled;
 import mtr.mappings.BlockEntityClientSerializableMapper;
-import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -394,7 +393,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
 
     public final InteractionResult useWithBrush(@NotNull BlockState state, @NotNull Level level, @NotNull BlockPos pos, @NotNull Player player, @NotNull InteractionHand hand, @NotNull BlockHitResult hit) {
         if (level.isClientSide) {
-            Minecraft.getInstance().setScreen(new ObjBlockConfigScreen(this));
+            ClientHooks.openObjBlockConfigScreen(this);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
