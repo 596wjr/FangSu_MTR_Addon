@@ -50,6 +50,8 @@
   "block.fangsu.screendoor_door": "屏蔽门 (门)",
   "block.fangsu.screendoor_glass": "屏蔽门 (玻璃)",
   "block.fangsu.collision_compensation_block": "碰撞箱补偿方块",
+  "block.fangsu.sign": "指示牌",
+  "block.fangsu.sign_on_wall": "指示牌 (挂墙)",
   "ui.fangsu.sign.title": "指示牌配置",
   "ui.fangsu.sign.editing": "正在编辑",
   "ui.fangsu.sign.front": "正面",
@@ -67,7 +69,9 @@
   "ui.fangsu.sign.layout_hint": "左键编辑，右键删除，点击上/下槽切换",
   "ui.fangsu.sign.dispLeftPole": "是否显示左杆",
   "ui.fangsu.sign.leftPolePos": "左杆位置",
-  "ui.fangsu.sign,dispRightPole": "是否显示右杆",
+  "ui.fangsu.sign.dispRightPole": "是否显示右杆",
   "ui.fangsu.sign.rightPolePos": "右杆位置",
-  "ui.fangsu.sign.editSign": "指示牌内容编辑"
+  "ui.fangsu.sign.editSign": "指示牌内容编辑",
+  "ui.fangsu.ticket.error": "请前往服务中心",
+  "ui.fangsu.ticket.success": "过闸成功"
 }

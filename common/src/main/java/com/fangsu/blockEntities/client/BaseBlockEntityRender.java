@@ -88,7 +88,7 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
 //            synchronized (blockEntity.scriptContext) {
         try {
             //#if NTE
-            blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, lightToUse);
+            //$$ blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, lightToUse);
             //#elseif ANTE
             //$$ Matrix4f worldPose = new Matrix4f(matrices.last().pose()).copy();
             //$$ blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose,worldPose, lightToUse);

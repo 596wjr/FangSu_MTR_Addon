@@ -1,28 +1,37 @@
 package com.fangsu.client;
 
+import com.fangsu.Main;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.signItems.SignItem;
 import com.fangsu.ui.ObjBlockConfigScreen;
 import com.fangsu.ui.SignConfigUI;
 import net.minecraft.client.Minecraft;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.common.Mod;
 
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
+//@Mod.EventBusSubscriber(value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class ClientHooksImpl {
     private ClientHooksImpl() {
     }
+
+//    static {
+//        ClientHooks.OPEN_OBJ_BLOCK_CONFIG_SCREEN = ClientHooksImpl::openObjBlockConfigScreen;
+//        ClientHooks.OPEN_OBJ_SIGN_SCREEN = ClientHooksImpl::openSignConfigScreen;
+//    }
 
     public static void openObjBlockConfigScreen(BaseObjBlockEntity blockEntity) {
         Minecraft.getInstance().setScreen(new ObjBlockConfigScreen(blockEntity));
     }
 
     public static void openSignConfigScreen(
-            Map<String, List<SignItem>> itemsFront,
-            Map<String, List<SignItem>> itemsBack,
-            BiConsumer<Map<String, List<SignItem>>, Map<String, List<SignItem>>> onSave
+            int faces, List<Map<String, List<SignItem>>> items, Consumer<List<Map<String, List<SignItem>>>> setter
     ) {
-        Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new SignConfigUI(2, List.of(itemsFront, itemsBack), list -> onSave.accept(list.get(0), list.get(1)))));
+        Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new SignConfigUI(faces, items, setter)));
     }
+
 }

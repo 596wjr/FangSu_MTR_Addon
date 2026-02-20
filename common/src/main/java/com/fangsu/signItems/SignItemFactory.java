@@ -23,7 +23,11 @@ public final class SignItemFactory {
         REGISTRY.put("space", SpaceItem::new);
         REGISTRY.put("multiline", MultiLineItem::new);
         REGISTRY.put("diving_line", DivingLineItem::new);
-        REGISTRY.put("route", RouteItem::new);
+        REGISTRY.put("route", RouteItemA::new);
+        REGISTRY.put("routeb", RouteItemB::new);
+        REGISTRY.put("destination", DestinationItem::new);
+        REGISTRY.put("trainicon", TrainIconItem::new);
+
     }
 
     public static Function<JsonObject, SignItem> get(String type) {

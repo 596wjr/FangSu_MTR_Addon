@@ -2,6 +2,8 @@ plugins {
     id 'dev.architectury.loom' version '1.11-SNAPSHOT' apply false
     id 'architectury-plugin' version '3.4-SNAPSHOT'
     id 'com.gradleup.shadow' version '8.3.6' apply false
+//    id "com.github.johnrengelman.shadow" version "8.1.1"
+    id "de.undercouch.download" version "4.1.2"
 }
 
 architectury {
@@ -29,6 +31,8 @@ ext {
     } else if (taskNames.contains("neoforge")) {
         platform = "NEOFORGE"
     }
+
+    graaljsVersion = "24.2.2"
 }
 apply from: "build_process.gradle"
 boolean buildForAnte = project.hasProperty("build_for_ante") && project.property("build_for_ante") == "true"
@@ -102,6 +106,22 @@ subprojects {
         modImplementation nteDep
 
         compileOnly "maven.modrinth:minecraft-transit-railway:${rootProject.mtr_version_forge}"
+
+        compileOnly("org.graalvm.polyglot:polyglot:${graaljsVersion}")
+        compileOnly("org.graalvm.polyglot:js:${graaljsVersion}")
+        compileOnly("org.graalvm.truffle:truffle-api:${graaljsVersion}")
+        compileOnly("org.graalvm.truffle:truffle-runtime:${graaljsVersion}")
+
+//        if (name == "fabric") {
+//            if (!project.hasProperty('excludeGraal') || !project.property('excludeGraal').toBoolean()) {
+//                shadowCommon("org.graalvm.polyglot:polyglot:${graaljsVersion}")
+//                shadowCommon("org.graalvm.polyglot:js:${graaljsVersion}")
+//
+//                shadowCommon("org.graalvm.truffle:truffle-api:${graaljsVersion}")
+//                shadowCommon("org.graalvm.truffle:truffle-runtime:${graaljsVersion}")
+//            }
+//            shadowCommon("com.github.stuxuhai:jpinyin:1.1.7")
+//        }
 
     }
 

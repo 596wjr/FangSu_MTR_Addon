@@ -20,11 +20,11 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class RouteItem extends SignItem {
+public class RouteItemA extends SignItem {
     private Route route;
     private Font font;
 
-    public RouteItem(JsonObject json) {
+    public RouteItemA(JsonObject json) {
         if (json.has("route") && json.get("route").isJsonPrimitive()) {
             route = MtrUtil.getRouteById(json.getAsJsonPrimitive("route").getAsLong());
         } else route = null;
@@ -49,13 +49,13 @@ public class RouteItem extends SignItem {
     public float getWidth(Graphics2D g, float unit) {
         String routeName = getRouteName();
         boolean isNumLine = RouteNameUtil.isNumLine(routeName);
-        float width = unit * 0.6f;
+        float width = unit * 0.2f;
         if (isNumLine) {
             String name = RouteNameUtil.getCJKLineName(TextUtil.getCjkParts(routeName));
-            width += G2dTextHelper.getUnifiedStringWidth(g, font, name, unit * 0.8f);
-            width += G2dTextHelper.getMultiLinesWidth(g, font, unit * 0.7f, "号线", TextUtil.getNonCjkParts(routeName));
+            width += G2dTextHelper.getUnifiedStringWidth(g, font, name, unit * 0.7f);
+            width += G2dTextHelper.getMultiLinesWidth(g, font, unit * 0.65f, "号线", TextUtil.getNonCjkParts(routeName));
         } else {
-            width += G2dTextHelper.getMultiLinesWidth(g, font, unit * 0.8f, TextUtil.getNonExtraParts(routeName).split("\\|"));
+            width += G2dTextHelper.getMultiLinesWidth(g, font, unit * 0.7f, TextUtil.getNonExtraParts(routeName).split("\\|"));
         }
         return width;
     }
@@ -71,15 +71,15 @@ public class RouteItem extends SignItem {
         String routeName = getRouteName();
         boolean isNumLine = RouteNameUtil.isNumLine(routeName);
         g.setColor(c);
-        g.fillRoundRect(x, y, (int) width, (int) u, (int) (u / 10), (int) (u / 10));
-        g.setColor(ColorUtil.isLightColor(c) ? Color.BLACK : Color.WHITE);
+        g.fillRect(x, (int) (y + u * 0.8), (int) width, (int) (u * 0.2));
+        g.setColor(Color.WHITE);
         if (isNumLine) {
-            int currentX = x + (int) (u * 0.25f);
+            int currentX = x + (int) (u * 0.1f);
             String name = RouteNameUtil.getCJKLineName(TextUtil.getCjkParts(routeName));
-            currentX += G2dTextHelper.drawStrUnified(g, font, name, currentX, (int) (y + u * 0.8f), u * 0.8f, 0);
-            currentX += G2dTextHelper.drawStrMultiLines(g, font, currentX, y + (int) (u * 0.15f), (int) (u * 0.75f), 0, "号线", TextUtil.getNonCjkParts(routeName));
+            currentX += G2dTextHelper.drawStrUnified(g, font, name, currentX, (int) (y + u * 0.7f), u * 0.75f, 0);
+            currentX += G2dTextHelper.drawStrMultiLines(g, font, currentX, y + (int) (u * 0.1f), (int) (u * 0.65f), 0, "号线", TextUtil.getNonCjkParts(routeName));
         } else {
-            G2dTextHelper.drawStrMultiLines(g, font, (int) (x + u * 0.25f), y + (int) (u * 0.125f), (int) (u * 0.8f), 1, TextUtil.getNonExtraParts(routeName).split("\\|"));
+            G2dTextHelper.drawStrMultiLines(g, font, (int) (x + u * 0.1f), y + (int) (u * 0.075f), (int) (u * 0.7f), 1, TextUtil.getNonExtraParts(routeName).split("\\|"));
         }
     }
 
@@ -92,13 +92,13 @@ public class RouteItem extends SignItem {
     public List<ConfigEntry<?>> getConfigs() {
         List<ConfigEntry<?>> list = new ArrayList<ConfigEntry<?>>();
         list.add(new RunnableConfig(
-                Component.translatable("aaa"),
+                Component.translatable("ui.fangsu.common.selectRoute"),
                 new ConfigSpec("func"),
                 () -> {
                     Minecraft mc = Minecraft.getInstance();
                     if (mc.player != null) {
                         mc.setScreen(new RouteSelectionScreen(
-                                Component.translatable("bbb"),
+                                Component.translatable("ui.fangsu.common.selectRoute"),
                                 List.of(),
                                 (v) -> {
                                     if (v != null && !v.isEmpty())

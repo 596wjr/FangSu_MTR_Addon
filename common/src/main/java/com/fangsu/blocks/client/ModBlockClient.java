@@ -22,5 +22,9 @@ public class ModBlockClient {
                 ModBlocks.BLOCK_ENTITY_SIGN.get(),
                 ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
         );
+        BlockEntityRendererRegistry.register(
+                ModBlocks.BLOCK_ENTITY_SIGN_ON_WALL.get(),
+                ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
+        );
     }
 }

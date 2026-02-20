@@ -1,8 +1,10 @@
 package com.fangsu.ticketSystem;
 
+import com.fangsu.items.TicketItem;
 import mtr.mappings.Text;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.scores.Score;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
@@ -23,6 +25,11 @@ public class MtrTicketSystem {
     public static boolean enter(Level world, BlockPos pos, Player player) {
         Station station = getStation(world, pos);
         if (station == null) return false;
+
+        ItemStack stack = player.getMainHandItem();
+        if (stack.getItem() instanceof TicketItem ticketItem) {
+            return ticketItem.enter(world, player, stack, new FareInfo(FareType.MTR, station.zone));
+        }
 
         addObjectivesIfMissing(world);
 

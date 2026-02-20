@@ -48,57 +48,50 @@ import fabric.cn.zbx1425.sowcerext.model.RawModel;
 //$$ import forge.cn.zbx1425.sowcerext.model.RawModel;
 //#endif
 
-import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_SIGN;
+import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_SIGN_ON_WALL;
 
-public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
+public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncable {
     private static final String DEFAULT_MAIN_MODEL = "fangsu:sign/beijing/beijing_sign.json";
-    private static final String DEFAULT_SUB_MODEL = "beijing_sign_a";
+    private static final String DEFAULT_SUB_MODEL = "beijing_sign_a_onwall";
     private static final String MAIN_MODEL_KEY = "sign";
     protected String subModel;
 
     private Map<String, Map<String, Object>> loaded;
 
-    private DynamicModelHolder dmhLeft, dmhCenter, dmhRight, dmhDispFront, dmhDispBack, dmhPole;
-    private GraphicsTexture gtFront, gtBack;
-    private CollisionBoxUtil.CollisionBox shapeLeft, shapeCenter, shapeRight, shapePole;
+    private DynamicModelHolder dmhLeft, dmhCenter, dmhRight, dmhDispFront;
+    private GraphicsTexture gtFront;
+    private CollisionBoxUtil.CollisionBox shapeLeft, shapeCenter, shapeRight;
     private int unit = 8;
 
     private double length = 2;
-    private boolean showLeftPole = true, showRightPole = true;
-    private int leftPolePos = 8, rightPolePos = 8;
 
     private boolean requiresRedraw = true;
 
-    private Map<String, List<SignItem>> itemsFront, itemsBack;
+    private Map<String, List<SignItem>> items;
 
-    public BlockEntitySign(BlockPos pos, BlockState state) {
-        super(BLOCK_ENTITY_SIGN.get(), pos, state);
+    public BlockEntitySignOnWall(BlockPos pos, BlockState state) {
+        super(BLOCK_ENTITY_SIGN_ON_WALL.get(), pos, state);
     }
 
     @Override
     public void whenLoading() {
         ensureExtraConfig("length", "2");
-        ensureExtraConfig("itemsFront", "{}");
+        ensureExtraConfig("items", "{}");
         ensureExtraConfig("itemsBack", "{}");
         ensureExtraConfig("showLeftPole", "true");
         ensureExtraConfig("leftPolePos", "8");
         ensureExtraConfig("showRightPole", "true");
         ensureExtraConfig("rightPolePos", "8");
 
-        itemsFront = initItems(extraConfigs.get("itemsFront"));
-        itemsBack = initItems(extraConfigs.get("itemsBack"));
+        items = initItems(extraConfigs.get("items"));
 
         length = Double.parseDouble(extraConfigs.get("length"));
-        showLeftPole = "true".equals(extraConfigs.get("showLeftPole"));
-        showRightPole = "true".equals(extraConfigs.get("showRightPole"));
-        leftPolePos = Integer.parseInt(extraConfigs.get("leftPolePos"));
-        rightPolePos = Integer.parseInt(extraConfigs.get("rightPolePos"));
 
         mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
         subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
 
         try {
-            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(mainModel), "common");
+            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(mainModel), "on_wall");
             if (loaded == null || !loaded.containsKey(subModel)) {
                 markedError = true;
                 return;
@@ -130,18 +123,9 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                     }
                 }
             }
-            if (current.containsKey("pole") && current.get("pole") instanceof Map<?, ?> pole) {
-                String modelKey = (String) pole.get("subModel");
-                dmhPole = models.get(modelKey);
-                if (pole.containsKey("shape") && pole.get("shape") instanceof List<?> l) {
-                    shapePole = new CollisionBoxUtil.CollisionBox(l);
-                }
-            }
 
-            RawMeshBuilder rawModelBuilderFront = new RawMeshBuilder(4, "lighttranslucent", new ResourceLocation("fangsu:sign/def_face1.png")),
-                    rawMeshBuilderBack = new RawMeshBuilder(4, "lighttranslucent", new ResourceLocation("fangsu:sign/def_face1.png"));
-            RawModel dispRawModelFront = new RawModel(),
-                    dispRawModelBack = new RawModel();
+            RawMeshBuilder rawModelBuilderFront = new RawMeshBuilder(4, "lighttranslucent", new ResourceLocation("fangsu:sign/def_face1.png"));
+            RawModel dispRawModelFront = new RawModel();
             List<?> texZone = (List<?>) current.get("tex");
             double y1 = (double) ((List<?>) texZone.get(0)).get(0),
                     z1 = (double) ((List<?>) texZone.get(0)).get(1);
@@ -153,22 +137,11 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                     List.of(0.5 * unit * length / 16, y1, z1),
                     List.of(0.5 * unit * length / 16, y2, z2)
             );
-            List<List<Double>> finalSlotBack = List.of(
-                    List.of(0.5 * unit * length / 16, y2, -z2),
-                    List.of(0.5 * unit * length / 16, y1, -z1),
-                    List.of(-0.5 * unit * length / 16, y1, -z1),
-                    List.of(-0.5 * unit * length / 16, y2, -z2)
-            );
             addQuad(rawModelBuilderFront, finalSlotFront, false);
-            addQuad(rawMeshBuilderBack, finalSlotBack, true);
             dispRawModelFront.append(rawModelBuilderFront.getMesh());
             dispRawModelFront.generateNormals();
-            dispRawModelBack.append(rawMeshBuilderBack.getMesh());
-            dispRawModelBack.generateNormals();
             dmhDispFront = new DynamicModelHolder();
             dmhDispFront.uploadLater(dispRawModelFront);
-            dmhDispBack = new DynamicModelHolder();
-            dmhDispBack.uploadLater(dispRawModelBack);
 
             requiresRedraw = true;
         } catch (Exception e) {
@@ -180,13 +153,10 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
     public void whenRendering() {
         ObjBlockScriptContext ctx = this.scriptContext;
         if (requiresRedraw) {
-            itemsFront = initItems(extraConfigs.get("itemsFront"));
-            itemsBack = initItems(extraConfigs.get("itemsBack"));
+            items = initItems(extraConfigs.get("items"));
 
             if (gtFront != null) gtFront.closeLater();
-            if (gtBack != null) gtBack.closeLater();
             gtFront = new GraphicsTexture((int) (unit * 72 * length + 1), unit * 72 + 1);
-            gtBack = new GraphicsTexture((int) (unit * 72 * length + 1), unit * 72 + 1);
 
 
             if (gtFront != null && !gtFront.isClosed) {
@@ -194,30 +164,15 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                 g.setComposite(AlphaComposite.Clear); // 设置透明混合模式
                 g.fillRect(0, 0, gtFront.width, gtFront.height);   // 填充整个区域
                 g.setComposite(AlphaComposite.SrcOver); // 恢复默认混合模式
-                if (itemsFront != null) {
-                    if (itemsFront.containsKey("left"))
-                        drawLane(gtFront, itemsFront.get("left"), 0, gtFront.height * 0.1f, 0, gtFront.height * 0.8f);
-                    if (itemsFront.containsKey("right"))
-                        drawLane(gtFront, itemsFront.get("right"), gtFront.width, gtFront.height * 0.1f, 2, gtFront.height * 0.8f);
-                    if (itemsFront.containsKey("center"))
-                        drawLane(gtFront, itemsFront.get("center"), gtFront.width * 0.5f, gtFront.height * 0.1f, 1, gtFront.height * 0.8f);
+                if (items != null) {
+                    if (items.containsKey("left"))
+                        drawLane(gtFront, items.get("left"), 0, gtFront.height * 0.1f, 0, gtFront.height * 0.8f);
+                    if (items.containsKey("right"))
+                        drawLane(gtFront, items.get("right"), gtFront.width, gtFront.height * 0.1f, 2, gtFront.height * 0.8f);
+                    if (items.containsKey("center"))
+                        drawLane(gtFront, items.get("center"), gtFront.width * 0.5f, gtFront.height * 0.1f, 1, gtFront.height * 0.8f);
                 }
                 gtFront.upload();
-            }
-            if (gtBack != null && !gtBack.isClosed) {
-                var g = gtBack.graphics;
-                g.setComposite(AlphaComposite.Clear);
-                g.fillRect(0, 0, gtBack.width, gtBack.height);
-                g.setComposite(AlphaComposite.SrcOver);
-                if (itemsBack != null) {
-                    if (itemsBack.containsKey("left"))
-                        drawLane(gtBack, itemsBack.get("left"), 0, gtBack.height * 0.1f, 0, gtBack.height * 0.8f);
-                    if (itemsBack.containsKey("right"))
-                        drawLane(gtBack, itemsBack.get("right"), gtBack.width, gtFront.height * 0.1f, 2, gtBack.height * 0.8f);
-                    if (itemsBack.containsKey("center"))
-                        drawLane(gtBack, itemsBack.get("center"), gtBack.width * 0.5f, gtFront.height * 0.1f, 1, gtBack.height * 0.8f);
-                }
-                gtBack.upload();
             }
             requiresRedraw = false;
         }
@@ -225,13 +180,8 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
             dmhDispFront.getUploadedModel().replaceAllTexture(gtFront.identifier);
         }
         ctx.drawModel(dmhDispFront, null);
-        if (dmhDispBack != null && dmhDispBack.getUploadedModel() != null) {
-            dmhDispBack.getUploadedModel().replaceAllTexture(gtBack.identifier);
-        }
-        ctx.drawModel(dmhDispBack, null);
 
         Matrices mat = new Matrices();
-        mat.pushPose();
         mat.translate(-0.5 * unit * length / 16, 0, 0);
         mat.pushPose();
         ctx.drawModel(dmhLeft, mat);
@@ -243,21 +193,6 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
         mat.translate(unit / 32d, 0, 0);
         ctx.drawModel(dmhRight, mat);
         mat.popPose();
-        if (dmhPole != null) {
-            if (showLeftPole) {
-                mat.pushPose();
-                mat.translate(leftPolePos / 16d, 0, 0);
-                ctx.drawModel(dmhPole, mat);
-                mat.popPose();
-            }
-            if (showRightPole) {
-                mat.pushPose();
-                mat.translate(unit * length / 16, 0, 0);
-                mat.translate(-rightPolePos / 16d, 0, 0);
-                ctx.drawModel(dmhPole, mat);
-                mat.popPose();
-            }
-        } else mat.popPose();
     }
 
     @Override
@@ -286,42 +221,6 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                     extraConfigs.put("length", length + "");
                 }
         ));
-        configs.add(new BoolConfig(
-                Component.translatable("ui.fangsu.sign.dispLeftPole"),
-                new ConfigSpec("bool"),
-                () -> this.showLeftPole,
-                (v) -> {
-                    this.showLeftPole = v;
-                    extraConfigs.put("showLeftPole", showLeftPole ? "true" : "false");
-                }
-        ).setSaveOnChange(true));
-        configs.add(new NumberInputConfig(
-                Component.translatable("ui.fangsu.sign.leftPolePos"),
-                new ConfigSpec("num").setParam("isInt", new JsonPrimitive(true)),
-                () -> this.leftPolePos + 0f,
-                (v) -> {
-                    this.leftPolePos = v.intValue();
-                    extraConfigs.put("leftPolePos", leftPolePos + "");
-                }
-        ).setShowCondition((v) -> this.showLeftPole));
-        configs.add(new BoolConfig(
-                Component.translatable("ui.fangsu.sign.dispRightPole"),
-                new ConfigSpec("bool"),
-                () -> this.showRightPole,
-                (v) -> {
-                    this.showRightPole = v;
-                    extraConfigs.put("showRightPole", showRightPole ? "true" : "false");
-                }
-        ).setSaveOnChange(true));
-        configs.add(new NumberInputConfig(
-                Component.translatable("ui.fangsu.sign.rightPolePos"),
-                new ConfigSpec("num").setParam("isInt", new JsonPrimitive(true)),
-                () -> this.rightPolePos + 0f,
-                (v) -> {
-                    this.rightPolePos = v.intValue();
-                    extraConfigs.put("rightPolePos", rightPolePos + "");
-                }
-        ).setShowCondition((v) -> this.showRightPole));
         return configs;
     }
 
@@ -350,13 +249,10 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                 (be) -> this.subModels.getOrDefault("subModel", DEFAULT_SUB_MODEL),
                 (be, v) -> this.subModels.put("subModel", v)));
         infos.add(new SubModelMethodInfo(Component.translatable("ui.fangsu.sign.editSign"), () -> {
-            if (itemsFront == null) itemsFront = new HashMap<>();
-            if (itemsBack == null) itemsBack = new HashMap<>();
-            ClientHooks.openSignConfigScreen(2, List.of(itemsFront, itemsBack), (saveItems) -> {
-                itemsFront = saveItems.get(0);
-                itemsBack = saveItems.get(1);
-                extraConfigs.put("itemsFront", toItemsJson(itemsFront).toString());
-                extraConfigs.put("itemsBack", toItemsJson(itemsBack).toString());
+            if (items == null) items = new HashMap<>();
+            ClientHooks.openSignConfigScreen(1, List.of(items), saveItems -> {
+                items = saveItems.get(0);
+                extraConfigs.put("items", toItemsJson(items).toString());
                 requiresRedraw = true;
                 sendUpdateC2S();
             });
@@ -419,14 +315,9 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
 
         requiresRedraw = true;
 
-        itemsFront = initItems(extraConfigs.get("itemsFront"));
-        itemsBack = initItems(extraConfigs.get("itemsBack"));
+        items = initItems(extraConfigs.get("items"));
 
         length = Double.parseDouble(extraConfigs.getOrDefault("length", "2"));
-        showLeftPole = "true".equals(extraConfigs.get("showLeftPole"));
-        showRightPole = "true".equals(extraConfigs.get("showRightPole"));
-        leftPolePos = Integer.parseInt(extraConfigs.getOrDefault("leftPolePos", "8"));
-        rightPolePos = Integer.parseInt(extraConfigs.getOrDefault("rightPolePos", "8"));
 
     }
 

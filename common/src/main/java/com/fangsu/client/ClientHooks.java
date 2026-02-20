@@ -1,5 +1,6 @@
 package com.fangsu.client;
 
+import com.fangsu.Main;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.signItems.SignItem;
 import dev.architectury.injectables.annotations.ExpectPlatform;
@@ -7,22 +8,34 @@ import dev.architectury.injectables.annotations.ExpectPlatform;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 public final class ClientHooks {
+    public static Consumer<BaseObjBlockEntity> OPEN_OBJ_BLOCK_CONFIG_SCREEN
+            = blockEntity -> {
+        Main.LOGGER.error("打开方法没有被替换!");
+    };
+    public static SignScreenConsumer OPEN_OBJ_SIGN_SCREEN
+            = ((faces, items, onSave) -> {
+        Main.LOGGER.error("打开方法没有被替换!");
+    });
+
+
     private ClientHooks() {
     }
 
-    @ExpectPlatform
     public static void openObjBlockConfigScreen(BaseObjBlockEntity blockEntity) {
-        throw new AssertionError();
+        OPEN_OBJ_BLOCK_CONFIG_SCREEN.accept(blockEntity);
     }
 
-    @ExpectPlatform
     public static void openSignConfigScreen(
-            Map<String, List<SignItem>> itemsFront,
-            Map<String, List<SignItem>> itemsBack,
-            BiConsumer<Map<String, List<SignItem>>, Map<String, List<SignItem>>> onSave
+            int faces, List<Map<String, List<SignItem>>> items, Consumer<List<Map<String, List<SignItem>>>> setter
     ) {
-        throw new AssertionError();
+        OPEN_OBJ_SIGN_SCREEN.accept(faces, items, setter);
+    }
+
+    @FunctionalInterface
+    public interface SignScreenConsumer {
+        void accept(int faces, List<Map<String, List<SignItem>>> items, Consumer<List<Map<String, List<SignItem>>>> setter);
     }
 }

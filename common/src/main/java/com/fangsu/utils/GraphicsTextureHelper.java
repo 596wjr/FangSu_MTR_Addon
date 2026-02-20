@@ -1,6 +1,7 @@
 package com.fangsu.utils;
 
-import forge.cn.zbx1425.mtrsteamloco.render.scripting.util.GraphicsTexture;
+import com.fangsu.Main;
+import com.fangsu.scripting.GraphicsTexture;
 import net.minecraft.core.BlockPos;
 
 import java.awt.*;
@@ -8,7 +9,6 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.*;
 
-@Deprecated()//预留
 public class GraphicsTextureHelper {
 
     /* =========================
@@ -100,7 +100,7 @@ public class GraphicsTextureHelper {
                 info.available = true;
 
             } catch (Throwable t) {
-                t.printStackTrace();
+                Main.LOGGER.warn(t.getLocalizedMessage());
             }
         }
     }

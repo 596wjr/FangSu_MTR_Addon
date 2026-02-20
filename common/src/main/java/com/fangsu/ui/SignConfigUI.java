@@ -33,7 +33,7 @@ public class SignConfigUI extends Screen {
     private float[] rowScroll = new float[ROW_COUNT];
     private float paletteScroll = 0;
     private float editingPreviewScroll = 0;
-    private int faces = 2;
+    private int faces;
 
     private GraphicsTexture g2dLayer;
     private MouseClickInfo mouseClickInfo;

@@ -1,13 +1,13 @@
 modLoader = "javafml"
 loaderVersion = "[47,)"
-#issueTrackerURL = ""
-license = "Insert License Here"
+issueTrackerURL = "https://github.com/596wjr/FangSu_MTR_Addon/issues"
+license = "MIT"
 
 [[mods]]
 modId = "fangsu"
 version = "${version}"
 displayName = "FangSu MTR Addon"
-authors = "Me!"
+authors = "596wjr"
 description = '''
 This is an example description! Tell everyone what your mod is about!
 '''
@@ -32,4 +32,16 @@ modId = "architectury"
 mandatory = true
 versionRange = "[9.2.14,)"
 ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.fangsu]]
+modId = "mtr"
+mandatory = true
+versionRange = "[3.2.2,4.0.0)"
+side = "BOTH"
+
+[[dependencies.fangsu]]
+modId = "mtrsteamloco"
+mandatory = true
+versionRange = "[0.5.2,)"
 side = "BOTH"

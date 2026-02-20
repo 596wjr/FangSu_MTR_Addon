@@ -51,4 +51,22 @@ public class TextUtil {
         return result.toString().trim();
     }
 
+    public static String addPrefix(String text, String cjkPrefix, String nonCjkPrefix, boolean addSpace) {
+        String[] stringSplit = text.split("\\|");
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < stringSplit.length; i++) {
+            String stringSplitPart = stringSplit[i];
+            if (i > 0) result.append('|');
+            if (isCjk(stringSplitPart)) {
+                result.append(cjkPrefix);
+                if (addSpace) result.append(' ');
+                result.append(stringSplitPart);
+            } else {
+                result.append(nonCjkPrefix);
+                if (addSpace) result.append(' ');
+                result.append(stringSplitPart);
+            }
+        }
+        return result.toString().trim();
+    }
 }

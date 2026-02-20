@@ -24,7 +24,8 @@ public class G2dTextHelper {
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i];
             int fontSize = (int) (h * 0.9 / (lines.length + 2) * (i == 0 ? 3 : 1));
-            currentY += fontSize;
+            int lineGap = lines.length == 1 ? 0 : (int) (h * 0.1 / (lines.length - 1));
+            currentY += fontSize + lineGap;
             g.setFont(font.deriveFont(Font.PLAIN, fontSize));
             int lineWidth = g.getFontMetrics().stringWidth(line);
             int baseX = align == 0 ? x :
@@ -36,7 +37,7 @@ public class G2dTextHelper {
     }
 
     /**
-     * 绘制单行文字（统一字体，不分语言）
+     * 绘制单行文字(JS移植)
      *
      * @param g     Java AWT绘图上下文对象
      * @param font  统一使用的字体对象

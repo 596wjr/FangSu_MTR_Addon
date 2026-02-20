@@ -203,54 +203,15 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
 
         Vec3 hitPos = hit.getLocation().subtract(pos.getX(), pos.getY(), pos.getZ());
 
-        boolean isOpen = getExtraConfigBool("isOpen", false);
-        if (!isOpen) {
-            //TODO 纸质客票系统
-            if (getExtraConfigInt("fareType", 0) == 0) {
-                if (!getExtraConfigBool("isExit", false)) {
-                    //entrance
-                    if (MtrTicketSystem.enter(level, pos, player)) {
-                        extra.put("isOpen", "true");
-                        sendUpdateC2S();
-                        return InteractionResult.SUCCESS;
-                    } else return InteractionResult.PASS;
-                } else {
-                    //exit
-                    if (MtrTicketSystem.exit(level, pos, player)) {
-                        extra.put("isOpen", "true");
-                        sendUpdateC2S();
-                        return InteractionResult.SUCCESS;
-                    } else return InteractionResult.PASS;
-                }
-            } else if (getExtraConfigInt("fareType", 0) == 1) {
-                //单次扣费
-                MtrTicketSystem.addObjectivesIfMissing(level);
-                Score balance = MtrTicketSystem.getScore(level, player, MtrTicketSystem.BALANCE_OBJECTIVE);
-                int val = getExtraConfigInt("fareVal", 10);
-                if (balance.getScore() < val) {
-                    player.displayClientMessage(Text.translatable("gui.mtr.insufficient_balance", balance.getScore()), true);
-                    return InteractionResult.PASS;
-                } else {
-                    balance.add(-val);
-                    player.displayClientMessage(Text.translatable("msg.fangsu.ticketbarrier.fareOnce", val, balance.getScore()), true);
-                    extra.put("isOpen", "true");
-                    sendUpdateC2S();
-                    return InteractionResult.SUCCESS;
-                }
-            } else if (getExtraConfigInt("fareType", 0) == 3) {
-                //TODO 自定义计费模型
-                player.displayClientMessage(Component.translatable("刷卡入闸"), true);
-                extra.put("isOpen", "true");
-                sendUpdateC2S();
-                return InteractionResult.SUCCESS;
-            }
-
-        }
-
-//        Main.LOGGER.info("isOpen : " + isOpen);
-//        Main.LOGGER.info("cacheIsOpen : " + cacheIsOpen);
-
-        return InteractionResult.PASS;
+        return TicketBarrierHandler.handle(
+                level,
+                pos,
+                player,
+                hand,
+                hit,
+                extra,
+                this::sendUpdateC2S
+        );
     }
 
     @Override

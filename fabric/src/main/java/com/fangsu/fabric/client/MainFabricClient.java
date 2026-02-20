@@ -1,6 +1,8 @@
 package com.fangsu.fabric.client;
 
 import com.fangsu.Main;
+import com.fangsu.client.ClientHooks;
+import com.fangsu.client.ClientHooksImpl;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
@@ -13,6 +15,7 @@ public final class MainFabricClient implements ClientModInitializer {
     public void onInitializeClient() {
         // This entrypoint is suitable for setting up client-specific logic, such as rendering.
         Main.initClient();
+        fabricClientInit();
         ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(
                 new SimpleSynchronousResourceReloadListener() {
                     @Override
@@ -29,6 +32,8 @@ public final class MainFabricClient implements ClientModInitializer {
     }
 
     protected void fabricClientInit() {
+        ClientHooks.OPEN_OBJ_BLOCK_CONFIG_SCREEN = ClientHooksImpl::openObjBlockConfigScreen;
+        ClientHooks.OPEN_OBJ_SIGN_SCREEN = ClientHooksImpl::openSignConfigScreen;
     }
 
     private void initResources(ResourceManager resourceManager) {
