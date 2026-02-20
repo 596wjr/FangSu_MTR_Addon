@@ -75,6 +75,14 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         ensureExtraConfig("fareType", "0");
         ensureExtraConfig("isExit", "false");
         ensureExtraConfig("fareVal", "10");
+        ensureExtraConfig("useCustomZone", "false");
+        ensureExtraConfig("customZone", "0");
+        ensureExtraConfig("customDisplayName", "");
+        int fareType = getExtraConfigInt("fareType", 0);
+        if (fareType == 2) {
+            extraConfigs.put("fareType", "0");
+            extraConfigs.put("useCustomZone", "true");
+        }
 
         ObjBlockScriptContext ctx = this.scriptContext;
         BaseObjBlockEntity entity = this;
@@ -256,8 +264,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                 new ConfigSpec("list"),
                 List.of(
                         Component.translatable("ui.fangsu.ticketbarrier.modeMtr"),
-                        Component.translatable("ui.fangsu.ticketbarrier.modeFareOnce"),
-                        Component.translatable("ui.fangsu.ticketbarrier.modeCustom")
+                        Component.translatable("ui.fangsu.ticketbarrier.modeFareOnce")
                 ),
                 () -> getExtraConfigInt("fareType", 0),
                 (v) -> extra.put("fareType", v.toString())
@@ -267,6 +274,15 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                 new ConfigSpec("bool"),
                 () -> getExtraConfigBool("isExit", false),
                 (v) -> extra.put("isExit", v.toString())
+        ).setShowCondition(v -> {
+            int fareType = getExtraConfigInt("fareType", 0);
+            return fareType == 0;
+        }));
+        configs.add(new BoolConfig(
+                Component.translatable("ui.fangsu.ticketbarrier.useCustomZone"),
+                new ConfigSpec("bool"),
+                () -> getExtraConfigBool("useCustomZone", false),
+                (v) -> extra.put("useCustomZone", v.toString())
         ).setShowCondition(v -> 0 == getExtraConfigInt("fareType", 0)));
         configs.add(new NumberInputConfig(
                 Component.translatable("ui.fangsu.ticketbarrier.fareVal"),
@@ -277,6 +293,21 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                 () -> (float) getExtraConfigInt("fareVal", 10),
                 (v) -> extra.put("fareVal", String.valueOf(v.intValue()))
         ).setShowCondition(v -> 1 == getExtraConfigInt("fareType", 0)));
+        configs.add(new NumberInputConfig(
+                Component.translatable("ui.fangsu.ticketbarrier.customZone"),
+                new ConfigSpec("number_input")
+                        .setParam("max", new JsonPrimitive(32767))
+                        .setParam("min", new JsonPrimitive(-32768))
+                        .setParam("isInt", new JsonPrimitive(true)),
+                () -> (float) getExtraConfigInt("customZone", 0),
+                (v) -> extra.put("customZone", String.valueOf(v.intValue()))
+        ).setShowCondition(v -> 0 == getExtraConfigInt("fareType", 0) && getExtraConfigBool("useCustomZone", false)));
+        configs.add(new StringConfig(
+                Component.translatable("ui.fangsu.ticketbarrier.customDisplayName"),
+                new ConfigSpec("string"),
+                () -> extra.getOrDefault("customDisplayName", ""),
+                (v) -> extra.put("customDisplayName", v)
+        ).setShowCondition(v -> 0 == getExtraConfigInt("fareType", 0) && getExtraConfigBool("useCustomZone", false)));
         return configs;
     }
 

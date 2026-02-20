@@ -24,7 +24,7 @@
   "ui.fangsu.ticketbarrier.fareVal": "Fare Amount",
   "ui.fangsu.ticketbarrier.modeMtr": "MTR Fare Calculation",
   "ui.fangsu.ticketbarrier.modeFareOnce": "Fixed Fare",
-  "ui.fangsu.ticketbarrier.modeCustom": "Custom (Not Implemented Yet)",
+  "ui.fangsu.ticketbarrier.modeCustom": "Custom Fare Zone",
   "ui.fangsu.screendoor.doorSide": "Door Opening Side",
   "ui.fangsu.screendoor.doorSideLeft": "Left",
   "ui.fangsu.screendoor.doorSideRight": "Right",
@@ -71,5 +71,14 @@
   "ui.fangsu.sign.leftPolePos": "Left Pole Position",
   "ui.fangsu.sign.dispRightPole": "Show Right Pole",
   "ui.fangsu.sign.rightPolePos": "Right Pole Position",
-  "ui.fangsu.sign.editSign": "Edit Sign Content"
+  "ui.fangsu.sign.editSign": "Edit Sign Content",
+  "ui.fangsu.ticketbarrier.customZone": "Custom Fare Zone",
+  "ui.fangsu.ticketbarrier.customDisplayName": "Display Name",
+  "msg.fangsu.ticketbarrier.requireCard": "Please hold a ticket or IC card to pass",
+  "msg.fangsu.ticketbarrier.enterCustom": "Entered at %s",
+  "msg.fangsu.ticketbarrier.exitCustom": "Exited at %s, Fare: %s, Balance: %s",
+  "msg.fangsu.ticketbarrier.notEntered": "Not entered yet",
+  "item.fangsu.ic_card": "IC Card",
+  "ui.fangsu.ticketbarrier.useCustomZone": "Use Custom Fare Zone",
+  "block.fangsu.ticket_machine": "Ticket Vending Machine"
 }

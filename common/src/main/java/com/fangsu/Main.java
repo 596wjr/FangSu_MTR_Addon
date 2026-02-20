@@ -2,6 +2,7 @@ package com.fangsu;
 
 import com.fangsu.blocks.ModBlocks;
 import com.fangsu.customItem.CustomItems;
+import com.fangsu.items.ModItems;
 import com.fangsu.network.ModNetwork;
 import com.fangsu.signItems.SignItemFactory;
 import com.fangsu.ui.ModMenus;
@@ -30,6 +31,7 @@ public final class Main {
         //#endif
 
         ModBlocks.init();
+        ModItems.init();
         RegisterUtil.register();
         ModMenus.init();
         ModNetwork.init();
