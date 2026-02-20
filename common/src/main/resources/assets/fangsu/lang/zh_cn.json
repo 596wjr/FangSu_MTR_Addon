@@ -24,7 +24,7 @@
   "ui.fangsu.ticketbarrier.fareVal": "扣款金额",
   "ui.fangsu.ticketbarrier.modeMtr": "MTR计费",
   "ui.fangsu.ticketbarrier.modeFareOnce": "固定收费",
-  "ui.fangsu.ticketbarrier.modeCustom": "自定义(还没做)",
+  "ui.fangsu.ticketbarrier.modeCustom": "自定义计费区",
   "ui.fangsu.screendoor.doorSide": "开门方向",
   "ui.fangsu.screendoor.doorSideLeft": "左",
   "ui.fangsu.screendoor.doorSideRight": "右",
@@ -73,5 +73,14 @@
   "ui.fangsu.sign.rightPolePos": "右杆位置",
   "ui.fangsu.sign.editSign": "指示牌内容编辑",
   "ui.fangsu.ticket.error": "请前往服务中心",
-  "ui.fangsu.ticket.success": "过闸成功"
+  "ui.fangsu.ticket.success": "过闸成功",
+  "ui.fangsu.ticketbarrier.customZone": "自定义计费区",
+  "ui.fangsu.ticketbarrier.customDisplayName": "显示名称",
+  "msg.fangsu.ticketbarrier.requireCard": "请手持单程票或IC卡刷卡",
+  "msg.fangsu.ticketbarrier.enterCustom": "已在 %s 入闸",
+  "msg.fangsu.ticketbarrier.exitCustom": "已在 %s 出闸，扣费 %s，余额 %s",
+  "msg.fangsu.ticketbarrier.notEntered": "尚未入闸",
+  "item.fangsu.ic_card": "IC卡",
+  "ui.fangsu.ticketbarrier.useCustomZone": "使用自定义计费区",
+  "block.fangsu.ticket_machine": "售票机"
 }

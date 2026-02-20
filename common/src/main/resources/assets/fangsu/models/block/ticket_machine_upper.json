@@ -1,0 +1,12 @@
+{
+  "parent": "block/cube",
+  "textures": {
+    "particle": "fangsu:item/ticket_barrier",
+    "down": "fangsu:item/ticket_barrier",
+    "up": "fangsu:item/ticket_barrier",
+    "north": "fangsu:item/ticket_barrier",
+    "south": "fangsu:item/ticket_barrier",
+    "west": "fangsu:item/ticket_barrier",
+    "east": "fangsu:item/ticket_barrier"
+  }
+}
