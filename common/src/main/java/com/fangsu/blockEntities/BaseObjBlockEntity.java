@@ -5,22 +5,22 @@ import com.fangsu.client.ClientHooks;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 //#if FABRIC
-import fabric.cn.zbx1425.mtrsteamloco.render.scripting.AbstractScriptContext;
-import fabric.cn.zbx1425.mtrsteamloco.render.scripting.ScriptHolder;
-import fabric.cn.zbx1425.mtrsteamloco.render.scripting.eyecandy.EyeCandyDrawCalls;
-import fabric.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
-import fabric.cn.zbx1425.sowcer.math.Matrices;
-import fabric.cn.zbx1425.sowcer.math.Matrix4f;
-import fabric.cn.zbx1425.sowcerext.model.ModelCluster;
+import com.fangsu.render.scripting.AbstractScriptContext;
+import com.fangsu.render.scripting.ScriptHolder;
+import com.fangsu.render.scripting.eyecandy.EyeCandyDrawCalls;
+import com.fangsu.render.scripting.util.DynamicModelHolder;
+import com.fangsu.render.math.Matrices;
+import com.fangsu.render.math.Matrix4f;
+import com.fangsu.render.model.ModelCluster;
 //#elseif FORGE
 //$$ import forge.cn.zbx1425.mtrsteamloco.block.BlockEyeCandy;
-//$$ import forge.cn.zbx1425.mtrsteamloco.render.scripting.AbstractScriptContext;
-//$$ import forge.cn.zbx1425.mtrsteamloco.render.scripting.ScriptHolder;
-//$$ import forge.cn.zbx1425.mtrsteamloco.render.scripting.eyecandy.EyeCandyDrawCalls;
-//$$ import forge.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
-//$$ import forge.cn.zbx1425.sowcer.math.Matrices;
-//$$ import forge.cn.zbx1425.sowcer.math.Matrix4f;
-//$$ import forge.cn.zbx1425.sowcerext.model.ModelCluster;
+//$$ import com.fangsu.render.scripting.AbstractScriptContext;
+//$$ import com.fangsu.render.scripting.ScriptHolder;
+//$$ import com.fangsu.render.scripting.eyecandy.EyeCandyDrawCalls;
+//$$ import com.fangsu.render.scripting.util.DynamicModelHolder;
+//$$ import com.fangsu.render.math.Matrices;
+//$$ import com.fangsu.render.math.Matrix4f;
+//$$ import com.fangsu.render.model.ModelCluster;
 //#endif
 import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.network.ModNetwork;

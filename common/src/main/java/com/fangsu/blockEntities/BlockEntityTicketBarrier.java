@@ -2,11 +2,11 @@ package com.fangsu.blockEntities;
 
 //#if FABRIC
 
-import fabric.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
-import fabric.cn.zbx1425.sowcer.math.Matrices;
+import com.fangsu.render.scripting.util.DynamicModelHolder;
+import com.fangsu.render.math.Matrices;
 //#elseif FORGE
-//$$ import forge.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
-//$$ import forge.cn.zbx1425.sowcer.math.Matrices;
+//$$ import com.fangsu.render.scripting.util.DynamicModelHolder;
+//$$ import com.fangsu.render.math.Matrices;
 //#endif
 
 import com.fangsu.customItem.ModelSelectInfo;
