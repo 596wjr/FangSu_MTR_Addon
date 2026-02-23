@@ -16,11 +16,6 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-//#if FABRIC
-//$$ import fabric.cn.zbx1425.mtrsteamloco.block.BlockEyeCandy;
-//#elseif FORGE
-//$$ import forge.cn.zbx1425.mtrsteamloco.block.BlockEyeCandy;
-//#endif
 
 import java.util.HashSet;
 import java.util.Set;

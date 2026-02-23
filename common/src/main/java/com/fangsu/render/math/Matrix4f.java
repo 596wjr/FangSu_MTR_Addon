@@ -9,10 +9,6 @@ public class Matrix4f {
         this.delegate = new org.joml.Matrix4f();
     }
 
-    public Matrix4f(com.mojang.math.Matrix4f matrix4f) {
-        this.delegate = new org.joml.Matrix4f(matrix4f);
-    }
-
     public Matrix4f(org.joml.Matrix4f matrix4f) {
         this.delegate = new org.joml.Matrix4f(matrix4f);
     }
@@ -30,9 +26,22 @@ public class Matrix4f {
         return translate((float) x, (float) y, (float) z);
     }
 
-    public Matrix4f rotateX(float radians) { delegate.rotateX(radians); return this; }
-    public Matrix4f rotateY(float radians) { delegate.rotateY(radians); return this; }
-    public Matrix4f rotateZ(float radians) { delegate.rotateZ(radians); return this; }
+    public Matrix4f rotateX(float radians) {
+        delegate.rotateX(radians);
+        return this;
+    }
 
-    public org.joml.Matrix4f joml() { return delegate; }
+    public Matrix4f rotateY(float radians) {
+        delegate.rotateY(radians);
+        return this;
+    }
+
+    public Matrix4f rotateZ(float radians) {
+        delegate.rotateZ(radians);
+        return this;
+    }
+
+    public org.joml.Matrix4f joml() {
+        return delegate;
+    }
 }

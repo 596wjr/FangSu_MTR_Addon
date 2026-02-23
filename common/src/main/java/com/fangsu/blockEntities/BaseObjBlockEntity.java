@@ -13,7 +13,6 @@ import com.fangsu.render.math.Matrices;
 import com.fangsu.render.math.Matrix4f;
 import com.fangsu.render.model.ModelCluster;
 //#elseif FORGE
-//$$ import forge.cn.zbx1425.mtrsteamloco.block.BlockEyeCandy;
 //$$ import com.fangsu.render.scripting.AbstractScriptContext;
 //$$ import com.fangsu.render.scripting.ScriptHolder;
 //$$ import com.fangsu.render.scripting.eyecandy.EyeCandyDrawCalls;
