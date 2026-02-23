@@ -14,7 +14,7 @@ public class MtrTicketSystem {
     //TODO 交通卡系统
 
     public static final String BALANCE_OBJECTIVE = "mtr_balance";
-    private static final String ENTRY_ZONE_OBJECTIVE = "mtr_entry_zone";
+    protected static final String ENTRY_ZONE_OBJECTIVE = "mtr_entry_zone";
 
     private static final int BASE_FARE = 2;
     private static final int ZONE_FARE = 1;
@@ -22,15 +22,7 @@ public class MtrTicketSystem {
 
     /* ===================== 公共入口 ===================== */
 
-    public static boolean enter(Level world, BlockPos pos, Player player) {
-        Station station = getStation(world, pos);
-        if (station == null) return false;
-
-        ItemStack stack = player.getMainHandItem();
-        if (stack.getItem() instanceof TicketItem ticketItem) {
-            return ticketItem.enter(world, player, stack, new FareInfo(FareType.MTR, station.zone));
-        }
-
+    public static boolean enter(Level world, String dispName, int zone, Player player) {
         addObjectivesIfMissing(world);
 
         Score balance = getScore(world, player, BALANCE_OBJECTIVE);
@@ -48,11 +40,11 @@ public class MtrTicketSystem {
             return false;
         }
 
-        entryZone.setScore(encodeZone(station.zone));
+        entryZone.setScore(encodeZone(zone));
         player.displayClientMessage(
                 Text.translatable(
                         "gui.mtr.enter_barrier",
-                        station.name.replace('|', ' '),
+                        dispName.replace('|', ' '),
                         balance.getScore()
                 ),
                 true
@@ -60,9 +52,7 @@ public class MtrTicketSystem {
         return true;
     }
 
-    public static boolean exit(Level world, BlockPos pos, Player player) {
-        Station station = getStation(world, pos);
-        if (station == null) return false;
+    public static boolean exit(Level world, String dispName, int zone, Player player) {
 
         addObjectivesIfMissing(world);
 
@@ -76,8 +66,7 @@ public class MtrTicketSystem {
             // 逃票
             fare = EVASION_FINE;
         } else {
-            int distance = Math.abs(station.zone - decodeZone(entry));
-            fare = BASE_FARE + ZONE_FARE * distance;
+            fare = calcFare(zone, decodeZone(entry));
             if (isConcessionary(player)) {
                 fare = (int) Math.ceil(fare / 2F);
             }
@@ -89,7 +78,7 @@ public class MtrTicketSystem {
         player.displayClientMessage(
                 Text.translatable(
                         "gui.mtr.exit_barrier",
-                        station.name.replace('|', ' '),
+                        dispName.replace('|', ' '),
                         fare,
                         balance.getScore()
                 ),
@@ -100,7 +89,7 @@ public class MtrTicketSystem {
 
     /* ===================== 内部工具 ===================== */
 
-    private static Station getStation(Level world, BlockPos pos) {
+    protected static Station getStation(Level world, BlockPos pos) {
         RailwayData data = RailwayData.getInstance(world);
         if (data == null) return null;
         return RailwayData.getStation(data.stations, data.dataCache, pos);
@@ -145,5 +134,10 @@ public class MtrTicketSystem {
 
     private static int decodeZone(int zone) {
         return zone > 0 ? zone - 1 : zone;
+    }
+
+    public static int calcFare(int zone1, int zone2) {
+        int distance = Math.abs(zone1 - zone2);
+        return BASE_FARE + ZONE_FARE * distance;
     }
 }

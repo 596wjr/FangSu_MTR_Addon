@@ -95,27 +95,6 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
             //#endif
 
         } catch (Exception e) {
-            try {
-                Matrix4f worldPose = new Matrix4f(matrices.last().pose()).copy();
-                Object scriptResult = blockEntity.scriptContext.scriptResult;
-
-                Method commitMethod = scriptResult.getClass().getMethod(
-                        "commit",
-                        DrawScheduler.class,
-                        Matrix4f.class,
-                        Matrix4f.class,
-                        int.class
-                );
-
-                commitMethod.invoke(
-                        scriptResult,
-                        MainClient.drawScheduler,
-                        candyPose,
-                        worldPose,
-                        lightToUse
-                );
-            } catch (Exception ignored) {
-            }
         }
 //            }
 //            prop.script.tryCallRenderFunctionAsync(blockEntity.scriptContext);

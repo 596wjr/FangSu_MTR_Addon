@@ -3,11 +3,15 @@ package com.fangsu.items;
 import com.fangsu.ticketSystem.FareInfo;
 import com.fangsu.ticketSystem.FareType;
 import com.fangsu.ticketSystem.SingleJourneyTicketData;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
+
+import java.util.List;
 
 public class ItemSingleJourneyTicket extends Item implements TicketItem {
     public ItemSingleJourneyTicket() {
@@ -24,6 +28,8 @@ public class ItemSingleJourneyTicket extends Item implements TicketItem {
         switch (info.type()) {
             case MTR, CUSTOM -> {
                 SingleJourneyTicketData.enter(stack, info.value());
+                String name = info.displayName() == null || info.displayName().isEmpty() ? Component.translatable("block.fangsu.ticket_barrier").getString() : info.displayName();
+                player.displayClientMessage(Component.translatable("msg.fangsu.ticket.enter1", name.replace("|", " ")), true);
                 return true;
             }
             case FARE_ONCE -> {
@@ -32,6 +38,7 @@ public class ItemSingleJourneyTicket extends Item implements TicketItem {
                     player.displayClientMessage(Component.translatable("ui.fangsu.ticket.success"), true);
                     return true;
                 }
+                player.displayClientMessage(Component.translatable("ui.fangsu.ticket.error"), true);
                 return false;
             }
             default -> {
@@ -54,10 +61,53 @@ public class ItemSingleJourneyTicket extends Item implements TicketItem {
                 return false;
             }
             stack.shrink(1);
-            player.displayClientMessage(Component.translatable("ui.fangsu.ticket.success"), true);
+            if (info.type() == FareType.MTR) {
+                String name = info.displayName() == null || info.displayName().isEmpty() ? Component.translatable("block.fangsu.ticket_barrier").getString() : info.displayName();
+                player.displayClientMessage(Component.translatable("ui.fangsu.ticket.exit1", name.replace("|", " ")), true);
+            } else player.displayClientMessage(Component.translatable("ui.fangsu.ticket.success"), true);
             return true;
         }
 
         return false;
+    }
+
+    @Override
+    public ItemStack createTicket(int price) {
+        ItemStack stack = new ItemStack(this);
+        SingleJourneyTicketData.init(stack, price);
+        return stack;
+    }
+
+    @Override
+    public void appendHoverText(
+            ItemStack stack,
+            Level level,
+            List<Component> tooltip,
+            TooltipFlag flag
+    ) {
+        CompoundTag tag = stack.getTag();
+        if (tag == null) return;
+
+        tooltip.add(
+                Component.translatable(
+                        "ui.fangsu.ticket.value",
+                        SingleJourneyTicketData.getPrice(stack)
+                )
+        );
+
+        if (SingleJourneyTicketData.hasEntered(stack) && level != null) {
+            tooltip.add(
+                    Component.translatable(
+                            "ui.fangsu.ticket.entered"
+
+                    )
+            );
+        } else {
+            tooltip.add(
+                    Component.translatable(
+                            "ui.fangsu.ticket.not_entered"
+                    )
+            );
+        }
     }
 }

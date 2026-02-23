@@ -34,7 +34,8 @@ public class ItemIcCard extends Item implements TicketItem {
         tag.putBoolean(ENTERED, true);
         tag.putInt(ENTRY_ZONE, info.value());
         String name = info.displayName() == null || info.displayName().isEmpty() ? Component.translatable("block.fangsu.ticket_barrier").getString() : info.displayName();
-        player.displayClientMessage(Component.translatable("msg.fangsu.ticketbarrier.enterCustom", name), true);
+        int balance = tag.getInt(BALANCE);
+        player.displayClientMessage(Component.translatable("msg.fangsu.ticket.enter", name, balance), true);
         return true;
     }
 
@@ -42,7 +43,7 @@ public class ItemIcCard extends Item implements TicketItem {
     public boolean exit(Level world, Player player, ItemStack stack, FareInfo info) {
         CompoundTag tag = stack.getOrCreateTag();
         if (!tag.getBoolean(ENTERED)) {
-            player.displayClientMessage(Component.translatable("msg.fangsu.ticketbarrier.notEntered"), true);
+            player.displayClientMessage(Component.translatable("msg.fangsu.ticket.notEntered"), true);
             return false;
         }
 
@@ -58,8 +59,13 @@ public class ItemIcCard extends Item implements TicketItem {
         tag.putBoolean(ENTERED, false);
         tag.putInt(ENTRY_ZONE, 0);
         String name = info.displayName() == null || info.displayName().isEmpty() ? Component.translatable("block.fangsu.ticket_barrier").getString() : info.displayName();
-        player.displayClientMessage(Component.translatable("msg.fangsu.ticketbarrier.exitCustom", name, fare, balance - fare), true);
+        player.displayClientMessage(Component.translatable("msg.fangsu.ticket.exit", name, fare, balance - fare), true);
         return true;
+    }
+
+    @Override
+    public ItemStack createTicket(int price) {
+        return null;
     }
 
     private int computeFare(int entryZone, FareInfo info) {

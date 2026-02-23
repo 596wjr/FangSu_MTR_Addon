@@ -51,7 +51,8 @@ public class StringConfig extends ConfigEntry<String> {
 
     @Override
     public void save(Object be) {
-        value = widget.getText();
+        if (widget != null)
+            value = widget.getText();
         super.save(be);
     }
 }

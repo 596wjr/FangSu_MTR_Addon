@@ -1,7 +1,13 @@
 package com.fangsu.blocks;
 
+import com.fangsu.ui.ticketMachine.TicketMachineMainScreen;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -16,7 +22,9 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -24,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 public class BlockTicketMachine extends Block {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final EnumProperty<DoubleBlockHalf> HALF = BlockStateProperties.DOUBLE_BLOCK_HALF;
-    private static final VoxelShape SHAPE = Block.box(2, 0, 2, 14, 16, 14);
+    private static final VoxelShape SHAPE = Shapes.block();
 
     public BlockTicketMachine() {
         super(BlockBehaviour.Properties.of().strength(2).noOcclusion());
@@ -55,7 +63,8 @@ public class BlockTicketMachine extends Block {
     @Override
     public @NotNull BlockState updateShape(BlockState state, Direction direction, BlockState neighborState, LevelAccessor level, BlockPos pos, BlockPos neighborPos) {
         DoubleBlockHalf half = state.getValue(HALF);
-        if (direction.getAxis() != Direction.Axis.Y) return super.updateShape(state, direction, neighborState, level, pos, neighborPos);
+        if (direction.getAxis() != Direction.Axis.Y)
+            return super.updateShape(state, direction, neighborState, level, pos, neighborPos);
 
         if (half == DoubleBlockHalf.LOWER && direction == Direction.UP) {
             if (!neighborState.is(this) || neighborState.getValue(HALF) != DoubleBlockHalf.UPPER) {
@@ -94,5 +103,15 @@ public class BlockTicketMachine extends Block {
     @Override
     public BlockState mirror(BlockState state, Mirror mirror) {
         return state.rotate(mirror.getRotation(state.getValue(FACING)));
+    }
+
+    @Override
+    public InteractionResult use(BlockState blockState, Level level, BlockPos blockPos, Player player, InteractionHand interactionHand, BlockHitResult blockHitResult) {
+        if (level.isClientSide()) {
+            Minecraft.getInstance().execute(() -> {
+                Minecraft.getInstance().setScreen(new TicketMachineMainScreen(Component.literal("1"), player, player.getMainHandItem(), level, blockPos));
+            });
+        }
+        return InteractionResult.SUCCESS;
     }
 }

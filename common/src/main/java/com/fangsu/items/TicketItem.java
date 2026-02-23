@@ -15,4 +15,6 @@ public interface TicketItem {
      * 玩家刷闸机出站
      */
     boolean exit(Level world, Player player, ItemStack stack, FareInfo info);
+
+    ItemStack createTicket(int price);
 }

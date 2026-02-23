@@ -17,11 +17,11 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import java.util.function.Supplier;
 
 public class RegisterUtil {
-    private static final DeferredRegister<Block> BLOCKS =
+    public static final DeferredRegister<Block> BLOCKS =
             DeferredRegister.create(Main.MOD_ID, Registries.BLOCK);
-    private static final DeferredRegister<Item> ITEMS =
+    public static final DeferredRegister<Item> ITEMS =
             DeferredRegister.create(Main.MOD_ID, Registries.ITEM);
-    private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
+    public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             DeferredRegister.create(Main.MOD_ID, Registries.BLOCK_ENTITY_TYPE);
     public static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
             DeferredRegister.create(Main.MOD_ID, Registries.CREATIVE_MODE_TAB);
