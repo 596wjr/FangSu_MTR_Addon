@@ -12,3 +12,8 @@ TODO:
 ### AIGC 声明
 
 - 此项目部分代码和注释为AIGC.
+
+### 借物表
+
+- 此项目使用了 mtr-nte 的 sowcer 和 sowcerext
+- 此项目使用了 javagl 的 obj

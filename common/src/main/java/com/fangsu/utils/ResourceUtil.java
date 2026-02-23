@@ -1,17 +1,9 @@
 package com.fangsu.utils;
 
-//#if FABRIC
-
-import com.fangsu.render.model.RawModel;
-import com.fangsu.render.model.loader.ObjModelLoader;
-import com.fangsu.render.scripting.util.DynamicModelHolder;
-//#elseif FORGE
-//$$ import com.fangsu.render.model.RawModel;
-//$$ import com.fangsu.render.model.loader.ObjModelLoader;
-//$$ import com.fangsu.render.scripting.util.DynamicModelHolder;
-//#endif
-
 import com.fangsu.Main;
+import com.fangsu.MainClient;
+import com.fangsu.render.scripting.util.DynamicModelHolder;
+import com.fangsu.render.sowcerext.model.RawModel;
 import com.google.gson.*;
 import com.google.gson.JsonElement;
 import net.minecraft.client.Minecraft;
@@ -162,7 +154,7 @@ public class ResourceUtil {
         if (resourceManager == null) {
             throw new IOException("ResourceManager is null");
         }
-        RawModel model = ObjModelLoader.loadModel(resourceManager, location, null);
+        RawModel model = MainClient.modelManager.loadRawModel(resourceManager, location, null);
         if (flipV) model.applyUVMirror(false, true);
         register.put(GlobalRegisterKey, model);
         return model;
@@ -176,7 +168,7 @@ public class ResourceUtil {
         if (resourceManager == null) {
             throw new IOException("ResourceManager is null");
         }
-        Map<String, RawModel> models = ObjModelLoader.loadModels(resourceManager, location, null);
+        Map<String, RawModel> models = MainClient.modelManager.loadPartedRawModel(resourceManager, location, null);
         if (flipV)
             for (Map.Entry<String, RawModel> entry : models.entrySet()) {
                 RawModel model = entry.getValue();

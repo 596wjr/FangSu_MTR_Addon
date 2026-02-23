@@ -4,25 +4,14 @@ import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.client.ClientHooks;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
-//#if FABRIC
-import com.fangsu.render.scripting.AbstractScriptContext;
-import com.fangsu.render.scripting.ScriptHolder;
-import com.fangsu.render.scripting.eyecandy.EyeCandyDrawCalls;
-import com.fangsu.render.scripting.util.DynamicModelHolder;
-import com.fangsu.render.math.Matrices;
-import com.fangsu.render.math.Matrix4f;
-import com.fangsu.render.model.ModelCluster;
-//#elseif FORGE
-//$$ import com.fangsu.render.scripting.AbstractScriptContext;
-//$$ import com.fangsu.render.scripting.ScriptHolder;
-//$$ import com.fangsu.render.scripting.eyecandy.EyeCandyDrawCalls;
-//$$ import com.fangsu.render.scripting.util.DynamicModelHolder;
-//$$ import com.fangsu.render.math.Matrices;
-//$$ import com.fangsu.render.math.Matrix4f;
-//$$ import com.fangsu.render.model.ModelCluster;
-//#endif
 import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.network.ModNetwork;
+import com.fangsu.render.scripting.AbstractScriptContext;
+import com.fangsu.render.scripting.eyecandy.EyeCandyDrawCalls;
+import com.fangsu.render.scripting.util.DynamicModelHolder;
+import com.fangsu.render.sowcer.math.Matrices;
+import com.fangsu.render.sowcer.math.Matrix4f;
+import com.fangsu.render.sowcerext.model.ModelCluster;
 import dev.architectury.networking.NetworkManager;
 import io.netty.buffer.Unpooled;
 import mtr.mappings.BlockEntityClientSerializableMapper;
@@ -213,7 +202,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
     public static class ObjBlockProperty {
         public Component name;
         public ModelCluster model;
-        public ScriptHolder script;
+//        public ScriptHolder script;
 
         public ObjBlockProperty() {
         }

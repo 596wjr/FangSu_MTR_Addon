@@ -1,21 +1,11 @@
 package com.fangsu.blockEntities.client;
 
-//#if FABRIC
-
-import com.fangsu.render.MainClient;
-import com.fangsu.render.math.Matrix4f;
-import com.fangsu.render.math.PoseStackUtil;
-import com.fangsu.render.reuse.DrawScheduler;
-//#elseif FORGE
-//$$ import com.fangsu.render.MainClient;
-//$$ import com.fangsu.render.math.Matrix4f;
-//$$ import com.fangsu.render.math.PoseStackUtil;
-//$$ import com.fangsu.render.reuse.DrawScheduler;
-//#endif
-
 import com.fangsu.Main;
+import com.fangsu.MainClient;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.blocks.BaseObjBlock;
+import com.fangsu.render.sowcer.math.Matrix4f;
+import com.fangsu.render.sowcer.math.PoseStackUtil;
 import com.mojang.blaze3d.vertex.PoseStack;
 import mtr.RegistryObject;
 import mtr.block.IBlock;
@@ -87,12 +77,7 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
 //        if (prop.script != null) {
 //            synchronized (blockEntity.scriptContext) {
         try {
-            //#if NTE
-            //$$ blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, lightToUse);
-            //#elseif ANTE
-            //$$ Matrix4f worldPose = new Matrix4f(matrices.last().pose()).copy();
-            //$$ blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose,worldPose, lightToUse);
-            //#endif
+            blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, lightToUse);
 
         } catch (Exception e) {
         }

@@ -10,6 +10,8 @@ import com.fangsu.extraConfig.BoolConfig;
 import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.extraConfig.ConfigSpec;
 import com.fangsu.extraConfig.NumberInputConfig;
+import com.fangsu.render.sowcerext.model.RawModel;
+import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
 import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.scripting.ModelHelper;
 import com.fangsu.signItems.SignDrawContext;
@@ -36,17 +38,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-//#if FABRIC
 import com.fangsu.render.scripting.util.DynamicModelHolder;
-import com.fangsu.render.model.integration.RawMeshBuilder;
-import com.fangsu.render.math.Matrices;
-import com.fangsu.render.model.RawModel;
-//#elseif FORGE
-//$$ import com.fangsu.render.scripting.util.DynamicModelHolder;
-//$$ import com.fangsu.render.model.integration.RawMeshBuilder;
-//$$ import com.fangsu.render.math.Matrices;
-//$$ import com.fangsu.render.model.RawModel;
-//#endif
+import com.fangsu.render.sowcer.math.Matrices;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_SIGN;
 

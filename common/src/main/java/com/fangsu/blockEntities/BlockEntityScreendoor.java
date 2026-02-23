@@ -6,6 +6,8 @@ import com.fangsu.customItem.CustomItemLoader;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.extraConfig.*;
+import com.fangsu.render.scripting.util.DynamicModelHolder;
+import com.fangsu.render.sowcer.math.Matrices;
 import com.fangsu.utils.CollisionBoxUtil;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.FacingBlockUtil;
@@ -27,13 +29,6 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-//#if FABRIC
-import com.fangsu.render.math.Matrices;
-import com.fangsu.render.scripting.util.DynamicModelHolder;
-//#elseif FORGE
-//$$ import com.fangsu.render.math.Matrices;
-//$$ import com.fangsu.render.scripting.util.DynamicModelHolder;
-//#endif
 
 import java.util.*;
 
