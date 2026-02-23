@@ -6,6 +6,7 @@ import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.render.sowcer.math.Matrix4f;
 import com.fangsu.render.sowcer.math.PoseStackUtil;
+import com.fangsu.render.sowcerext.reuse.DrawScheduler;
 import com.mojang.blaze3d.vertex.PoseStack;
 import mtr.RegistryObject;
 import mtr.block.IBlock;
@@ -76,11 +77,9 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
 //        }
 //        if (prop.script != null) {
 //            synchronized (blockEntity.scriptContext) {
-        try {
-            blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, lightToUse);
 
-        } catch (Exception e) {
-        }
+        blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, lightToUse);
+
 //            }
 //            prop.script.tryCallRenderFunctionAsync(blockEntity.scriptContext);
 //        }
