@@ -79,15 +79,6 @@ subprojects {
     loom {
         silentMojangMappingsLicense()
     }
-
-    def nteVariant = buildForAnte == true
-            ? "ante"
-            : "nte"
-
-    def nteDep = nteVariant == "ante"
-            ? "maven.modrinth:mtr-ante:${rootProject.ante_version}"
-            : "maven.modrinth:mtr-nte:${rootProject.nte_version}"
-
     dependencies {
         minecraft "net.minecraft:minecraft:$rootProject.minecraft_version"
         mappings loom.officialMojangMappings()
@@ -103,7 +94,6 @@ subprojects {
 //
 //        }
 //        modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
-        modImplementation nteDep
 
         compileOnly "maven.modrinth:minecraft-transit-railway:${rootProject.mtr_version_forge}"
 

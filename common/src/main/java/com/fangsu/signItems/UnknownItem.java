@@ -47,6 +47,6 @@ public class UnknownItem extends SignItem {
 
     @Override
     public ResourceLocation getIconLocation() {
-        return new ResourceLocation("mtrsteamloco:imgnotfound.png");
+        return new ResourceLocation("fangsu:sign/img_sel.png");
     }
 }

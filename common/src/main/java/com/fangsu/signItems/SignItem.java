@@ -31,7 +31,7 @@ public abstract class SignItem {
      * UI 中用于显示的图标（资源 id），可为空
      */
     public BufferedImage getIcon() throws IOException {
-        return ResourceUtil.loadImage(new ResourceLocation("mtrsteamloco:imgnotfound.png"));
+        return ResourceUtil.loadImage(new ResourceLocation("fangsu:sign/img_sel.png"));
     }
 
     /**
