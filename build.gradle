@@ -103,7 +103,6 @@ subprojects {
 //
 //        }
 //        modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
-        modImplementation nteDep
 
         compileOnly "maven.modrinth:minecraft-transit-railway:${rootProject.mtr_version_forge}"
 

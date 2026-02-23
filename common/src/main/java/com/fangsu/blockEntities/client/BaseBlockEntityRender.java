@@ -2,15 +2,15 @@ package com.fangsu.blockEntities.client;
 
 //#if FABRIC
 
-import fabric.cn.zbx1425.mtrsteamloco.MainClient;
-import fabric.cn.zbx1425.sowcer.math.Matrix4f;
-import fabric.cn.zbx1425.sowcer.math.PoseStackUtil;
-import fabric.cn.zbx1425.sowcerext.reuse.DrawScheduler;
+import com.fangsu.render.MainClient;
+import com.fangsu.render.math.Matrix4f;
+import com.fangsu.render.math.PoseStackUtil;
+import com.fangsu.render.reuse.DrawScheduler;
 //#elseif FORGE
-//$$ import forge.cn.zbx1425.mtrsteamloco.MainClient;
-//$$ import forge.cn.zbx1425.sowcer.math.Matrix4f;
-//$$ import forge.cn.zbx1425.sowcer.math.PoseStackUtil;
-//$$ import forge.cn.zbx1425.sowcerext.reuse.DrawScheduler;
+//$$ import com.fangsu.render.MainClient;
+//$$ import com.fangsu.render.math.Matrix4f;
+//$$ import com.fangsu.render.math.PoseStackUtil;
+//$$ import com.fangsu.render.reuse.DrawScheduler;
 //#endif
 
 import com.fangsu.Main;

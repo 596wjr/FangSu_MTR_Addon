@@ -37,15 +37,15 @@ import java.util.List;
 import java.util.Map;
 
 //#if FABRIC
-import fabric.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
-import fabric.cn.zbx1425.sowcerext.model.integration.RawMeshBuilder;
-import fabric.cn.zbx1425.sowcer.math.Matrices;
-import fabric.cn.zbx1425.sowcerext.model.RawModel;
+import com.fangsu.render.scripting.util.DynamicModelHolder;
+import com.fangsu.render.model.integration.RawMeshBuilder;
+import com.fangsu.render.math.Matrices;
+import com.fangsu.render.model.RawModel;
 //#elseif FORGE
-//$$ import forge.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
-//$$ import forge.cn.zbx1425.sowcerext.model.integration.RawMeshBuilder;
-//$$ import forge.cn.zbx1425.sowcer.math.Matrices;
-//$$ import forge.cn.zbx1425.sowcerext.model.RawModel;
+//$$ import com.fangsu.render.scripting.util.DynamicModelHolder;
+//$$ import com.fangsu.render.model.integration.RawMeshBuilder;
+//$$ import com.fangsu.render.math.Matrices;
+//$$ import com.fangsu.render.model.RawModel;
 //#endif
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_SIGN;

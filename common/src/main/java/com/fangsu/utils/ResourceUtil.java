@@ -2,13 +2,13 @@ package com.fangsu.utils;
 
 //#if FABRIC
 
-import fabric.cn.zbx1425.sowcerext.model.RawModel;
-import fabric.cn.zbx1425.sowcerext.model.loader.ObjModelLoader;
-import fabric.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
+import com.fangsu.render.model.RawModel;
+import com.fangsu.render.model.loader.ObjModelLoader;
+import com.fangsu.render.scripting.util.DynamicModelHolder;
 //#elseif FORGE
-//$$ import forge.cn.zbx1425.sowcerext.model.RawModel;
-//$$ import forge.cn.zbx1425.sowcerext.model.loader.ObjModelLoader;
-//$$ import forge.cn.zbx1425.mtrsteamloco.render.scripting.util.DynamicModelHolder;
+//$$ import com.fangsu.render.model.RawModel;
+//$$ import com.fangsu.render.model.loader.ObjModelLoader;
+//$$ import com.fangsu.render.scripting.util.DynamicModelHolder;
 //#endif
 
 import com.fangsu.Main;
