@@ -1,5 +1,6 @@
 package com.fangsu.forge;
 
+import com.fangsu.MainClient;
 import dev.architectury.platform.forge.EventBuses;
 import net.minecraft.client.Minecraft;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -29,7 +30,7 @@ public final class MainForge {
     private void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
             // 客户端初始化
-            Main.initClient();
+            MainClient.initClient();
 
             ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();
             initResources(resourceManager);
@@ -37,6 +38,6 @@ public final class MainForge {
     }
 
     private void initResources(ResourceManager resourceManager) {
-        Main.initResources(resourceManager);
+        MainClient.initResources(resourceManager);
     }
 }

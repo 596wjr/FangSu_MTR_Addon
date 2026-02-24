@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class FaceList {
-
     private final RenderType renderType;
     private final boolean needSorting;
     private final List<TransformedFace> queuedFaces = new ArrayList<>();

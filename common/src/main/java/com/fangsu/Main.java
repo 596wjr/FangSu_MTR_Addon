@@ -4,6 +4,7 @@ import com.fangsu.blocks.ModBlocks;
 import com.fangsu.customItem.CustomItems;
 import com.fangsu.items.ModItems;
 import com.fangsu.network.ModNetwork;
+import com.fangsu.render.ShadersModHandler;
 import com.fangsu.signItems.SignItemFactory;
 import com.fangsu.ui.ModMenus;
 import com.fangsu.utils.RegisterUtil;
@@ -35,16 +36,5 @@ public final class Main {
         RegisterUtil.register();
         ModMenus.init();
         ModNetwork.init();
-    }
-
-    public static void initClient() {
-        ModBlocks.initClient();
-        ModMenus.initClient();
-    }
-
-    public static void initResources(ResourceManager resourceManager) {
-        ResourceUtil.init(resourceManager);
-        CustomItems.init();
-        SignItemFactory.init();
     }
 }

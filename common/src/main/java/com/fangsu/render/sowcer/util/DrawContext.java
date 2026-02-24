@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DrawContext {
-
     public boolean drawWithBlaze = false;
     public boolean sortTranslucentFaces = false;
 

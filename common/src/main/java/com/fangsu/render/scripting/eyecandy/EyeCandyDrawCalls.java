@@ -32,9 +32,10 @@ public class EyeCandyDrawCalls extends AbstractDrawCalls {
 
     public void commit(DrawScheduler drawScheduler, Matrix4f basePose, int light) {
         for (ClusterDrawCall clusterDrawCall : drawList) {
-            Matrix4f finalPose = basePose.copy();
-            finalPose.multiply(clusterDrawCall.pose);
-            drawScheduler.enqueue(clusterDrawCall.model, finalPose, light);
+//            Matrix4f finalPose = basePose.copy();
+//            finalPose.multiply(clusterDrawCall.pose);
+//            drawScheduler.enqueue(clusterDrawCall.model, finalPose, light);
+            clusterDrawCall.commit(drawScheduler, basePose, light);
         }
         ClientLevel level = Minecraft.getInstance().level;
         if (level == null) return;

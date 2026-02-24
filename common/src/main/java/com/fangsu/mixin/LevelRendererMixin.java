@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(value = LevelRenderer.class, priority = 99)
+@Mixin(value = LevelRenderer.class, priority = 101)
 public class LevelRendererMixin {
 
     @Shadow
@@ -28,7 +28,8 @@ public class LevelRendererMixin {
         Minecraft.getInstance().level.getProfiler().popPush("FangSuBlockEntities");
         BufferSourceProxy vertexConsumersProxy = new BufferSourceProxy(renderBuffers.bufferSource());
         MainClient.drawScheduler.commit(vertexConsumersProxy, MainClient.drawContext);
-        vertexConsumersProxy.commit();
+        if (!MainClient.is_nte_loaded)
+            vertexConsumersProxy.commit();
     }
 
     @Inject(method = "renderLevel", at = @At("TAIL"))
