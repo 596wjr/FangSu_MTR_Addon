@@ -3,6 +3,7 @@ package com.fangsu.blockEntities.client;
 import com.fangsu.Main;
 import com.fangsu.MainClient;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
+import com.fangsu.blockEntities.Scriptable;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.render.sowcer.math.Matrix4f;
 import com.fangsu.render.sowcer.math.PoseStackUtil;
@@ -77,6 +78,10 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
 //        }
 //        if (prop.script != null) {
 //            synchronized (blockEntity.scriptContext) {
+
+        if (blockEntity instanceof Scriptable scriptable) {
+            scriptable.renderScript();
+        }
 
         blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, lightToUse);
 

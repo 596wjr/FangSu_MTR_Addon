@@ -17,6 +17,7 @@ public class ModBlocks {
     public static final RegistrySupplier<Block> BLOCK_SCREENDOOR_GLASS = RegisterUtil.addBlock("screendoor_glass", BlockScreendoorGlass::new);
     public static final RegistrySupplier<Block> BLOCK_SIGN = RegisterUtil.addBlock("sign", BlockSign::new);
     public static final RegistrySupplier<Block> BLOCK_SIGN_ON_WALL = RegisterUtil.addBlock("sign_on_wall", BlockSignOnWall::new);
+    public static final RegistrySupplier<Block> BLOCK_PIDS = RegisterUtil.addBlock("pids", BlockPids::new);
     public static final RegistrySupplier<Block> BLOCK_TICKET_MACHINE = RegisterUtil.addBlock("ticket_machine", BlockTicketMachine::new);
 
     public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_TICKET_BARRIER =
@@ -29,6 +30,8 @@ public class ModBlocks {
             RegisterUtil.addBlockEntity("block_entity_sign", BLOCK_SIGN, BlockEntitySign::new);
     public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_SIGN_ON_WALL =
             RegisterUtil.addBlockEntity("block_entity_sign_on_wall", BLOCK_SIGN_ON_WALL, BlockEntitySignOnWall::new);
+    public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_PIDS =
+            RegisterUtil.addBlockEntity("block_entity_pids", BLOCK_PIDS, BlockEntityPids::new);
 
     public static final RegistrySupplier<Item> ITEM_TICKET_BARRIER = RegisterUtil.addBlockItem("ticket_barrier", BLOCK_TICKET_BARRIER);
     public static final RegistrySupplier<Item> ITEM_SCREENDOOR = RegisterUtil.addBlockItem("screendoor_door", BLOCK_SCREENDOOR);
@@ -36,6 +39,7 @@ public class ModBlocks {
     public static final RegistrySupplier<Item> ITEM_SIGN = RegisterUtil.addBlockItem("sign", BLOCK_SIGN);
     public static final RegistrySupplier<Item> ITEM_SIGN_ON_WALL = RegisterUtil.addBlockItem("sign_on_wall", BLOCK_SIGN_ON_WALL);
     public static final RegistrySupplier<Item> ITEM_TICKET_MACHINE = RegisterUtil.addBlockItem("ticket_machine", BLOCK_TICKET_MACHINE);
+    public static final RegistrySupplier<Item> ITEM_PIDS = RegisterUtil.addBlockItem("pids", BLOCK_PIDS);
     public static final RegistrySupplier<Block> BLOCK_COLLISION_COMPENSATOR =
             RegisterUtil.addBlock("collision_compensation_block", BlockCollisionCompensator::new);
     public static final RegistrySupplier<Item> ITEM_COLLISION_COMPENSATOR =
@@ -50,6 +54,7 @@ public class ModBlocks {
             ITEM_SCREENDOOR_GLASS,
             ITEM_SIGN,
             ITEM_SIGN_ON_WALL,
+            ITEM_PIDS,
             ITEM_TICKET_MACHINE,
             ITEM_COLLISION_COMPENSATOR,
             ModItems.ITEM_IC_CARD

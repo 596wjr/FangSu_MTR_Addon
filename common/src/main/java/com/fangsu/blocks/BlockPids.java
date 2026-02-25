@@ -1,27 +1,23 @@
 package com.fangsu.blocks;
 
 import com.fangsu.blockEntities.BaseObjBlockEntity;
-import com.fangsu.blockEntities.BlockEntitySign;
-import com.fangsu.blockEntities.IPlatformDoor;
+import com.fangsu.blockEntities.BlockEntityPids;
 import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class BlockSign extends BaseObjBlock {
-    public BlockSign(Properties properties) {
+public class BlockPids extends BaseObjBlock {
+    public BlockPids(Properties properties) {
         super(properties);
     }
 
-    public BlockSign() {
+    public BlockPids() {
         super();
     }
 
     @Override
     public @Nullable BaseObjBlockEntity newBlockEntity(@NotNull BlockPos pos, @NotNull BlockState state) {
-        return new BlockEntitySign(pos, state);
+        return new BlockEntityPids(pos, state);
     }
 }

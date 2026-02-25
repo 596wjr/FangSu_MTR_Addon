@@ -11,46 +11,34 @@ import java.util.function.Function;
 
 public class BlazeRenderType {
 
-//    private static final Function<ResourceLocation, RenderType> ENTITY_CUTOUT = Util.memoize(resourceLocation ->
-//            RenderType.create(
-//                    "entity_cutout", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.TRIANGLES,
-//                    256, true, false,
-//                    ((RenderType.CompositeRenderType) RenderType.entityCutout(resourceLocation)).state
-//            ));
-//    private static final Function<ResourceLocation, RenderType> ENTITY_TRANSLUCENT_CULL = Util.memoize(resourceLocation ->
-//            RenderType.create(
-//                    "entity_translucent_cull", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.TRIANGLES,
-//                    256, true, true,
-//                    ((RenderType.CompositeRenderType) RenderType.entityTranslucentCull(resourceLocation)).state
-//            ));
-//    private static final BiFunction<ResourceLocation, Boolean, RenderType> BEACON_BEAM = Util.memoize((resourceLocation, translucent) ->
-//            RenderType.create(
-//                    "beacon_beam", DefaultVertexFormat.BLOCK, VertexFormat.Mode.TRIANGLES,
-//                    256, false, true,
-//                    ((RenderType.CompositeRenderType) RenderType.beaconBeam(resourceLocation, translucent)).state
-//            ));
-//
-//    public static RenderType entityCutout(ResourceLocation resourceLocation) {
-//        return ENTITY_CUTOUT.apply(resourceLocation);
-//    }
-//
-//    public static RenderType entityTranslucentCull(ResourceLocation resourceLocation) {
-//        return ENTITY_TRANSLUCENT_CULL.apply(resourceLocation);
-//    }
-//
-//    public static RenderType beaconBeam(ResourceLocation resourceLocation, boolean bl) {
-//        return BEACON_BEAM.apply(resourceLocation, bl);
-//    }
+    private static final Function<ResourceLocation, RenderType> ENTITY_CUTOUT = Util.memoize(resourceLocation ->
+            RenderType.create(
+                    "fangsu_entity_cutout_triangles", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.TRIANGLES,
+                    256, true, false,
+                    ((RenderType.CompositeRenderType) RenderType.entityCutout(resourceLocation)).state
+            ));
+    private static final Function<ResourceLocation, RenderType> ENTITY_TRANSLUCENT_CULL = Util.memoize(resourceLocation ->
+            RenderType.create(
+                    "fangsu_entity_translucent_cull_triangles", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.TRIANGLES,
+                    256, true, true,
+                    ((RenderType.CompositeRenderType) RenderType.entityTranslucentCull(resourceLocation)).state
+            ));
+    private static final BiFunction<ResourceLocation, Boolean, RenderType> BEACON_BEAM = Util.memoize((resourceLocation, translucent) ->
+            RenderType.create(
+                    "fangsu_beacon_beam_triangles", DefaultVertexFormat.BLOCK, VertexFormat.Mode.TRIANGLES,
+                    256, false, true,
+                    ((RenderType.CompositeRenderType) RenderType.beaconBeam(resourceLocation, translucent)).state
+            ));
 
     public static RenderType entityCutout(ResourceLocation resourceLocation) {
-        return RenderType.entityCutout(resourceLocation);
+        return ENTITY_CUTOUT.apply(resourceLocation);
     }
 
     public static RenderType entityTranslucentCull(ResourceLocation resourceLocation) {
-        return RenderType.entityTranslucentCull(resourceLocation);
+        return ENTITY_TRANSLUCENT_CULL.apply(resourceLocation);
     }
 
     public static RenderType beaconBeam(ResourceLocation resourceLocation, boolean bl) {
-        return RenderType.beaconBeam(resourceLocation, bl);
+        return BEACON_BEAM.apply(resourceLocation, bl);
     }
 }

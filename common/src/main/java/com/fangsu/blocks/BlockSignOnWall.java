@@ -8,7 +8,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class BlockSignOnWall extends BaseObjBlock implements IBlockPlatform {
+public class BlockSignOnWall extends BaseObjBlock {
     public BlockSignOnWall(Properties properties) {
         super(properties);
     }

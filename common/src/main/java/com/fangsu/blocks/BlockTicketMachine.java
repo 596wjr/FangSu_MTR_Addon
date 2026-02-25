@@ -1,5 +1,6 @@
 package com.fangsu.blocks;
 
+import com.fangsu.client.ClientHooks;
 import com.fangsu.ui.ticketMachine.TicketMachineMainScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -108,9 +109,9 @@ public class BlockTicketMachine extends Block {
     @Override
     public InteractionResult use(BlockState blockState, Level level, BlockPos blockPos, Player player, InteractionHand interactionHand, BlockHitResult blockHitResult) {
         if (level.isClientSide()) {
-            Minecraft.getInstance().execute(() -> {
-                Minecraft.getInstance().setScreen(new TicketMachineMainScreen(Component.literal("1"), player, player.getMainHandItem(), level, blockPos));
-            });
+
+            ClientHooks.openTicketMachineScreen(Component.translatable("ui.fangsu.ticketmachine"), blockPos);
+
         }
         return InteractionResult.SUCCESS;
     }

@@ -57,9 +57,6 @@ public class TicketMachineMainScreen extends Screen {
     // 站点列表显示行数
     private static final int STATION_LIST_VISIBLE_ROWS = 8;
 
-    private final Player player;
-    private final ItemStack stack;
-    private final Level world;
     private final BlockPos pos;
     private final Station station;
     private MouseClickInfo mouseClickInfo;
@@ -81,14 +78,11 @@ public class TicketMachineMainScreen extends Screen {
     // 站点列表滚动位置
     private int stationScroll = 0;
 
-    public TicketMachineMainScreen(Component title, Player player, ItemStack stack, Level world, BlockPos pos) {
+    public TicketMachineMainScreen(Component title, BlockPos pos) {
         super(title);
-        this.player = player;
-        this.stack = stack;
-        this.world = world;
         this.pos = pos;
 
-        this.station = MtrUtil.getStationAt(pos.getCenter().toVector3f());
+        this.station = MtrUtil.getStationAt(this.pos.getCenter().toVector3f());
 
         int currentZone = this.station != null ? this.station.zone : 0;
         Map<String, RouteFareInfo> routeMap = new HashMap<>();

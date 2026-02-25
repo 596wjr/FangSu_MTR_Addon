@@ -9,9 +9,9 @@ version = "${version}"
 displayName = "FangSu MTR Addon"
 authors = "596wjr"
 description = '''
-This is an example description! Tell everyone what your mod is about!
+Added blocks such as OBJ-format ticket gates, and provided a set of interfaces to simplify the creation of MTR extensions.
 '''
-#logoFile = ""
+logoFile = "icon.png"
 
 [[dependencies.fangsu]]
 modId = "forge"
@@ -40,8 +40,8 @@ mandatory = true
 versionRange = "[,4.0.0)"
 side = "BOTH"
 
-[[dependencies.fangsu]]
-modId = "mtrsteamloco"
-mandatory = true
-versionRange = "[0.5.2,)"
-side = "BOTH"
+#[[dependencies.fangsu]]
+#modId = "mtrsteamloco"
+#mandatory = true
+#versionRange = "[0.5.2,)"
+#side = "BOTH"

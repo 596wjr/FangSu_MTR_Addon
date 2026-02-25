@@ -3,6 +3,7 @@ package com.fangsu.blocks.client;
 import com.fangsu.blockEntities.client.BaseBlockEntityRender;
 import com.fangsu.blocks.ModBlocks;
 import dev.architectury.registry.client.rendering.BlockEntityRendererRegistry;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 
 public class ModBlockClient {
     public static void initClient() {
@@ -24,6 +25,10 @@ public class ModBlockClient {
         );
         BlockEntityRendererRegistry.register(
                 ModBlocks.BLOCK_ENTITY_SIGN_ON_WALL.get(),
+                ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
+        );
+        BlockEntityRendererRegistry.register(
+                ModBlocks.BLOCK_ENTITY_PIDS.get(),
                 ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
         );
     }

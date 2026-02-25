@@ -17,7 +17,7 @@ public class MainClient {
     public static ModelManager modelManager = new ModelManager();
     public static AtlasManager atlasManager = new AtlasManager();
 
-    public static boolean is_nte_loaded = true;
+    public static boolean is_nte_loaded = false;
 
     public static DrawContext drawContext = new DrawContext();
 
@@ -27,20 +27,22 @@ public class MainClient {
         ShadersModHandler.init();
 
         try {
-            Class.forName("cn.zbx1425.mtrsteamloco.MainClient");
+            Class.forName("cn.zbx1425.mtrsteamloco.MainClient", false, MainClient.class.getClassLoader());
             is_nte_loaded = true;
         } catch (ClassNotFoundException ignored) {
         }
         try {
-            Class.forName("forge.cn.zbx1425.mtrsteamloco.MainClient");
+            Class.forName("forge.cn.zbx1425.mtrsteamloco.MainClient", false, MainClient.class.getClassLoader());
             is_nte_loaded = true;
         } catch (ClassNotFoundException ignored) {
         }
         try {
-            Class.forName("fabric.cn.zbx1425.mtrsteamloco.MainClient");
+            Class.forName("fabric.cn.zbx1425.mtrsteamloco.MainClient", false, MainClient.class.getClassLoader());
             is_nte_loaded = true;
         } catch (ClassNotFoundException ignored) {
         }
+
+        if (is_nte_loaded) Main.LOGGER.info("[FangSu] 正在渲染兼容模式下运行!");
     }
 
     public static void initResources(ResourceManager resourceManager) {

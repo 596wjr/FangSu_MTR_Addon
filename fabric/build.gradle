@@ -7,6 +7,13 @@ architectury {
     fabric()
 }
 
+loom {
+    mixin {
+        defaultRefmapName = "fangsu.refmap.json"
+    }
+    accessWidenerPath = project(":common").loom.accessWidenerPath
+}
+
 configurations {
     common {
         canBeResolved = true
@@ -66,5 +73,5 @@ shadowJar {
 
 remapJar {
     inputFile.set shadowJar.archiveFile
+    archiveFileName.set("$rootProject.mod_prefix$rootProject.archives_name-mc$project.minecraft_version-${platform}-${rootProject.mod_version}.jar")
 }
-

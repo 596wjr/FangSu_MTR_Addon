@@ -35,10 +35,10 @@ ext {
     graaljsVersion = "24.2.2"
 }
 apply from: "build_process.gradle"
-boolean buildForAnte = project.hasProperty("build_for_ante") && project.property("build_for_ante") == "true"
+//boolean buildForAnte = project.hasProperty("build_for_ante") && project.property("build_for_ante") == "true"
 
 println "[Build] Current platform = ${platform}"
-println "[Build] Build for ANTE : ${buildForAnte}"
+//println "[Build] Build for ANTE : ${buildForAnte}"
 
 subprojects {
     apply plugin: 'dev.architectury.loom'
@@ -46,8 +46,8 @@ subprojects {
     apply plugin: 'maven-publish'
 
     base {
-        archivesName = "$rootProject.mod_prefix$rootProject.archives_name-mc$project.minecraft_version-${platform}" +
-                (buildForAnte ? "-ANTE" : "")
+        archivesName = "$rootProject.archives_name"
+//        +(buildForAnte ? "-ANTE" : "")
     }
 
     repositories {
@@ -80,13 +80,13 @@ subprojects {
         silentMojangMappingsLicense()
     }
 
-    def nteVariant = buildForAnte == true
-            ? "ante"
-            : "nte"
-
-    def nteDep = nteVariant == "ante"
-            ? "maven.modrinth:mtr-ante:${rootProject.ante_version}"
-            : "maven.modrinth:mtr-nte:${rootProject.nte_version}"
+//    def nteVariant = buildForAnte == true
+//            ? "ante"
+//            : "nte"
+//
+//    def nteDep = nteVariant == "ante"
+//            ? "maven.modrinth:mtr-ante:${rootProject.ante_version}"
+//            : "maven.modrinth:mtr-nte:${rootProject.nte_version}"
 
     dependencies {
         minecraft "net.minecraft:minecraft:$rootProject.minecraft_version"

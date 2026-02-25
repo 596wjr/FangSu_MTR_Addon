@@ -4,6 +4,8 @@ import com.fangsu.Main;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.signItems.SignItem;
 import dev.architectury.injectables.annotations.ExpectPlatform;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 
 import java.util.List;
 import java.util.Map;
@@ -19,7 +21,10 @@ public final class ClientHooks {
             = ((faces, items, onSave) -> {
         Main.LOGGER.error("打开方法没有被替换!");
     });
-
+    public static TicketMachineConsumer OPEN_TICKET_MACHINE_SCREEN
+            = ((title, pos) -> {
+        Main.LOGGER.error("打开方法没有被替换!");
+    });
 
     private ClientHooks() {
     }
@@ -34,8 +39,17 @@ public final class ClientHooks {
         OPEN_OBJ_SIGN_SCREEN.accept(faces, items, setter);
     }
 
+    public static void openTicketMachineScreen(Component title, BlockPos pos) {
+        OPEN_TICKET_MACHINE_SCREEN.accept(title, pos);
+    }
+
     @FunctionalInterface
     public interface SignScreenConsumer {
         void accept(int faces, List<Map<String, List<SignItem>>> items, Consumer<List<Map<String, List<SignItem>>>> setter);
+    }
+
+    @FunctionalInterface
+    public interface TicketMachineConsumer {
+        void accept(Component title, BlockPos pos);
     }
 }

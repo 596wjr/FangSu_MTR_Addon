@@ -3,7 +3,7 @@
   "id": "fangsu",
   "version": "${version}",
   "name": "FangSu MTR Addon",
-  "description": "This is an example description! Tell everyone what your mod is about!",
+  "description": "Added blocks such as OBJ-format ticket gates, and provided a set of interfaces to simplify the creation of MTR extensions.",
   "authors": [
     "596wjr"
   ],
