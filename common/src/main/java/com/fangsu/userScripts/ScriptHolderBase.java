@@ -117,7 +117,7 @@ public abstract class ScriptHolderBase {
                 TextUtil.hasCjkPart(a[0].asString())
         ));
         b.putMember("hasNonCjkPart", fn(a ->
-                TextUtil.hasCjkPart(a[0].asString())
+                TextUtil.hasNonCjkPart(a[0].asString())
         ));
         b.putMember("loadResource", fn(a ->
                 JsFunctions.loadResource(a[0].asString(), a[1].asString())

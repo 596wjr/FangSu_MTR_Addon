@@ -17,11 +17,6 @@ import com.fangsu.userScripts.ScriptHolderBase;
 import com.fangsu.userScripts.ScriptManager;
 import com.fangsu.utils.*;
 import com.google.gson.JsonElement;
-import mtr.client.ClientData;
-import mtr.data.Platform;
-import mtr.data.Route;
-import mtr.data.ScheduleEntry;
-import mtr.data.Station;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.FriendlyByteBuf;
@@ -36,9 +31,11 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import org.joml.Vector3f;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_PIDS;
 
@@ -59,6 +56,12 @@ public class BlockEntityPids extends BaseObjBlockEntity {
     private Map<String, Object> drawState = new HashMap<>();
 
     private List<Long> plats;
+    private static final ExecutorService PIDS_SCRIPT_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "fangsu-pids-script-loader");
+        t.setDaemon(true);
+        return t;
+    });
+    private volatile int scriptLoadToken = 0;
 
     public BlockEntityPids(BlockPos blockPos, BlockState blockState) {
         super(BLOCK_ENTITY_PIDS.get(), blockPos, blockState);
@@ -100,30 +103,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
             }
             Main.LOGGER.info("texW={}, texH={}", texW, texH);
             if (current.containsKey("script")) {
-                ScriptManager manager = ScriptManager.getInstance();
-                ResourceLocation location = new ResourceLocation((String) current.get("script"));
-                manager.initHolder(location, PidsScriptHolder::new);
-                scriptHolder = manager.getHolder(location);
-
-                GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
-                gtHelper.removeDrawGraphic(getBlockPos());
-                gtHelper.addDrawGraphic(getBlockPos(),
-                        new GraphicsTextureHelper.DrawInfo(
-                                "PIDS_" + current.get("script") + "_" + plats.toString(),
-                                texW, texH, false, false
-                        ),
-                        (g, detail) -> {
-//                            Main.LOGGER.info("running draw");
-                            scriptHolder.runFunction("draw", g, drawState,
-                                    new DrawInfoPids((List<ArrivalInfo>) detail.get("arrivalInfoList"), new int[]{0, 0, texW, texH}, scriptContext, this)
-                                    , userExtraConfigs);
-                        },
-                        () -> {
-                            Map<String, Object> map = new HashMap<>();
-                            map.put("arrivalInfoList", getArrivalInfoList());
-                            return map;
-                        }
-                );
+                initScriptDrawingAsync(current);
             }
             boolean flipV = current.containsKey("flipV") && (boolean) current.get("flipV");
             String model = (String) current.get("model");
@@ -162,6 +142,58 @@ public class BlockEntityPids extends BaseObjBlockEntity {
             }
             markedError = true;
         }
+    }
+
+
+    private void initScriptDrawingAsync(Map<String, Object> current) {
+        GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
+        gtHelper.removeDrawGraphic(getBlockPos());
+
+        final int thisLoadToken = ++scriptLoadToken;
+        scriptHolder = null;
+
+        String scriptPath = (String) current.get("script");
+        ResourceLocation location = new ResourceLocation(scriptPath);
+
+        gtHelper.addDrawGraphic(getBlockPos(),
+                new GraphicsTextureHelper.DrawInfo(
+                        "PIDS_" + scriptPath + "_" + plats,
+                        texW, texH, false, false
+                ),
+                (g, detail) -> {
+                    ScriptHolderBase holder = scriptHolder;
+                    if (holder == null) return;
+                    holder.runFunction("draw", g, drawState,
+                            new DrawInfoPids((List<MtrUtil.PidsArrivalInfo>) detail.get("arrivalInfoList"), new int[]{0, 0, texW, texH}, scriptContext, this),
+                            userExtraConfigs);
+                },
+                () -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("arrivalInfoList", getArrivalInfoList());
+                    return map;
+                }
+        );
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                ScriptManager manager = ScriptManager.getInstance();
+                manager.initHolder(location, PidsScriptHolder::new);
+                ScriptHolderBase loadedHolder = manager.getHolder(location);
+                if (loadedHolder != null && thisLoadToken == scriptLoadToken) {
+                    scriptHolder = loadedHolder;
+                }
+            } catch (Throwable e) {
+                Main.LOGGER.error("Failed to load PIDS script async {}", location, e);
+            }
+        }, PIDS_SCRIPT_EXECUTOR);
+    }
+
+    @Override
+    public void whenDisposing() {
+        scriptLoadToken++;
+        drawState.clear();
+        scriptHolder = null;
+        GraphicsTextureHelper.getInstance().removeDrawGraphic(getBlockPos());
     }
 
     @Override
@@ -375,183 +407,18 @@ public class BlockEntityPids extends BaseObjBlockEntity {
         };
     }
 
-    private List<ArrivalInfo> getArrivalInfoList() {
-        Vector3f pos = getBlockPos().getCenter().toVector3f();
-
-        List<ArrivalInfo> arrivalInfoList = new ArrayList<>();
-
-        if (plats == null || plats.isEmpty()) {
-            return arrivalInfoList;
-        }
-
-        for (Long platId : plats) {
-
-            Map<Long, Set<ScheduleEntry>> scheduleList = ClientData.SCHEDULES_FOR_PLATFORM;
-            Set<ScheduleEntry> currentSchedule = scheduleList.get(platId);
-            if (currentSchedule == null) continue;
-
-            List<ScheduleEntry> currentScheduleList = new ArrayList<>(currentSchedule);
-            if (currentScheduleList.isEmpty()) continue;
-
-            for (ScheduleEntry sc : currentScheduleList) {
-                if (sc.routeId == 0) continue;
-
-                Route route = MtrUtil.getRouteById(sc.routeId);
-
-                List<String> stationNames = new ArrayList<>();
-                Platform currentPlatform = null;
-
-                if (route != null && route.platformIds != null) {
-                    for (Route.RoutePlatform routePlatform : route.platformIds) {
-                        Platform plat = MtrUtil.getPlatformById(routePlatform.platformId);
-                        Station station = MtrUtil.getStationByPlatform(plat);
-
-                        if (station != null) {
-                            stationNames.add(station.name);
-                        }
-
-                        if (routePlatform.platformId == platId) {
-                            currentPlatform = plat;
-                        }
-                    }
-                }
-
-                String destination = MtrUtil.getDestinationByRoute(MtrUtil.getRouteById(sc.routeId));
-                String customDestination =
-                        route != null ? route.getDestination(sc.currentStationIndex) : destination;
-
-                ArrivalInfo info = new ArrivalInfo(
-                        sc.arrivalMillis,
-                        sc.trainCars,
-                        route,
-                        sc.routeId,
-                        sc.currentStationIndex,
-                        destination,
-                        customDestination,
-                        stationNames,
-                        currentPlatform
-                );
-
-                arrivalInfoList.add(info);
-            }
-        }
-
-        arrivalInfoList.sort(Comparator.comparingLong(a -> a.arrivalMillis));
-        return arrivalInfoList;
-    }
-
-    public static final class ArrivalInfo {
-        public final long arrivalMillis;
-        public final int trainCars;
-        public final Route route;
-        public final long routeId;
-        public final int currentStationIndex;
-        public final String destination;
-        public final String customDestination;
-        public final List<String> stationNames;
-        public final Platform currentPlatform;
-
-        public ArrivalInfo(long arrivalMillis,
-                           int trainCars,
-                           Route route,
-                           long routeId,
-                           int currentStationIndex,
-                           String destination,
-                           String customDestination,
-                           List<String> stationNames,
-                           Platform currentPlatform) {
-            this.arrivalMillis = arrivalMillis;
-            this.trainCars = trainCars;
-            this.route = route;
-            this.routeId = routeId;
-            this.currentStationIndex = currentStationIndex;
-            this.destination = destination;
-            this.customDestination = customDestination;
-            this.stationNames = stationNames;
-            this.currentPlatform = currentPlatform;
-        }
-
-        public long arrivalMillis() {
-            return arrivalMillis;
-        }
-
-        public int trainCars() {
-            return trainCars;
-        }
-
-        public Route route() {
-            return route;
-        }
-
-        public long routeId() {
-            return routeId;
-        }
-
-        public int currentStationIndex() {
-            return currentStationIndex;
-        }
-
-        public String destination() {
-            return destination;
-        }
-
-        public String customDestination() {
-            return customDestination;
-        }
-
-        public List<String> stationNames() {
-            return stationNames;
-        }
-
-        public Platform currentPlatform() {
-            return currentPlatform;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (obj == this) return true;
-            if (obj == null || obj.getClass() != this.getClass()) return false;
-            var that = (ArrivalInfo) obj;
-            return this.arrivalMillis == that.arrivalMillis &&
-                    this.trainCars == that.trainCars &&
-                    Objects.equals(this.route, that.route) &&
-                    this.routeId == that.routeId &&
-                    this.currentStationIndex == that.currentStationIndex &&
-                    Objects.equals(this.destination, that.destination) &&
-                    Objects.equals(this.customDestination, that.customDestination) &&
-                    Objects.equals(this.stationNames, that.stationNames) &&
-                    Objects.equals(this.currentPlatform, that.currentPlatform);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(arrivalMillis, trainCars, route, routeId, currentStationIndex, destination, customDestination, stationNames, currentPlatform);
-        }
-
-        @Override
-        public String toString() {
-            return "ArrivalInfo[" +
-                    "arrivalMillis=" + arrivalMillis + ", " +
-                    "trainCars=" + trainCars + ", " +
-                    "route=" + route + ", " +
-                    "routeId=" + routeId + ", " +
-                    "currentStationIndex=" + currentStationIndex + ", " +
-                    "destination=" + destination + ", " +
-                    "customDestination=" + customDestination + ", " +
-                    "stationNames=" + stationNames + ", " +
-                    "currentPlatform=" + currentPlatform + ']';
-        }
-
+    private List<MtrUtil.PidsArrivalInfo> getArrivalInfoList() {
+        return MtrUtil.getPidsArrivalInfoList(plats);
     }
 
     public static final class DrawInfoPids {
-        public final List<ArrivalInfo> arrivalInfoList;
+        public final List<MtrUtil.PidsArrivalInfo> arrivalInfoList;
         public final int[] texArea;
         public final ObjBlockScriptContext ctx;
         public final BlockEntityPids entity;
 
         public DrawInfoPids(
-                List<ArrivalInfo> arrivalInfoList,
+                List<MtrUtil.PidsArrivalInfo> arrivalInfoList,
                 int[] texArea,
                 ObjBlockScriptContext ctx,
                 BlockEntityPids entity
@@ -562,7 +429,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
             this.entity = entity;
         }
 
-        public List<ArrivalInfo> arrivalInfoList() {
+        public List<MtrUtil.PidsArrivalInfo> arrivalInfoList() {
             return arrivalInfoList;
         }
 
