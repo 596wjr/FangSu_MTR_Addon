@@ -14,11 +14,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 
 public class MtrUtil {
@@ -175,7 +171,6 @@ public class MtrUtil {
     }
 
 
-
     public static List<PidsArrivalInfo> getPidsArrivalInfoList(List<Long> platformIds) {
         List<PidsArrivalInfo> arrivalInfoList = new ArrayList<>();
         if (platformIds == null || platformIds.isEmpty()) return arrivalInfoList;
@@ -223,16 +218,101 @@ public class MtrUtil {
         return arrivalInfoList;
     }
 
-    public record PidsArrivalInfo(
-            long arrivalMillis,
-            int trainCars,
-            long routeId,
-            int currentStationIndex,
-            String destination,
-            String customDestination,
-            List<String> stationNames,
-            String currentPlatformName
-    ) {}
+    public static final class PidsArrivalInfo {
+        public final long arrivalMillis;
+        public final int trainCars;
+        public final long routeId;
+        public final int currentStationIndex;
+        public final String destination;
+        public final String customDestination;
+        public final List<String> stationNames;
+        public final String currentPlatformName;
+
+        public PidsArrivalInfo(
+                long arrivalMillis,
+                int trainCars,
+                long routeId,
+                int currentStationIndex,
+                String destination,
+                String customDestination,
+                List<String> stationNames,
+                String currentPlatformName
+        ) {
+            this.arrivalMillis = arrivalMillis;
+            this.trainCars = trainCars;
+            this.routeId = routeId;
+            this.currentStationIndex = currentStationIndex;
+            this.destination = destination;
+            this.customDestination = customDestination;
+            this.stationNames = stationNames;
+            this.currentPlatformName = currentPlatformName;
+        }
+
+        public long arrivalMillis() {
+            return arrivalMillis;
+        }
+
+        public int trainCars() {
+            return trainCars;
+        }
+
+        public long routeId() {
+            return routeId;
+        }
+
+        public int currentStationIndex() {
+            return currentStationIndex;
+        }
+
+        public String destination() {
+            return destination;
+        }
+
+        public String customDestination() {
+            return customDestination;
+        }
+
+        public List<String> stationNames() {
+            return stationNames;
+        }
+
+        public String currentPlatformName() {
+            return currentPlatformName;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj == this) return true;
+            if (obj == null || obj.getClass() != this.getClass()) return false;
+            var that = (PidsArrivalInfo) obj;
+            return this.arrivalMillis == that.arrivalMillis &&
+                    this.trainCars == that.trainCars &&
+                    this.routeId == that.routeId &&
+                    this.currentStationIndex == that.currentStationIndex &&
+                    Objects.equals(this.destination, that.destination) &&
+                    Objects.equals(this.customDestination, that.customDestination) &&
+                    Objects.equals(this.stationNames, that.stationNames) &&
+                    Objects.equals(this.currentPlatformName, that.currentPlatformName);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(arrivalMillis, trainCars, routeId, currentStationIndex, destination, customDestination, stationNames, currentPlatformName);
+        }
+
+        @Override
+        public String toString() {
+            return "PidsArrivalInfo[" +
+                    "arrivalMillis=" + arrivalMillis + ", " +
+                    "trainCars=" + trainCars + ", " +
+                    "routeId=" + routeId + ", " +
+                    "currentStationIndex=" + currentStationIndex + ", " +
+                    "destination=" + destination + ", " +
+                    "customDestination=" + customDestination + ", " +
+                    "stationNames=" + stationNames + ", " +
+                    "currentPlatformName=" + currentPlatformName + ']';
+        }
+    }
 
     /**
      * 坐标转换工具，统一向下取整。
