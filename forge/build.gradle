@@ -45,6 +45,14 @@ dependencies {
 //        modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
 //    }
 //    modImplementation("me.shedaniel.cloth:cloth-config-forge:11.1.136")
+    runtimeOnly("org.graalvm.sdk:graal-sdk:${rootProject.graaljsVersion}")
+    runtimeOnly("org.graalvm.truffle:truffle-api:${rootProject.graaljsVersion}")
+    runtimeOnly("org.graalvm.js:js-language:${rootProject.graaljsVersion}")
+    runtimeOnly("org.graalvm.js:js-scriptengine:${rootProject.graaljsVersion}")
+    shadowBundle("org.graalvm.sdk:graal-sdk:${rootProject.graaljsVersion}")
+    shadowBundle("org.graalvm.truffle:truffle-api:${rootProject.graaljsVersion}")
+    shadowBundle("org.graalvm.js:js-language:${rootProject.graaljsVersion}")
+    shadowBundle("org.graalvm.js:js-scriptengine:${rootProject.graaljsVersion}")
 }
 
 processResources {
@@ -58,6 +66,12 @@ processResources {
 shadowJar {
     configurations = [project.configurations.shadowBundle]
     archiveClassifier = 'dev-shadow'
+
+    mergeServiceFiles()
+    zip64 true
+
+    relocate("org.graalvm", "your.modid.shadow.org.graalvm")
+    relocate("com.oracle.truffle", "your.modid.shadow.com.oracle.truffle")
 }
 
 remapJar {

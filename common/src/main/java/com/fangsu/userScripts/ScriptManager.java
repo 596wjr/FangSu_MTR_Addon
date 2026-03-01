@@ -22,8 +22,10 @@ public class ScriptManager {
         return holders.getOrDefault(id, null);
     }
 
-    public void initHolder(ResourceLocation pos, Supplier<? extends ScriptHolderBase> holderSupplier) {
+    public void initHolder(ResourceLocation pos, Supplier<? extends ScriptHolderBase> holderSupplier) throws Exception {
         if (holders.containsKey(pos)) return;
-        holders.put(pos, holderSupplier.get());
+        ScriptHolderBase holder = holderSupplier.get();
+        holder.loadScript(pos);
+        holders.put(pos, holder);
     }
 }

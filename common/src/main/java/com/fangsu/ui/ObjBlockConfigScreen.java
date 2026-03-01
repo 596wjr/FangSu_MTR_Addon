@@ -75,7 +75,11 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
                         this.be,
                         CustomItems.items.get(this.be.getMainModelKey()),
                         (target) -> target.mainModel,
-                        (target, v) -> target.mainModel = v, this
+                        (target, v) -> target.mainModel = v, this,
+                        () -> {
+                            be.setDefaultSubModel();
+                            be.afterChangeModel();
+                        }
                 ))
         ), y);
         y += 28;
@@ -89,7 +93,8 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
                     c = (b) -> m.getAction().run();
                 } else
                     c = (b) -> Minecraft.getInstance().setScreen(new ModelSelectScreen(
-                            info.name(), this.be, info.infos(), info.initialGetter(), info.setter(), this
+                            info.name(), this.be, info.infos(), info.initialGetter(), info.setter(), this,
+                            be::afterChangeModel
                     ));
                 if (i + 1 == infos.size() && i % 2 == 0) {
                     addEntry(addButton(layout.areaLeft, y, layout.areaRight - layout.areaLeft, 24, info.name(),

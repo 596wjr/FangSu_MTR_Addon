@@ -4,6 +4,7 @@ import com.fangsu.Main;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.signItems.SignItem;
 import com.fangsu.ui.ObjBlockConfigScreen;
+import com.fangsu.ui.PlatformSelectionScreen;
 import com.fangsu.ui.SignConfigUI;
 import com.fangsu.ui.ticketMachine.TicketMachineMainScreen;
 import net.minecraft.client.Minecraft;
@@ -39,5 +40,13 @@ public final class ClientHooksImpl {
 
     public static void openTicketMachineScreen(Component title, BlockPos pos) {
         Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new TicketMachineMainScreen(title, pos)));
+    }
+
+    public static void openPlatformSelectScreen(Component component, List<Long> defaultValue, Consumer<List<Long>> setter, BlockPos pos, int maxSelect) {
+        Minecraft.getInstance().execute(() -> {
+            Minecraft.getInstance().setScreen(new PlatformSelectionScreen(
+                    component, defaultValue, setter, pos, maxSelect, Minecraft.getInstance().screen
+            ));
+        });
     }
 }

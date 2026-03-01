@@ -3,13 +3,11 @@ package com.fangsu.client;
 import com.fangsu.Main;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.signItems.SignItem;
-import dev.architectury.injectables.annotations.ExpectPlatform;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public final class ClientHooks {
@@ -25,6 +23,10 @@ public final class ClientHooks {
             = ((title, pos) -> {
         Main.LOGGER.error("打开方法没有被替换!");
     });
+    public static PlatformSelectConsumer OPEN_PLATFORM_SELECT_SCREEN
+            = (component, defaultValue, setter, pos, maxSelect) -> {
+        Main.LOGGER.error("打开方法没有被替换!");
+    };
 
     private ClientHooks() {
     }
@@ -43,6 +45,10 @@ public final class ClientHooks {
         OPEN_TICKET_MACHINE_SCREEN.accept(title, pos);
     }
 
+    public static void openPlatformSelectScreen(Component component, List<Long> defaultValue, Consumer<List<Long>> setter, BlockPos pos, int maxSelect) {
+        OPEN_PLATFORM_SELECT_SCREEN.accept(component, defaultValue, setter, pos, maxSelect);
+    }
+
     @FunctionalInterface
     public interface SignScreenConsumer {
         void accept(int faces, List<Map<String, List<SignItem>>> items, Consumer<List<Map<String, List<SignItem>>>> setter);
@@ -51,5 +57,10 @@ public final class ClientHooks {
     @FunctionalInterface
     public interface TicketMachineConsumer {
         void accept(Component title, BlockPos pos);
+    }
+
+    @FunctionalInterface
+    public interface PlatformSelectConsumer {
+        void accept(Component component, List<Long> defaultValue, Consumer<List<Long>> setter, BlockPos pos, int maxSelect);
     }
 }

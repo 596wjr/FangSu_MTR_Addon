@@ -465,6 +465,19 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         );
     }
 
+    public void setDefaultSubModel() {
+        List<SubModelDispInfo> subModelInfos = getSubModelInfos();
+        if (subModelInfos == null || subModelInfos.isEmpty()) return;
+        for (final SubModelDispInfo subModelInfo : subModelInfos) {
+            List<ModelSelectInfo> infos = subModelInfo.infos();
+            if (infos == null || infos.isEmpty()) continue;
+            subModelInfo.setter().accept(this, infos.get(0).content());
+        }
+    }
+
+    public void afterChangeModel() {
+    }
+
     public record BaseObjC2SData(
             float translateX,
             float translateY,

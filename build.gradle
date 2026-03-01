@@ -51,29 +51,50 @@ subprojects {
     }
 
     repositories {
+        // ======= Central 优先 =======
+        maven { url = "https://maven.aliyun.com/repository/central" }
+
+        // ======= MC 专用 =======
         maven {
             name = "BMCLAPI"
             url = "https://bmclapi2.bangbang93.com/maven"
             allowInsecureProtocol = true
+            content {
+                includeGroup "net.minecraft"
+                includeGroup "net.fabricmc"
+                includeGroup "net.minecraftforge"
+                includeGroup "dev.architectury"
+                includeGroup "org.parchmentmc"
+                includeGroup "me.shedaniel"
+                includeGroup "com.terraformersmc"
+                includeGroup "maven.modrinth"
+            }
         }
 
-        maven { name = 'aliyun-mirror'; url = 'https://maven.aliyun.com/repository/public' }
-        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
-        maven { url = 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
-        maven { url = 'https://mirrors.huaweicloud.com/repository/maven/' }
-        maven { name = 'forge-mirror'; url = 'https://bmclapi2.bangbang93.com/maven' }
-        maven { url = 'https://api.modrinth.com/maven' }
-        maven { url = "https://maven.neoforged.net/releases/" }
-        maven { url = "https://jitpack.io/" }
-        maven { url = "https://maven.terraformersmc.com/" }
-        maven { url = "https://maven.shedaniel.me/" }
-        maven { name = 'ParchmentMC'; url = 'https://maven.parchmentmc.org' }
+        maven {
+            url = "https://maven.fabricmc.net/"
+            content { includeGroup "net.fabricmc" }
+        }
+
+        maven {
+            url = "https://maven.architectury.dev/"
+            content { includeGroup "dev.architectury" }
+        }
+
+        maven {
+            url = "https://maven.minecraftforge.net/"
+            content { includeGroup "net.minecraftforge" }
+        }
+
         maven {
             url = "https://maven.parchmentmc.org"
             content { includeGroup "org.parchmentmc" }
         }
-        maven { name = "Modrinth"; url = "https://api.modrinth.com/maven" }
-        maven { url = "https://maven.terraformersmc.com/releases/" }
+
+        maven {
+            url = "https://api.modrinth.com/maven"
+            content { includeGroup "maven.modrinth" }
+        }
     }
 
     loom {
@@ -106,22 +127,10 @@ subprojects {
 
         compileOnly "maven.modrinth:minecraft-transit-railway:${rootProject.mtr_version_forge}"
 
-        compileOnly("org.graalvm.polyglot:polyglot:${graaljsVersion}")
-        compileOnly("org.graalvm.polyglot:js:${graaljsVersion}")
-        compileOnly("org.graalvm.truffle:truffle-api:${graaljsVersion}")
-        compileOnly("org.graalvm.truffle:truffle-runtime:${graaljsVersion}")
-
-//        if (name == "fabric") {
-//            if (!project.hasProperty('excludeGraal') || !project.property('excludeGraal').toBoolean()) {
-//                shadowCommon("org.graalvm.polyglot:polyglot:${graaljsVersion}")
-//                shadowCommon("org.graalvm.polyglot:js:${graaljsVersion}")
-//
-//                shadowCommon("org.graalvm.truffle:truffle-api:${graaljsVersion}")
-//                shadowCommon("org.graalvm.truffle:truffle-runtime:${graaljsVersion}")
-//            }
-//            shadowCommon("com.github.stuxuhai:jpinyin:1.1.7")
-//        }
-
+        compileOnly("org.graalvm.sdk:graal-sdk:${rootProject.graaljsVersion}")
+        compileOnly("org.graalvm.truffle:truffle-api:${rootProject.graaljsVersion}")
+        compileOnly("org.graalvm.js:js-language:${rootProject.graaljsVersion}")
+        compileOnly("org.graalvm.js:js-scriptengine:${rootProject.graaljsVersion}")
     }
 
     java {
@@ -214,5 +223,14 @@ subprojects {
         repositories {
             // publishing repository 配置（如需）
         }
+    }
+
+    configurations {
+        shadowBundle
+    }
+
+    dependencies {
+        shadowBundle("org.graalvm.sdk:graal-sdk:${rootProject.graaljsVersion}")
+        shadowBundle("org.graalvm.js:js:${rootProject.graaljsVersion}")
     }
 }

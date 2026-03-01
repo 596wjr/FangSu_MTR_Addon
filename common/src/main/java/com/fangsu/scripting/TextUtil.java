@@ -37,13 +37,13 @@ public class TextUtil {
         }
     }
 
-    private static String getCjkMatching(String src, boolean isCJK) {
+    public static String getCjkMatching(String src, boolean cjk) {
         if (src.contains("||")) src = src.split("\\|\\|", 2)[0];
         String[] stringSplit = src.split("\\|");
         StringBuilder result = new StringBuilder();
 
         for (final String stringSplitPart : stringSplit) {
-            if (mtr.data.IGui.isCjk(stringSplitPart) == isCJK) {
+            if (isCjk(stringSplitPart) == cjk) {
                 if (result.length() > 0) result.append(' ');
                 result.append(stringSplitPart);
             }
@@ -68,5 +68,13 @@ public class TextUtil {
             }
         }
         return result.toString().trim();
+    }
+
+    public static boolean hasCjkPart(String text) {
+        return getCjkMatching(text, true) != null && getCjkMatching(text, true).length() > 0;
+    }
+
+    public static boolean hasNonCjkPart(String text) {
+        return getCjkMatching(text, false) != null && getCjkMatching(text, false).length() > 0;
     }
 }

@@ -78,12 +78,12 @@ public class ResourceUtil {
 
     public static byte[] loadResourceBytes(ResourceLocation location) throws IOException {
         if (resourceManager == null) {
-            throw new IOException("ResourceManager is null");
+            return null;
         }
 
         Optional<Resource> resource = resourceManager.getResource(location);
         if (resource.isEmpty()) {
-            throw new IOException("Resource not found: " + location);
+            return null;
         }
 
         try (InputStream is = resource.get().open()) {
@@ -215,6 +215,7 @@ public class ResourceUtil {
 
         try {
             byte[] data = loadResourceBytes(location);
+            if (data == null || data.length == 0) return new Font(Font.SANS_SERIF, Font.PLAIN, 12);
             try (ByteArrayInputStream bais = new ByteArrayInputStream(data)) {
                 Font font = Font.createFont(Font.TRUETYPE_FONT, bais);
                 register.put(key, font);

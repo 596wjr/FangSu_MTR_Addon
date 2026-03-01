@@ -92,7 +92,7 @@ public class GraphicsTextureHelper {
                     continue;
                 }
 
-                Object detail = info.detailSupplier.get();
+                Map<String, Object> detail = info.detailSupplier.get();
                 Graphics2D g = info.gt.graphics;
 
                 info.drawFunction.draw(g, detail);
@@ -150,7 +150,7 @@ public class GraphicsTextureHelper {
 
         info.blocks.remove(block);
         if (info.blocks.isEmpty()) {
-            info.gt.close();
+            info.gt.closeLater();
             info.isClosed = true;
             loadGts.remove(drawInfoId);
         }
@@ -197,29 +197,16 @@ public class GraphicsTextureHelper {
         boolean waitUntilDraw = false;
     }
 
-    public static class DrawInfo {
-        public final String id;
-        public final int w;
-        public final int h;
-        public final boolean isStatic;
-        public final boolean waitUntilDraw;
-
-        public DrawInfo(String id, int w, int h, boolean isStatic, boolean waitUntilDraw) {
-            this.id = id;
-            this.w = w;
-            this.h = h;
-            this.isStatic = isStatic;
-            this.waitUntilDraw = waitUntilDraw;
-        }
+    public record DrawInfo(String id, int w, int h, boolean isStatic, boolean waitUntilDraw) {
     }
 
     @FunctionalInterface
     public interface DrawFunction {
-        void draw(Graphics2D g, Object detail);
+        void draw(Graphics2D g, Map<String, Object> detail);
     }
 
     @FunctionalInterface
     public interface DetailSupplier {
-        Object get();
+        Map<String, Object> get();
     }
 }

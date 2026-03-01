@@ -11,5 +11,6 @@ public class MainForgeClient {
         ClientHooks.OPEN_OBJ_BLOCK_CONFIG_SCREEN = ClientHooksImpl::openObjBlockConfigScreen;
         ClientHooks.OPEN_OBJ_SIGN_SCREEN = ClientHooksImpl::openSignConfigScreen;
         ClientHooks.OPEN_TICKET_MACHINE_SCREEN = ClientHooksImpl::openTicketMachineScreen;
+        ClientHooks.OPEN_PLATFORM_SELECT_SCREEN = ClientHooksImpl::openPlatformSelectScreen;
     }
 }

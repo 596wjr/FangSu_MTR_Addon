@@ -9,6 +9,8 @@ import com.fangsu.signItems.SignItemFactory;
 import com.fangsu.ui.ModMenus;
 import com.fangsu.utils.RegisterUtil;
 import com.fangsu.utils.ResourceUtil;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParser;
 import dev.architectury.platform.Platform;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -19,6 +21,7 @@ public final class Main {
     public static final String MOD_ID = "fangsu";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     public static final JsonParser JSON_PARSER = new JsonParser();
+    public static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
     public static Boolean isClient = null;
 
     public static void init() {

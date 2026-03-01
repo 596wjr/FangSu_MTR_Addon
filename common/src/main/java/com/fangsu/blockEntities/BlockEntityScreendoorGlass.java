@@ -314,6 +314,10 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
         return shape;
     }
 
+    @Override
+    public void afterChangeModel() {
+        recomputeAuto();
+    }
 
     // =========================================================
     // BlockRelation（不使用 actual，auto 仍然是合法状态）

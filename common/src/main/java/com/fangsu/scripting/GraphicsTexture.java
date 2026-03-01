@@ -19,7 +19,7 @@ public class GraphicsTexture implements AutoCloseable {
     private final DynamicTexture dynamicTexture;
     public final ResourceLocation identifier;
     public final BufferedImage bufferedImage;
-    public final Graphics2D graphics;
+    public final SmarterG2D graphics;
     public final int width;
     public final int height;
     public boolean isClosed;
@@ -42,9 +42,10 @@ public class GraphicsTexture implements AutoCloseable {
 
         // 创建可操作的 BufferedImage
         this.bufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        this.graphics = this.bufferedImage.createGraphics();
-        this.graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        this.graphics.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+        Graphics2D raw = this.bufferedImage.createGraphics();
+        this.graphics = new SmarterG2D(raw);
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
         this.isClosed = false;
     }
 

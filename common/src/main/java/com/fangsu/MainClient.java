@@ -7,9 +7,11 @@ import com.fangsu.render.sowcer.util.DrawContext;
 import com.fangsu.render.sowcerext.reuse.AtlasManager;
 import com.fangsu.render.sowcerext.reuse.DrawScheduler;
 import com.fangsu.render.sowcerext.reuse.ModelManager;
+import com.fangsu.scripting.TimingUtil;
 import com.fangsu.signItems.SignItemFactory;
 import com.fangsu.ui.ModMenus;
 import com.fangsu.utils.ResourceUtil;
+import net.minecraft.client.Minecraft;
 import net.minecraft.server.packs.resources.ResourceManager;
 
 public class MainClient {

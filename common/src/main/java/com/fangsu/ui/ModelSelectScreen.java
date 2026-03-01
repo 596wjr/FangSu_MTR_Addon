@@ -29,6 +29,7 @@ public class ModelSelectScreen extends Screen {
     private final List<ModelSelectInfo> options;
     private final Function<BaseObjBlockEntity, String> initialGetter;
     private final BiConsumer<BaseObjBlockEntity, String> setter;
+    private final Runnable afterSave;
 
     private Screen parent = null;
 
@@ -53,6 +54,7 @@ public class ModelSelectScreen extends Screen {
         this.options = options == null ? List.of() : List.copyOf(options);
         this.initialGetter = initialGetter;
         this.setter = setter;
+        this.afterSave = null;
     }
 
     public ModelSelectScreen(
@@ -69,6 +71,25 @@ public class ModelSelectScreen extends Screen {
         this.initialGetter = initialGetter;
         this.setter = setter;
         this.parent = parent;
+        this.afterSave = null;
+    }
+
+    public ModelSelectScreen(
+            Component title,
+            BaseObjBlockEntity be,
+            List<ModelSelectInfo> options,
+            Function<BaseObjBlockEntity, String> initialGetter,
+            BiConsumer<BaseObjBlockEntity, String> setter,
+            Screen parent,
+            Runnable afterSave
+    ) {
+        super(title);
+        this.be = be;
+        this.options = options == null ? List.of() : List.copyOf(options);
+        this.initialGetter = initialGetter;
+        this.setter = setter;
+        this.parent = parent;
+        this.afterSave = afterSave;
     }
 
     @Override
@@ -112,6 +133,9 @@ public class ModelSelectScreen extends Screen {
                                 String value = entry.getValue().getAsString();
                                 be.subModels.put(key, value);
                             }
+                        }
+                        if (afterSave != null) {
+                            afterSave.run();
                         }
 //                        be.sendUpdateC2S();
                     }

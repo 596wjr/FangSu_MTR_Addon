@@ -1,6 +1,11 @@
 var draw = (g, state, drawInfo, extraConfig) => {
+    // setDebugInfo(`"drawInfo =", ${drawInfo}`);
+    // setDebugInfo(`"keys =", ${Object.keys(drawInfo)}`);
+    // setDebugInfo(`"texArea =", ${drawInfo.texArea}`);
+    // setDebugInfo(`"textArea =", ${drawInfo.textArea}`);
+
     var arrivalInfoList = drawInfo.arrivalInfoList;
-    g.setColor(Color.BLACK);
+    g.setColor(rgbToColor(0, 0, 0));
     g.fillRect(drawInfo.texArea[0], drawInfo.texArea[1], drawInfo.texArea[2], drawInfo.texArea[3]);
     if (state.drawBeginTime === undefined || state.drawFlag === undefined) {
         state.drawBeginTime = Timing.elapsed();
@@ -44,6 +49,7 @@ var draw = (g, state, drawInfo, extraConfig) => {
         g.setClip(originalClip);
         return totalTime;
     }
+
     function getDispArrival(time, flag) {
         if (time <= 2) return flag ? "已经到达" : "Arrived";
         else if (time <= 20) return flag ? "即将进站" : "Arriving";
