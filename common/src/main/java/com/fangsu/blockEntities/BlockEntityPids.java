@@ -50,7 +50,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
     private CollisionBoxUtil.CollisionBox shape;
     private Map<String, JsonElement> userExtraConfigs;
 
-    private ScriptHolderBase scriptHolder;
+    private volatile ScriptHolderBase scriptHolder;
     private Map<String, Map<String, Object>> loaded;
     private int texW, texH;
     private Map<String, Object> drawState = new HashMap<>();
@@ -150,7 +150,6 @@ public class BlockEntityPids extends BaseObjBlockEntity {
         gtHelper.removeDrawGraphic(getBlockPos());
 
         final int thisLoadToken = ++scriptLoadToken;
-        scriptHolder = null;
 
         String scriptPath = (String) current.get("script");
         ResourceLocation location = new ResourceLocation(scriptPath);
@@ -176,9 +175,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
 
         CompletableFuture.runAsync(() -> {
             try {
-                ScriptManager manager = ScriptManager.getInstance();
-                manager.initHolder(location, PidsScriptHolder::new);
-                ScriptHolderBase loadedHolder = manager.getHolder(location);
+                ScriptHolderBase loadedHolder = ScriptManager.getInstance().getOrInitHolder(location, PidsScriptHolder::new);
                 if (loadedHolder != null && thisLoadToken == scriptLoadToken) {
                     scriptHolder = loadedHolder;
                 }
