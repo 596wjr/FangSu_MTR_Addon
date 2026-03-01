@@ -15,8 +15,10 @@ import org.joml.Vector3f;
 import org.joml.Vector3fc;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 
 public class MtrUtil {
@@ -171,6 +173,66 @@ public class MtrUtil {
             return "undefined";
         }
     }
+
+
+
+    public static List<PidsArrivalInfo> getPidsArrivalInfoList(List<Long> platformIds) {
+        List<PidsArrivalInfo> arrivalInfoList = new ArrayList<>();
+        if (platformIds == null || platformIds.isEmpty()) return arrivalInfoList;
+
+        Map<Long, Set<ScheduleEntry>> scheduleMap = ClientData.SCHEDULES_FOR_PLATFORM;
+        for (Long platformId : platformIds) {
+            if (platformId == null) continue;
+            Set<ScheduleEntry> schedules = scheduleMap.get(platformId);
+            if (schedules == null || schedules.isEmpty()) continue;
+
+            for (ScheduleEntry entry : schedules) {
+                if (entry.routeId == 0) continue;
+                Route route = getRouteById(entry.routeId);
+                if (route == null || route.platformIds == null || route.platformIds.isEmpty()) continue;
+
+                List<String> stationNames = new ArrayList<>();
+                String currentPlatformName = null;
+
+                for (Route.RoutePlatform routePlatform : route.platformIds) {
+                    Platform routePlatformObj = getPlatformById(routePlatform.platformId);
+                    Station station = getStationByPlatform(routePlatformObj);
+                    if (station != null) stationNames.add(station.name);
+                    if (routePlatform.platformId == platformId && routePlatformObj != null) {
+                        currentPlatformName = routePlatformObj.name;
+                    }
+                }
+
+                String destination = getDestinationByRoute(route);
+                String customDestination = route.getDestination(entry.currentStationIndex);
+
+                arrivalInfoList.add(new PidsArrivalInfo(
+                        entry.arrivalMillis,
+                        entry.trainCars,
+                        entry.routeId,
+                        entry.currentStationIndex,
+                        destination,
+                        customDestination,
+                        stationNames,
+                        currentPlatformName
+                ));
+            }
+        }
+
+        arrivalInfoList.sort(Comparator.comparingLong(PidsArrivalInfo::arrivalMillis));
+        return arrivalInfoList;
+    }
+
+    public record PidsArrivalInfo(
+            long arrivalMillis,
+            int trainCars,
+            long routeId,
+            int currentStationIndex,
+            String destination,
+            String customDestination,
+            List<String> stationNames,
+            String currentPlatformName
+    ) {}
 
     /**
      * 坐标转换工具，统一向下取整。

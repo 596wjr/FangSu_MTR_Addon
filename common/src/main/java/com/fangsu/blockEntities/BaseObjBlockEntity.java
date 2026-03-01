@@ -58,6 +58,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
     protected boolean markedError = false;
 
     Map<String, String> extraConfigs = new HashMap<>();
+    private boolean disposed = false;
 
     public BaseObjBlockEntity(BlockEntityType<?> blockEntityType, BlockPos blockPos, BlockState blockState) {
         super(blockEntityType, blockPos, blockState);
@@ -260,6 +261,12 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
     }
 
     public abstract void whenLoading();
+
+    /**
+     * Called when this block entity is being disposed (e.g. chunk unload / removal).
+     */
+    public void whenDisposing() {
+    }
 
     public abstract void whenRendering();
 
@@ -476,6 +483,21 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
     }
 
     public void afterChangeModel() {
+    }
+
+    @Override
+    public void setRemoved() {
+        if (!disposed) {
+            disposed = true;
+            whenDisposing();
+        }
+        super.setRemoved();
+    }
+
+    @Override
+    public void clearRemoved() {
+        disposed = false;
+        super.clearRemoved();
     }
 
     public record BaseObjC2SData(
