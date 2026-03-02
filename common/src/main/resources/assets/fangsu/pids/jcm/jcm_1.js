@@ -23,7 +23,7 @@ var draw = function (g, state, drawInfo, extraConfig) {
     }
 
     // 绘制背景图（适配动态分辨率）
-    g.drawImage(loadRes(res, "img", "fangsu:pids/jcm/base.png"), x, y, w, h, null);
+    g.drawImage(loadResource("img", "fangsu:pids/jcm/base.png"), x, y, w, h, null);
 
     // 状态初始化
     if (typeof state.drawBeginTime === "undefined" || typeof state.drawFlag === "undefined") {
@@ -32,14 +32,16 @@ var draw = function (g, state, drawInfo, extraConfig) {
     }
 
     // 动态字体大小
-    var baseFont = loadRes(res, "font", "mtrsteamloco:fonts/source-han-sans-bold.otf");
+    var baseFont = loadResource("font", "fangsu:fonts/source-han-sans-bold.otf");
     var fontSize = scaleVal(16, true);
     var font = baseFont.deriveFont(fontSize);
 
     // 天气图标（动态位置和尺寸）
     var weatherIconSize = scaleVal(16, false);
-    var weatherIcon = MinecraftClient.worldIsRainingAt(block.getWorldPosVector3f()) ? "fangsu:pids/jcm/weather_rainy.png" : "fangsu:pids/jcm/weather_sunny.png";
-    g.drawImage(loadRes(res, "img", weatherIcon), x, y, weatherIconSize, weatherIconSize, null);
+    // var isRaining = MinecraftClient.worldIsRainingAt(block.getWorldPosVector3f());
+    var isRaining = false;
+    var weatherIcon = isRaining ? "fangsu:pids/jcm/weather_rainy.png" : "fangsu:pids/jcm/weather_sunny.png";
+    g.drawImage(loadResource("img", weatherIcon), x, y, weatherIconSize, weatherIconSize, null);
 
     // 时间显示（动态位置）
     var timeFont = baseFont.deriveFont(scaleVal(12, true));
@@ -54,7 +56,7 @@ var draw = function (g, state, drawInfo, extraConfig) {
     var textStartY = y + scaleVal(36, false);
     var textStartX = x + scaleVal(4, false);
     var textMaxWidth = scaleVal(150, false);
-    var arrivalTextX = x + w - scaleVal(58, false);
+    var arrivalTextX = x + w - scaleVal(16, false);
 
     // 绘制列车信息
     var drawTotalTime = 5;

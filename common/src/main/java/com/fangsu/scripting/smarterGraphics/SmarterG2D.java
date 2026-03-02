@@ -1,4 +1,4 @@
-package com.fangsu.scripting;
+package com.fangsu.scripting.smarterGraphics;
 
 import java.awt.*;
 import java.awt.font.FontRenderContext;

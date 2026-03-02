@@ -182,7 +182,7 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
             gtBack = new GraphicsTexture((int) (unit * 72 * length + 1), unit * 72 + 1);
 
 
-            if (gtFront != null && !gtFront.isClosed) {
+            if (gtFront != null && !gtFront.isClosed.get()) {
                 var g = gtFront.graphics;
                 g.setComposite(AlphaComposite.Clear); // 设置透明混合模式
                 g.fillRect(0, 0, gtFront.width, gtFront.height);   // 填充整个区域
@@ -197,7 +197,7 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                 }
                 gtFront.upload();
             }
-            if (gtBack != null && !gtBack.isClosed) {
+            if (gtBack != null && !gtBack.isClosed.get()) {
                 var g = gtBack.graphics;
                 g.setComposite(AlphaComposite.Clear);
                 g.fillRect(0, 0, gtBack.width, gtBack.height);

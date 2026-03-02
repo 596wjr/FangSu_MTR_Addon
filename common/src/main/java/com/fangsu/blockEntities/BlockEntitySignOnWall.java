@@ -151,7 +151,7 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
             gtFront = new GraphicsTexture((int) (unit * 72 * length + 1), unit * 72 + 1);
 
 
-            if (gtFront != null && !gtFront.isClosed) {
+            if (gtFront != null && !gtFront.isClosed.get()) {
                 var g = gtFront.graphics;
                 g.setComposite(AlphaComposite.Clear); // 设置透明混合模式
                 g.fillRect(0, 0, gtFront.width, gtFront.height);   // 填充整个区域

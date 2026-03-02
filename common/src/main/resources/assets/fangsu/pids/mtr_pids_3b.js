@@ -1,17 +1,17 @@
-var draw = (g, state, drawInfo, extraConfig) => {
+function draw(g, state, drawInfo, extraConfig) {
     var arrivalInfoList = drawInfo.arrivalInfoList || [];
     var texArea = drawInfo.texArea;
     var width = texArea[2] - texArea[0];
     var height = texArea[3] - texArea[1];
 
-    g.setColor(Color.BLACK);
+    g.setColor(rgbToColor(0, 0, 0));
     g.fillRect(texArea[0], texArea[1], texArea[2], texArea[3]);
 
     if (state.drawBeginTime === undefined) state.drawBeginTime = Timing.elapsed();
     if (state.drawFlag === undefined) state.drawFlag = true;
     if (state.fontSize !== height * 0.25 || state.font === undefined) {
         state.fontSize = height * 0.25;
-        state.font = loadResource("font", "mtrsteamloco:fonts/ae.ttf").deriveFont(state.fontSize);
+        state.font = loadResource("font", "fangsu:fonts/ae.ttf").deriveFont(state.fontSize);
     }
 
     var drawTotalTime = 5;
@@ -67,4 +67,4 @@ var draw = (g, state, drawInfo, extraConfig) => {
         if (time <= 3600) return String(parseInt(time / 60)) + (flag ? " 分" : " min");
         return String(parseInt(time / 3600)) + (flag ? " 时" : " hour");
     }
-};
+}

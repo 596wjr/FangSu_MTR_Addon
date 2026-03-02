@@ -82,6 +82,10 @@ public class G2dTextHelper {
         return strWidth;
     }
 
+    public static int drawStrUnified(Graphics2D g, Font font, String str, double x, double y, double h, int align) {
+        return drawStrUnified(g, font, str, (int) x, (int) y, (float) h, align);
+    }
+
     /**
      * 获取字符串的宽度
      *

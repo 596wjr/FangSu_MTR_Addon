@@ -1,10 +1,10 @@
-var draw = (g, state, drawInfo, extraConfig) => {
+function draw(g, state, drawInfo, extraConfig) {
     var arrivalInfoList = drawInfo.arrivalInfoList || [];
     var texArea = drawInfo.texArea;
     var width = texArea[2] - texArea[0];
     var height = texArea[3] - texArea[1];
 
-    g.setColor(Color.BLACK);
+    g.setColor(rgbToColor(0, 0, 0));
     g.fillRect(texArea[0], texArea[1], texArea[2], texArea[3]);
 
     if (state.drawBeginTime === undefined) state.drawBeginTime = Timing.elapsed();
@@ -13,7 +13,7 @@ var draw = (g, state, drawInfo, extraConfig) => {
     var fontSize = 15;
     if (state.fontSize !== fontSize || state.font === undefined) {
         state.fontSize = fontSize;
-        state.font = loadResource("font", "mtrsteamloco:fonts/ae.ttf").deriveFont(fontSize);
+        state.font = loadResource("font", "fangsu:fonts/ae.ttf").deriveFont(fontSize);
     }
 
     var font = state.font;
@@ -33,7 +33,7 @@ var draw = (g, state, drawInfo, extraConfig) => {
             destination = arrivalInfo.destination;
         }
 
-        g.setColor(Color.WHITE);
+        g.setColor(rgbToColor(230, 91, 0));
         var y = 20 * (i + 1) + 2;
         drawTotalTime = Math.max(drawTotalTime, drawScrollText(destination, 128, 4, y, metrics, state.drawBeginTime));
 
@@ -71,4 +71,4 @@ var draw = (g, state, drawInfo, extraConfig) => {
         if (time <= 3600) return String(parseInt(time / 60)) + (flag ? " 分" : " min");
         return String(parseInt(time / 3600)) + (flag ? " 时" : " hour");
     }
-};
+}

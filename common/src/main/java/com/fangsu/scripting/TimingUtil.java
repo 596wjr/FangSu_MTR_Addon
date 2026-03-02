@@ -20,7 +20,7 @@ public class TimingUtil {
 //        return timeElapsedForScript;
 //        return runningSeconds;
         if (Minecraft.getInstance().level != null) {
-            return Minecraft.getInstance().level.getGameTime();
+            return Minecraft.getInstance().level.getGameTime() / 20.0;
         } else return 0;
     }
 

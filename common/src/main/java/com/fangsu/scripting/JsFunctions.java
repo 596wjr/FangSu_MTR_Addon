@@ -1,9 +1,9 @@
 package com.fangsu.scripting;
 
 import com.fangsu.Main;
+import com.fangsu.scripting.smarterGraphics.SmarterFont;
 import com.fangsu.utils.ColorUtil;
 import com.fangsu.utils.ResourceUtil;
-import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import org.graalvm.polyglot.proxy.ProxyObject;
 
@@ -15,11 +15,15 @@ import java.util.Map;
 
 public class JsFunctions {
     public static Object loadResource(String type, String path) throws Exception {
+        if ("systemFont".equals(type)) {
+            return new SmarterFont(new Font(path, Font.PLAIN, 12));
+
+        }
         ResourceLocation rl = new ResourceLocation(path);
         return switch (type) {
             case "string", "str" -> ResourceUtil.loadString(rl);
             case "image", "img" -> ResourceUtil.loadImage(rl);
-            case "font" -> ResourceUtil.loadFont(rl);
+            case "font" -> new SmarterFont(ResourceUtil.loadFont(rl));
             case "model" -> ResourceUtil.loadModel(rl, false);
             case "partedModel" -> ResourceUtil.loadPartedModel(rl, true);
             case "json", "JSON" -> ResourceUtil.loadAsJSON(rl);

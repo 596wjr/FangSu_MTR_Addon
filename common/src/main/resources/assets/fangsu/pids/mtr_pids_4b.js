@@ -4,8 +4,10 @@ var draw = (g, state, drawInfo, extraConfig) => {
     var width = texArea[2] - texArea[0];
     var height = texArea[3] - texArea[1];
 
-    g.setColor(Color.BLACK);
+    g.setColor(rgbToColor(0, 0, 0));
     g.fillRect(texArea[0], texArea[1], texArea[2], texArea[3]);
+
+    // setDebugInfo(drawInfo.toString());
 
     if (state.drawBeginTime === undefined) state.drawBeginTime = Timing.elapsed();
     if (state.drawFlag === undefined) state.drawFlag = true;
@@ -14,7 +16,7 @@ var draw = (g, state, drawInfo, extraConfig) => {
     var fontSize = height * 0.05;
     if (state.fontSize !== fontSize || state.font === undefined) {
         state.fontSize = fontSize;
-        state.font = loadResource("font", "mtrsteamloco:fonts/ae.ttf").deriveFont(fontSize);
+        state.font = loadResource("font", "fangsu:fonts/ae.ttf").deriveFont(parseInt(fontSize));
     }
 
     var font = state.font;
