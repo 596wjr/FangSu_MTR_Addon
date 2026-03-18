@@ -86,7 +86,9 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
         } catch (Exception e) {
             markedError = true;
             Main.LOGGER.warn(e.getMessage());
-            Main.LOGGER.warn(Arrays.toString(e.getStackTrace()));
+            for (StackTraceElement stackTraceElement : e.getStackTrace()) {
+                Main.LOGGER.error(stackTraceElement.toString());
+            }
         }
     }
 
@@ -240,7 +242,7 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
     }
 
     @Override
-    public InteractionResult whenUseWithinBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    public InteractionResult whenUseWithOther(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         return InteractionResult.PASS;
     }
 
@@ -251,11 +253,13 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
 
     @Override
     public VoxelShape setCollisionShape(BlockState state) {
+        if (markedError) return Shapes.empty();
         return getFinalShape(state);
     }
 
     @Override
     public VoxelShape setShape(BlockState state) {
+        if (markedError) return Shapes.block();
         return getFinalShape(state);
     }
 

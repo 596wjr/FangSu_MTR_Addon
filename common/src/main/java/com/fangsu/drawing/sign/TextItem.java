@@ -1,4 +1,4 @@
-package com.fangsu.signItems;
+package com.fangsu.drawing.sign;
 
 import com.fangsu.extraConfig.*;
 import com.fangsu.scripting.G2dTextHelper;
@@ -10,7 +10,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 import java.awt.*;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 

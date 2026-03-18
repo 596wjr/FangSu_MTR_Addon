@@ -24,7 +24,7 @@ public abstract class ScriptHolderBase {
     /**
      * 加载脚本内容
      */
-    public synchronized void loadScript(Context context, ResourceLocation location, Value scope) {
+    protected synchronized void loadScript(Context context, ResourceLocation location, Value scope) {
         this.scriptName = location.toString();
         this.isValid = true;
 
@@ -98,7 +98,7 @@ public abstract class ScriptHolderBase {
     /**
      * 执行 JS 函数 - 修改为使用独立作用域作为闭包环境
      */
-    public void runFunction(String name, Object... params) {
+    protected void runFunction(String name, Object... params) {
         if (!isValid || duringFailTimeout(name)) return;
 
         Value fn = functions.get(name);
@@ -116,7 +116,7 @@ public abstract class ScriptHolderBase {
     /**
      * 执行 JS 函数并返回值
      */
-    public Value runFunctionWithResult(String name, Object... params) {
+    protected Value runFunctionWithResult(String name, Object... params) {
         if (!isValid || duringFailTimeout(name)) return null;
 
         Value fn = functions.get(name);
@@ -135,7 +135,7 @@ public abstract class ScriptHolderBase {
     /**
      * 检查函数是否存在
      */
-    public boolean hasFunction(String name) {
+    protected boolean hasFunction(String name) {
         return functions.containsKey(name);
     }
 
@@ -165,7 +165,7 @@ public abstract class ScriptHolderBase {
     /**
      * 清理资源
      */
-    public synchronized void close() {
+    protected synchronized void close() {
         isValid = false;
         functions.clear();
         failTime.clear();
@@ -174,7 +174,7 @@ public abstract class ScriptHolderBase {
     /**
      * 检查脚本是否有效
      */
-    public boolean isValid() {
+    protected boolean isValid() {
         return isValid;
     }
 

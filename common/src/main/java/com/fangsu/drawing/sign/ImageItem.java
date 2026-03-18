@@ -1,4 +1,4 @@
-package com.fangsu.signItems;
+package com.fangsu.drawing.sign;
 
 import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.extraConfig.ConfigSpec;

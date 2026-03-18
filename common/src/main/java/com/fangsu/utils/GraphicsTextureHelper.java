@@ -100,7 +100,7 @@ public class GraphicsTextureHelper {
                 info.available = true;
 
             } catch (Throwable t) {
-                Main.LOGGER.warn(t.getLocalizedMessage());
+                Main.LOGGER.warn("Error when running draw function: {}", t.getLocalizedMessage());
             }
         }
     }
@@ -164,6 +164,12 @@ public class GraphicsTextureHelper {
         if (info == null || !info.available) return null;
 
         return info.gt;
+    }
+
+    public boolean hasDrawGraphic(BlockPos block) {
+        String drawInfoId = blockIds.get(getBlockId(block));
+        if (drawInfoId == null) return false;
+        return loadGts.containsKey(drawInfoId) && loadGts.get(drawInfoId).available;
     }
 
     public synchronized void setMaxFps(int fps) {

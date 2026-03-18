@@ -14,7 +14,6 @@ import com.fangsu.render.sowcer.math.Matrix4f;
 import com.fangsu.render.sowcerext.model.ModelCluster;
 import dev.architectury.networking.NetworkManager;
 import io.netty.buffer.Unpooled;
-import mtr.mappings.BlockEntityClientSerializableMapper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -272,7 +271,11 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
 
     public abstract void whenSaving(Map<String, String> extraConfigs);
 
-    public abstract InteractionResult whenUseWithinBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit);
+    public InteractionResult whenUseWithBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        return InteractionResult.PASS;
+    }
+
+    public abstract InteractionResult whenUseWithOther(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit);
 
     public void whenEntityInside(Player player) {
     }
@@ -386,7 +389,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         this.markShapeDirty();
     }
 
-    public final InteractionResult useWithBrush(@NotNull BlockState state, @NotNull Level level, @NotNull BlockPos pos, @NotNull Player player, @NotNull InteractionHand hand, @NotNull BlockHitResult hit) {
+    public final InteractionResult useWithWrench(@NotNull BlockState state, @NotNull Level level, @NotNull BlockPos pos, @NotNull Player player, @NotNull InteractionHand hand, @NotNull BlockHitResult hit) {
         if (level.isClientSide) {
             ClientHooks.openObjBlockConfigScreen(this);
         }

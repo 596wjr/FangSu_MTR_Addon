@@ -1,14 +1,12 @@
-package com.fangsu.signItems;
+package com.fangsu.drawing.sign;
 
 import com.fangsu.extraConfig.*;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 import java.awt.*;
 import java.util.ArrayList;
-import java.util.List;
 
 public class DivingLineItem extends SignItem {
     private Color color;

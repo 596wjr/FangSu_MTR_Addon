@@ -203,7 +203,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
     }
 
     @Override
-    public InteractionResult whenUseWithinBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    public InteractionResult whenUseWithOther(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         return InteractionResult.PASS;
     }
 

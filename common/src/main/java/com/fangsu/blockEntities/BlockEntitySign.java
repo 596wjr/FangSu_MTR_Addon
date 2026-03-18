@@ -14,9 +14,9 @@ import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
 import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.scripting.ModelHelper;
-import com.fangsu.signItems.SignDrawContext;
-import com.fangsu.signItems.SignItem;
-import com.fangsu.signItems.SignItemFactory;
+import com.fangsu.drawing.sign.SignDrawContext;
+import com.fangsu.drawing.sign.SignItem;
+import com.fangsu.drawing.sign.SignItemFactory;
 import com.fangsu.utils.CollisionBoxUtil;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.ResourceUtil;
@@ -258,7 +258,20 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
     }
 
     @Override
-    public InteractionResult whenUseWithinBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    public InteractionResult whenUseWithBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        ClientHooks.openSignConfigScreen(2, List.of(itemsFront, itemsBack), (saveItems) -> {
+            itemsFront = saveItems.get(0);
+            itemsBack = saveItems.get(1);
+            extraConfigs.put("itemsFront", toItemsJson(itemsFront).toString());
+            extraConfigs.put("itemsBack", toItemsJson(itemsBack).toString());
+            requiresRedraw = true;
+            sendUpdateC2S();
+        });
+        return InteractionResult.SUCCESS;
+    }
+
+    @Override
+    public InteractionResult whenUseWithOther(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         return InteractionResult.PASS;
     }
 

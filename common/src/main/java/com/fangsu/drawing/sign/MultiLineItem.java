@@ -1,4 +1,4 @@
-package com.fangsu.signItems;
+package com.fangsu.drawing.sign;
 
 import net.minecraft.resources.ResourceLocation;
 

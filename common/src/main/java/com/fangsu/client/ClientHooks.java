@@ -2,7 +2,8 @@ package com.fangsu.client;
 
 import com.fangsu.Main;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
-import com.fangsu.signItems.SignItem;
+import com.fangsu.drawing.sign.SignItem;
+import com.fangsu.ui.RouteSelectionScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
@@ -24,6 +25,10 @@ public final class ClientHooks {
         Main.LOGGER.error("打开方法没有被替换!");
     });
     public static PlatformSelectConsumer OPEN_PLATFORM_SELECT_SCREEN
+            = (component, defaultValue, setter, pos, maxSelect) -> {
+        Main.LOGGER.error("打开方法没有被替换!");
+    };
+    public static RouteSelectConsumer OPEN_ROUTE_SELECT_SCREEN
             = (component, defaultValue, setter, pos, maxSelect) -> {
         Main.LOGGER.error("打开方法没有被替换!");
     };
@@ -49,6 +54,10 @@ public final class ClientHooks {
         OPEN_PLATFORM_SELECT_SCREEN.accept(component, defaultValue, setter, pos, maxSelect);
     }
 
+    public static void openRouteSelectionScreen(Component title, List<Long> defaultValue, Consumer<List<RouteSelectionScreen.RouteSelectInfo>> setter, BlockPos pos, int maxSelect) {
+        OPEN_ROUTE_SELECT_SCREEN.accept(title, defaultValue, setter, pos, maxSelect);
+    }
+
     @FunctionalInterface
     public interface SignScreenConsumer {
         void accept(int faces, List<Map<String, List<SignItem>>> items, Consumer<List<Map<String, List<SignItem>>>> setter);
@@ -62,5 +71,10 @@ public final class ClientHooks {
     @FunctionalInterface
     public interface PlatformSelectConsumer {
         void accept(Component component, List<Long> defaultValue, Consumer<List<Long>> setter, BlockPos pos, int maxSelect);
+    }
+
+    @FunctionalInterface
+    public interface RouteSelectConsumer {
+        void accept(Component component, List<Long> defaultValue, Consumer<List<RouteSelectionScreen.RouteSelectInfo>> setter, BlockPos pos, int maxSelect);
     }
 }

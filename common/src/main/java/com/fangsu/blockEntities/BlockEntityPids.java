@@ -46,7 +46,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
 
     protected String subModel;
 
-    private DynamicModelHolder mainHolder, dispHolder = new DynamicModelHolder();
+    private DynamicModelHolder dmhMain, dmhDisp = new DynamicModelHolder();
     private CollisionBoxUtil.CollisionBox shape;
     private Map<String, JsonElement> userExtraConfigs;
 
@@ -56,11 +56,6 @@ public class BlockEntityPids extends BaseObjBlockEntity {
     private Map<String, Object> drawState = new HashMap<>();
 
     private List<Long> plats;
-    private static final ExecutorService PIDS_SCRIPT_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "fangsu-pids-script-loader");
-        t.setDaemon(true);
-        return t;
-    });
     private volatile int scriptLoadToken = 0;
 
     public BlockEntityPids(BlockPos blockPos, BlockState blockState) {
@@ -107,7 +102,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
             }
             boolean flipV = current.containsKey("flipV") && (boolean) current.get("flipV");
             String model = (String) current.get("model");
-            mainHolder = ResourceUtil.loadDmh(new ResourceLocation(model), flipV);
+            dmhMain = ResourceUtil.loadDmh(new ResourceLocation(model), flipV);
             if (current.containsKey("slots") && current.get("slots") instanceof List<?> slotsList) {
                 RawMeshBuilder builder = new RawMeshBuilder(4, "light", new ResourceLocation("fangsu:pids/black.png"));
                 for (Object slot : slotsList) {
@@ -133,7 +128,10 @@ public class BlockEntityPids extends BaseObjBlockEntity {
                 RawModel dispRawModel = new RawModel();
                 dispRawModel.append(builder.getMesh());
                 dispRawModel.generateNormals();
-                dispHolder.uploadLater(dispRawModel);
+                dmhDisp.uploadLater(dispRawModel);
+            }
+            if (current.containsKey("shape") && current.get("shape") instanceof List<?> rawShape) {
+                this.shape = new CollisionBoxUtil.CollisionBox(rawShape);
             }
         } catch (Exception e) {
             Main.LOGGER.warn(e.getMessage());
@@ -162,7 +160,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
                 (g, detail) -> {
                     ScriptHolderBase holder = scriptHolder;
                     if (holder == null) return;
-                    holder.runFunction("draw", g, drawState,
+                    ScriptManager.getInstance().requestRunFunction(holder, "draw", g, drawState,
                             new DrawInfoPids((List<MtrUtil.PidsArrivalInfo>) detail.get("arrivalInfoList"), new int[]{0, 0, texW, texH}, scriptContext, this),
                             userExtraConfigs);
                 },
@@ -182,7 +180,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
             } catch (Throwable e) {
                 Main.LOGGER.error("Failed to load PIDS script async {}", location, e);
             }
-        }, PIDS_SCRIPT_EXECUTOR);
+        }, ScriptManager.SCRIPT_EXECUTOR);
     }
 
     @Override
@@ -196,14 +194,14 @@ public class BlockEntityPids extends BaseObjBlockEntity {
     @Override
     public void whenRendering() {
         ObjBlockScriptContext ctx = this.scriptContext;
-        if (mainHolder != null) ctx.drawModel(mainHolder, null);
-        if (dispHolder != null) {
-            if (dispHolder.getUploadedModel() != null) {
+        if (dmhMain != null) ctx.drawModel(dmhMain, null);
+        if (dmhDisp != null) {
+            if (dmhDisp.getUploadedModel() != null) {
                 GraphicsTexture gt = GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos());
                 if (gt != null)
-                    dispHolder.getUploadedModel().replaceAllTexture(gt.identifier);
+                    dmhDisp.getUploadedModel().replaceAllTexture(gt.identifier);
             }
-            ctx.drawModel(dispHolder, null);
+            ctx.drawModel(dmhDisp, null);
         }
     }
 
@@ -317,7 +315,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
     }
 
     @Override
-    public InteractionResult whenUseWithinBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    public InteractionResult whenUseWithOther(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         return InteractionResult.PASS;
     }
 

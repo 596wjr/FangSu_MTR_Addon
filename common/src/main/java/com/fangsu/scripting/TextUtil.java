@@ -38,6 +38,7 @@ public class TextUtil {
     }
 
     public static String getCjkMatching(String src, boolean cjk) {
+        if (src == null) return "";
         if (src.contains("||")) src = src.split("\\|\\|", 2)[0];
         String[] stringSplit = src.split("\\|");
         StringBuilder result = new StringBuilder();

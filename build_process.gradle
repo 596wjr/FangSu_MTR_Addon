@@ -5,10 +5,10 @@ def processAccessWidener(inputFile, outputFile) {
     def currentPlatform = project.findProperty("platform")?.toString()?.toUpperCase()
 
     // 自定义条件
-    boolean buildForAnte = project.hasProperty("build_for_ante") && project.property("build_for_ante") == "true"
+    boolean withJs = project.hasProperty("no_js") && project.property("no_js") == "false"
     def conditionVars = [
-            "ANTE": buildForAnte,
-            "NTE" : !buildForAnte
+            "WITH_JS": withJs,
+            "NO_JS"  : !withJs
     ]
 
     def outputLines = []

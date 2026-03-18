@@ -1,4 +1,20 @@
-accessWidener v1 named
+accessWidener v2 named
+
 accessible class net/minecraft/client/renderer/RenderType$CompositeState
 accessible class net/minecraft/client/renderer/RenderType$CompositeRenderType
 accessible field net/minecraft/client/renderer/RenderType$CompositeRenderType state Lnet/minecraft/client/renderer/RenderType$CompositeState;
+
+# 新增：为 GraalVM 开放 Java 模块访问
+# 允许访问 Module 类
+accessible class java/lang/Module
+
+# 允许访问 Module 的方法
+accessible method java/lang/Module addExports (Ljava/lang/String;Ljava/lang/Module;)Ljava/lang/Module;
+accessible method java/lang/Module getUnnamedModule ()Ljava/lang/Module;
+
+# 允许访问 ModuleLayer 类
+accessible class java/lang/ModuleLayer
+
+# 允许访问 ModuleLayer 的方法
+accessible method java/lang/ModuleLayer boot ()Ljava/lang/ModuleLayer;
+accessible method java/lang/ModuleLayer modules ()Ljava/util/Set;

@@ -1,6 +1,7 @@
 package com.fangsu.blocks;
 
 import com.fangsu.blockEntities.BaseObjBlockEntity;
+import com.fangsu.items.ModItems;
 import mtr.mappings.BlockEntityMapper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -8,6 +9,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -56,15 +58,24 @@ public abstract class BaseObjBlock extends Block implements EntityBlock {
 
     @Override
     public @NotNull InteractionResult use(@NotNull BlockState state, @NotNull Level level, @NotNull BlockPos pos, @NotNull Player player, @NotNull InteractionHand hand, @NotNull BlockHitResult hit) {
-        if (player.getMainHandItem().is(mtr.Items.BRUSH.get())) {
+        ItemStack stack = player.getItemInHand(hand);
+        if (stack.is(ModItems.ITEM_WRENCH.get())) {
             BaseObjBlockEntity blockEntity = (BaseObjBlockEntity) level.getBlockEntity(pos);
-            return blockEntity.useWithBrush(state, level, pos, player, hand, hit);
+            if (blockEntity != null) {
+                return blockEntity.useWithWrench(state, level, pos, player, hand, hit);
+            }
+        } else if (stack.is(mtr.Items.BRUSH.get())) {
+            BaseObjBlockEntity blockEntity = (BaseObjBlockEntity) level.getBlockEntity(pos);
+            if (blockEntity != null) {
+                return blockEntity.whenUseWithBrush(level, pos, player, hand, hit);
+            }
         } else {
             BaseObjBlockEntity blockEntity = (BaseObjBlockEntity) level.getBlockEntity(pos);
             if (blockEntity != null) {
-                return blockEntity.whenUseWithinBrush(level, pos, player, hand, hit);
-            } else return InteractionResult.PASS;
+                return blockEntity.whenUseWithOther(level, pos, player, hand, hit);
+            }
         }
+        return InteractionResult.PASS;
     }
 
     @Override

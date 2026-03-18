@@ -7,26 +7,33 @@ import java.awt.font.FontRenderContext;
 import java.awt.geom.Rectangle2D;
 
 public class G2dTextHelper {
-    public static int getMultiLinesWidth(Graphics2D g, Font font, float h, String... lines) {
+    public static int getMultiLinesWidth(Graphics2D g, Font cjkFont, Font nonCjkFont, float h, String... lines) {
         int width = 0;
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i];
             int fontSize = (int) (h * 0.9 / (lines.length + 2) * (i == 0 ? 3 : 1));
-            g.setFont(font.deriveFont(Font.PLAIN, fontSize));
+            g.setFont((TextUtil.isCjk(line) ? cjkFont : nonCjkFont).deriveFont(Font.PLAIN, fontSize));
             width = Math.max(width, g.getFontMetrics().stringWidth(line));
         }
         return width;
     }
 
-    public static int drawStrMultiLines(Graphics2D g, Font font, int x, int y, int h, int align, String... lines) {
-        int width = getMultiLinesWidth(g, font, h, lines);
+    public static int getMultiLinesWidth(Graphics2D g, Font font, float h, String... lines) {
+        return getMultiLinesWidth(g, font, font, h, lines);
+    }
+
+    public static int drawStrMultiLines(Graphics2D g, Font cjFfont, Font nonCjkFont, int x, int y, int h, int align, String... lines) {
+        int width = getMultiLinesWidth(g, cjFfont, nonCjkFont, h, lines);
         int currentY = (int) (y - h * 0.095);
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i];
             int fontSize = (int) (h * 0.9 / (lines.length + 2) * (i == 0 ? 3 : 1));
             int lineGap = lines.length == 1 ? 0 : (int) (h * 0.1 / (lines.length - 1));
             currentY += fontSize + lineGap;
-            g.setFont(font.deriveFont(Font.PLAIN, fontSize));
+            if (TextUtil.isCjk(line))
+                g.setFont(cjFfont.deriveFont(Font.PLAIN, fontSize));
+            else
+                g.setFont(nonCjkFont.deriveFont(Font.PLAIN, fontSize));
             int lineWidth = g.getFontMetrics().stringWidth(line);
             int baseX = align == 0 ? x :
                     align == 1 ? x + width / 2 - lineWidth / 2 :
@@ -34,6 +41,10 @@ public class G2dTextHelper {
             g.drawString(line, baseX, currentY);
         }
         return width;
+    }
+
+    public static int drawStrMultiLines(Graphics2D g, Font font, int x, int y, int h, int align, String... lines) {
+        return drawStrMultiLines(g, font, font, x, y, h, align, lines);
     }
 
     /**

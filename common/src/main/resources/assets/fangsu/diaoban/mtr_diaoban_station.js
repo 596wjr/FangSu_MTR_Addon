@@ -9,9 +9,8 @@ function draw(g, state, drawInfo) {
     var routeInfo = drawInfo.routeInfo;
     if (drawInfo.plat) {
         // setDebugInfo(`drawing! drawinfo: ${JSON.stringify(drawInfo, replacer)}`);
-        var Serif = Resources.getSystemFont("Noto Serif");
-        var SansSerif = Resources.getSystemFont("SansSerif");
-        var misans = loadResource("font", "mtrsteamloco:fonts/misans-bold.otf");
+        var Serif = loadResource("systemFont", "Noto Serif");
+        var SansSerif = loadResource("systemFont", "SansSerif");
         var headAlign = drawInfo.arrowDirection ? Number(drawInfo.arrowDirection) : 0;
         var headString = addPrefix(routeInfo.drawStations[routeInfo.drawStations.length - 1].stationName, "往|To", false);
         var strWidth = getDLStringWidth(g, Serif, Serif, headString, h * 0.4);

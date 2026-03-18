@@ -192,7 +192,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     }
 
     @Override
-    public InteractionResult whenUseWithinBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    public InteractionResult whenUseWithOther(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (level.isClientSide) return InteractionResult.SUCCESS;
 
         ObjBlockScriptContext ctx = this.scriptContext;
@@ -200,15 +200,20 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
 
         Vec3 hitPos = hit.getLocation().subtract(pos.getX(), pos.getY(), pos.getZ());
 
-        return TicketBarrierHandler.handle(
-                level,
-                pos,
-                player,
-                hand,
-                hit,
-                extra,
-                this::sendUpdateC2S
-        );
+        if (hitPos.z < 0.5)
+            return TicketBarrierHandler.handle(
+                    level,
+                    pos,
+                    player,
+                    hand,
+                    hit,
+                    extra,
+                    this::sendUpdateC2S
+            );
+        else {
+            player.displayClientMessage(Component.translatable("mst.fangsu.ticketbarrier.wrongDirection"), true);
+            return InteractionResult.PASS;
+        }
     }
 
     @Override

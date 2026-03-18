@@ -6,7 +6,6 @@ import com.fangsu.customItem.CustomItemLoader;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
-import com.fangsu.extraConfig.BoolConfig;
 import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.extraConfig.ConfigSpec;
 import com.fangsu.extraConfig.NumberInputConfig;
@@ -16,9 +15,9 @@ import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
 import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.scripting.ModelHelper;
-import com.fangsu.signItems.SignDrawContext;
-import com.fangsu.signItems.SignItem;
-import com.fangsu.signItems.SignItemFactory;
+import com.fangsu.drawing.sign.SignDrawContext;
+import com.fangsu.drawing.sign.SignItem;
+import com.fangsu.drawing.sign.SignItemFactory;
 import com.fangsu.utils.CollisionBoxUtil;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.ResourceUtil;
@@ -192,7 +191,18 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
     }
 
     @Override
-    public InteractionResult whenUseWithinBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    public InteractionResult whenUseWithBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        ClientHooks.openSignConfigScreen(1, List.of(items), saveItems -> {
+            items = saveItems.get(0);
+            extraConfigs.put("items", toItemsJson(items).toString());
+            requiresRedraw = true;
+            sendUpdateC2S();
+        });
+        return InteractionResult.SUCCESS;
+    }
+
+    @Override
+    public InteractionResult whenUseWithOther(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         return InteractionResult.PASS;
     }
 
@@ -221,7 +231,7 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
         List<SubModelDispInfo> infos = new ArrayList<>();
         List<ModelSelectInfo> thisInfo = new ArrayList<>();
         try {
-            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(this.mainModel), "common");
+            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(this.mainModel), "on_wall");
             for (String key : loaded.keySet()) {
                 Map<String, Object> item = loaded.get(key);
                 String text = "";

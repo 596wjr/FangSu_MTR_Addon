@@ -1,10 +1,9 @@
 package com.fangsu.ui;
 
-import com.fangsu.Main;
+import com.fangsu.mtr.LocalRoute;
 import com.fangsu.utils.ColorUtil;
 import com.fangsu.utils.MtrUtil;
 import mtr.data.Platform;
-import mtr.data.Route;
 import mtr.data.Station;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -12,18 +11,18 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.*;
 import java.util.List;
-import java.util.Set;
 import java.util.function.Consumer;
 
 public class RouteSelectionScreen extends BaseSelectionScreen {
-    private final Consumer<List<Long>> setter;
+    private final Consumer<List<RouteSelectInfo>> setter;
     private final BlockPos pos;
     private final Screen parent;
 
-    public RouteSelectionScreen(Component component, List<Long> defaultValue, Consumer<List<Long>> setter, BlockPos pos, int maxSelect, Screen parent) {
+    private final Map<Long, Long> routePlatformMap = new HashMap<>();
+
+    public RouteSelectionScreen(Component component, List<Long> defaultValue, Consumer<List<RouteSelectInfo>> setter, BlockPos pos, int maxSelect, Screen parent) {
         super(component, 2, maxSelect);
         this.setter = setter;
         this.pos = pos;
@@ -58,9 +57,10 @@ public class RouteSelectionScreen extends BaseSelectionScreen {
                 if (selectedPlat != null) {
                     Platform p = MtrUtil.getPlatformById(selectedPlat);
                     if (p != null) {
-                        List<Route> routes = MtrUtil.getRouteByPlatform(p);
+                        List<LocalRoute> routes = MtrUtil.getRouteByPlatform(p);
                         if (routes != null) {
-                            for (Route r : routes) {
+                            for (LocalRoute r : routes) {
+                                routePlatformMap.put(r.id, p.id);
                                 String dest = MtrUtil.getDestinationByRoute(r);
                                 routeItemSet.add(new SelectionItem(
                                         r.name + " -> " + dest,
@@ -81,11 +81,44 @@ public class RouteSelectionScreen extends BaseSelectionScreen {
 
     @Override
     public void onClose() {
-        List<Long> v = new ArrayList<>();
+        List<RouteSelectInfo> v = new ArrayList<>();
         for (SelectionItem item : this.selectedItems) {
-            v.add(Long.decode(item.value()));
+            Long routeId = Long.decode(item.value());
+            v.add(new RouteSelectInfo(MtrUtil.getRouteById(routeId), MtrUtil.getPlatformById(routePlatformMap.get(routeId))));
         }
         this.setter.accept(v);
         Minecraft.getInstance().setScreen(parent);
+    }
+
+    public static final class RouteSelectInfo {
+        public final LocalRoute route;
+        public final Platform plat;
+
+        public RouteSelectInfo(LocalRoute route, Platform plat) {
+            this.route = route;
+            this.plat = plat;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj == this) return true;
+            if (obj == null || obj.getClass() != this.getClass()) return false;
+            var that = (RouteSelectInfo) obj;
+            return Objects.equals(this.route, that.route) &&
+                    Objects.equals(this.plat, that.plat);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(route, plat);
+        }
+
+        @Override
+        public String toString() {
+            return "RouteSelectInfo[" +
+                    "route=" + route + ", " +
+                    "plat=" + plat + ']';
+        }
+
     }
 }

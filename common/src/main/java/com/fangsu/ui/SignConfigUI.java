@@ -1,7 +1,7 @@
 package com.fangsu.ui;
 
+import com.fangsu.drawing.sign.*;
 import com.fangsu.scripting.GraphicsTexture;
-import com.fangsu.signItems.*;
 import com.fangsu.utils.ScreenUtil;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import static com.fangsu.signItems.SignItemFactory.EDITOR_ITEMS;
+import static com.fangsu.drawing.sign.SignItemFactory.EDITOR_ITEMS;
 
 public class SignConfigUI extends Screen {
 

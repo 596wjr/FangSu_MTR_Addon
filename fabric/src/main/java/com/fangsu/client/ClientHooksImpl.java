@@ -1,20 +1,18 @@
 package com.fangsu.client;
 
 import com.fangsu.blockEntities.BaseObjBlockEntity;
-import com.fangsu.signItems.SignItem;
+import com.fangsu.drawing.sign.SignItem;
 import com.fangsu.ui.ObjBlockConfigScreen;
 import com.fangsu.ui.PlatformSelectionScreen;
+import com.fangsu.ui.RouteSelectionScreen;
 import com.fangsu.ui.SignConfigUI;
 import com.fangsu.ui.ticketMachine.TicketMachineMainScreen;
-import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public final class ClientHooksImpl {
@@ -38,6 +36,14 @@ public final class ClientHooksImpl {
     public static void openPlatformSelectScreen(Component component, List<Long> defaultValue, Consumer<List<Long>> setter, BlockPos pos, int maxSelect) {
         Minecraft.getInstance().execute(() -> {
             Minecraft.getInstance().setScreen(new PlatformSelectionScreen(
+                    component, defaultValue, setter, pos, maxSelect, Minecraft.getInstance().screen
+            ));
+        });
+    }
+
+    public static void openRouteSelectScreen(Component component, List<Long> defaultValue, Consumer<List<RouteSelectionScreen.RouteSelectInfo>> setter, BlockPos pos, int maxSelect) {
+        Minecraft.getInstance().execute(() -> {
+            Minecraft.getInstance().setScreen(new RouteSelectionScreen(
                     component, defaultValue, setter, pos, maxSelect, Minecraft.getInstance().screen
             ));
         });

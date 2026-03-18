@@ -1,15 +1,12 @@
-package com.fangsu.signItems;
+package com.fangsu.drawing.sign;
 
-import com.fangsu.Main;
 import com.fangsu.extraConfig.*;
 import com.fangsu.scripting.G2dTextHelper;
 import com.fangsu.scripting.TextUtil;
 import com.fangsu.ui.PlatformSelectionScreen;
-import com.fangsu.ui.RouteSelectionScreen;
 import com.fangsu.utils.MtrUtil;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
 import mtr.data.Platform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;

@@ -1,4 +1,4 @@
-package com.fangsu.signItems;
+package com.fangsu.drawing.sign;
 
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonArray;

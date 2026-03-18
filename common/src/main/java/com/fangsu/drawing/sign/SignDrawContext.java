@@ -1,7 +1,6 @@
-package com.fangsu.signItems;
+package com.fangsu.drawing.sign;
 
 import java.awt.*;
-import java.util.Map;
 
 public record SignDrawContext(
         Graphics2D graphics,

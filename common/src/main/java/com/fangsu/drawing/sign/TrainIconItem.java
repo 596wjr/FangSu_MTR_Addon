@@ -1,13 +1,13 @@
-package com.fangsu.signItems;
+package com.fangsu.drawing.sign;
 
 import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.extraConfig.ConfigSpec;
 import com.fangsu.extraConfig.RunnableConfig;
+import com.fangsu.mtr.LocalRoute;
 import com.fangsu.ui.RouteSelectionScreen;
 import com.fangsu.utils.MtrUtil;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonObject;
-import mtr.data.Route;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -18,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TrainIconItem extends SignItem {
-    private Route route;
+    private LocalRoute route;
     private static final ResourceLocation ICON_LOCATION = new ResourceLocation("fangsu:sign/trainicon.png");
 
     public TrainIconItem(JsonObject json) {
@@ -78,7 +78,7 @@ public class TrainIconItem extends SignItem {
                                 List.of(),
                                 (v) -> {
                                     if (v != null && !v.isEmpty())
-                                        route = MtrUtil.getRouteById((v.get(0)));
+                                        route = v.get(0).route;
                                 },
                                 mc.player.getOnPos(), 1, Minecraft.getInstance().screen));
                     }

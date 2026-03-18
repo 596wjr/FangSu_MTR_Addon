@@ -1,6 +1,8 @@
 package com.fangsu.userScripts;
 
+import com.fangsu.Main;
 import com.fangsu.scripting.*;
+import com.fangsu.utils.ModuleAccessHelper;
 import net.minecraft.resources.ResourceLocation;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.HostAccess;
@@ -9,8 +11,12 @@ import org.graalvm.polyglot.proxy.ProxyExecutable;
 import org.graalvm.polyglot.proxy.ProxyObject;
 
 import java.util.HashMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 public class ScriptManager {
@@ -22,7 +28,15 @@ public class ScriptManager {
     private final Map<ResourceLocation, ScriptHolderBase> holders;
     private boolean isShutdown = false;
 
+    public static final ExecutorService SCRIPT_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "fangsu-script-manager");
+        t.setDaemon(true);
+        return t;
+    });
+
     private ScriptManager() {
+        ModuleAccessHelper.ensureModuleAccess();
+
         this.holders = new ConcurrentHashMap<>();
 
         HostAccess hostAccess = HostAccess.newBuilder()
@@ -95,10 +109,19 @@ public class ScriptManager {
                 .allowHostClassLookup(c -> true)
                 .allowCreateThread(true)
 //                .allowHostAccess(org.graalvm.polyglot.HostAccess.ALL)
-                .allowCreateThread(true)
                 .build();
 
         initializeGlobalBindings();
+
+        try {
+            long start = System.currentTimeMillis();
+            // 使用最简单的表达式，不依赖任何绑定
+            Value result = context.eval("js", "1+1;");
+            long time = System.currentTimeMillis() - start;
+            Main.LOGGER.info("GraalVM initialized in {} ms", time);
+        } catch (Exception e) {
+            Main.LOGGER.warn("GraalVM pre-init failed (normal if first time)", e);
+        }
     }
 
     private void initializeGlobalBindings() {
@@ -111,6 +134,46 @@ public class ScriptManager {
         bindings.putMember("RenderingHints", java.awt.RenderingHints.class);
         bindings.putMember("Rectangle", java.awt.Rectangle.class);
 
+        //geom包
+        bindings.putMember("Point2D", java.awt.geom.Point2D.class);
+        bindings.putMember("Point2D_Double", java.awt.geom.Point2D.Double.class);
+        bindings.putMember("Point2D_Float", java.awt.geom.Point2D.Float.class);
+
+        bindings.putMember("Rectangle2D", java.awt.geom.Rectangle2D.class);
+        bindings.putMember("Rectangle2D_Double", java.awt.geom.Rectangle2D.Double.class);
+        bindings.putMember("Rectangle2D_Float", java.awt.geom.Rectangle2D.Float.class);
+
+        bindings.putMember("Ellipse2D", java.awt.geom.Ellipse2D.class);
+        bindings.putMember("Ellipse2D_Double", java.awt.geom.Ellipse2D.Double.class);
+        bindings.putMember("Ellipse2D_Float", java.awt.geom.Ellipse2D.Float.class);
+
+        bindings.putMember("Line2D", java.awt.geom.Line2D.class);
+        bindings.putMember("Line2D_Double", java.awt.geom.Line2D.Double.class);
+        bindings.putMember("Line2D_Float", java.awt.geom.Line2D.Float.class);
+
+        bindings.putMember("Arc2D", java.awt.geom.Arc2D.class);
+        bindings.putMember("Arc2D_Double", java.awt.geom.Arc2D.Double.class);
+        bindings.putMember("Arc2D_Float", java.awt.geom.Arc2D.Float.class);
+
+        bindings.putMember("CubicCurve2D", java.awt.geom.CubicCurve2D.class);
+        bindings.putMember("QuadCurve2D", java.awt.geom.QuadCurve2D.class);
+
+        bindings.putMember("Area", java.awt.geom.Area.class);
+        bindings.putMember("GeneralPath", java.awt.geom.GeneralPath.class);
+        bindings.putMember("Path2D", java.awt.geom.Path2D.class);
+        bindings.putMember("Path2D_Double", java.awt.geom.Path2D.Double.class);
+        bindings.putMember("Path2D_Float", java.awt.geom.Path2D.Float.class);
+
+        bindings.putMember("AffineTransform", java.awt.geom.AffineTransform.class);
+        bindings.putMember("NoninvertibleTransformException", java.awt.geom.NoninvertibleTransformException.class);
+
+        bindings.putMember("RoundRectangle2D", java.awt.geom.RoundRectangle2D.class);
+        bindings.putMember("RoundRectangle2D_Double", java.awt.geom.RoundRectangle2D.Double.class);
+        bindings.putMember("RoundRectangle2D_Float", java.awt.geom.RoundRectangle2D.Float.class);
+
+        bindings.putMember("FlatteningPathIterator", java.awt.geom.FlatteningPathIterator.class);
+        bindings.putMember("IllegalPathStateException", java.awt.geom.IllegalPathStateException.class);
+
         // 工具类绑定
         bindings.putMember("Timing", JsStaticBridge.fromStaticClass(TimingUtil.class));
         bindings.putMember("TextUtil", JsStaticBridge.fromStaticClass(TextUtil.class));
@@ -118,6 +181,9 @@ public class ScriptManager {
 
         // 函数绑定
         bindings.putMember("drawStrUnified", fn(a -> G2dTextHelper.drawStrUnified(a[0].asHostObject(), a[1].asHostObject(), a[2].asString(), a[3].asDouble(), a[4].asDouble(), a[5].asDouble(), a[6].asInt())));
+        bindings.putMember("getUnifiedStringWidth", fn(a -> G2dTextHelper.getUnifiedStringWidth(a[0].asHostObject(), a[1].asHostObject(), a[2].asString(), a[4].asFloat())));
+        bindings.putMember("drawStrDL", fn(a -> JsFunctions.jsDrawStrDl(a[0].asHostObject(), a[1].asHostObject(), a[2].asHostObject(), a[3].asString(), a[4].asDouble(), a[5].asDouble(), a[6].asDouble(), a[7].asInt(), a[8].asInt())));
+        bindings.putMember("getDLStringWidth", fn(a -> JsFunctions.jsGetDLStringWidth(a[0].asHostObject(), a[1].asHostObject(), a[2].asHostObject(), a[3].asString(), a[4].asDouble())));
         bindings.putMember("getMatching", fn(a -> TextUtil.getCjkMatching(a[0].asString(), a[1].asBoolean())));
         bindings.putMember("hasCjkPart", fn(a -> TextUtil.hasCjkPart(a[0].asString())));
         bindings.putMember("hasNonCjkPart", fn(a -> TextUtil.hasNonCjkPart(a[0].asString())));
@@ -274,5 +340,37 @@ public class ScriptManager {
         });
 
         return ProxyObject.fromMap(map);
+    }
+
+    //线程优化
+    public synchronized void requestRunFunction(ScriptHolderBase holder, String name, Object... params) {
+        if (isShutdown) {
+            return;
+        }
+        if (holder == null) {
+            return;
+        }
+        if (holder.hasFunction(name)) {
+            CompletableFuture.runAsync(() -> {
+                holder.runFunction(name, params);
+            }, ScriptManager.SCRIPT_EXECUTOR);
+        }
+    }
+
+    public synchronized Value requestRunFunctionWithResult(ScriptHolderBase holder, String name, Object... params) {
+        if (isShutdown) {
+            return null;
+        }
+        if (holder == null) {
+            return null;
+        }
+        if (holder.hasFunction(name)) {
+            AtomicReference<Value> v = new AtomicReference<>();
+            CompletableFuture.runAsync(() -> {
+                v.set(holder.runFunctionWithResult(name, params));
+            }, SCRIPT_EXECUTOR);
+            return v.get();
+        }
+        return null;
     }
 }

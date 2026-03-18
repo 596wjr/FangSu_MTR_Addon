@@ -31,5 +31,9 @@ public class ModBlockClient {
                 ModBlocks.BLOCK_ENTITY_PIDS.get(),
                 ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
         );
+        BlockEntityRendererRegistry.register(
+                ModBlocks.BLOCK_ENTITY_DIAOBAN.get(),
+                ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
+        );
     }
 }

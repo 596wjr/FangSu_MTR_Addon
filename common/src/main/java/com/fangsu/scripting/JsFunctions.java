@@ -122,4 +122,15 @@ public class JsFunctions {
     public static boolean isLightColor(Color c) {
         return ColorUtil.isLightColor(c);
     }
+
+    public static int jsDrawStrDl(Graphics2D g, Font cjkFont, Font nonCjkFont, String str, double x, double y, double h, int bd, int d) {
+        String drawStr = str == null ? "" : str;
+        int width = G2dTextHelper.getMultiLinesWidth(g, cjkFont, nonCjkFont, (float) h, drawStr.split("\\|"));
+        return G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, (int) x - (bd == 1 ? width / 2 : bd == 2 ? width : 0), (int) y, (int) h, d, drawStr.split("\\|"));
+    }
+
+    public static int jsGetDLStringWidth(Graphics2D g, Font cjkFont, Font nonCjkFont, String str, double h) {
+        String drawStr = str == null ? "" : str;
+        return G2dTextHelper.getMultiLinesWidth(g, cjkFont, nonCjkFont, (float) h, drawStr.split("\\|"));
+    }
 }

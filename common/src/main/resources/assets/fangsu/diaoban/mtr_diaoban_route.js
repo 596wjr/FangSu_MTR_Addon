@@ -4,8 +4,8 @@ function draw(g, state, drawInfo) {
     var w = drawInfo.texArea[2] - drawInfo.texArea[0];
     var h = drawInfo.texArea[3] - drawInfo.texArea[1];
 
-    var Serif = Resources.getSystemFont("Noto Serif");
-    var SansSerif = Resources.getSystemFont("SansSerif");
+    var Serif = loadResource("systemFont", "Noto Serif");
+    // var SansSerif = Resources.getSystemFont("SansSerif");
 
     g.setColor(Color.WHITE);
     g.fillRect(drawInfo.texArea[0], drawInfo.texArea[1], drawInfo.texArea[2], drawInfo.texArea[3]);
@@ -31,7 +31,7 @@ function draw(g, state, drawInfo) {
             var thisStn = routeInfo.drawStations[i];
 
             if (thisStn.transInfo.length > 0) {
-                g.setClip(new RoundRectangle2D.Double(currentX - h * 0.03, y + h * (nameOnTop ? 0.5 : 0.375), h * 0.06, h * 0.125, h * 0.04, h * 0.04));
+                g.setClip(new RoundRectangle2D_Double(currentX - h * 0.03, y + h * (nameOnTop ? 0.5 : 0.375), h * 0.06, h * 0.125, h * 0.04, h * 0.04));
                 var finalCjkName = "",
                     finalNonCjkName = "";
                 for (var j = 0; j < thisStn.transInfo.length; j++) {

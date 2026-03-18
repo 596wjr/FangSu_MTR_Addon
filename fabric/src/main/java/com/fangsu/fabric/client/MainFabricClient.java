@@ -36,6 +36,7 @@ public final class MainFabricClient implements ClientModInitializer {
         ClientHooks.OPEN_OBJ_SIGN_SCREEN = ClientHooksImpl::openSignConfigScreen;
         ClientHooks.OPEN_TICKET_MACHINE_SCREEN = ClientHooksImpl::openTicketMachineScreen;
         ClientHooks.OPEN_PLATFORM_SELECT_SCREEN = ClientHooksImpl::openPlatformSelectScreen;
+        ClientHooks.OPEN_ROUTE_SELECT_SCREEN = ClientHooksImpl::openRouteSelectScreen;
     }
 
     private void initResources(ResourceManager resourceManager) {
