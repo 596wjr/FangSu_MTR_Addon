@@ -16,8 +16,9 @@ import org.joml.Vector3fc;
 
 import java.util.*;
 
-
 public class MtrUtil {
+    private Map<Long, Route> requestIdToRoute = new HashMap<>();
+
     /**
      * 根据坐标与搜索范围获取最近的站台。
      */

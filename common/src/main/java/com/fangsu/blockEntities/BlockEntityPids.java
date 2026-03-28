@@ -34,8 +34,6 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_PIDS;
 
@@ -75,7 +73,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
         }
 
         try {
-            userExtraConfigs = Main.JSON_PARSER.parse(getExtraConfigOrDefault("extraConfig", "{}")).getAsJsonObject().asMap();
+            userExtraConfigs = Main.JSON_PARSER.parse(getExtraConfig("extraConfig", "{}")).getAsJsonObject().asMap();
         } catch (Throwable ignored) {
             userExtraConfigs = new HashMap<>();
         }
@@ -157,17 +155,12 @@ public class BlockEntityPids extends BaseObjBlockEntity {
                         "PIDS_" + scriptPath + "_" + plats,
                         texW, texH, false, false
                 ),
-                (g, detail) -> {
+                (g) -> {
                     ScriptHolderBase holder = scriptHolder;
                     if (holder == null) return;
                     ScriptManager.getInstance().requestRunFunction(holder, "draw", g, drawState,
-                            new DrawInfoPids((List<MtrUtil.PidsArrivalInfo>) detail.get("arrivalInfoList"), new int[]{0, 0, texW, texH}, scriptContext, this),
+                            new DrawInfoPids(getArrivalInfoList(), new int[]{0, 0, texW, texH}, scriptContext, this),
                             userExtraConfigs);
-                },
-                () -> {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("arrivalInfoList", getArrivalInfoList());
-                    return map;
                 }
         );
 

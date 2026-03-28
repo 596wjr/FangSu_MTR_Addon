@@ -1,10 +1,10 @@
 package com.fangsu.utils;
 
 import com.fangsu.Main;
-import com.fangsu.MainClient;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.loader.ObjModelLoader;
+import com.fangsu.scripting.GraphicsTexture;
 import com.google.gson.*;
 import com.google.gson.JsonElement;
 import net.minecraft.client.Minecraft;
@@ -16,6 +16,7 @@ import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
 import java.util.List;
@@ -103,7 +104,23 @@ public class ResourceUtil {
      * 从资源包加载字符串
      */
     public static String loadString(ResourceLocation location) throws IOException {
-        return String.join("\n", loadStringAsArray(location));
+        String GlobalRegisterKey = "Identifier" + location.toString() + "@String";
+        if (register.containsKey(GlobalRegisterKey)) {
+            return (String) register.get(GlobalRegisterKey);
+        }
+        Optional<Resource> res = resourceManager.getResource(location);
+        if (res.isPresent()) {
+            Resource resource = res.get();
+            try (InputStream is = resource.open();) {
+                byte[] bytes = is.readAllBytes();
+                String s = new String(bytes, StandardCharsets.UTF_8);
+                register.put(GlobalRegisterKey, s);
+                return s;
+            }
+        }
+        String s = "";
+        register.put(GlobalRegisterKey, s);
+        return s;
     }
 
     /**
@@ -264,6 +281,40 @@ public class ResourceUtil {
     }
 
     /**
+     * 创建纯色图像
+     */
+    public static GraphicsTexture createSolidColorGT(int width, int height, Color color) {
+        String GlobalRegisterKey = "SolidColorImage" + width + "x" + height + "_" + color.toString();
+        if (register.containsKey(GlobalRegisterKey)) {
+            return (GraphicsTexture) register.get(GlobalRegisterKey);
+        }
+        GraphicsTexture gt = new GraphicsTexture(width, height);
+        Graphics2D g2d = gt.graphics;
+        g2d.setColor(color);
+        g2d.fillRect(0, 0, width, height);
+        g2d.dispose();
+        register.put(GlobalRegisterKey, gt);
+        gt.upload();
+        return gt;
+    }
+
+    public static GraphicsTexture createSolidColorGT(int width, int height, int color) {
+        String GlobalRegisterKey = "SolidColorImage" + width + "x" + height + "_" + color;
+        if (register.containsKey(GlobalRegisterKey)) {
+            return (GraphicsTexture) register.get(GlobalRegisterKey);
+        }
+        Color c = new Color(color);
+        GraphicsTexture gt = new GraphicsTexture(width, height);
+        Graphics2D g2d = gt.graphics;
+        g2d.setColor(c);
+        g2d.fillRect(0, 0, width, height);
+        g2d.dispose();
+        register.put(GlobalRegisterKey, gt);
+        gt.upload();
+        return gt;
+    }
+
+    /**
      * 从所有资源包加载并合并JSON文件
      * 合并规则：第一层对象合并属性，第一层数组合并元素，更深层直接覆盖
      *
@@ -411,5 +462,6 @@ public class ResourceUtil {
 
     public static void init(ResourceManager mgr) {
         resourceManager = mgr;
+        register.clear();
     }
 }

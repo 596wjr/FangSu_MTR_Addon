@@ -84,7 +84,11 @@ public class GraphicsTextureHelper {
     private void tick() {
         for (GTInfo info : loadGts.values()) {
             try {
-                if (info.isStatic && info.available) continue;
+                if (info.isStatic && info.available &&
+                        info.gt.isValid()) {
+                    info.gt.upload();
+                    continue;
+                }
                 if (info.isClosed) continue;
 
                 if (info.waitUntilDraw) {
@@ -92,10 +96,9 @@ public class GraphicsTextureHelper {
                     continue;
                 }
 
-                Map<String, Object> detail = info.detailSupplier.get();
                 Graphics2D g = info.gt.graphics;
 
-                info.drawFunction.draw(g, detail);
+                info.drawFunction.draw(g);
                 info.gt.upload();
                 info.available = true;
 
@@ -112,8 +115,7 @@ public class GraphicsTextureHelper {
     public synchronized void addDrawGraphic(
             BlockPos block,
             DrawInfo drawInfo,
-            DrawFunction drawFunction,
-            DetailSupplier detailSupplier
+            DrawFunction drawFunction
     ) {
         String blockId = getBlockId(block);
         String drawInfoId = drawInfo.id;
@@ -132,7 +134,6 @@ public class GraphicsTextureHelper {
         info = new GTInfo();
         info.blocks.add(block);
         info.drawFunction = drawFunction;
-        info.detailSupplier = detailSupplier;
         info.gt = new GraphicsTexture(drawInfo.w, drawInfo.h);
         info.isStatic = drawInfo.isStatic;
         info.waitUntilDraw = drawInfo.waitUntilDraw;
@@ -161,7 +162,10 @@ public class GraphicsTextureHelper {
         if (drawInfoId == null) return null;
 
         GTInfo info = loadGts.get(drawInfoId);
-        if (info == null || !info.available) return null;
+        if (info == null || !info.available) {
+            Main.LOGGER.info("info = {} , is available {}", info, info.available);
+            return null;
+        }
 
         return info.gt;
     }
@@ -195,12 +199,18 @@ public class GraphicsTextureHelper {
         GraphicsTexture gt;
 
         DrawFunction drawFunction;
-        DetailSupplier detailSupplier;
 
         boolean available = false;
         boolean isClosed = false;
         boolean isStatic = false;
         boolean waitUntilDraw = false;
+
+        int expectedExceptionCount = 0;
+
+        @Override
+        public String toString() {
+            return "GTInfo [blocks=" + blocks + ", gt=" + gt + ", drawFunction=" + drawFunction + ", available=" + available + ", isClosed=" + isClosed + ", isStatic=" + isStatic + ", waitUntilDraw=" + waitUntilDraw + "]@" + hashCode();
+        }
     }
 
     public record DrawInfo(String id, int w, int h, boolean isStatic, boolean waitUntilDraw) {
@@ -208,11 +218,6 @@ public class GraphicsTextureHelper {
 
     @FunctionalInterface
     public interface DrawFunction {
-        void draw(Graphics2D g, Map<String, Object> detail);
-    }
-
-    @FunctionalInterface
-    public interface DetailSupplier {
-        Map<String, Object> get();
+        void draw(Graphics2D g);
     }
 }

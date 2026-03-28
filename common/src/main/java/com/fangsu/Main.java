@@ -1,6 +1,7 @@
 package com.fangsu;
 
 import com.fangsu.blocks.ModBlocks;
+import com.fangsu.events.ModEvents;
 import com.fangsu.items.ModItems;
 import com.fangsu.network.ModNetwork;
 import com.fangsu.ui.ModMenus;
@@ -34,5 +35,6 @@ public final class Main {
         RegisterUtil.register();
         ModMenus.init();
         ModNetwork.init();
+        ModEvents.init();
     }
 }

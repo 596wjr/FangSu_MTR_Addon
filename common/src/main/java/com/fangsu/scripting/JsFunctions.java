@@ -8,10 +8,13 @@ import net.minecraft.resources.ResourceLocation;
 import org.graalvm.polyglot.proxy.ProxyObject;
 
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class JsFunctions {
     public static Object loadResource(String type, String path) throws Exception {
@@ -70,10 +73,10 @@ public class JsFunctions {
     }
 
     public static String formatDate(boolean isCjk) {
-        Date date = new Date();
-        int year = date.getYear();
-        int month = date.getMonth() + 1;
-        int day = date.getDate();
+        Calendar cal = Calendar.getInstance();
+        int year = cal.get(Calendar.YEAR);
+        int month = cal.get(Calendar.MONTH) + 1;
+        int day = cal.get(Calendar.DAY_OF_MONTH);
 
         if (isCjk) {
             // 返回 "YYYY年MM月DD日" 格式
@@ -132,5 +135,134 @@ public class JsFunctions {
     public static int jsGetDLStringWidth(Graphics2D g, Font cjkFont, Font nonCjkFont, String str, double h) {
         String drawStr = str == null ? "" : str;
         return G2dTextHelper.getMultiLinesWidth(g, cjkFont, nonCjkFont, (float) h, drawStr.split("\\|"));
+    }
+
+    private static final Pattern CJK_PATTERN = Pattern.compile("^(\\d+|[\u4e00-\u9fa5]+)线$");
+    private static final Pattern LINE_PATTERN = Pattern.compile("^Line\\s+(\\d+|[A-Za-z]+)$");
+    private static final Pattern LINE_SUFFIX_PATTERN = Pattern.compile("([A-Za-z\\s]+)\\sLine");
+
+    public static String parseLineName(String lineStr) {
+        if (lineStr == null || lineStr.isEmpty()) {
+            return "|"; // 或者返回 null，根据业务需求
+        }
+
+        String cjkName = getCJKLineName(TextUtil.getCjkParts(lineStr));
+        String nonCjkName = getNonCJKLineName(TextUtil.getNonCjkParts(lineStr));
+
+        return (cjkName != null ? cjkName : "") + "|" + (nonCjkName != null ? nonCjkName : "");
+    }
+
+    public static String getCJKLineName(String lineStr) {
+        if (lineStr == null || lineStr.isEmpty()) {
+            return null;
+        }
+
+        Matcher matcher = CJK_PATTERN.matcher(lineStr);
+        if (matcher.matches()) {
+            return matcher.group(1);
+        }
+
+        // 处理"号线"后缀
+        if (lineStr.endsWith("号线")) {
+            String numberPart = lineStr.substring(0, lineStr.length() - 2);
+            if (numberPart.matches("\\d+")) {
+                return numberPart;
+            }
+        }
+
+        return null;
+    }
+
+    public static String getNonCJKLineName(String lineStr) {
+        if (lineStr == null || lineStr.isEmpty()) {
+            return null;
+        }
+
+        // 匹配 "Line X" 格式
+        Matcher matcher = LINE_PATTERN.matcher(lineStr);
+        if (matcher.matches()) {
+            return matcher.group(1);
+        }
+
+        // 匹配 "XXX Line" 格式
+        matcher = LINE_SUFFIX_PATTERN.matcher(lineStr);
+        if (matcher.matches()) {
+            return matcher.group(1).trim();
+        }
+
+        return lineStr;
+    }
+
+    public static boolean isNumLine(String lineStr) {
+        if (lineStr == null || lineStr.isEmpty()) {
+            return false;
+        }
+
+        String cjkPart = getCJKLineName(TextUtil.getCjkParts(lineStr));
+        String nonCjkPart = getNonCJKLineName(TextUtil.getNonCjkParts(lineStr));
+
+        if (cjkPart == null || nonCjkPart == null) {
+            return false;
+        }
+
+        return cjkPart.equals(nonCjkPart);
+    }
+
+    public static BufferedImage changeImageColor(Image originalImage, Color newColor) {
+        // 参数校验
+        if (originalImage == null || newColor == null) {
+            throw new IllegalArgumentException("原始图像和新颜色不能为 null");
+        }
+
+        // 获取图像尺寸
+        int width = originalImage.getWidth(null);
+        int height = originalImage.getHeight(null);
+
+        if (width <= 0 || height <= 0) {
+            throw new IllegalArgumentException("图像尺寸无效: " + width + "x" + height);
+        }
+
+        // 创建 BufferedImage（使用更高效的图像类型）
+        BufferedImage bufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+
+        // 绘制原始图像
+        Graphics2D g2d = bufferedImage.createGraphics();
+        try {
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2d.drawImage(originalImage, 0, 0, null);
+        } finally {
+            g2d.dispose();
+        }
+
+        // 提前获取颜色分量（使用位运算优化）
+        int newRed = newColor.getRed();
+        int newGreen = newColor.getGreen();
+        int newBlue = newColor.getBlue();
+        int newRGBWithoutAlpha = (newRed << 16) | (newGreen << 8) | newBlue;
+
+        return changeColorByPixel(bufferedImage, newRGBWithoutAlpha);
+    }
+
+    private static BufferedImage changeColorByPixel(BufferedImage image, int newRGBWithoutAlpha) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int rgb = image.getRGB(x, y);
+                int alpha = (rgb >> 24) & 0xFF;
+
+                // 跳过完全透明的像素
+                if (alpha == 0) {
+                    continue;
+                }
+
+                // 组合新颜色（保持原始 alpha）
+                int newRGB = (alpha << 24) | newRGBWithoutAlpha;
+                image.setRGB(x, y, newRGB);
+            }
+        }
+
+        return image;
     }
 }

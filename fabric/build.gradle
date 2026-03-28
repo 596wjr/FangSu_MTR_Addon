@@ -48,14 +48,24 @@ dependencies {
 //    if (rootProject.require_nte) {
 //        modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
 //    }
-    runtimeOnly("org.graalvm.sdk:graal-sdk:${rootProject.graaljsVersion}")
-    runtimeOnly("org.graalvm.truffle:truffle-api:${rootProject.graaljsVersion}")
-    runtimeOnly("org.graalvm.js:js-language:${rootProject.graaljsVersion}")
-    runtimeOnly("org.graalvm.js:js-scriptengine:${rootProject.graaljsVersion}")
-    shadowBundle("org.graalvm.sdk:graal-sdk:${rootProject.graaljsVersion}")
-    shadowBundle("org.graalvm.truffle:truffle-api:${rootProject.graaljsVersion}")
-    shadowBundle("org.graalvm.js:js-language:${rootProject.graaljsVersion}")
-    shadowBundle("org.graalvm.js:js-scriptengine:${rootProject.graaljsVersion}")
+//    runtimeOnly("org.graalvm.sdk:graal-sdk:${rootProject.graaljsVersion}")
+//    runtimeOnly("org.graalvm.truffle:truffle-api:${rootProject.graaljsVersion}")
+//    runtimeOnly("org.graalvm.js:js-language:${rootProject.graaljsVersion}")
+//    runtimeOnly("org.graalvm.js:js-scriptengine:${rootProject.graaljsVersion}")
+//    shadowBundle("org.graalvm.sdk:graal-sdk:${rootProject.graaljsVersion}")
+//    shadowBundle("org.graalvm.truffle:truffle-api:${rootProject.graaljsVersion}")
+//    shadowBundle("org.graalvm.js:js-language:${rootProject.graaljsVersion}")
+//    shadowBundle("org.graalvm.js:js-scriptengine:${rootProject.graaljsVersion}")
+
+    modImplementation "org.graalvm.sdk:graal-sdk:$rootProject.graaljsVersion"
+    modImplementation "org.graalvm.truffle:truffle-api:$rootProject.graaljsVersion"
+    modImplementation "org.graalvm.js:js-language:$rootProject.graaljsVersion"
+    modImplementation "org.graalvm.js:js-scriptengine:$rootProject.graaljsVersion"
+
+    include "org.graalvm.sdk:graal-sdk:$rootProject.graaljsVersion"
+    include "org.graalvm.truffle:truffle-api:$rootProject.graaljsVersion"
+    include "org.graalvm.js:js-language:$rootProject.graaljsVersion"
+    include "org.graalvm.js:js-scriptengine:$rootProject.graaljsVersion"
 }
 
 sourceSets {
@@ -85,8 +95,8 @@ shadowJar {
     mergeServiceFiles()
     zip64 true
 
-    relocate("org.graalvm", "com.fangsu.shadow.org.graalvm")
-    relocate("com.oracle.truffle", "com.fangsu.shadow.com.oracle.truffle")
+//    relocate("org.graalvm", "com.fangsu.shadow.org.graalvm")
+//    relocate("com.oracle.truffle", "com.fangsu.shadow.com.oracle.truffle")
 }
 
 remapJar {

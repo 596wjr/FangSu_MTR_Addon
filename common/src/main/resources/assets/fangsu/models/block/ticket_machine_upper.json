@@ -3,6 +3,7 @@
 	"credit": "Made with Blockbench",
 	"textures": {
 		"0": "fangsu:block/ticket_machine",
+		"1": "fangsu:block/ticket_machine_in_service",
 		"particle": "fangsu:block/ticket_machine"
 	},
 	"elements": [
@@ -102,11 +103,35 @@
 			}
 		},
 		{
-			"from": [1, 12.93431, 5.35757],
-			"to": [15, 16.93431, 5.35757],
+			"from": [1, 12.9, 5.35757],
+			"to": [15, 17, 5.35757],
 			"rotation": {"angle": 0, "axis": "y", "origin": [2, 12.86863, 5.21514]},
 			"faces": {
 				"north": {"uv": [0, 12, 14, 16], "texture": "#0"},
+				"east": {"uv": [2, 0, 2, 4], "texture": "#missing"},
+				"west": {"uv": [0, 0, 0, 4], "texture": "#missing"},
+				"up": {"uv": [0, 0, 14, 0], "texture": "#missing"},
+				"down": {"uv": [0, 2, 14, 2], "texture": "#missing"}
+			}
+		},
+		{
+			"from": [8, 13.9, 5.355],
+			"to": [13, 16, 5.355],
+			"rotation": {"angle": 0, "axis": "y", "origin": [2, 12.86863, 5.21514]},
+			"faces": {
+				"north": {"uv": [0, 0, 16, 3.875], "texture": "#1"},
+				"east": {"uv": [2, 0, 2, 4], "texture": "#missing"},
+				"west": {"uv": [0, 0, 0, 4], "texture": "#missing"},
+				"up": {"uv": [0, 0, 14, 0], "texture": "#missing"},
+				"down": {"uv": [0, 2, 14, 2], "texture": "#missing"}
+			}
+		},
+		{
+			"from": [3, 13.9, 5.355],
+			"to": [8, 16, 5.355],
+			"rotation": {"angle": 0, "axis": "y", "origin": [-3, 12.86863, 5.21514]},
+			"faces": {
+				"north": {"uv": [0, 4, 16, 7.875], "texture": "#1"},
 				"east": {"uv": [2, 0, 2, 4], "texture": "#missing"},
 				"west": {"uv": [0, 0, 0, 4], "texture": "#missing"},
 				"up": {"uv": [0, 0, 14, 0], "texture": "#missing"},

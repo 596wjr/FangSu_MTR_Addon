@@ -1,4 +1,5 @@
 function draw(g, state, drawInfo) {
+    setDebugInfo("Running")
     var x = drawInfo.texArea[0];
     var y = drawInfo.texArea[1];
     var w = drawInfo.texArea[2] - drawInfo.texArea[0];
@@ -17,7 +18,7 @@ function draw(g, state, drawInfo) {
         var currentX;
         switch (headAlign) {
             case 0:
-                // setDebugInfo(`drawing with align 0`);
+                setDebugInfo(`drawing with align 0`);
                 currentX = x + w * 0.5 - strWidth * 0.4 - h * 0.3;
                 g.setColor(routeInfo.routeColor);
                 g.fillOval(currentX, h * 0.3, h * 0.4, h * 0.4);

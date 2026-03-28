@@ -77,18 +77,12 @@ public class LocalRoute {
         NONE,
         CLOCKWISE,
         ANTICLOCKWISE;
-
-        private CircularState() {
-        }
     }
 
     public enum RouteType {
         NORMAL,
         LIGHT_RAIL,
         HIGH_SPEED;
-
-        private RouteType() {
-        }
     }
 
     public LocalRouteDetail asRouteDetail() {
@@ -114,10 +108,10 @@ public class LocalRoute {
                         }
                         stations.add(new LocalRouteDetail.StationDetails(stn.name, new ArrayList<>(trans)));
                     } else {
-                        stations.add(new LocalRouteDetail.StationDetails(stn.name, new ArrayList<>()));
+                        stations.add(new LocalRouteDetail.StationDetails(stn.name, null));
                     }
                 } else {
-                    stations.add(new LocalRouteDetail.StationDetails("未命名|Undefined", new ArrayList<>()));
+                    stations.add(new LocalRouteDetail.StationDetails("未命名|Undefined", null));
                 }
             }
         }

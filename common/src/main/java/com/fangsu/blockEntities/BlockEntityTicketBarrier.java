@@ -200,7 +200,14 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
 
         Vec3 hitPos = hit.getLocation().subtract(pos.getX(), pos.getY(), pos.getZ());
 
-        if (hitPos.z < 0.5)
+        Direction facing = level.getBlockState(pos)
+                .getValue(BaseObjBlock.FACING);
+
+        if ((facing == Direction.NORTH && hitPos.z > 0.5) ||
+                (facing == Direction.SOUTH && hitPos.z < 0.5) ||
+                (facing == Direction.WEST && hitPos.x > 0.5) ||
+                (facing == Direction.WEST && hitPos.x < 0.5)
+        )
             return TicketBarrierHandler.handle(
                     level,
                     pos,

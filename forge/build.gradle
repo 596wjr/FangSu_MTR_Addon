@@ -67,14 +67,14 @@ shadowJar {
     configurations = [project.configurations.shadowBundle]
     archiveClassifier = 'dev-shadow'
 
-    exclude 'com/oracle/truffle/**/*Test*'
-    exclude 'com/oracle/truffle/**/*Benchmark*'
+//    exclude 'com/oracle/truffle/**/*Test*'
+//    exclude 'com/oracle/truffle/**/*Benchmark*'
 
     mergeServiceFiles()
     zip64 true
 
-    relocate("org.graalvm", "com.fangsu.shadow.org.graalvm")
-    relocate("com.oracle.truffle", "com.fangsu.shadow.com.oracle.truffle")
+//    relocate("org.graalvm", "com.fangsu.shadow.org.graalvm")
+//    relocate("com.oracle.truffle", "com.fangsu.shadow.com.oracle.truffle")
 }
 
 remapJar {

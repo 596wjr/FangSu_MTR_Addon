@@ -52,14 +52,15 @@ public class ModBlocks {
     public static final RegistrySupplier<CreativeModeTab> FANGSU_MAIN = RegisterUtil.addCreativeTab(
             "main",
             Component.translatable("tab.fangsu.main").getString(),
-            ModItems.ITEM_WRENCH,
             ITEM_TICKET_BARRIER,
+            ModItems.ITEM_WRENCH,
             ITEM_TICKET_BARRIER,
             ITEM_SCREENDOOR,
             ITEM_SCREENDOOR_GLASS,
             ITEM_SIGN,
             ITEM_SIGN_ON_WALL,
             ITEM_PIDS,
+            ITEM_DIAOBAN,
             ITEM_TICKET_MACHINE,
             ITEM_COLLISION_COMPENSATOR
     );

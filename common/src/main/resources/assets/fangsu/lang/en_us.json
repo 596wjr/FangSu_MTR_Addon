@@ -55,6 +55,7 @@
   "block.fangsu.sign": "Sign",
   "block.fangsu.sign_on_wall": "Sign (On-Wall)",
   "block.fangsu.pids": "PIDS",
+  "block.fangsu.diaoban": "Hanging Panel",
   "ui.fangsu.sign.title": "Sign Configuration",
   "ui.fangsu.sign.editing": "Currently Editing",
   "ui.fangsu.sign.front": "Front",
@@ -85,6 +86,7 @@
   "msg.fangsu.ticket.exit": "Exit: %s | Fare: %s | Balance: %s",
   "msg.fangsu.ticket.exit1": "Exit: %s",
   "msg.fangsu.ticket.notEntered": "Not Entered Yet",
+  "item.fangsu.wrench": "Wrench",
   "item.fangsu.single_journey_ticket": "Single Journey Ticket",
   "item.fangsu.ic_card": "IC Card",
   "ui.fangsu.ticketbarrier.useCustomZone": "Use Custom Fare Zone",
@@ -107,5 +109,16 @@
   "ui.fangsu.ticketmachine.confirm4": "Destination Station: %s",
   "ui.fangsu.ticketmachine.confirm5": "Unit Price: %s",
   "ui.fangsu.ticketmachine.confirm6": "Quantity: %s",
-  "ui.fangsu.ticketmachine.confirm7": "Total Amount: %s $"
+  "ui.fangsu.ticketmachine.confirm7": "Total Amount: %s $",
+  "ui.fangsu.diaoban.arrowDirection": "Arrow Direction",
+  "ui.fangsu.diaoban.arrowNone": "No Arrow",
+  "ui.fangsu.diaoban.arrowLeft": "Left",
+  "ui.fangsu.diaoban.arrowRight": "Right",
+  "ui.fangsu.diaoban.withDoorlight": "With Door Light",
+  "msg.fangsu.join.prefix": "JS Feature ",
+  "msg.fangsu.join.warning": "Currently in a highly experimental state and may contain numerous bugs",
+  "msg.fangsu.join.feedback.prefix": "Please go to ",
+  "msg.fangsu.join.feedback.suffix": " to report issues",
+  "msg.fangsu.join.link": "Click here to report issues",
+  "msg.fangsu.join.link.hover": "Click to open feedback page"
 }

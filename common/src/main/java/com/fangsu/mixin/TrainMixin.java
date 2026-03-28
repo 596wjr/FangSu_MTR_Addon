@@ -49,10 +49,6 @@ public abstract class TrainMixin {
             Level world, Block block, BlockPos pos, int dwellTicks
     );
 
-    /* ==========================================================
-     *  核心注入：scanDoors
-     * ========================================================== */
-
     @Inject(
             method = "scanDoors",
             at = @At("HEAD"),
@@ -80,8 +76,6 @@ public abstract class TrainMixin {
         Set<BlockPos> OKPos = new HashSet<>();
         //#endif
 
-        boolean isClientSide = world.isClientSide();
-
         for (int x = 1; x <= 3; x++) {
             for (int y = -2; y <= 3; y++) {
                 for (double z = -halfSpacing; z <= halfSpacing; z++) {
@@ -101,11 +95,15 @@ public abstract class TrainMixin {
                     if (block instanceof IBlockPlatform) {
                         openDoors(world, block, pos, dwellTicks);
                         BlockEntity entity = world.getBlockEntity(pos);
-                        if (entity instanceof IPlatformDoor be) {
-                            be.setDoorTarget(doorTarget);
-                            be.setDoorValue(doorValue);
-                        }
                         hasPlatform = true;
+                        if (entity instanceof IPlatformDoor be) {
+                            if (be.isLocked())
+                                hasPlatform = false;
+                            else {
+                                be.setDoorTarget(doorTarget);
+                                be.setDoorValue(doorValue);
+                            }
+                        }
                     }
                 }
             }

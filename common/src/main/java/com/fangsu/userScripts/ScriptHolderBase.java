@@ -9,8 +9,10 @@ import org.graalvm.polyglot.Value;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 public abstract class ScriptHolderBase {
+    private static final long FUNCTION_TIMEOUT_MS = 5000;
 
     protected final Map<String, Value> functions = new ConcurrentHashMap<>();
     protected final Map<String, Long> failTime = new ConcurrentHashMap<>();
@@ -116,20 +118,20 @@ public abstract class ScriptHolderBase {
     /**
      * 执行 JS 函数并返回值
      */
-    protected Value runFunctionWithResult(String name, Object... params) {
-        if (!isValid || duringFailTimeout(name)) return null;
+    protected void runFunctionWithResult(String name, Consumer<Value> consumer, Object... params) {
+        if (!isValid || duringFailTimeout(name)) return;
 
         Value fn = functions.get(name);
         if (fn != null) {
             synchronized (executionLock) {
                 try {
-                    return fn.execute(params);
+                    Value v = fn.execute(params);
+                    consumer.accept(v);
                 } catch (Throwable e) {
                     recordFailure(name, e);
                 }
             }
         }
-        return null;
     }
 
     /**

@@ -9,6 +9,7 @@ import com.fangsu.render.sowcerext.reuse.DrawScheduler;
 import com.fangsu.render.sowcerext.reuse.ModelManager;
 import com.fangsu.drawing.sign.SignItemFactory;
 import com.fangsu.ui.ModMenus;
+import com.fangsu.userScripts.ScriptManager;
 import com.fangsu.utils.ResourceUtil;
 import net.minecraft.server.packs.resources.ResourceManager;
 
@@ -25,6 +26,7 @@ public class MainClient {
         ModBlocks.initClient();
         ModMenus.initClient();
         ShadersModHandler.init();
+        ScriptManager.getInstance().init();
 
         try {
             Class.forName("cn.zbx1425.mtrsteamloco.MainClient", false, MainClient.class.getClassLoader());

@@ -6,15 +6,14 @@ import com.fangsu.customItem.CustomItemLoader;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
-import com.fangsu.extraConfig.ConfigEntry;
-import com.fangsu.extraConfig.ConfigSpec;
-import com.fangsu.extraConfig.NumberInputConfig;
+import com.fangsu.extraConfig.*;
 import com.fangsu.mtr.LocalRoute;
 import com.fangsu.mtr.LocalRouteDetail;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcer.math.Matrices;
 import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
+import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.scripting.ModelHelper;
 import com.fangsu.ui.RouteSelectionScreen;
 import com.fangsu.userScripts.PidsScriptHolder;
@@ -36,12 +35,14 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
+import java.awt.*;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_DIAOBAN;
 
-public class BlockEntityDiaoban extends BaseObjBlockEntity {
+public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformDoor {
     private static final String DEFAULT_MAIN_MODEL = "fangsu:diaoban/mtr_diaoban.json";
     private static final String DEFAULT_SUB_MODEL = "mtr_diaoban_a";
     private static final String DEFAULT_DRAW_SCRIPT = "fangsu:diaoban/blank.js";
@@ -57,11 +58,18 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity {
     private volatile ScriptHolderBase scriptHolder;
     private Map<String, Map<String, Object>> loaded;
     private int texW, texH;
+    private boolean withDoorlight;
     private int doorLightType;
     private int length;
     private int arrowDirection;
     private int unit;
     private Map<String, Object> drawState = new HashMap<>();
+
+    private boolean doorTarget;
+    private float doorValue;
+
+    private boolean firstInit = false;
+    private boolean scriptInit = false;
 
     private List<RouteSelectionScreen.RouteSelectInfo> routes;
 
@@ -69,15 +77,11 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity {
 
     public BlockEntityDiaoban(BlockPos blockPos, BlockState blockState) {
         super(BLOCK_ENTITY_DIAOBAN.get(), blockPos, blockState);
-
     }
 
     @Override
     public void whenLoading() {
         ensureExtraConfig("extraConfig", "{}");
-        ensureExtraConfig("routes", "[]");
-        ensureExtraConfig("arrowDirection", "0");
-        ensureExtraConfig("length", "2");
 
         mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
         subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
@@ -85,14 +89,9 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity {
 
         length = getExtraConfigInt("length", 2);
         arrowDirection = getExtraConfigInt("arrowDirection", 0);
+        withDoorlight = getExtraConfigBool("withDoorlight", false);
 
-        List<JsonElement> rawRoutes = Main.JSON_PARSER.parse(getExtraConfig("routes")).getAsJsonArray().asList();
-        routes = new ArrayList<>();
-        for (JsonElement rawRoute : rawRoutes) {
-            if (!rawRoute.isJsonArray() || rawRoute.getAsJsonArray().size() != 2) continue;
-            JsonArray a = rawRoute.getAsJsonArray();
-            routes.add(new RouteSelectionScreen.RouteSelectInfo(MtrUtil.getRouteById(a.get(0).getAsLong()), MtrUtil.getPlatformById(a.get(1).getAsLong())));
-        }
+        reloadRoute();
 
         try {
             loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(mainModel), "content");
@@ -117,7 +116,8 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity {
                     String rawType = m.get("type").toString();
                     doorLightType = switch (rawType) {
                         case "common", "simple" -> 0;
-                        default -> throw new IllegalStateException("Unexpected value: " + rawType);
+                        case "blink" -> 1;
+                        default -> -1;
                     };
                 }
             }
@@ -168,7 +168,10 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity {
             if (current.containsKey("texSize") && current.get("texSize") instanceof Number n) texSize = n.intValue();
             texW = texSize * length + 1;
             texH = texSize;
-            initScriptDrawingAsync();
+
+
+            firstInit = true;
+            scriptInit = false;
 
         } catch (Exception e) {
             Main.LOGGER.warn("Failed to load diaoban: {}", e.getMessage());
@@ -177,37 +180,91 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity {
 
     @Override
     public void whenRendering() {
+        if (firstInit && !scriptInit) {
+            initScriptDrawingAsync();
+        }
+
         ObjBlockScriptContext ctx = this.scriptContext;
 
-        Matrices mat = new Matrices();
-        mat.translate((-0.5 * unit * (length - 1)) / 16 + 0.5, 0, 0);
-        mat.pushPose();
-        ctx.drawModel(dmhLeft, mat);
-        for (int i = 0; i < length / (unit / 8d); i++) {
-            if (i != 0) mat.translate(unit / 16d, 0, 0);
-            else mat.translate(unit / 32d, 0, 0);
-            ctx.drawModel(dmhCenter, mat);
+        if (!routes.isEmpty()) {
+            LocalRoute r1 = routes.get(0).route;
+            GraphicsTexture gt = ResourceUtil.createSolidColorGT(16, 16, new Color(r1.color));
+            if (gt.isValid()) {
+                if (dmhLeft.getUploadedModel() != null)
+                    dmhLeft.getUploadedModel().replaceTexture("routecolor.png", gt.identifier);
+                if (dmhCenter.getUploadedModel() != null)
+                    dmhCenter.getUploadedModel().replaceTexture("routecolor.png", gt.identifier);
+                if (dmhRight.getUploadedModel() != null)
+                    dmhRight.getUploadedModel().replaceTexture("routecolor.png", gt.identifier);
+            }
         }
-        mat.translate(unit / 32d, 0, 0);
-        ctx.drawModel(dmhRight, mat);
-        mat.popPose();
+
+        // 计算初始偏移量，与 JS 版本对齐：(-0.5 * unit * (length - 1)) / 16
+        double startX = (-0.5 * unit * (length - 1)) / 16.0;
+
+        // 绘制左模型
+        Matrices matLeft = new Matrices();
+        matLeft.translate(startX, 0, 0);
+        ctx.drawModel(dmhLeft, matLeft);
+
+        // 绘制右模型
+        Matrices matRight = new Matrices();
+        double rightX = startX + (unit * (length - 1)) / 16.0;
+        matRight.translate(rightX, 0, 0);
+        ctx.drawModel(dmhRight, matRight);
+
+        // 绘制中心模型
+        Matrices matCenter = new Matrices();
+        for (int i = 0; i < length - 2; i++) {
+            // 第一个中心模型位置 = startX + unit/16，之后每次递增 unit/16
+            double centerX = startX + (i + 1) * unit / 16.0;
+            matCenter.setIdentity();  // 重置矩阵
+            matCenter.translate(centerX, 0, 0);
+            ctx.drawModel(dmhCenter, matCenter);
+        }
 
         if (dmhDisp != null) {
             if (dmhDisp.getUploadedModel() != null && GraphicsTextureHelper.getInstance().hasDrawGraphic(getBlockPos())) {
                 dmhDisp.getUploadedModel().replaceAllTexture(GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos()).identifier);
             }
-            ctx.drawModel(dmhDisp, mat);
+            Matrices matDisp = new Matrices();
+            double dispX = 0;
+            //(-0.5 * unit * length) / 16.0;
+            matDisp.translate(dispX, 0, 0);
+            ctx.drawModel(dmhDisp, matDisp);
+        }
+
+        if (doorLightType >= 0 && withDoorlight) {
+            switch (doorLightType) {
+                case 0:
+                    if (doorValue > 0) ctx.drawModel(dmhDlOn, null);
+                    else ctx.drawModel(dmhDlOff, null);
+                    break;
+                case 1:
+                    if ((doorValue >= 0.2 && doorValue <= 0.4) || (doorValue >= 0.6 && doorValue <= 0.8) || doorValue >= 1)
+                        ctx.drawModel(dmhDlOn, null);
+                    else ctx.drawModel(dmhDlOff, null);
+                    break;
+            }
         }
     }
 
     @Override
     public void whenSaving(Map<String, String> extraConfigs) {
-
     }
 
     @Override
     public InteractionResult whenUseWithOther(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         return InteractionResult.PASS;
+    }
+
+    @Override
+    public InteractionResult whenUseWithBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        arrowDirection += 1;
+        if (arrowDirection >= 3) arrowDirection = 0;
+        extraConfigs.put("arrowDirection", String.valueOf(arrowDirection));
+        sendUpdateC2S();
+        return InteractionResult.SUCCESS;
     }
 
     @Override
@@ -300,6 +357,32 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity {
                 () -> length * 1f,
                 (v) -> {
                     length = v.intValue();
+                    extraConfigs.put("length", String.valueOf(v.intValue()));
+                    sendUpdateC2S();
+                }
+        ));
+        configs.add(new EnumConfig(
+                Component.translatable("ui.fangsu.diaoban.arrowDirection"),
+                new ConfigSpec("list"),
+                List.of(
+                        Component.translatable("ui.fangsu.diaoban.arrowNone"),
+                        Component.translatable("ui.fangsu.diaoban.arrowLeft"),
+                        Component.translatable("ui.fangsu.diaoban.arrowRight")
+                ),
+                () -> arrowDirection,
+                (v) -> {
+                    arrowDirection = v;
+                    extraConfigs.put("doorSide", v.toString());
+                    sendUpdateC2S();
+                }
+        ));
+        configs.add(new BoolConfig(
+                Component.translatable("ui.fangsu.diaoban.withDoorlight"),
+                new ConfigSpec("bool"),
+                () -> withDoorlight,
+                (v) -> {
+                    withDoorlight = v;
+                    extraConfigs.put("withDoorlight", v.toString());
                     sendUpdateC2S();
                 }
         ));
@@ -307,6 +390,8 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity {
     }
 
     private void initScriptDrawingAsync() {
+        reloadRoute();
+
         GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
         gtHelper.removeDrawGraphic(getBlockPos());
 
@@ -320,32 +405,27 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity {
                         "DIAOBAN_" + scriptPath + "_" + routes + "_" + arrowDirection,
                         texW, texH, true, false
                 ),
-                (g, detail) -> {
-                    if (routes.isEmpty()) return;
+                (g) -> {
                     ScriptHolderBase holder = scriptHolder;
                     if (holder == null) return;
-                    LocalRoute route;
+                    LocalRoute route = null;
                     Platform plat = null;
                     int index = 0;
                     if (!routes.isEmpty()) {
-//                        RouteSelectionScreen.RouteSelectInfo routeSelectInfo = (RouteSelectionScreen.RouteSelectInfo) detail.get("route");
                         RouteSelectionScreen.RouteSelectInfo routeSelectInfo = routes.get(0);
                         route = routeSelectInfo.route;
                         plat = routeSelectInfo.plat;
                         if (plat != null)
                             index = route.getPlatformIdIndex(routeSelectInfo.plat.id);
-                    } else route = new LocalRoute();
+                    }
+                    if (route == null) {
+                        route = new LocalRoute();
+                        Main.LOGGER.error("route not found");
+                    }
                     ScriptManager.getInstance().requestRunFunction(holder, "draw", g, drawState,
                             new DrawInfoDiaoban(
                                     route.asRouteDetail(), arrowDirection, plat, index, new int[]{0, 0, texW, texH}
                             ));
-                },
-                () -> {
-//                    Map<String, Object> map = new HashMap<>();
-//                    RouteSelectionScreen.RouteSelectInfo routeSelectInfo = routes.get(0);
-//                    map.put("route", routeSelectInfo);
-//                    return map;
-                    return null;
                 }
                 //TODO 支持多选
         );
@@ -360,6 +440,21 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity {
                 Main.LOGGER.error("Failed to load Diaoban script async {}", location, e);
             }
         }, ScriptManager.SCRIPT_EXECUTOR);
+
+        scriptInit = true;
+    }
+
+    private void reloadRoute() {
+        List<JsonElement> rawRoutes = Main.JSON_PARSER.parse(getExtraConfig("routes", "[]")).getAsJsonArray().asList();
+        Main.LOGGER.info("rawRoutes {}", rawRoutes);
+        routes = new ArrayList<>();
+        for (JsonElement rawRoute : rawRoutes) {
+            if (rawRoute.getAsJsonArray().size() < 2) continue;
+            JsonArray a = rawRoute.getAsJsonArray();
+            routes.add(new RouteSelectionScreen.RouteSelectInfo(MtrUtil.getRouteById(a.get(0).getAsLong()), MtrUtil.getPlatformById(a.get(1).getAsLong())));
+        }
+        Main.LOGGER.info("Loaded {} routes", routes.size());
+        Main.LOGGER.info(routes.toString());
     }
 
     public static final class DrawInfoDiaoban {
@@ -427,5 +522,30 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity {
 
     }
 
+    @Override
+    public boolean getDoorTarget() {
+        return doorTarget;
+    }
 
+    @Override
+    public void setDoorTarget(boolean target) {
+        this.doorTarget = target;
+
+    }
+
+    @Override
+    public float getDoorValue() {
+        return doorValue;
+    }
+
+    @Override
+    public void setDoorValue(float value) {
+        this.doorValue = value;
+    }
+
+    @Override
+    public void whenDisposing() {
+        GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
+        gtHelper.removeDrawGraphic(getBlockPos());
+    }
 }

@@ -135,7 +135,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         return extraConfigs.get(key);
     }
 
-    public String getExtraConfigOrDefault(String key, String defaultValue) {
+    public String getExtraConfig(String key, String defaultValue) {
         return extraConfigs.getOrDefault(key, defaultValue);
     }
 

@@ -22,10 +22,6 @@ public final class DrawingManager {
         return null;
     }
 
-    public void initDrawing(@NotNull String type, @NotNull String name) {
-
-    }
-
     public DrawingManager getInstance() {
         return instance;
     }

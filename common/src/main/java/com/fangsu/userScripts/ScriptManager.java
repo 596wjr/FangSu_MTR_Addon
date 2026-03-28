@@ -5,6 +5,7 @@ import com.fangsu.scripting.*;
 import com.fangsu.utils.ModuleAccessHelper;
 import net.minecraft.resources.ResourceLocation;
 import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.Engine;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
@@ -17,14 +18,16 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class ScriptManager {
+    private boolean initialized = false;
 
     private static final ScriptManager INSTANCE = new ScriptManager();
     private static final long FAIL_TIMEOUT_MS = 4000;
 
-    private final Context context;
+    private Context context;
     private final Map<ResourceLocation, ScriptHolderBase> holders;
     private boolean isShutdown = false;
 
@@ -34,10 +37,22 @@ public class ScriptManager {
         return t;
     });
 
-    private ScriptManager() {
+    public void init() {
+        if (initialized) throw new IllegalStateException("ScriptManager has already been initialized");
+
         ModuleAccessHelper.ensureModuleAccess();
 
+        createContext();
+
+        initialized = true;
+    }
+
+    private ScriptManager() {
         this.holders = new ConcurrentHashMap<>();
+    }
+
+    private void createContext() {
+        long beginTime = System.currentTimeMillis();
 
         HostAccess hostAccess = HostAccess.newBuilder()
                 .allowPublicAccess(true)
@@ -101,10 +116,15 @@ public class ScriptManager {
                 )
                 .build();
 
+
         this.context = Context.newBuilder("js")
-//                .allowExperimentalOptions(true)
-//                .option("js.nashorn-compat", "true")
+                .allowExperimentalOptions(true)
+//                .option("engine.WarnInterpreterOnly", "false")
+                .option("js.nashorn-compat", "true")
                 .option("js.ecmascript-version", "2020")
+                .option("log.file", "./logs/latest.log")
+//                .option("engine.timeout", "5000")
+//                .option("engine.ScriptTimeout", "5000")
                 .allowHostAccess(hostAccess)
                 .allowHostClassLookup(c -> true)
                 .allowCreateThread(true)
@@ -113,15 +133,7 @@ public class ScriptManager {
 
         initializeGlobalBindings();
 
-        try {
-            long start = System.currentTimeMillis();
-            // 使用最简单的表达式，不依赖任何绑定
-            Value result = context.eval("js", "1+1;");
-            long time = System.currentTimeMillis() - start;
-            Main.LOGGER.info("GraalVM initialized in {} ms", time);
-        } catch (Exception e) {
-            Main.LOGGER.warn("GraalVM pre-init failed (normal if first time)", e);
-        }
+        Main.LOGGER.info("Initialized ScriptManager in {} ms", System.currentTimeMillis() - beginTime);
     }
 
     private void initializeGlobalBindings() {
@@ -134,45 +146,19 @@ public class ScriptManager {
         bindings.putMember("RenderingHints", java.awt.RenderingHints.class);
         bindings.putMember("Rectangle", java.awt.Rectangle.class);
 
-        //geom包
-        bindings.putMember("Point2D", java.awt.geom.Point2D.class);
-        bindings.putMember("Point2D_Double", java.awt.geom.Point2D.Double.class);
-        bindings.putMember("Point2D_Float", java.awt.geom.Point2D.Float.class);
+        inject(java.awt.geom.Point2D.class, "Point2D");
+        inject(java.awt.geom.Rectangle2D.class, "Rectangle2D");
+        inject(java.awt.geom.Line2D.class, "Line2D");
+        inject(java.awt.geom.Ellipse2D.class, "Ellipse2D");
+        inject(java.awt.geom.Arc2D.class, "Arc2D");
+        inject(java.awt.geom.CubicCurve2D.class, "CubicCurve2D");
+        inject(java.awt.geom.QuadCurve2D.class, "QuadCurve2D");
+        inject(java.awt.geom.Path2D.class, "Path2D");
+        inject(java.awt.geom.RoundRectangle2D.class, "RoundRectangle2D");
 
-        bindings.putMember("Rectangle2D", java.awt.geom.Rectangle2D.class);
-        bindings.putMember("Rectangle2D_Double", java.awt.geom.Rectangle2D.Double.class);
-        bindings.putMember("Rectangle2D_Float", java.awt.geom.Rectangle2D.Float.class);
-
-        bindings.putMember("Ellipse2D", java.awt.geom.Ellipse2D.class);
-        bindings.putMember("Ellipse2D_Double", java.awt.geom.Ellipse2D.Double.class);
-        bindings.putMember("Ellipse2D_Float", java.awt.geom.Ellipse2D.Float.class);
-
-        bindings.putMember("Line2D", java.awt.geom.Line2D.class);
-        bindings.putMember("Line2D_Double", java.awt.geom.Line2D.Double.class);
-        bindings.putMember("Line2D_Float", java.awt.geom.Line2D.Float.class);
-
-        bindings.putMember("Arc2D", java.awt.geom.Arc2D.class);
-        bindings.putMember("Arc2D_Double", java.awt.geom.Arc2D.Double.class);
-        bindings.putMember("Arc2D_Float", java.awt.geom.Arc2D.Float.class);
-
-        bindings.putMember("CubicCurve2D", java.awt.geom.CubicCurve2D.class);
-        bindings.putMember("QuadCurve2D", java.awt.geom.QuadCurve2D.class);
-
-        bindings.putMember("Area", java.awt.geom.Area.class);
-        bindings.putMember("GeneralPath", java.awt.geom.GeneralPath.class);
-        bindings.putMember("Path2D", java.awt.geom.Path2D.class);
-        bindings.putMember("Path2D_Double", java.awt.geom.Path2D.Double.class);
-        bindings.putMember("Path2D_Float", java.awt.geom.Path2D.Float.class);
-
-        bindings.putMember("AffineTransform", java.awt.geom.AffineTransform.class);
-        bindings.putMember("NoninvertibleTransformException", java.awt.geom.NoninvertibleTransformException.class);
-
-        bindings.putMember("RoundRectangle2D", java.awt.geom.RoundRectangle2D.class);
-        bindings.putMember("RoundRectangle2D_Double", java.awt.geom.RoundRectangle2D.Double.class);
-        bindings.putMember("RoundRectangle2D_Float", java.awt.geom.RoundRectangle2D.Float.class);
-
-        bindings.putMember("FlatteningPathIterator", java.awt.geom.FlatteningPathIterator.class);
-        bindings.putMember("IllegalPathStateException", java.awt.geom.IllegalPathStateException.class);
+        inject(java.awt.Polygon.class, "Polygon");
+        inject(java.awt.Rectangle.class, "Rectangle");
+        inject(java.awt.Shape.class, "Shape");
 
         // 工具类绑定
         bindings.putMember("Timing", JsStaticBridge.fromStaticClass(TimingUtil.class));
@@ -210,6 +196,11 @@ public class ScriptManager {
         bindings.putMember("rgbaToColor", fn(a -> JsFunctions.rgbaToColor(a[0].asInt(), a[1].asInt(), a[2].asInt(), a[3].asInt())));
         bindings.putMember("intToColor", fn(a -> JsFunctions.intToColor(a[0].asInt())));
         bindings.putMember("isLightColor", fn(a -> JsFunctions.isLightColor((java.awt.Color) a[0].asHostObject())));
+        bindings.putMember("parseLineName", fn(a -> JsFunctions.parseLineName(a[0].asString())));
+        bindings.putMember("getCJKLineName", fn(a -> JsFunctions.getCJKLineName(a[0].asString())));
+        bindings.putMember("getNonCJKLineName", fn(a -> JsFunctions.getNonCJKLineName(a[0].asString())));
+        bindings.putMember("isNumLine", fn(a -> JsFunctions.isNumLine(a[0].asString())));
+        bindings.putMember("changeImageColor", fn(a -> JsFunctions.changeImageColor(a[0].asHostObject(), a[1].asHostObject())));
     }
 
     public static ScriptManager getInstance() {
@@ -220,6 +211,10 @@ public class ScriptManager {
      * 获取或初始化脚本持有者（线程安全）
      */
     public ScriptHolderBase getOrInitHolder(ResourceLocation pos, Supplier<? extends ScriptHolderBase> holderSupplier) {
+        if (!initialized) {
+            return null;
+        }
+
         if (isShutdown) {
             throw new IllegalStateException("ScriptManager has been shutdown");
         }
@@ -286,6 +281,20 @@ public class ScriptManager {
                 throw new RuntimeException(e);
             }
         };
+    }
+
+    protected void inject(Class<?> clazz, String method, String alias) {
+        if (alias == null) alias = method;
+        context.eval("js", "var " + alias + " = Java.type('" + clazz.getName() + "')." + method + ";");
+    }
+
+    protected void inject(Class<?> clazz, String alias) {
+        if (alias == null) alias = clazz.getSimpleName();
+        context.eval("js", "var " + alias + " = Java.type('" + clazz.getName() + "');");
+    }
+
+    protected void inject(String key, String value) {
+        context.eval("js", "var " + key + " = '" + value + "';");
     }
 
     public static long getFailTimeoutMs() {
@@ -357,20 +366,18 @@ public class ScriptManager {
         }
     }
 
-    public synchronized Value requestRunFunctionWithResult(ScriptHolderBase holder, String name, Object... params) {
+    public synchronized void requestRunFunctionWithResult(ScriptHolderBase holder, Consumer<Value> consumer, String name, Object... params) {
         if (isShutdown) {
-            return null;
+            return;
         }
         if (holder == null) {
-            return null;
+            return;
         }
         if (holder.hasFunction(name)) {
-            AtomicReference<Value> v = new AtomicReference<>();
             CompletableFuture.runAsync(() -> {
-                v.set(holder.runFunctionWithResult(name, params));
+                holder.runFunctionWithResult(name, consumer, params);
             }, SCRIPT_EXECUTOR);
-            return v.get();
         }
-        return null;
+        return;
     }
 }
