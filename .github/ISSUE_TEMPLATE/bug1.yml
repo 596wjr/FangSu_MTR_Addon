@@ -89,8 +89,8 @@ body:
       placeholder: |
         You can drag and drop images or log files here.
         可以直接拖拽截图或日志到这里。
-      validations:
-        required: true
+    validations:
+      required: true
 
   - type: dropdown
     id: os
