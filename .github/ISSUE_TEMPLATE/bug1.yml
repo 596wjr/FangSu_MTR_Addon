@@ -1,4 +1,4 @@
-name: Bug Report / Feature Report（这不是 Bug，这是特性）
+name: Bug Report / Feature Report
 description: |
   Report a bug or a "feature".
   提交 Bug，或者那个“这不是 Bug，这是特性”的东西。
@@ -30,8 +30,8 @@ body:
     attributes:
       label: Describe the Bug / Feature（描述 Bug / 特性）
       description: |
-        Clearly describe what happened, or what you think is a "feature".
-        清晰描述发生了什么，或者你认为这是个“特性”的地方。
+        Clearly describe what happened.
+        清晰描述发生了什么。
       placeholder: |
         What happened?
         发生了什么？
@@ -45,8 +45,6 @@ body:
       description: |
         Steps to reproduce the behavior.
         如果这是一个 Bug，请提供复现步骤。
-        If this is a "feature", explain how to trigger it.
-        如果这是“特性”，请说明它是如何出现的。
       placeholder: |
         1. Go to '...'
         2. Click on '...'
@@ -87,10 +85,12 @@ body:
       label: Screenshots / Logs（截图 / 日志）
       description: |
         Add screenshots or logs if applicable.
-        如果有帮助，请提供截图或日志文件。
+        请提供截图或日志文件。
       placeholder: |
         You can drag and drop images or log files here.
         可以直接拖拽截图或日志到这里。
+      validations:
+        required: true
 
   - type: dropdown
     id: os
@@ -142,6 +142,8 @@ body:
         Version of MTR you are using.
         你正在使用的 MTR 版本。
       placeholder: e.g. 3.2.2 hotfix 1
+    validations:
+      required: true
 
   - type: input
     id: nte_version
