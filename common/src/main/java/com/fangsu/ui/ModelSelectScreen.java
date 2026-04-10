@@ -45,7 +45,7 @@ public class ModelSelectScreen extends Screen {
     public ModelSelectScreen(
             Component title,
             BaseObjBlockEntity be,
-            List<ModelSelectInfo> options,
+            List<? extends ModelSelectInfo> options,
             Function<BaseObjBlockEntity, String> initialGetter,
             BiConsumer<BaseObjBlockEntity, String> setter
     ) {
@@ -60,7 +60,7 @@ public class ModelSelectScreen extends Screen {
     public ModelSelectScreen(
             Component title,
             BaseObjBlockEntity be,
-            List<ModelSelectInfo> options,
+            List<? extends ModelSelectInfo> options,
             Function<BaseObjBlockEntity, String> initialGetter,
             BiConsumer<BaseObjBlockEntity, String> setter,
             Screen parent
@@ -77,7 +77,7 @@ public class ModelSelectScreen extends Screen {
     public ModelSelectScreen(
             Component title,
             BaseObjBlockEntity be,
-            List<ModelSelectInfo> options,
+            List<? extends ModelSelectInfo> options,
             Function<BaseObjBlockEntity, String> initialGetter,
             BiConsumer<BaseObjBlockEntity, String> setter,
             Screen parent,
@@ -125,9 +125,9 @@ public class ModelSelectScreen extends Screen {
 
         confirmButton = addRenderableWidget(
                 Button.builder(Component.translatable("ui.fangsu.block.confirm"), btn -> {
-                    if (selected != null && be != null && setter != null) {
+                    if (selected != null && setter != null) {
                         setter.accept(be, selected.content());
-                        if (selected.defaultItem() != null) {
+                        if (be != null && selected.defaultItem() != null) {
                             for (Map.Entry<String, JsonElement> entry : selected.defaultItem().entrySet()) {
                                 String key = entry.getKey();
                                 String value = entry.getValue().getAsString();

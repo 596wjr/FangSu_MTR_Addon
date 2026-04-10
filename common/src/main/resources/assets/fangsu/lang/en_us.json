@@ -120,5 +120,9 @@
   "msg.fangsu.join.feedback.prefix": "Please go to ",
   "msg.fangsu.join.feedback.suffix": " to report issues",
   "msg.fangsu.join.link": "Click here to report issues",
-  "msg.fangsu.join.link.hover": "Click to open feedback page"
+  "msg.fangsu.join.link.hover": "Click to open feedback page",
+  "mtr.fangsu.lift.vanilla": "MTR Vanilla",
+  "mtr.fangsu.lift.vanilla.description": "Transparent elevator from MTR Vanilla",
+  "mtr.fangsu.lift.non_transparent": "Opaque",
+  "mtr.fangsu.lift.non_transparent.description": "Opaque elevator"
 }

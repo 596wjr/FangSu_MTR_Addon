@@ -4,13 +4,16 @@
   "compatibilityLevel": "JAVA_17",
   "minVersion": "0.8",
   "client": [
-    "LevelRendererMixin"
+    "LiftClientMixin",
+    "LevelRendererMixin",
+    "LiftCustomizationScreenMixin",
+    "RenderTrainsMixin"
   ],
   "mixins": [
+    "LiftMixin",
     "TrainMixin"
   ],
   "injectors": {
     "defaultRequire": 1
-  },
-  "refmap": "fangsu-common-refmap.json"
+  }
 }

@@ -92,10 +92,12 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
         }
     }
 
-    // ★ 抽出的 auto 重算逻辑（你原来的那一坨）
+    // ★ 抽出的 auto 重算逻辑
     private void recomputeAuto() {
-        boolean leftIsAuto = loadedLeft.get(subModelLeft).containsKey("auto");
-        boolean rightIsAuto = loadedRight.get(subModelRight).containsKey("auto");
+        Map<String, Object> a = loadedLeft.get(subModelLeft);
+        Map<String, Object> b = loadedRight.get(subModelRight);
+        boolean leftIsAuto = a != null && a.containsKey("auto");
+        boolean rightIsAuto = b != null && b.containsKey("auto");
 
         if (!leftIsAuto && !rightIsAuto) return;
 

@@ -25,6 +25,8 @@ public class ResourceUtil {
     private static final Map<String, Object> register = new HashMap<>();
     private static ResourceManager resourceManager;
 
+    public static final ResourceLocation ERROR_IMAGE = new ResourceLocation("fangsu:textures/gui/error.png");
+
     /**
      * 从文件加载字符串数组
      */
@@ -333,11 +335,11 @@ public class ResourceUtil {
         }
 
         if (!hasResources(location)) {
-            Main.LOGGER.info("No resources found for: {}", location);
+            Main.debug("No resources found for: {}", location);
             return null;
         }
 
-        Main.LOGGER.info("Found {} resources for: {}", resources.size(), location);
+        Main.debug("Found {} resources for: {}", resources.size(), location);
 
         Gson gson = new GsonBuilder().setLenient().create();
         JsonElement mergedResult = null;

@@ -120,5 +120,9 @@
   "msg.fangsu.join.feedback.prefix": "请前往 ",
   "msg.fangsu.join.feedback.suffix": " 反馈问题",
   "msg.fangsu.join.link": "点击这里反馈问题",
-  "msg.fangsu.join.link.hover": "点击打开反馈页面"
+  "msg.fangsu.join.link.hover": "点击打开反馈页面",
+  "mtr.fangsu.lift.vanilla": "MTR原版",
+  "mtr.fangsu.lift.vanilla.description": "MTR原版的透明电梯",
+  "mtr.fangsu.lift.non_transparent": "不透明",
+  "mtr.fangsu.lift.non_transparent.description": "不透明的电梯"
 }

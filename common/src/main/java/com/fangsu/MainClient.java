@@ -2,6 +2,7 @@ package com.fangsu;
 
 import com.fangsu.blocks.ModBlocks;
 import com.fangsu.customItem.CustomItems;
+import com.fangsu.customItem.CustomMtrLifts;
 import com.fangsu.render.ShadersModHandler;
 import com.fangsu.render.sowcer.util.DrawContext;
 import com.fangsu.render.sowcerext.reuse.AtlasManager;
@@ -11,6 +12,9 @@ import com.fangsu.drawing.sign.SignItemFactory;
 import com.fangsu.ui.ModMenus;
 import com.fangsu.userScripts.ScriptManager;
 import com.fangsu.utils.ResourceUtil;
+import com.google.gson.JsonObject;
+import com.oracle.truffle.regex.tregex.util.json.Json;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.packs.resources.ResourceManager;
 
 public class MainClient {
@@ -49,12 +53,29 @@ public class MainClient {
 
     public static void initResources(ResourceManager resourceManager) {
         ResourceUtil.init(resourceManager);
-        CustomItems.init();
+        CustomItems.getInstance().init();
         SignItemFactory.init();
         try {
             MainClient.drawScheduler.reloadShaders(resourceManager);
         } catch (Exception e) {
             Main.LOGGER.error("Failed to reload FangSu shaders", e);
+        }
+
+        CustomMtrLifts customMtrLifts = CustomMtrLifts.getInstance();
+        customMtrLifts.load();
+        {
+            JsonObject defaultLift = new JsonObject();
+            defaultLift.addProperty("id", "default");
+            defaultLift.addProperty("texture", "mtr:textures/entity/lift_1.png");
+            defaultLift.addProperty("name", Component.translatable("mtr.fangsu.lift.vanilla").getString());
+            defaultLift.addProperty("description", Component.translatable("mtr.fangsu.lift.vanilla.description").getString());
+            JsonObject nonTransparent = new JsonObject();
+            nonTransparent.addProperty("id", "non_transparent");
+            nonTransparent.addProperty("texture", "fangsu:textures/entity/non_transparent.png");
+            nonTransparent.addProperty("name", Component.translatable("fangsu:textures/entity/non_transparent.png").getString());
+            nonTransparent.addProperty("description", Component.translatable("mtr.fangsu.lift.non_transparent.description").getString());
+            customMtrLifts.injectBuiltInTexturedLifts(defaultLift);
+            customMtrLifts.injectBuiltInTexturedLifts(nonTransparent);
         }
     }
 }

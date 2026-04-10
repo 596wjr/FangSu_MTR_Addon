@@ -37,4 +37,16 @@ public final class Main {
         ModNetwork.init();
         ModEvents.init();
     }
+
+    public static void debug(String msg) {
+
+        LOGGER.info("[DEBUG] " + msg);
+
+    }
+
+    public static void debug(String msg, Object... args) {
+
+        LOGGER.info("[DEBUG] " + msg, args);
+
+    }
 }

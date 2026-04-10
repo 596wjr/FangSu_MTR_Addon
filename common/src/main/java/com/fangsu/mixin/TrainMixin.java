@@ -12,7 +12,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.gen.Accessor;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -27,7 +27,8 @@ public abstract class TrainMixin {
      *  反射加载你的平台 Block 接口
      * ========================================================== */
 
-    private static Class<?> IBlockPlatformClass = IBlockPlatform.class;
+    @Unique
+    private static final Class<?> fangsu$IBlockPlatformClass = IBlockPlatform.class;
 
     /* ==========================================================
      *  Shadow：Train 原生字段 / 方法
@@ -88,7 +89,7 @@ public abstract class TrainMixin {
 
                     Block block = world.getBlockState(pos).getBlock();
 
-                    if (block instanceof BlockPlatform || block instanceof BlockPSDAPGBase || IBlockPlatformClass.isInstance(block)) {
+                    if (block instanceof BlockPlatform || block instanceof BlockPSDAPGBase || fangsu$IBlockPlatformClass.isInstance(block)) {
                         openDoors(world, block, pos, dwellTicks);
                         hasPlatform = true;
                     }

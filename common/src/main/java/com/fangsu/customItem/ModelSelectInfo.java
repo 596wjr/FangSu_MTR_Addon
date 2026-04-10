@@ -2,8 +2,23 @@ package com.fangsu.customItem;
 
 import com.google.gson.JsonObject;
 import net.minecraft.network.chat.Component;
+import org.jetbrains.annotations.Nullable;
 
-public record ModelSelectInfo(String text, String content, String contentText, JsonObject defaultItem) {
+import java.util.Objects;
+
+public class ModelSelectInfo {
+    private final String text;
+    private final String content;
+    private final String contentText;
+    private final JsonObject defaultItem;
+
+    public ModelSelectInfo(@Nullable String text, @Nullable String content, @Nullable String contentText, @Nullable JsonObject defaultItem) {
+        this.text = text == null ? "[MISSING TEXT]" : text;
+        this.content = content == null ? "Unknown" : content;
+        this.contentText = contentText == null ? Component.translatable("ui.fangsu.block.no_detail").getString() : contentText;
+        this.defaultItem = defaultItem;
+    }
+
     public ModelSelectInfo(String text, String content) {
         this(text, content, Component.translatable("ui.fangsu.block.no_detail").getString(), null);
     }
@@ -26,4 +41,26 @@ public record ModelSelectInfo(String text, String content, String contentText, J
     public String toString() {
         return "ModelSelectInfo {\"text\":" + text + ", \"content\":" + contentText + ", \"contentText\":" + contentText + "}";
     }
+
+    public String text() {
+        return text;
+    }
+
+    public String content() {
+        return content;
+    }
+
+    public String contentText() {
+        return contentText;
+    }
+
+    public JsonObject defaultItem() {
+        return defaultItem;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(text, content, contentText, defaultItem);
+    }
+
 }

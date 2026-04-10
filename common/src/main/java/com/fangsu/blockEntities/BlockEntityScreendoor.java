@@ -51,12 +51,12 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
      * 2 = flex
      */
     public int doorSide = 0;
-    private int dispDoorSide = 0;
+    protected int dispDoorSide = 0;
 
     public boolean isAutoDoorSide = true;
 
     // ★ 延迟自动计算
-    private boolean pendingAutoDoorSide = false;
+    protected boolean pendingAutoDoorSide = false;
 
     private Map<String, Map<String, Object>> loaded;
     private List<DoorRenderInfo> infos;
@@ -89,7 +89,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
     }
 
     // ★ 自动门方向重算（可重复调用）
-    private void recomputeAutoDoorSide() {
+    protected void recomputeAutoDoorSide() {
         pendingAutoDoorSide = false;
 
         if (!isAutoDoorSide) {
