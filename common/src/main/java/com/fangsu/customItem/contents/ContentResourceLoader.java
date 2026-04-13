@@ -16,6 +16,11 @@ public final class ContentResourceLoader {
     private ContentResourceLoader() {
     }
 
+    public static void reset() {
+        CACHE.clear();
+        ROOT_CACHE.clear();
+    }
+
     public static JsonObject loadRoot(ResourceLocation location) {
         return ROOT_CACHE.computeIfAbsent(location.toString(), k -> {
             JsonElement element = ResourceUtil.loadAsJSON(location);

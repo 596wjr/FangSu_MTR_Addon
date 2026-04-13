@@ -3,7 +3,6 @@ package com.fangsu.blockEntities;
 import com.fangsu.Main;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.client.ClientHooks;
-import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
 import com.fangsu.customItem.contents.PidsContent;
@@ -78,7 +77,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
         }
 
         try {
-            PidsContent.PidsDisplayInfo displayInfo = PidsContent.loadDisplayInfo(mainModel, subModel);
+            PidsContent.PidsDisplayInfo displayInfo = ContentInfoUtil.getPidsDisplayInfo(mainModel, subModel);
             if (displayInfo == null) {
                 markedError = true;
                 return;
@@ -326,13 +325,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
     @Override
     public List<SubModelDispInfo> getSubModelInfos() {
         List<SubModelDispInfo> infos = new ArrayList<>();
-        List<ModelSelectInfo> thisInfo = new ArrayList<>();
-        thisInfo.addAll(PidsContent.loadModelSelectInfos(this.mainModel));
-        infos.add(new SubModelDispInfo(
-                Component.translatable("ui.fangsu.block.subModelSelect"),
-                thisInfo,
-                (be) -> this.subModels.getOrDefault("subModel", DEFAULT_SUB_MODEL),
-                (be, v) -> this.subModels.put("subModel", v)));
+        infos.add(createSubModelSelectInfo("content", DEFAULT_SUB_MODEL));
         infos.add(new SubModelMethodInfo(
                 Component.translatable("ui.fangsu.common.selectPlat"),
                 () -> {
@@ -349,16 +342,6 @@ public class BlockEntityPids extends BaseObjBlockEntity {
                 }
         ));
         return infos;
-    }
-
-    private static Vec3 transformOffset(Direction facing, Vec3 trans) {
-        return switch (facing) {
-            case NORTH -> new Vec3(trans.x, trans.y, -trans.z);
-            case SOUTH -> new Vec3(-trans.x, trans.y, trans.z);
-            case WEST -> new Vec3(trans.z, trans.y, -trans.x);
-            case EAST -> new Vec3(-trans.z, trans.y, trans.x);
-            default -> trans;
-        };
     }
 
     private List<MtrUtil.PidsArrivalInfo> getArrivalInfoList() {

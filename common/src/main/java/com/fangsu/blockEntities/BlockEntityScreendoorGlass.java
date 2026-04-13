@@ -351,13 +351,4 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
         }
     }
 
-    private static Vec3 transformOffset(Direction facing, Vec3 trans) {
-        return switch (facing) {
-            case NORTH -> new Vec3(trans.x, trans.y, -trans.z);
-            case SOUTH -> new Vec3(-trans.x, trans.y, trans.z);
-            case WEST -> new Vec3(trans.z, trans.y, -trans.x);
-            case EAST -> new Vec3(-trans.z, trans.y, trans.x);
-            default -> trans;
-        };
-    }
 }

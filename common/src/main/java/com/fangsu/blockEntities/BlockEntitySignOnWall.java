@@ -2,7 +2,6 @@ package com.fangsu.blockEntities;
 
 import com.fangsu.Main;
 import com.fangsu.client.ClientHooks;
-import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
 import com.fangsu.customItem.contents.SignOnWallContent;
@@ -19,6 +18,7 @@ import com.fangsu.drawing.sign.SignDrawContext;
 import com.fangsu.drawing.sign.SignItem;
 import com.fangsu.drawing.sign.SignItemFactory;
 import com.fangsu.utils.CollisionBoxUtil;
+import com.fangsu.utils.ContentInfoUtil;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.*;
@@ -81,7 +81,7 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
         subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
 
         try {
-            SignOnWallContent.SignOnWallDisplayInfo displayInfo = SignOnWallContent.loadDisplayInfo(mainModel, subModel);
+            SignOnWallContent.SignOnWallDisplayInfo displayInfo = ContentInfoUtil.getSignOnWallDisplayInfo(mainModel, subModel);
             if (displayInfo == null) {
                 markedError = true;
                 return;
@@ -227,13 +227,7 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
     @Override
     public List<SubModelDispInfo> getSubModelInfos() {
         List<SubModelDispInfo> infos = new ArrayList<>();
-        List<ModelSelectInfo> thisInfo = new ArrayList<>();
-        thisInfo.addAll(SignOnWallContent.loadModelSelectInfos(this.mainModel));
-        infos.add(new SubModelDispInfo(
-                Component.translatable("ui.fangsu.block.subModelSelect"),
-                thisInfo,
-                (be) -> this.subModels.getOrDefault("subModel", DEFAULT_SUB_MODEL),
-                (be, v) -> this.subModels.put("subModel", v)));
+        infos.add(createSubModelSelectInfo("on_wall", DEFAULT_SUB_MODEL));
         infos.add(new SubModelMethodInfo(Component.translatable("ui.fangsu.sign.editSign"), () -> {
             if (items == null) items = new HashMap<>();
             ClientHooks.openSignConfigScreen(1, List.of(items), saveItems -> {

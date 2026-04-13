@@ -1,23 +1,10 @@
 package com.fangsu.customItem.contents;
 
-import com.fangsu.customItem.ModelSelectInfo;
-import net.minecraft.resources.ResourceLocation;
-
 import java.util.List;
 import java.util.Map;
 
 public final class SignOnWallContent {
     private SignOnWallContent() {
-    }
-
-    public static SignOnWallDisplayInfo loadDisplayInfo(String mainModel, String subModel) {
-        Map<String, Map<String, Object>> loaded = ContentResourceLoader.loadMapByPath(new ResourceLocation(mainModel), "on_wall");
-        if (loaded == null || !loaded.containsKey(subModel)) return null;
-        return SignOnWallDisplayInfo.fromMap(loaded.get(subModel));
-    }
-
-    public static List<ModelSelectInfo> loadModelSelectInfos(String mainModel) {
-        return ContentResourceLoader.loadModelSelectInfos(new ResourceLocation(mainModel), "on_wall");
     }
 
     public record SignOnWallDisplayInfo(

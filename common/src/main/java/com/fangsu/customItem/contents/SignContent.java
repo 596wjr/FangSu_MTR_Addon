@@ -1,23 +1,10 @@
 package com.fangsu.customItem.contents;
 
-import com.fangsu.customItem.ModelSelectInfo;
-import net.minecraft.resources.ResourceLocation;
-
 import java.util.List;
 import java.util.Map;
 
 public final class SignContent {
     private SignContent() {
-    }
-
-    public static SignDisplayInfo loadDisplayInfo(String mainModel, String subModel) {
-        Map<String, Map<String, Object>> loaded = ContentResourceLoader.loadMapByPath(new ResourceLocation(mainModel), "common");
-        if (loaded == null || !loaded.containsKey(subModel)) return null;
-        return SignDisplayInfo.fromMap(loaded.get(subModel));
-    }
-
-    public static List<ModelSelectInfo> loadModelSelectInfos(String mainModel) {
-        return ContentResourceLoader.loadModelSelectInfos(new ResourceLocation(mainModel), "common");
     }
 
     public record SignDisplayInfo(

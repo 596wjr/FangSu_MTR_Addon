@@ -93,7 +93,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
         reloadRoute();
 
         try {
-            DiaobanContent.DiaobanDisplayInfo displayInfo = DiaobanContent.loadDisplayInfo(mainModel, subModel);
+            DiaobanContent.DiaobanDisplayInfo displayInfo = ContentInfoUtil.getDiaobanDisplayInfo(mainModel, subModel);
             if (displayInfo == null) {
                 markedError = true;
                 return;
@@ -270,9 +270,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     @Override
     public List<SubModelDispInfo> getSubModelInfos() {
         List<SubModelDispInfo> infos = new ArrayList<>();
-        List<ModelSelectInfo> thisInfo = new ArrayList<>();
         List<ModelSelectInfo> drawFuncs = new ArrayList<>();
-        thisInfo.addAll(DiaobanContent.loadModelSelectInfos(this.mainModel));
         try {
             JsonObject loaded = ResourceUtil.loadAsJSON(new ResourceLocation("fangsu:diaoban/diaoban_scripts.json")).getAsJsonObject();
             if (loaded.has("content")) {
@@ -292,11 +290,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
             }
         } catch (Exception ignored) {
         }
-        infos.add(new SubModelDispInfo(
-                Component.translatable("ui.fangsu.block.subModelSelect"),
-                thisInfo,
-                (be) -> this.subModels.getOrDefault("subModel", DEFAULT_SUB_MODEL),
-                (be, v) -> this.subModels.put("subModel", v)));
+        infos.add(createSubModelSelectInfo("content", DEFAULT_SUB_MODEL));
         infos.add(new SubModelDispInfo(
                 Component.translatable("ui.fangsu.diaoban.selectDrawFunction"),
                 drawFuncs,

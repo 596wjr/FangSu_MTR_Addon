@@ -3,10 +3,10 @@ package com.fangsu.blockEntities;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcer.math.Matrices;
 
-import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.contents.TicketBarrierContent;
 import com.fangsu.Main;
+import com.fangsu.utils.ContentInfoUtil;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.ResourceUtil;
 import com.fangsu.blocks.BaseObjBlock;
@@ -80,7 +80,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         String subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
 
         try {
-            TicketBarrierContent.TicketBarrierDisplayInfo displayInfo = TicketBarrierContent.loadDisplayInfo(mainModel, subModel);
+            TicketBarrierContent.TicketBarrierDisplayInfo displayInfo = ContentInfoUtil.getTicketBarrierDisplayInfo(mainModel, subModel);
             if (displayInfo == null) {
                 markedError = true;
                 return;
@@ -294,11 +294,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     @Override
     public List<SubModelDispInfo> getSubModelInfos() {
         List<SubModelDispInfo> infos = new ArrayList<>();
-        List<ModelSelectInfo> thisInfo = new ArrayList<>();
-        thisInfo.addAll(TicketBarrierContent.loadModelSelectInfos(this.mainModel));
-        infos.add(new SubModelDispInfo(Component.translatable("ui.fangsu.block.subModelSelect"), thisInfo,
-                (be) -> this.subModels.getOrDefault("subModel", DEFAULT_SUB_MODEL),
-                (be, v) -> this.subModels.put("subModel", v)));
+        infos.add(createSubModelSelectInfo("", DEFAULT_SUB_MODEL));
         return infos;
     }
 
@@ -370,16 +366,6 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         VoxelShape closeShape = CollisionBoxUtil.cachedRotatedShape(posLong, closeCollision, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
         closeShape = closeShape.move(trans.x, trans.y, trans.z);
         return Shapes.or(openShape, closeShape);
-    }
-
-    private static Vec3 transformOffset(Direction facing, Vec3 trans) {
-        return switch (facing) {
-            case NORTH -> new Vec3(trans.x, trans.y, -trans.z);
-            case SOUTH -> new Vec3(-trans.x, trans.y, trans.z);
-            case WEST -> new Vec3(trans.z, trans.y, -trans.x);
-            case EAST -> new Vec3(-trans.z, trans.y, trans.x);
-            default -> trans;
-        };
     }
 
     private static AABB parseBox(List<?> rawList) {

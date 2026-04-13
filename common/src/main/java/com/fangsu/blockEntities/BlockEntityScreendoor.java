@@ -9,6 +9,7 @@ import com.fangsu.extraConfig.*;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcer.math.Matrices;
 import com.fangsu.utils.CollisionBoxUtil;
+import com.fangsu.utils.ContentInfoUtil;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.FacingBlockUtil;
 import com.fangsu.utils.ResourceUtil;
@@ -164,7 +165,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
                             dispDoorSide == 1 ? CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL_RIGHT) :
                                     CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL_FLEX);
 
-            ScreendoorDoorContent.ScreendoorDoorDisplayInfo displayInfo = ScreendoorDoorContent.loadDisplayInfo(mainModel, subModel, dispDoorSide);
+            ScreendoorDoorContent.ScreendoorDoorDisplayInfo displayInfo = ContentInfoUtil.getScreendoorDisplayInfo(mainModel, subModel, dispDoorSide);
             if (displayInfo == null) return;
 
             JsonObject mainJson = ResourceUtil.loadAsJSON(new ResourceLocation(mainModel)).getAsJsonObject();
@@ -232,7 +233,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
     public List<SubModelDispInfo> getSubModelInfos() {
         List<SubModelDispInfo> infos = new ArrayList<>();
         List<ModelSelectInfo> thisInfo = new ArrayList<>();
-        thisInfo.addAll(ScreendoorDoorContent.loadModelSelectInfos(this.mainModel, dispDoorSide));
+        thisInfo.addAll(getModelSelectOptions(ContentInfoUtil.getScreendoorContentPath(dispDoorSide)));
         infos.add(new SubModelDispInfo(Component.translatable("ui.fangsu.block.subModelSelect"), thisInfo,
                 (be) -> this.subModels.getOrDefault("subModel",
                         dispDoorValue == 0 ? DEFAULT_SUB_MODEL_LEFT :
@@ -298,13 +299,4 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
         }
     }
 
-    private static Vec3 transformOffset(Direction facing, Vec3 trans) {
-        return switch (facing) {
-            case NORTH -> new Vec3(trans.x, trans.y, -trans.z);
-            case SOUTH -> new Vec3(-trans.x, trans.y, trans.z);
-            case WEST -> new Vec3(trans.z, trans.y, -trans.x);
-            case EAST -> new Vec3(-trans.z, trans.y, trans.x);
-            default -> trans;
-        };
-    }
 }
