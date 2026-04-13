@@ -6,6 +6,7 @@ import com.fangsu.customItem.CustomItemLoader;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
+import com.fangsu.customItem.contents.DiaobanContent;
 import com.fangsu.extraConfig.*;
 import com.fangsu.mtr.LocalRoute;
 import com.fangsu.mtr.LocalRouteDetail;
@@ -100,20 +101,26 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
                 return;
             }
             Map<String, Object> current = loaded.get(subModel);
-            boolean flipV = current.containsKey("flipV") && (boolean) current.get("flipV");
-            String modelKey = (String) current.get("model");
+            DiaobanContent.DiaobanDisplayInfo displayInfo = DiaobanContent.DiaobanDisplayInfo.fromMap(current);
+            if (displayInfo == null) {
+                markedError = true;
+                return;
+            }
+            boolean flipV = displayInfo.isFlipV();
+            String modelKey = displayInfo.getModel();
             Map<String, DynamicModelHolder> models = ResourceUtil.loadPartedDmh(new ResourceLocation(modelKey), flipV);
             String modelKeyLeft = "l", modelKeyCenter = "center", modelKeyRight = "r", modelKeyDlOn = "", modelKeyDlOff = "";
-            if (current.containsKey("subModel") && current.get("subModel") instanceof Map<?, ?> m) {
-                if (m.containsKey("left") && m.get("left") != null) modelKeyLeft = m.get("left").toString();
-                if (m.containsKey("center") && m.get("center") != null) modelKeyCenter = m.get("center").toString();
-                if (m.containsKey("right") && m.get("right") != null) modelKeyRight = m.get("right").toString();
-            }
-            if (current.containsKey("doorlight") && current.get("doorlight") instanceof Map<?, ?> m) {
-                if (m.containsKey("on") && m.get("on") != null) modelKeyDlOn = m.get("on").toString();
-                if (m.containsKey("off") && m.get("off") != null) modelKeyDlOff = m.get("off").toString();
-                if (m.containsKey("type") && m.get("type") != null) {
-                    String rawType = m.get("type").toString();
+            Map<String, String> subModelMap = displayInfo.getSubModel();
+            if (subModelMap.containsKey("left")) modelKeyLeft = subModelMap.get("left");
+            if (subModelMap.containsKey("center")) modelKeyCenter = subModelMap.get("center");
+            if (subModelMap.containsKey("right")) modelKeyRight = subModelMap.get("right");
+
+            Map<String, Object> doorlightMap = displayInfo.getDoorlight();
+            if (!doorlightMap.isEmpty()) {
+                if (doorlightMap.get("on") != null) modelKeyDlOn = doorlightMap.get("on").toString();
+                if (doorlightMap.get("off") != null) modelKeyDlOff = doorlightMap.get("off").toString();
+                if (doorlightMap.get("type") != null) {
+                    String rawType = doorlightMap.get("type").toString();
                     doorLightType = switch (rawType) {
                         case "common", "simple" -> 0;
                         case "blink" -> 1;
@@ -127,14 +134,12 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
             if (!"".equals(modelKeyDlOn)) dmhDlOn = models.get(modelKeyDlOn);
             if (!"".equals(modelKeyDlOff)) dmhDlOff = models.get(modelKeyDlOff);
 
-            double leftSpace = 0, rightSpace = 0;
+            double leftSpace = displayInfo.getLeftSpace(), rightSpace = displayInfo.getRightSpace();
             double y1 = 0.75, z1 = 0.25, y2 = 0.25, z2 = 0.25;
-            unit = 8;
-            if (current.containsKey("left_space") && current.get("left_space") instanceof Number)
-                leftSpace = ((Number) current.get("left_space")).doubleValue();
-            if (current.containsKey("right_space") && current.get("right_space") instanceof Number)
-                rightSpace = ((Number) current.get("right_space")).doubleValue();
-            if (current.containsKey("tex") && current.get("tex") instanceof List<?> l) {
+            unit = displayInfo.getUnit();
+            List<List<Double>> tex = displayInfo.getTex();
+            if (!tex.isEmpty()) {
+                List<?> l = tex;
                 if (l.size() == 2) {
                     if (l.get(0) instanceof List<?> l1) {
                         if (l1.size() == 2) {
@@ -150,7 +155,6 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
                     }
                 }
             }
-            if (current.containsKey("unit") && current.get("unit") instanceof Number n) unit = n.intValue();
             RawMeshBuilder rawMeshBuilder = new RawMeshBuilder(4, "exterior", new ResourceLocation("fangsu:pids/black.png"));
             List<List<Double>> points = List.of(
                     List.of((-0.5 * unit * length) / 16d + leftSpace, y2, z2),
@@ -164,8 +168,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
             dispRawModel.generateNormals();
             dmhDisp.uploadLater(dispRawModel);
 
-            int texSize = 64;
-            if (current.containsKey("texSize") && current.get("texSize") instanceof Number n) texSize = n.intValue();
+            int texSize = displayInfo.getTexSize();
             texW = texSize * length + 1;
             texH = texSize;
 
