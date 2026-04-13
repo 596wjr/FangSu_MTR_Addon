@@ -6,6 +6,7 @@ import com.fangsu.render.sowcer.math.Matrices;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.CustomItemLoader;
+import com.fangsu.customItem.contents.TicketBarrierContent;
 import com.fangsu.Main;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.ResourceUtil;
@@ -55,7 +56,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
 
     private Map<String, Map<String, Object>> loaded;
     private DynamicModelHolder mainDmh;
-    private DoorsInfo subInfo;
+    private TicketBarrierDoorRenderInfo subInfo;
     private CollisionBoxUtil.CollisionBox shape, collisionShape, doorCloseShape, doorCloseCollisionShape;
     private AABB ticketBox, cardBox;
 
@@ -91,7 +92,10 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
             if (current.get("doors") instanceof ArrayList<?> doors) {
                 for (Object door : doors) {
                     if (door instanceof Map<?, ?> d) {
-                        subInfo = new DoorsInfo(d);
+                        TicketBarrierContent.TicketBarrierDoorInfo doorInfo = TicketBarrierContent.TicketBarrierDoorInfo.fromMap(d);
+                        if (doorInfo != null) {
+                            subInfo = new TicketBarrierDoorRenderInfo(doorInfo);
+                        }
                     }
                 }
             }
@@ -171,7 +175,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
 //        animationDone = false;
 
         if (subInfo != null) {
-            for (DoorsInfo.Door door : subInfo.doors) {
+            for (TicketBarrierDoorRenderInfo.Door door : subInfo.doors) {
                 Matrices mat = new Matrices();
                 mat.translate(door.pos[0], door.pos[1], door.pos[2]);
                 if (subInfo.doorType == 1) {
@@ -347,74 +351,31 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         return Math.min(Math.max(num, min), max);
     }
 
-    private static class DoorsInfo {
+    private static class TicketBarrierDoorRenderInfo {
         int doorType = 1;
         List<Door> doors = new ArrayList<>();
 
-        private DoorsInfo(Map<?, ?> baseMap) throws Exception {
-            // doorType
-            Object dtObj = baseMap.get("doorType");
-            if (dtObj instanceof Number num) {
-                this.doorType = num.intValue();
+        private TicketBarrierDoorRenderInfo(TicketBarrierContent.TicketBarrierDoorInfo doorInfo) throws Exception {
+            this.doorType = doorInfo.getDoorType();
+            if (!doorInfo.isUsePartedModel()) {
+                return;
             }
-
-            boolean usePartedModel = Boolean.TRUE.equals(baseMap.get("use_parted_model"));
-
-            if (usePartedModel) {
-                Object modelObj = baseMap.get("model");
-                if (!(modelObj instanceof String modelPath)) {
-                    throw new IllegalArgumentException("model must be a String");
+            Map<String, DynamicModelHolder> dmhs = ResourceUtil.loadPartedDmh(new ResourceLocation(doorInfo.getModel()), doorInfo.isFlipV());
+            for (TicketBarrierContent.TicketBarrierDoorInfo.DoorInfo door : doorInfo.getDoors()) {
+                List<Double> posList = door.getPos();
+                if (posList.size() < 3) {
+                    continue;
                 }
-
-                boolean flipV = Boolean.TRUE.equals(baseMap.get("flipV"));
-                Map<String, DynamicModelHolder> dmhs = ResourceUtil.loadPartedDmh(new ResourceLocation(modelPath), flipV);
-
-                Object posObj = baseMap.get("pos");
-                if (posObj instanceof List<?> mapPos) {
-                    for (Object posEntry : mapPos) {
-                        if (!(posEntry instanceof Map<?, ?> thisMap)) continue;
-
-                        // subModel
-                        Object subModelObj = thisMap.get("subModel");
-                        if (!(subModelObj instanceof String subModel)) continue;
-
-                        // pos 数组
-                        Object posListObj = thisMap.get("pos");
-                        Double[] posArray = null;
-                        if (posListObj instanceof List<?> posList) {
-                            posArray = posList.stream()
-                                    .map(o -> {
-                                        if (o instanceof Number n) return n.doubleValue();
-                                        else return 0.0; // 默认值，避免空指针
-                                    })
-                                    .toArray(Double[]::new);
-                        }
-
-                        // side
-                        Object sideObj = thisMap.get("side");
-                        Integer side = null;
-                        if (sideObj instanceof Number n) {
-                            side = n.intValue();
-                        }
-
-                        // step
-                        Object stepObj = thisMap.get("step");
-                        Double step = null;
-                        if (stepObj instanceof Double n) {
-                            step = n;
-                            Main.LOGGER.info("step:" + step);
-                        }
-
-                        // 只有 subModel 和 posArray 非空才添加
-                        if (subModel != null && posArray != null && side != null) {
-                            doors.add(new Door(dmhs.get(subModel), posArray, side, step));
-                        }
-                    }
+                DynamicModelHolder dmh = dmhs.get(door.getSubModel());
+                if (dmh == null) {
+                    continue;
                 }
+                Double[] posArray = posList.toArray(Double[]::new);
+                doors.add(new Door(dmh, posArray, door.getSide(), door.getStep()));
             }
         }
 
-        private record Door(DynamicModelHolder dmh, Double[] pos, Integer side, Double step) {
+        private record Door(DynamicModelHolder dmh, Double[] pos, int side, double step) {
         }
     }
 

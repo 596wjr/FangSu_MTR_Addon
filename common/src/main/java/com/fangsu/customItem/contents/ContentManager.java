@@ -28,6 +28,8 @@ public class ContentManager {
         loaders = new HashMap<>();
 
         registerContent("ticketBarrier", TicketBarrierContent.TicketBarrierLoader::load);
+        registerContent("diaoban", DiaobanContent.DiaobanLoader::load);
+        registerContent("pids", PidsContent.PidsLoader::load);
     }
 
     public void reset() {

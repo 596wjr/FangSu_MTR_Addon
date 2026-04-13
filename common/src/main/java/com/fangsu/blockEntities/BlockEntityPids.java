@@ -7,6 +7,7 @@ import com.fangsu.customItem.CustomItemLoader;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
+import com.fangsu.customItem.contents.PidsContent;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
@@ -85,40 +86,30 @@ public class BlockEntityPids extends BaseObjBlockEntity {
                 return;
             }
             Map<String, Object> current = loaded.get(subModel);
-            if (current.containsKey("texSize") && current.get("texSize") instanceof List<?> l) {
-                if (l.size() > 0) texW = ((Number) l.get(0)).intValue();
-                else texW = 128;
-                if (l.size() > 1) texH = ((Number) l.get(1)).intValue();
-                else texH = 128;
-            } else {
-                texW = 128;
-                texH = 128;
+            PidsContent.PidsDisplayInfo displayInfo = PidsContent.PidsDisplayInfo.fromMap(current);
+            if (displayInfo == null) {
+                markedError = true;
+                return;
             }
+            List<Integer> texSize = displayInfo.getTexSize();
+            texW = texSize.size() > 0 ? texSize.get(0) : 128;
+            texH = texSize.size() > 1 ? texSize.get(1) : 128;
             Main.LOGGER.info("texW={}, texH={}", texW, texH);
-            if (current.containsKey("script")) {
+            if (!displayInfo.getScript().isEmpty()) {
                 initScriptDrawingAsync(current);
             }
-            boolean flipV = current.containsKey("flipV") && (boolean) current.get("flipV");
-            String model = (String) current.get("model");
+            boolean flipV = displayInfo.isFlipV();
+            String model = displayInfo.getModel();
             dmhMain = ResourceUtil.loadDmh(new ResourceLocation(model), flipV);
-            if (current.containsKey("slots") && current.get("slots") instanceof List<?> slotsList) {
+            if (!displayInfo.getSlots().isEmpty()) {
                 RawMeshBuilder builder = new RawMeshBuilder(4, "light", new ResourceLocation("fangsu:pids/black.png"));
-                for (Object slot : slotsList) {
-                    if (!(slot instanceof List<?> currentSlot)) continue;
+                for (List<List<Double>> currentSlot : displayInfo.getSlots()) {
                     List<List<Double>> finalList = new ArrayList<>();
-                    for (Object o : currentSlot) {
-                        if (!(o instanceof List<?> a)) continue;
-                        List<Double> temp = new ArrayList<>();
-                        for (Object o2 : a) {
-                            if (!(o2 instanceof Number)) continue;
-                            temp.add(((Number) o2).doubleValue());
-                        }
-                        if (temp.size() == 3) {
-                            finalList.add(temp);
-                        }
+                    for (List<Double> point : currentSlot) {
+                        if (point.size() == 3) finalList.add(point);
                     }
                     if (finalList.size() != 4) {
-                        Main.LOGGER.warn("Invalid slot quad data: {}", slot);
+                        Main.LOGGER.warn("Invalid slot quad data: {}", currentSlot);
                         continue;
                     }
                     ModelHelper.addQuad(builder, finalList, false);
