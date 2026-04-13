@@ -1,24 +1,27 @@
 package com.fangsu.utils;
 
 import com.fangsu.Main;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.minecraft.world.level.block.Block;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 public class ShapeSerializer {
     private static final Map<String, VoxelShape> shapeMap = new HashMap<>();
 
     public static boolean isValid(String shape, int yRot) {
         if (shape == null || shape.isEmpty()) return false;
-        if (shapeMap.containsKey(shape)) return true;
+        String key = shape + "_" + yRot;
+        if (shapeMap.containsKey(key)) return true;
         try {
             VoxelShape v = parseShape(shape, yRot);
-            shapeMap.put(shape + "_" + yRot, v);
+            shapeMap.put(key, v);
             return true;
         } catch (Exception e) {
             Main.LOGGER.error("Error parsing shape: {}", shape, e);
@@ -35,6 +38,76 @@ public class ShapeSerializer {
             VoxelShape v = parseShape(shape, yRot);
             shapeMap.put(key, v);
             return v;
+        }
+    }
+
+    public static VoxelShape getShape(Object rawShape, int yRot) {
+        if (rawShape == null) return Shapes.empty();
+        if (rawShape instanceof String s) {
+            try {
+                return getShape(s, yRot);
+            } catch (Exception e) {
+                Main.LOGGER.warn("Invalid shape string: {}", s, e);
+                return Shapes.empty();
+            }
+        }
+        String serialized = serialize(rawShape);
+        if (serialized.isEmpty()) return Shapes.empty();
+        try {
+            return getShape(serialized, yRot);
+        } catch (Exception e) {
+            Main.LOGGER.warn("Invalid serialized shape: {}", serialized, e);
+            return Shapes.empty();
+        }
+    }
+
+    public static String serialize(Object rawShape) {
+        List<double[]> boxes = new ArrayList<>();
+        flattenBoxes(rawShape, boxes);
+        if (boxes.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < boxes.size(); i++) {
+            if (i > 0) sb.append("/");
+            double[] b = boxes.get(i);
+            for (int j = 0; j < 6; j++) {
+                if (j > 0) sb.append(",");
+                sb.append(trimTrailingZero(b[j]));
+            }
+        }
+        return sb.toString();
+    }
+
+    private static String trimTrailingZero(double value) {
+        String text = Double.toString(value);
+        if (!text.contains(".")) return text;
+        int end = text.length();
+        while (end > 0 && text.charAt(end - 1) == '0') end--;
+        if (end > 0 && text.charAt(end - 1) == '.') end--;
+        return text.substring(0, end);
+    }
+
+    private static void flattenBoxes(Object raw, List<double[]> out) {
+        if (raw == null) return;
+        if (raw instanceof Map<?, ?> map) {
+            LinkedHashMap<String, Object> ordered = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> e : map.entrySet()) {
+                ordered.put(Objects.toString(e.getKey(), ""), e.getValue());
+            }
+            ordered.keySet().stream().sorted().forEach(key -> flattenBoxes(ordered.get(key), out));
+            return;
+        }
+        if (raw instanceof List<?> list) {
+            if (list.size() == 6 && list.stream().allMatch(v -> v instanceof Number)) {
+                double[] box = new double[6];
+                for (int i = 0; i < 6; i++) {
+                    box[i] = ((Number) list.get(i)).doubleValue();
+                }
+                out.add(box);
+                return;
+            }
+            for (Object item : list) {
+                flattenBoxes(item, out);
+            }
         }
     }
 
