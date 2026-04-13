@@ -1,11 +1,9 @@
 package com.fangsu.customItem.contents;
 
 import com.fangsu.Main;
-import com.fangsu.customItem.ModelSelectInfo;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,33 +25,6 @@ public class PidsContent extends BaseContent {
 
     public boolean isFlipV() {
         return flipV;
-    }
-
-    public static PidsDisplayInfo loadDisplayInfo(String mainModel, String subModel) throws Exception {
-        Map<String, Map<String, Object>> loaded = ContentResourceLoader.loadMapByPath(new ResourceLocation(mainModel), "content");
-        if (loaded == null || !loaded.containsKey(subModel)) {
-            return null;
-        }
-        return PidsDisplayInfo.fromMap(loaded.get(subModel));
-    }
-
-    public static List<ModelSelectInfo> loadModelSelectInfos(String mainModel) {
-        List<ModelSelectInfo> infos = new ArrayList<>();
-        try {
-            Map<String, Map<String, Object>> loaded = ContentResourceLoader.loadMapByPath(new ResourceLocation(mainModel), "content");
-            if (loaded == null) {
-                return infos;
-            }
-            for (Map<String, Object> item : loaded.values()) {
-                String text = item.get("text") instanceof String s ? s : "";
-                String content = item.get("id") instanceof String s ? s : "";
-                String contentText = item.get("contentText") instanceof String s ? s : null;
-                if (contentText != null) infos.add(new ModelSelectInfo(text, content, contentText));
-                else infos.add(new ModelSelectInfo(text, content));
-            }
-        } catch (Exception ignored) {
-        }
-        return infos;
     }
 
     public static class PidsDisplayInfo {

@@ -2,6 +2,7 @@ package com.fangsu.blockEntities;
 
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.client.ClientHooks;
+import com.fangsu.customItem.CustomItems;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.extraConfig.ConfigEntry;
@@ -39,6 +40,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -401,6 +403,34 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
 
     public List<SubModelDispInfo> getSubModelInfos() {
         return null;
+    }
+
+    protected SubModelDispInfo createSubModelSelectInfo(String nestedKeyPath, String defaultSubModel) {
+        return createSubModelSelectInfo(nestedKeyPath, "subModel", defaultSubModel);
+    }
+
+    protected SubModelDispInfo createSubModelSelectInfo(String nestedKeyPath, String subModelKey, String defaultSubModel) {
+        List<ModelSelectInfo> options = getModelSelectOptions(nestedKeyPath);
+        return new SubModelDispInfo(
+                Component.translatable("ui.fangsu.block.subModelSelect"),
+                options,
+                be -> this.subModels.getOrDefault(subModelKey, defaultSubModel),
+                (be, v) -> this.subModels.put(subModelKey, v)
+        );
+    }
+
+    protected List<ModelSelectInfo> getModelSelectOptions(String nestedKeyPath) {
+        return new ArrayList<>(CustomItems.getModelSelectInfos(this.mainModel, nestedKeyPath));
+    }
+
+    protected static Vec3 transformOffset(Direction facing, Vec3 trans) {
+        return switch (facing) {
+            case NORTH -> new Vec3(trans.x, trans.y, -trans.z);
+            case SOUTH -> new Vec3(-trans.x, trans.y, trans.z);
+            case WEST -> new Vec3(trans.z, trans.y, -trans.x);
+            case EAST -> new Vec3(-trans.z, trans.y, trans.x);
+            default -> trans;
+        };
     }
 
     protected void markShapeDirty() {

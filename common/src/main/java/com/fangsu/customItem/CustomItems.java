@@ -3,6 +3,8 @@ package com.fangsu.customItem;
 import com.fangsu.Main;
 import com.fangsu.customItem.contents.BaseContent;
 import com.fangsu.customItem.contents.ContentManager;
+import com.fangsu.customItem.contents.ContentResourceLoader;
+import com.fangsu.utils.ContentInfoUtil;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -31,6 +33,7 @@ public class CustomItems {
 
     public void reset() {
         items.clear();
+        ContentResourceLoader.reset();
         ContentManager cm = ContentManager.getInstance();
         cm.reset();
     }
@@ -55,6 +58,7 @@ public class CustomItems {
             long contentBegin = System.currentTimeMillis();
             List<ModelSelectInfo> thisItemInfo = getModelSelectInfos(value);
             items.put(key, thisItemInfo);
+            ContentInfoUtil.preloadByType(key, thisItemInfo);
             Main.LOGGER.debug("Loaded content {} in {} ms", key, System.currentTimeMillis() - contentBegin);
         }
         Main.LOGGER.info("Loaded {} items in {} ms", items.size(), System.currentTimeMillis() - begin);
@@ -77,6 +81,16 @@ public class CustomItems {
         }
         return thisItemInfo;
     }
+
+    public static Map<String, Object> getContentInfo(String mainModel, String nestedKeyPath, String subModel) {
+        Map<String, Map<String, Object>> loaded = ContentResourceLoader.loadMapByPath(new ResourceLocation(mainModel), nestedKeyPath);
+        if (loaded == null || !loaded.containsKey(subModel)) {
+            return null;
+        }
+        return loaded.get(subModel);
+    }
+
+    public static List<ModelSelectInfo> getModelSelectInfos(String mainModel, String nestedKeyPath) {
+        return ContentResourceLoader.loadModelSelectInfos(new ResourceLocation(mainModel), nestedKeyPath);
+    }
 }
-
-
