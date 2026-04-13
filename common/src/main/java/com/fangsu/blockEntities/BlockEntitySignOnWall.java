@@ -2,10 +2,10 @@ package com.fangsu.blockEntities;
 
 import com.fangsu.Main;
 import com.fangsu.client.ClientHooks;
-import com.fangsu.customItem.CustomItemLoader;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
+import com.fangsu.customItem.contents.SignOnWallContent;
 import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.extraConfig.ConfigSpec;
 import com.fangsu.extraConfig.NumberInputConfig;
@@ -47,7 +47,6 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
     private static final String MAIN_MODEL_KEY = "sign";
     protected String subModel;
 
-    private Map<String, Map<String, Object>> loaded;
 
     private DynamicModelHolder dmhLeft, dmhCenter, dmhRight, dmhDispFront;
     private GraphicsTexture gtFront;
@@ -82,23 +81,20 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
         subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
 
         try {
-            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(mainModel), "on_wall");
-            if (loaded == null || !loaded.containsKey(subModel)) {
+            SignOnWallContent.SignOnWallDisplayInfo displayInfo = SignOnWallContent.loadDisplayInfo(mainModel, subModel);
+            if (displayInfo == null) {
                 markedError = true;
                 return;
             }
-            Map<String, Object> current = loaded.get(subModel);
-            boolean flipV = current.containsKey("flipV") && (boolean) current.get("flipV");
-            String model = (String) current.get("model");
-            Map<String, DynamicModelHolder> models = ResourceUtil.loadPartedDmh(new ResourceLocation(model), flipV);
-            if (current.containsKey("unit") && current.get("unit") instanceof Number v) unit = v.intValue();
-            if (current.get("main") instanceof Map<?, ?> main) {
+            Map<String, DynamicModelHolder> models = ResourceUtil.loadPartedDmh(new ResourceLocation(displayInfo.model()), displayInfo.flipV());
+            unit = displayInfo.unit();
+            if (displayInfo.main() instanceof Map<?, ?> main) {
                 String modelKey = (String) main.get("subModel");
                 dmhCenter = models.get(modelKey);
                 if (main.containsKey("shape") && main.get("shape") instanceof List<?> l)
                     shapeCenter = new CollisionBoxUtil.CollisionBox(l);
             }
-            if (current.get("side") instanceof Map<?, ?> side) {
+            if (displayInfo.side() instanceof Map<?, ?> side) {
                 if (side.get("left") instanceof Map<?, ?> left) {
                     String modelKey = (String) left.get("subModel");
                     dmhLeft = models.get(modelKey);
@@ -117,7 +113,7 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
 
             RawMeshBuilder rawModelBuilderFront = new RawMeshBuilder(4, "lighttranslucent", new ResourceLocation("fangsu:sign/def_face1.png"));
             RawModel dispRawModelFront = new RawModel();
-            List<?> texZone = (List<?>) current.get("tex");
+            List<?> texZone = displayInfo.tex();
             double y1 = (double) ((List<?>) texZone.get(0)).get(0),
                     z1 = (double) ((List<?>) texZone.get(0)).get(1);
             double y2 = (double) ((List<?>) texZone.get(1)).get(0),
@@ -230,21 +226,7 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
     public List<SubModelDispInfo> getSubModelInfos() {
         List<SubModelDispInfo> infos = new ArrayList<>();
         List<ModelSelectInfo> thisInfo = new ArrayList<>();
-        try {
-            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(this.mainModel), "on_wall");
-            for (String key : loaded.keySet()) {
-                Map<String, Object> item = loaded.get(key);
-                String text = "";
-                String content = "";
-                String contentText = null;
-                if (item.containsKey("text") && item.get("text") instanceof String s) text = s;
-                if (item.containsKey("id") && item.get("id") instanceof String s) content = s;
-                if (item.containsKey("contentText") && item.get("contentText") instanceof String s) contentText = s;
-                if (contentText != null) thisInfo.add(new ModelSelectInfo(text, content, contentText));
-                else thisInfo.add(new ModelSelectInfo(text, content));
-            }
-        } catch (Exception ignored) {
-        }
+        thisInfo.addAll(SignOnWallContent.loadModelSelectInfos(this.mainModel));
         infos.add(new SubModelDispInfo(
                 Component.translatable("ui.fangsu.block.subModelSelect"),
                 thisInfo,

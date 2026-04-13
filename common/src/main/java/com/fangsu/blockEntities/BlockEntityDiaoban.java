@@ -2,7 +2,6 @@ package com.fangsu.blockEntities;
 
 import com.fangsu.Main;
 import com.fangsu.client.ClientHooks;
-import com.fangsu.customItem.CustomItemLoader;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
@@ -57,7 +56,6 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     private Map<String, JsonElement> userExtraConfigs;
 
     private volatile ScriptHolderBase scriptHolder;
-    private Map<String, Map<String, Object>> loaded;
     private int texW, texH;
     private boolean withDoorlight;
     private int doorLightType;
@@ -95,13 +93,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
         reloadRoute();
 
         try {
-            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(mainModel), "content");
-            if (loaded == null || !loaded.containsKey(subModel)) {
-                markedError = true;
-                return;
-            }
-            Map<String, Object> current = loaded.get(subModel);
-            DiaobanContent.DiaobanDisplayInfo displayInfo = DiaobanContent.DiaobanDisplayInfo.fromMap(current);
+            DiaobanContent.DiaobanDisplayInfo displayInfo = DiaobanContent.loadDisplayInfo(mainModel, subModel);
             if (displayInfo == null) {
                 markedError = true;
                 return;
@@ -280,23 +272,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
         List<SubModelDispInfo> infos = new ArrayList<>();
         List<ModelSelectInfo> thisInfo = new ArrayList<>();
         List<ModelSelectInfo> drawFuncs = new ArrayList<>();
-        try {
-            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(this.mainModel), "content");
-            if (loaded != null) {
-                for (String key : loaded.keySet()) {
-                    Map<String, Object> item = loaded.get(key);
-                    String text = "";
-                    String content = "";
-                    String contentText = null;
-                    if (item.containsKey("text") && item.get("text") instanceof String s) text = s;
-                    if (item.containsKey("id") && item.get("id") instanceof String s) content = s;
-                    if (item.containsKey("contentText") && item.get("contentText") instanceof String s) contentText = s;
-                    if (contentText != null) thisInfo.add(new ModelSelectInfo(text, content, contentText));
-                    else thisInfo.add(new ModelSelectInfo(text, content));
-                }
-            }
-        } catch (Exception ignored) {
-        }
+        thisInfo.addAll(DiaobanContent.loadModelSelectInfos(this.mainModel));
         try {
             JsonObject loaded = ResourceUtil.loadAsJSON(new ResourceLocation("fangsu:diaoban/diaoban_scripts.json")).getAsJsonObject();
             if (loaded.has("content")) {
