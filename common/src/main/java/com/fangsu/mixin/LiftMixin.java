@@ -74,7 +74,7 @@ public class LiftMixin implements LiftExtraSupplier {
         fangsu$modelKey = messagePackHelper.getString(MODEL_KEY, "a");
     }
 
-    @Inject(method = "<init>(Lnet/minecraft/network/FriendlyByteBuf;)V", at = @At("TAIL"), remap = false)
+    @Inject(method = "<init>(Lnet/minecraft/network/FriendlyByteBuf;)V", at = @At("TAIL"), remap = true)
     private void fromPacket(FriendlyByteBuf packet, CallbackInfo ci) {
         if (packet.readableBytes() <= 1) {
             Main.LOGGER.info("Invalid packet length : {}", packet.readableBytes());

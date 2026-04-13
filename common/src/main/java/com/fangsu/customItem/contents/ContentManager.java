@@ -15,9 +15,9 @@ import java.util.Map;
 public class ContentManager {
     private static final String CONTENT_PATH = "fangsu:custom_blocks.json";
 
-    private static ContentManager instance = new ContentManager();
-    private Map<String, Map<String, List<BaseContent>>> contents;
-    private Map<String, ContentConstructor> constructors;
+    private static final ContentManager instance = new ContentManager();
+    private final Map<String, Map<String, List<BaseContent>>> contents;
+    private final Map<String, ContentLoader> loaders;
 
     public static ContentManager getInstance() {
         return instance;
@@ -25,7 +25,7 @@ public class ContentManager {
 
     private ContentManager() {
         contents = new HashMap<>();
-        constructors = new HashMap<>();
+        loaders = new HashMap<>();
     }
 
     public void reset() {
@@ -46,46 +46,42 @@ public class ContentManager {
             Main.LOGGER.warn("Failed to load content {}({}): JSON is null or empty", type, path);
             return;
         }
-        long begin = System.currentTimeMillis();
         JsonObject itemObject = itemElement.getAsJsonObject();
-        Map<String, List<BaseContent>> map = new HashMap<>();
-        ContentConstructor constructor;
-        if (constructors.containsKey(type)) constructor = constructors.get(type);
+        ContentLoader loader;
+        if (loaders.containsKey(type)) loader = loaders.get(type);
         else {
             Main.LOGGER.warn("Failed to load content {}({}): unknown type", type, path);
             return;
         }
-        for (Map.Entry<String, JsonElement> entry : itemObject.entrySet()) {
-            String entryKey = entry.getKey();
-            JsonElement entryValue = entry.getValue();
-            if (entryValue == null || !entryValue.isJsonArray()) {
-                Main.LOGGER.warn("Failed to load content {} of {}({}): JSON is null or empty", entryKey, type, path);
-                continue;
-            }
-            JsonArray entryArray = entryValue.getAsJsonArray();
-            List<BaseContent> list = new ArrayList<>();
-            for (int i = 0; i < entryArray.size(); i++) {
-                JsonElement detailElement = entryArray.get(i);
-                if (detailElement == null || !detailElement.isJsonObject()) {
-                    Main.LOGGER.warn("Failed to load content index {} in {} of {}({}): JSON is null or empty", i, entryKey, type, path);
-                    continue;
-                }
-                JsonObject detailObject = detailElement.getAsJsonObject();
-                BaseContent content = constructor.createContent(detailObject);
-                list.add(content);
-            }
-            map.put(type, list);
-        }
-        Main.LOGGER.debug("Loaded {} items of {}({}) in {} ms", map.size(), type, path, System.currentTimeMillis() - begin);
-        contents.put(type, map);
+        loader.loadContent(type, path, itemObject);
     }
 
-    public void registerContent(String type, ContentConstructor constructor) {
-        constructors.put(type, constructor);
+    public void registerContent(String type, ContentLoader constructor) {
+        loaders.put(type, constructor);
+    }
+
+    protected void addContent(String type, String path, BaseContent content) {
+        if (contents == null) return;
+        if (contents.containsKey(type)) {
+            Map<String, List<BaseContent>> map = contents.get(type);
+            if (map.containsKey(path)) {
+                map.get(path).add(content);
+            } else {
+                List<BaseContent> list = new ArrayList<>();
+                list.add(content);
+                map.put(path, list);
+            }
+        } else {
+            Map<String, List<BaseContent>> map = new HashMap<>();
+            List<BaseContent> list = new ArrayList<>();
+            list.add(content);
+            map.put(path, list);
+            contents.put(type, map);
+        }
     }
 
     @FunctionalInterface
-    public interface ContentConstructor {
-        BaseContent createContent(JsonObject json);
+    public interface ContentLoader {
+        public void loadContent(String type, String path, JsonObject content);
     }
 }

@@ -220,7 +220,6 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
     @Override
     public void setDoorTarget(boolean target) {
         this.doorTarget = target;
-
     }
 
     @Override

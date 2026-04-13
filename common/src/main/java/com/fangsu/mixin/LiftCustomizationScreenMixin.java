@@ -6,7 +6,6 @@ import com.fangsu.data.LiftExtraSupplier;
 import com.fangsu.ui.ModelSelectScreen;
 import mtr.client.IDrawing;
 import mtr.data.LiftClient;
-import mtr.mappings.Text;
 import mtr.packet.PacketTrainDataGuiClient;
 import mtr.screen.LiftCustomizationScreen;
 import net.minecraft.client.Minecraft;
@@ -38,8 +37,7 @@ public class LiftCustomizationScreenMixin {
 
     @Inject(method = "<init>", at = @At("TAIL"), remap = false)
     private void onInit(LiftClient lift, CallbackInfo ci) {
-        // 初始化按钮，点击事件留空
-        fangsu$buttonModel = net.minecraft.client.gui.components.Button.builder(
+        fangsu$buttonModel = Button.builder(
                 Component.translatable("ui.fangsu.block.modelSelect"),
                 button -> {
                     CustomMtrLifts customMtrLifts = CustomMtrLifts.getInstance();
@@ -58,14 +56,19 @@ public class LiftCustomizationScreenMixin {
         ).build();
     }
 
-    @Inject(method = "init", at = @At(value = "INVOKE", target = "Lmtr/screen/LiftCustomizationScreen;updateControls()V"), remap = false)
-    private void onInit(CallbackInfo ci) {
+    @Inject(method = "updateControls", at = @At("HEAD"), remap = false)
+    private void updateControlsHead(CallbackInfo ci) {
         LiftCustomizationScreen screen = (LiftCustomizationScreen) (Object) this;
 
         IDrawing.setPositionAndWidth(fangsu$buttonModel, 0, SQUARE_SIZE * 11, width2);
 
         screen.addDrawableChild(fangsu$buttonModel);
     }
-
+//    //    @SuppressWarnings({"MixinAnnotationTarget", "UnresolvedMixinReference"})
+//    @Inject(method = "init", at = @At(value = "INVOKE", target = "Lmtr/screen/LiftCustomizationScreen;updateControls()V"))
+//    private void onInit(CallbackInfo ci) {
+//
+//    }
+//
 
 }

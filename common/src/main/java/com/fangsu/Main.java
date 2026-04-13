@@ -40,13 +40,13 @@ public final class Main {
 
     public static void debug(String msg) {
 
-        LOGGER.info("[DEBUG] " + msg);
+//        LOGGER.info("[DEBUG] " + msg);
 
     }
 
     public static void debug(String msg, Object... args) {
 
-        LOGGER.info("[DEBUG] " + msg, args);
+//        LOGGER.info("[DEBUG] " + msg, args);
 
     }
 }

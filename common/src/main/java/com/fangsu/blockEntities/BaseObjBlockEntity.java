@@ -269,13 +269,16 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
 
     public abstract void whenRendering();
 
-    public abstract void whenSaving(Map<String, String> extraConfigs);
+    public void whenSaving(Map<String, String> extraConfigs) {
+    }
 
     public InteractionResult whenUseWithBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         return InteractionResult.PASS;
     }
 
-    public abstract InteractionResult whenUseWithOther(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit);
+    public InteractionResult whenUseWithOther(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        return InteractionResult.PASS;
+    }
 
     public void whenEntityInside(Player player) {
     }

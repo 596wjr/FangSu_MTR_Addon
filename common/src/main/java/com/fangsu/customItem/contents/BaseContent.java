@@ -3,13 +3,13 @@ package com.fangsu.customItem.contents;
 import com.google.gson.JsonObject;
 
 public abstract class BaseContent {
-    private final JsonObject json;
+    private final String id;
 
     protected BaseContent(JsonObject json) {
-        this.json = json;
+        id = json.get("id").getAsString();
     }
 
-    public JsonObject getJson() {
-        return json;
+    public String getId() {
+        return id;
     }
 }
