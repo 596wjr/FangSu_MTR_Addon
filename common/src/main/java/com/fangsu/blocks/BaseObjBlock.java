@@ -38,7 +38,8 @@ public abstract class BaseObjBlock extends HorizontalDirectionalBlock implements
     public BaseObjBlock() {
         super(BlockBehaviour.Properties.of()
                 .strength(2)
-                .noOcclusion());
+                .noOcclusion()
+                .dynamicShape());
     }
 
     @Override
@@ -141,7 +142,7 @@ public abstract class BaseObjBlock extends HorizontalDirectionalBlock implements
         }
         return Shapes.block();
     }
-    
+
     public BlockState rotate(BlockState blockState, Rotation rotation) {
         return (BlockState) blockState.setValue(FACING, rotation.rotate((Direction) blockState.getValue(FACING)));
     }
