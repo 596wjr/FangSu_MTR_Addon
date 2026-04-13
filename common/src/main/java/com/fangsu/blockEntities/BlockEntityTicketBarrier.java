@@ -5,7 +5,6 @@ import com.fangsu.render.sowcer.math.Matrices;
 
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
-import com.fangsu.customItem.CustomItemLoader;
 import com.fangsu.customItem.contents.TicketBarrierContent;
 import com.fangsu.Main;
 import com.fangsu.utils.CustomItemHelper;
@@ -54,7 +53,6 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     private boolean animationDone = true;
     private float gatePos = 0.5f;
 
-    private Map<String, Map<String, Object>> loaded;
     private DynamicModelHolder mainDmh;
     private TicketBarrierDoorRenderInfo subInfo;
     private CollisionBoxUtil.CollisionBox shape, collisionShape, doorCloseShape, doorCloseCollisionShape;
@@ -82,65 +80,37 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         String subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
 
         try {
-            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(entity.mainModel));
-            if (!loaded.containsKey(subModel)) {
+            TicketBarrierContent.TicketBarrierDisplayInfo displayInfo = TicketBarrierContent.loadDisplayInfo(mainModel, subModel);
+            if (displayInfo == null) {
                 markedError = true;
                 return;
             }
-            Map<String, Object> current = loaded.get(subModel);
-            mainDmh = ResourceUtil.loadDmh(new ResourceLocation((String) current.get("model")), (Boolean) current.get("flipV"));
-            if (current.get("doors") instanceof ArrayList<?> doors) {
-                for (Object door : doors) {
-                    if (door instanceof Map<?, ?> d) {
-                        TicketBarrierContent.TicketBarrierDoorInfo doorInfo = TicketBarrierContent.TicketBarrierDoorInfo.fromMap(d);
-                        if (doorInfo != null) {
-                            subInfo = new TicketBarrierDoorRenderInfo(doorInfo);
-                        }
-                    }
-                }
+            mainDmh = ResourceUtil.loadDmh(new ResourceLocation(displayInfo.getModel()), displayInfo.isFlipV());
+            for (TicketBarrierContent.TicketBarrierDoorInfo doorInfo : displayInfo.getDoors()) {
+                subInfo = new TicketBarrierDoorRenderInfo(doorInfo);
             }
 
-            if (current.containsKey("shape") && current.get("shape") instanceof List<?> s) {
-                shape = new CollisionBoxUtil.CollisionBox(s);
+            if (displayInfo.getShape() != null) {
+                shape = new CollisionBoxUtil.CollisionBox(displayInfo.getShape());
             }
-            if (current.containsKey("collisionShape") && current.get("collisionShape") instanceof List<?> s) {
-                collisionShape = new CollisionBoxUtil.CollisionBox(s);
+            if (displayInfo.getCollisionShape() != null) {
+                collisionShape = new CollisionBoxUtil.CollisionBox(displayInfo.getCollisionShape());
             } else {
                 collisionShape = new CollisionBoxUtil.CollisionBox(List.of(List.of(-1, 0, 0, 1, 24, 16), List.of(15, 0, 0, 17, 24, 16)));
             }
-            if (current.containsKey("doorCloseShape") && current.get("doorCloseShape") instanceof List<?> s) {
-                doorCloseShape = new CollisionBoxUtil.CollisionBox(s);
+            if (displayInfo.getDoorCloseShape() != null) {
+                doorCloseShape = new CollisionBoxUtil.CollisionBox(displayInfo.getDoorCloseShape());
             }
-            if (current.containsKey("doorCloseCollisionShape") && current.get("doorCloseCollisionShape") instanceof List<?> s) {
-                doorCloseCollisionShape = new CollisionBoxUtil.CollisionBox(s);
+            if (displayInfo.getDoorCloseCollisionShape() != null) {
+                doorCloseCollisionShape = new CollisionBoxUtil.CollisionBox(displayInfo.getDoorCloseCollisionShape());
             } else {
                 doorCloseCollisionShape = new CollisionBoxUtil.CollisionBox(List.of(List.of(1, 0, 12, 15, 24, 15)));
             }
 
-            if (current.containsKey("gatePos") && current.get("gatePos") instanceof Number pos) {
-                gatePos = pos.floatValue();
-            } else gatePos = 0.5f;
+            gatePos = displayInfo.getGatePos() != null ? displayInfo.getGatePos().floatValue() : 0.5f;
 
-            cardBox = null;
-            ticketBox = null;
-            if (current.containsKey("cardBox") && current.get("cardBox") instanceof List<?> rawList) {
-                if (rawList.size() == 6) {
-                    List<Double> doubleList = new ArrayList<>();
-                    for (Object o : rawList) {
-                        if (o instanceof Number) doubleList.add(((Number) o).doubleValue());
-                    }
-                    cardBox = new AABB(doubleList.get(0) / 16d, doubleList.get(1) / 16d, doubleList.get(2) / 16d, doubleList.get(3) / 16d, doubleList.get(4) / 16d, doubleList.get(5) / 16d);
-                }
-            }
-            if (current.containsKey("ticketBox") && current.get("ticketBox") instanceof List<?> rawList) {
-                if (rawList.size() == 6) {
-                    List<Double> doubleList = new ArrayList<>();
-                    for (Object o : rawList) {
-                        if (o instanceof Number) doubleList.add(((Number) o).doubleValue());
-                    }
-                    ticketBox = new AABB(doubleList.get(0) / 16d, doubleList.get(1) / 16d, doubleList.get(2) / 16d, doubleList.get(3) / 16d, doubleList.get(4) / 16d, doubleList.get(5) / 16d);
-                }
-            }
+            cardBox = parseBox(displayInfo.getCardBox());
+            ticketBox = parseBox(displayInfo.getTicketBox());
         } catch (Exception e) {
             Main.LOGGER.warn(e.getMessage());
         }
@@ -325,22 +295,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     public List<SubModelDispInfo> getSubModelInfos() {
         List<SubModelDispInfo> infos = new ArrayList<>();
         List<ModelSelectInfo> thisInfo = new ArrayList<>();
-        try {
-            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(this.mainModel));
-            for (String key : loaded.keySet()) {
-                Map<String, Object> item = loaded.get(key);
-                String text = "";
-                String content = "";
-                String contentText = null;
-                if (item.containsKey("text") && item.get("text") instanceof String s) text = s;
-                if (item.containsKey("id") && item.get("id") instanceof String s) content = s;
-                if (item.containsKey("contentText") && item.get("contentText") instanceof String s) contentText = s;
-                if (contentText != null) thisInfo.add(new ModelSelectInfo(text, content, contentText));
-                else thisInfo.add(new ModelSelectInfo(text, content));
-            }
-        } catch (Exception e) {
-            return null;
-        }
+        thisInfo.addAll(TicketBarrierContent.loadModelSelectInfos(this.mainModel));
         infos.add(new SubModelDispInfo(Component.translatable("ui.fangsu.block.subModelSelect"), thisInfo,
                 (be) -> this.subModels.getOrDefault("subModel", DEFAULT_SUB_MODEL),
                 (be, v) -> this.subModels.put("subModel", v)));
@@ -425,6 +380,23 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
             case EAST -> new Vec3(-trans.z, trans.y, trans.x);
             default -> trans;
         };
+    }
+
+    private static AABB parseBox(List<?> rawList) {
+        if (rawList == null || rawList.size() != 6) {
+            return null;
+        }
+        List<Double> doubleList = new ArrayList<>();
+        for (Object o : rawList) {
+            if (o instanceof Number n) doubleList.add(n.doubleValue());
+        }
+        if (doubleList.size() != 6) {
+            return null;
+        }
+        return new AABB(
+                doubleList.get(0) / 16d, doubleList.get(1) / 16d, doubleList.get(2) / 16d,
+                doubleList.get(3) / 16d, doubleList.get(4) / 16d, doubleList.get(5) / 16d
+        );
     }
 
 }

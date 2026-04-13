@@ -3,7 +3,6 @@ package com.fangsu.blockEntities;
 import com.fangsu.Main;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.client.ClientHooks;
-import com.fangsu.customItem.CustomItemLoader;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
@@ -50,7 +49,6 @@ public class BlockEntityPids extends BaseObjBlockEntity {
     private Map<String, JsonElement> userExtraConfigs;
 
     private volatile ScriptHolderBase scriptHolder;
-    private Map<String, Map<String, Object>> loaded;
     private int texW, texH;
     private Map<String, Object> drawState = new HashMap<>();
 
@@ -80,13 +78,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
         }
 
         try {
-            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(mainModel), "content");
-            if (loaded == null || !loaded.containsKey(subModel)) {
-                markedError = true;
-                return;
-            }
-            Map<String, Object> current = loaded.get(subModel);
-            PidsContent.PidsDisplayInfo displayInfo = PidsContent.PidsDisplayInfo.fromMap(current);
+            PidsContent.PidsDisplayInfo displayInfo = PidsContent.loadDisplayInfo(mainModel, subModel);
             if (displayInfo == null) {
                 markedError = true;
                 return;
@@ -96,7 +88,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
             texH = texSize.size() > 1 ? texSize.get(1) : 128;
             Main.LOGGER.info("texW={}, texH={}", texW, texH);
             if (!displayInfo.getScript().isEmpty()) {
-                initScriptDrawingAsync(current);
+                initScriptDrawingAsync(displayInfo.getScript());
             }
             boolean flipV = displayInfo.isFlipV();
             String model = displayInfo.getModel();
@@ -119,8 +111,8 @@ public class BlockEntityPids extends BaseObjBlockEntity {
                 dispRawModel.generateNormals();
                 dmhDisp.uploadLater(dispRawModel);
             }
-            if (current.containsKey("shape") && current.get("shape") instanceof List<?> rawShape) {
-                this.shape = new CollisionBoxUtil.CollisionBox(rawShape);
+            if (displayInfo.getShape() != null) {
+                this.shape = new CollisionBoxUtil.CollisionBox(displayInfo.getShape());
             }
         } catch (Exception e) {
             Main.LOGGER.warn(e.getMessage());
@@ -132,13 +124,12 @@ public class BlockEntityPids extends BaseObjBlockEntity {
     }
 
 
-    private void initScriptDrawingAsync(Map<String, Object> current) {
+    private void initScriptDrawingAsync(String scriptPath) {
         GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
         gtHelper.removeDrawGraphic(getBlockPos());
 
         final int thisLoadToken = ++scriptLoadToken;
 
-        String scriptPath = (String) current.get("script");
         ResourceLocation location = new ResourceLocation(scriptPath);
 
         gtHelper.addDrawGraphic(getBlockPos(),
@@ -336,23 +327,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
     public List<SubModelDispInfo> getSubModelInfos() {
         List<SubModelDispInfo> infos = new ArrayList<>();
         List<ModelSelectInfo> thisInfo = new ArrayList<>();
-        try {
-            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(this.mainModel), "content");
-            if (loaded != null) {
-                for (String key : loaded.keySet()) {
-                    Map<String, Object> item = loaded.get(key);
-                    String text = "";
-                    String content = "";
-                    String contentText = null;
-                    if (item.containsKey("text") && item.get("text") instanceof String s) text = s;
-                    if (item.containsKey("id") && item.get("id") instanceof String s) content = s;
-                    if (item.containsKey("contentText") && item.get("contentText") instanceof String s) contentText = s;
-                    if (contentText != null) thisInfo.add(new ModelSelectInfo(text, content, contentText));
-                    else thisInfo.add(new ModelSelectInfo(text, content));
-                }
-            }
-        } catch (Exception ignored) {
-        }
+        thisInfo.addAll(PidsContent.loadModelSelectInfos(this.mainModel));
         infos.add(new SubModelDispInfo(
                 Component.translatable("ui.fangsu.block.subModelSelect"),
                 thisInfo,

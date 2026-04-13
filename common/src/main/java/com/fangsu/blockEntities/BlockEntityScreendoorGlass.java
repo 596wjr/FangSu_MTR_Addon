@@ -2,9 +2,9 @@ package com.fangsu.blockEntities;
 
 import com.fangsu.Main;
 import com.fangsu.blocks.BaseObjBlock;
-import com.fangsu.customItem.CustomItemLoader;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
+import com.fangsu.customItem.contents.ScreendoorGlassContent;
 import com.fangsu.utils.CollisionBoxUtil;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.FacingBlockUtil;
@@ -72,8 +72,8 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
         shapeLeft = shapeRight = null;
 
         try {
-            loadedLeft = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(mainModel), "glass.left");
-            loadedRight = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(mainModel), "glass.right");
+            loadedLeft = ScreendoorGlassContent.loadLeftEntries(mainModel);
+            loadedRight = ScreendoorGlassContent.loadRightEntries(mainModel);
 
             if (!loadedLeft.containsKey(subModelLeft) || !loadedRight.containsKey(subModelRight)) {
                 markedError = true;
@@ -105,19 +105,13 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
         String prevRight = actualSubModelRight;
 
         try {
-            JsonObject mainJson = ResourceUtil
-                    .loadAsJSON(new ResourceLocation(mainModel))
-                    .getAsJsonObject();
-
             String autoKey = (String) loadedLeft.get(subModelLeft).get("auto");
-            JsonArray commands = mainJson
-                    .getAsJsonObject("glass")
-                    .getAsJsonArray(autoKey);
+            List<JsonObject> commands = ScreendoorGlassContent.loadAutoCommands(mainModel, autoKey);
 
             blockRelation.refresh();
 
             for (int i = commands.size() - 1; i >= 0; i--) {
-                JsonObject commandJson = commands.get(i).getAsJsonObject();
+                JsonObject commandJson = commands.get(i);
                 if (!commandJson.has("if")) continue;
 
                 boolean isAvailable = false;
@@ -180,14 +174,10 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
 
     // 模型 / 碰撞箱刷新
     private void reloadModelAndShape() throws Exception {
-        JsonObject mainJson = ResourceUtil
-                .loadAsJSON(new ResourceLocation(mainModel))
-                .getAsJsonObject();
-
-        String modelKey = mainJson.get("model").getAsString();
-        boolean flipV = mainJson.has("flipV") && mainJson.get("flipV").getAsBoolean();
+        ScreendoorGlassContent.MainModelInfo modelInfo = ScreendoorGlassContent.loadMainModelInfo(mainModel);
+        if (modelInfo == null) return;
         Map<String, DynamicModelHolder> models =
-                ResourceUtil.loadPartedDmh(new ResourceLocation(modelKey), flipV);
+                ResourceUtil.loadPartedDmh(new ResourceLocation(modelInfo.model()), modelInfo.flipV());
 
         Map<String, Object> left = loadedLeft.get(actualSubModelLeft);
         Map<String, Object> right = loadedRight.get(actualSubModelRight);
@@ -270,32 +260,8 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
         List<SubModelDispInfo> infos = new ArrayList<>();
         List<ModelSelectInfo> infoLeft = new ArrayList<>();
         List<ModelSelectInfo> infoRight = new ArrayList<>();
-        try {
-            for (String key : loadedLeft.keySet()) {
-                Map<String, Object> item = loadedLeft.get(key);
-                String text = "";
-                String content = "";
-                String contentText = null;
-                if (item.containsKey("text") && item.get("text") instanceof String s) text = s;
-                if (item.containsKey("id") && item.get("id") instanceof String s) content = s;
-                if (item.containsKey("contentText") && item.get("contentText") instanceof String s) contentText = s;
-                if (contentText != null) infoLeft.add(new ModelSelectInfo(text, content, contentText));
-                else infoLeft.add(new ModelSelectInfo(text, content));
-            }
-            for (String key : loadedRight.keySet()) {
-                Map<String, Object> item = loadedRight.get(key);
-                String text = "";
-                String content = "";
-                String contentText = null;
-                if (item.containsKey("text") && item.get("text") instanceof String s) text = s;
-                if (item.containsKey("id") && item.get("id") instanceof String s) content = s;
-                if (item.containsKey("contentText") && item.get("contentText") instanceof String s) contentText = s;
-                if (contentText != null) infoRight.add(new ModelSelectInfo(text, content, contentText));
-                else infoRight.add(new ModelSelectInfo(text, content));
-            }
-        } catch (Exception e) {
-            return null;
-        }
+        infoLeft.addAll(ScreendoorGlassContent.loadLeftModelSelectInfos(mainModel));
+        infoRight.addAll(ScreendoorGlassContent.loadRightModelSelectInfos(mainModel));
         infos.add(new SubModelDispInfo(Component.translatable("ui.fangsu.block.subModelLeftSelect"), infoLeft,
                 (be) -> this.subModels.getOrDefault("subModelLeft", DEFAULT_SUB_MODEL_LEFT),
                 (be, v) -> this.subModels.put("subModelLeft", v)));

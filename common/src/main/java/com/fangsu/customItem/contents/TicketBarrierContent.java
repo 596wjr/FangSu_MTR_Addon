@@ -1,9 +1,11 @@
 package com.fangsu.customItem.contents;
 
 import com.fangsu.Main;
+import com.fangsu.customItem.ModelSelectInfo;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,6 +29,94 @@ public class TicketBarrierContent extends BaseContent {
 
     public boolean getFilpV() {
         return filpV;
+    }
+
+    public static TicketBarrierDisplayInfo loadDisplayInfo(String mainModel, String subModel) throws Exception {
+        Map<String, Map<String, Object>> loaded = ContentResourceLoader.loadMapByPath(new ResourceLocation(mainModel));
+        if (loaded == null || !loaded.containsKey(subModel)) {
+            return null;
+        }
+        return TicketBarrierDisplayInfo.fromMap(loaded.get(subModel));
+    }
+
+    public static List<ModelSelectInfo> loadModelSelectInfos(String mainModel) {
+        List<ModelSelectInfo> infos = new ArrayList<>();
+        try {
+            Map<String, Map<String, Object>> loaded = ContentResourceLoader.loadMapByPath(new ResourceLocation(mainModel));
+            if (loaded == null) {
+                return infos;
+            }
+            for (Map<String, Object> item : loaded.values()) {
+                String text = item.get("text") instanceof String s ? s : "";
+                String content = item.get("id") instanceof String s ? s : "";
+                String contentText = item.get("contentText") instanceof String s ? s : null;
+                if (contentText != null) infos.add(new ModelSelectInfo(text, content, contentText));
+                else infos.add(new ModelSelectInfo(text, content));
+            }
+        } catch (Exception ignored) {
+        }
+        return infos;
+    }
+
+    public static class TicketBarrierDisplayInfo {
+        private final String model;
+        private final boolean flipV;
+        private final List<TicketBarrierDoorInfo> doors;
+        private final List<?> shape;
+        private final List<?> collisionShape;
+        private final List<?> doorCloseShape;
+        private final List<?> doorCloseCollisionShape;
+        private final Number gatePos;
+        private final List<?> cardBox;
+        private final List<?> ticketBox;
+
+        private TicketBarrierDisplayInfo(String model, boolean flipV, List<TicketBarrierDoorInfo> doors, List<?> shape,
+                                         List<?> collisionShape, List<?> doorCloseShape, List<?> doorCloseCollisionShape,
+                                         Number gatePos, List<?> cardBox, List<?> ticketBox) {
+            this.model = model;
+            this.flipV = flipV;
+            this.doors = doors;
+            this.shape = shape;
+            this.collisionShape = collisionShape;
+            this.doorCloseShape = doorCloseShape;
+            this.doorCloseCollisionShape = doorCloseCollisionShape;
+            this.gatePos = gatePos;
+            this.cardBox = cardBox;
+            this.ticketBox = ticketBox;
+        }
+
+        public static TicketBarrierDisplayInfo fromMap(Map<String, Object> current) {
+            if (current == null || !(current.get("model") instanceof String model)) return null;
+            boolean flipV = current.get("flipV") instanceof Boolean b && b;
+            List<TicketBarrierDoorInfo> doors = new ArrayList<>();
+            if (current.get("doors") instanceof List<?> doorList) {
+                for (Object door : doorList) {
+                    if (door instanceof Map<?, ?> d) {
+                        TicketBarrierDoorInfo doorInfo = TicketBarrierDoorInfo.fromMap(d);
+                        if (doorInfo != null) doors.add(doorInfo);
+                    }
+                }
+            }
+            List<?> shape = current.get("shape") instanceof List<?> s ? s : null;
+            List<?> collisionShape = current.get("collisionShape") instanceof List<?> s ? s : null;
+            List<?> doorCloseShape = current.get("doorCloseShape") instanceof List<?> s ? s : null;
+            List<?> doorCloseCollisionShape = current.get("doorCloseCollisionShape") instanceof List<?> s ? s : null;
+            Number gatePos = current.get("gatePos") instanceof Number n ? n : null;
+            List<?> cardBox = current.get("cardBox") instanceof List<?> s ? s : null;
+            List<?> ticketBox = current.get("ticketBox") instanceof List<?> s ? s : null;
+            return new TicketBarrierDisplayInfo(model, flipV, doors, shape, collisionShape, doorCloseShape, doorCloseCollisionShape, gatePos, cardBox, ticketBox);
+        }
+
+        public String getModel() { return model; }
+        public boolean isFlipV() { return flipV; }
+        public List<TicketBarrierDoorInfo> getDoors() { return doors; }
+        public List<?> getShape() { return shape; }
+        public List<?> getCollisionShape() { return collisionShape; }
+        public List<?> getDoorCloseShape() { return doorCloseShape; }
+        public List<?> getDoorCloseCollisionShape() { return doorCloseCollisionShape; }
+        public Number getGatePos() { return gatePos; }
+        public List<?> getCardBox() { return cardBox; }
+        public List<?> getTicketBox() { return ticketBox; }
     }
 
     public static class TicketBarrierDoorInfo {

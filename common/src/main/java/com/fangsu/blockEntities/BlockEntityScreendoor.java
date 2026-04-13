@@ -2,9 +2,9 @@ package com.fangsu.blockEntities;
 
 import com.fangsu.Main;
 import com.fangsu.blocks.BaseObjBlock;
-import com.fangsu.customItem.CustomItemLoader;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
+import com.fangsu.customItem.contents.ScreendoorDoorContent;
 import com.fangsu.extraConfig.*;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcer.math.Matrices;
@@ -58,7 +58,6 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
     // ★ 延迟自动计算
     protected boolean pendingAutoDoorSide = false;
 
-    private Map<String, Map<String, Object>> loaded;
     private List<DoorRenderInfo> infos;
 
     protected String mainModel;
@@ -165,14 +164,8 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
                             dispDoorSide == 1 ? CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL_RIGHT) :
                                     CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL_FLEX);
 
-            String key =
-                    dispDoorSide == 0 ? "door.left" :
-                            dispDoorSide == 1 ? "door.right" :
-                                    "door.flex";
-
-            loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(mainModel), key);
-
-            if (!loaded.containsKey(subModel)) return;
+            ScreendoorDoorContent.ScreendoorDoorDisplayInfo displayInfo = ScreendoorDoorContent.loadDisplayInfo(mainModel, subModel, dispDoorSide);
+            if (displayInfo == null) return;
 
             JsonObject mainJson = ResourceUtil.loadAsJSON(new ResourceLocation(mainModel)).getAsJsonObject();
             String modelKey = mainJson.get("model").getAsString();
@@ -180,17 +173,8 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
             Map<String, DynamicModelHolder> models = ResourceUtil.loadPartedDmh(new ResourceLocation(modelKey), flipV);
 
             infos = new ArrayList<>();
-            Object doors = loaded.get(subModel).get("doors");
-            if (doors instanceof List<?> list) {
-                for (Object o : list) {
-                    if (o instanceof Map<?, ?> m) {
-                        Map<String, Object> map = new HashMap<>();
-                        for (Object k : m.keySet()) {
-                            if (k instanceof String s) map.put(s, m.get(k));
-                        }
-                        infos.add(new DoorRenderInfo(map, models));
-                    }
-                }
+            for (ScreendoorDoorContent.DoorInfo door : displayInfo.doors()) {
+                infos.add(new DoorRenderInfo(door, models));
             }
         } catch (Exception e) {
             Main.LOGGER.warn(e.getMessage());
@@ -248,34 +232,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
     public List<SubModelDispInfo> getSubModelInfos() {
         List<SubModelDispInfo> infos = new ArrayList<>();
         List<ModelSelectInfo> thisInfo = new ArrayList<>();
-        try {
-            switch (dispDoorSide) {
-                case 0:
-                    loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(this.mainModel), "door.left");
-                    break;
-                case 1:
-                    loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(this.mainModel), "door.right");
-                    break;
-                case 2:
-                    loaded = CustomItemLoader.optimizeCustomItemJSON(new ResourceLocation(this.mainModel), "door.flex");
-                    break;
-                default:
-                    return null;
-            }
-            for (String key : loaded.keySet()) {
-                Map<String, Object> item = loaded.get(key);
-                String text = "";
-                String content = "";
-                String contentText = null;
-                if (item.containsKey("text") && item.get("text") instanceof String s) text = s;
-                if (item.containsKey("id") && item.get("id") instanceof String s) content = s;
-                if (item.containsKey("contentText") && item.get("contentText") instanceof String s) contentText = s;
-                if (contentText != null) thisInfo.add(new ModelSelectInfo(text, content, contentText));
-                else thisInfo.add(new ModelSelectInfo(text, content));
-            }
-        } catch (Exception e) {
-            return null;
-        }
+        thisInfo.addAll(ScreendoorDoorContent.loadModelSelectInfos(this.mainModel, dispDoorSide));
         infos.add(new SubModelDispInfo(Component.translatable("ui.fangsu.block.subModelSelect"), thisInfo,
                 (be) -> this.subModels.getOrDefault("subModel",
                         dispDoorValue == 0 ? DEFAULT_SUB_MODEL_LEFT :
@@ -334,11 +291,12 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
         CollisionBoxUtil.CollisionBox shape;
         float step;
 
-        private DoorRenderInfo(Map<String, Object> map, Map<String, DynamicModelHolder> models) {
-            if (map.containsKey("step") && map.get("step") instanceof Number v) step = v.floatValue();
-            if (map.containsKey("subModel") && map.get("subModel") instanceof String v) model = models.get(v);
-            if (map.containsKey("shape") && map.get("shape") instanceof List<?> v)
+        private DoorRenderInfo(ScreendoorDoorContent.DoorInfo info, Map<String, DynamicModelHolder> models) {
+            step = info.step();
+            model = models.get(info.subModel());
+            if (info.shape() instanceof List<?> v) {
                 shape = new CollisionBoxUtil.CollisionBox(v);
+            }
         }
     }
 
