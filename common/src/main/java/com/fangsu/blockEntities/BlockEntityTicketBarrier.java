@@ -85,41 +85,41 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         String subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
 
         try {
-            TicketBarrierContent.TicketBarrierDisplayInfo displayInfo = ContentInfoUtil.getTicketBarrierDisplayInfo(mainModel, subModel);
-            if (displayInfo == null) {
+            TicketBarrierContent content = ContentInfoUtil.getTicketBarrierContent(mainModel, subModel);
+            if (content == null) {
                 markedError = true;
                 return;
             }
-            mainDmh = ResourceUtil.loadDmh(new ResourceLocation(displayInfo.getModel()), displayInfo.isFlipV());
-            for (TicketBarrierContent.TicketBarrierDoorInfo doorInfo : displayInfo.getDoors()) {
+            mainDmh = ResourceUtil.loadDmh(new ResourceLocation(content.getModel()), content.getFilpV());
+            for (TicketBarrierContent.TicketBarrierDoorInfo doorInfo : content.getDoors()) {
                 subInfo = new TicketBarrierDoorRenderInfo(doorInfo);
             }
 
-            if (displayInfo.getShape() != null) {
-                shape = new CollisionBoxUtil.CollisionBox(displayInfo.getShape());
+            if (!content.getShape().isEmpty()) {
+                shape = new CollisionBoxUtil.CollisionBox(content.getShape());
             }
-            if (displayInfo.getCollisionShape() != null) {
-                collisionShape = new CollisionBoxUtil.CollisionBox(displayInfo.getCollisionShape());
+            if (!content.getCollisionShape().isEmpty()) {
+                collisionShape = new CollisionBoxUtil.CollisionBox(content.getCollisionShape());
             } else {
                 collisionShape = new CollisionBoxUtil.CollisionBox(List.of(List.of(-1, 0, 0, 1, 24, 16), List.of(15, 0, 0, 17, 24, 16)));
             }
-            if (displayInfo.getDoorCloseShape() != null) {
-                doorCloseShape = new CollisionBoxUtil.CollisionBox(displayInfo.getDoorCloseShape());
+            if (!content.getDoorCloseShape().isEmpty()) {
+                doorCloseShape = new CollisionBoxUtil.CollisionBox(content.getDoorCloseShape());
             }
-            if (displayInfo.getDoorCloseCollisionShape() != null) {
-                doorCloseCollisionShape = new CollisionBoxUtil.CollisionBox(displayInfo.getDoorCloseCollisionShape());
+            if (!content.getDoorCloseCollisionShape().isEmpty()) {
+                doorCloseCollisionShape = new CollisionBoxUtil.CollisionBox(content.getDoorCloseCollisionShape());
             } else {
                 doorCloseCollisionShape = new CollisionBoxUtil.CollisionBox(List.of(List.of(1, 0, 12, 15, 24, 15)));
             }
-            shapeSerialized = ShapeSerializer.serialize(displayInfo.getShape());
-            collisionShapeSerialized = ShapeSerializer.serialize(displayInfo.getCollisionShape());
-            doorCloseShapeSerialized = ShapeSerializer.serialize(displayInfo.getDoorCloseShape());
-            doorCloseCollisionShapeSerialized = ShapeSerializer.serialize(displayInfo.getDoorCloseCollisionShape());
+            shapeSerialized = ShapeSerializer.serialize(content.getShape());
+            collisionShapeSerialized = ShapeSerializer.serialize(content.getCollisionShape());
+            doorCloseShapeSerialized = ShapeSerializer.serialize(content.getDoorCloseShape());
+            doorCloseCollisionShapeSerialized = ShapeSerializer.serialize(content.getDoorCloseCollisionShape());
 
-            gatePos = displayInfo.getGatePos() != null ? displayInfo.getGatePos().floatValue() : 0.5f;
+            gatePos = content.getGatePos() != null ? content.getGatePos().floatValue() : 0.5f;
 
-            cardBox = parseBox(displayInfo.getCardBox());
-            ticketBox = parseBox(displayInfo.getTicketBox());
+            cardBox = parseBox(content.getCardBox());
+            ticketBox = parseBox(content.getTicketBox());
         } catch (Exception e) {
             Main.LOGGER.warn(e.getMessage());
         }

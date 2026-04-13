@@ -58,7 +58,13 @@ public class CustomItems {
             long contentBegin = System.currentTimeMillis();
             List<ModelSelectInfo> thisItemInfo = getModelSelectInfos(value);
             items.put(key, thisItemInfo);
-            ContentInfoUtil.preloadByType(key, thisItemInfo);
+            if (cm.canLoadType(key)) {
+                for (ModelSelectInfo modelSelectInfo : thisItemInfo) {
+                    cm.loadItem(key, modelSelectInfo.content());
+                }
+            } else {
+                ContentInfoUtil.preloadByType(key, thisItemInfo);
+            }
             Main.LOGGER.debug("Loaded content {} in {} ms", key, System.currentTimeMillis() - contentBegin);
         }
         Main.LOGGER.info("Loaded {} items in {} ms", items.size(), System.currentTimeMillis() - begin);

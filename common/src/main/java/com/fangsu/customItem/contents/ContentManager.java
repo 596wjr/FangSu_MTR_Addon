@@ -64,6 +64,23 @@ public class ContentManager {
         loaders.put(type, constructor);
     }
 
+    public boolean canLoadType(String type) {
+        return loaders.containsKey(type);
+    }
+
+    public <T extends BaseContent> T getContentById(String type, String path, String id, Class<T> clazz) {
+        Map<String, List<BaseContent>> typeMap = contents.get(type);
+        if (typeMap == null) return null;
+        List<BaseContent> contentList = typeMap.get(path);
+        if (contentList == null) return null;
+        for (BaseContent content : contentList) {
+            if (content != null && id.equals(content.getId()) && clazz.isInstance(content)) {
+                return clazz.cast(content);
+            }
+        }
+        return null;
+    }
+
     protected void addContent(String type, String path, BaseContent content) {
         if (contents == null) return;
         if (contents.containsKey(type)) {

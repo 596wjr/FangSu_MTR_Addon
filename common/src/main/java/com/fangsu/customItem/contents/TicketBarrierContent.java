@@ -13,12 +13,27 @@ import java.util.Map;
 public class TicketBarrierContent extends BaseContent {
     private final String model;
     private final boolean filpV;
+    private final List<TicketBarrierDoorInfo> doors;
+    private final List<List<Double>> shape;
+    private final List<List<Double>> collisionShape;
+    private final List<List<Double>> doorCloseShape;
+    private final List<List<Double>> doorCloseCollisionShape;
+    private final Double gatePos;
+    private final List<Double> cardBox;
+    private final List<Double> ticketBox;
 
     private TicketBarrierContent(JsonObject json) {
         super(json);
         model = json.get("model").getAsString();
         filpV = json.has("flipV") && json.get("flipV").getAsBoolean();
-
+        doors = parseDoors(json.get("doors"));
+        shape = parseBoxList(json.get("shape"));
+        collisionShape = parseBoxList(json.get("collisionShape"));
+        doorCloseShape = parseBoxList(json.get("doorCloseShape"));
+        doorCloseCollisionShape = parseBoxList(json.get("doorCloseCollisionShape"));
+        gatePos = json.has("gatePos") ? json.get("gatePos").getAsDouble() : null;
+        cardBox = parseSingleBox(json.get("cardBox"));
+        ticketBox = parseSingleBox(json.get("ticketBox"));
     }
 
     public String getModel() {
@@ -29,65 +44,76 @@ public class TicketBarrierContent extends BaseContent {
         return filpV;
     }
 
-    public static class TicketBarrierDisplayInfo {
-        private final String model;
-        private final boolean flipV;
-        private final List<TicketBarrierDoorInfo> doors;
-        private final List<?> shape;
-        private final List<?> collisionShape;
-        private final List<?> doorCloseShape;
-        private final List<?> doorCloseCollisionShape;
-        private final Number gatePos;
-        private final List<?> cardBox;
-        private final List<?> ticketBox;
+    public List<TicketBarrierDoorInfo> getDoors() {
+        return doors;
+    }
 
-        private TicketBarrierDisplayInfo(String model, boolean flipV, List<TicketBarrierDoorInfo> doors, List<?> shape,
-                                         List<?> collisionShape, List<?> doorCloseShape, List<?> doorCloseCollisionShape,
-                                         Number gatePos, List<?> cardBox, List<?> ticketBox) {
-            this.model = model;
-            this.flipV = flipV;
-            this.doors = doors;
-            this.shape = shape;
-            this.collisionShape = collisionShape;
-            this.doorCloseShape = doorCloseShape;
-            this.doorCloseCollisionShape = doorCloseCollisionShape;
-            this.gatePos = gatePos;
-            this.cardBox = cardBox;
-            this.ticketBox = ticketBox;
+    public List<List<Double>> getShape() {
+        return shape;
+    }
+
+    public List<List<Double>> getCollisionShape() {
+        return collisionShape;
+    }
+
+    public List<List<Double>> getDoorCloseShape() {
+        return doorCloseShape;
+    }
+
+    public List<List<Double>> getDoorCloseCollisionShape() {
+        return doorCloseCollisionShape;
+    }
+
+    public Double getGatePos() {
+        return gatePos;
+    }
+
+    public List<Double> getCardBox() {
+        return cardBox;
+    }
+
+    public List<Double> getTicketBox() {
+        return ticketBox;
+    }
+
+    private static List<TicketBarrierDoorInfo> parseDoors(JsonElement doorsElement) {
+        List<TicketBarrierDoorInfo> parsed = new ArrayList<>();
+        if (doorsElement == null || !doorsElement.isJsonArray()) return parsed;
+        for (JsonElement doorElement : doorsElement.getAsJsonArray()) {
+            if (doorElement == null || !doorElement.isJsonObject()) continue;
+            TicketBarrierDoorInfo info = TicketBarrierDoorInfo.fromJson(doorElement.getAsJsonObject());
+            if (info != null) parsed.add(info);
         }
+        return parsed;
+    }
 
-        public static TicketBarrierDisplayInfo fromMap(Map<String, Object> current) {
-            if (current == null || !(current.get("model") instanceof String model)) return null;
-            boolean flipV = current.get("flipV") instanceof Boolean b && b;
-            List<TicketBarrierDoorInfo> doors = new ArrayList<>();
-            if (current.get("doors") instanceof List<?> doorList) {
-                for (Object door : doorList) {
-                    if (door instanceof Map<?, ?> d) {
-                        TicketBarrierDoorInfo doorInfo = TicketBarrierDoorInfo.fromMap(d);
-                        if (doorInfo != null) doors.add(doorInfo);
-                    }
+    private static List<List<Double>> parseBoxList(JsonElement element) {
+        List<List<Double>> parsed = new ArrayList<>();
+        if (element == null || !element.isJsonArray()) return parsed;
+        for (JsonElement boxElement : element.getAsJsonArray()) {
+            if (boxElement == null || !boxElement.isJsonArray()) continue;
+            List<Double> box = new ArrayList<>();
+            for (JsonElement valueElement : boxElement.getAsJsonArray()) {
+                if (valueElement != null && valueElement.isJsonPrimitive() && valueElement.getAsJsonPrimitive().isNumber()) {
+                    box.add(valueElement.getAsDouble());
                 }
             }
-            List<?> shape = current.get("shape") instanceof List<?> s ? s : null;
-            List<?> collisionShape = current.get("collisionShape") instanceof List<?> s ? s : null;
-            List<?> doorCloseShape = current.get("doorCloseShape") instanceof List<?> s ? s : null;
-            List<?> doorCloseCollisionShape = current.get("doorCloseCollisionShape") instanceof List<?> s ? s : null;
-            Number gatePos = current.get("gatePos") instanceof Number n ? n : null;
-            List<?> cardBox = current.get("cardBox") instanceof List<?> s ? s : null;
-            List<?> ticketBox = current.get("ticketBox") instanceof List<?> s ? s : null;
-            return new TicketBarrierDisplayInfo(model, flipV, doors, shape, collisionShape, doorCloseShape, doorCloseCollisionShape, gatePos, cardBox, ticketBox);
+            if (!box.isEmpty()) {
+                parsed.add(box);
+            }
         }
+        return parsed;
+    }
 
-        public String getModel() { return model; }
-        public boolean isFlipV() { return flipV; }
-        public List<TicketBarrierDoorInfo> getDoors() { return doors; }
-        public List<?> getShape() { return shape; }
-        public List<?> getCollisionShape() { return collisionShape; }
-        public List<?> getDoorCloseShape() { return doorCloseShape; }
-        public List<?> getDoorCloseCollisionShape() { return doorCloseCollisionShape; }
-        public Number getGatePos() { return gatePos; }
-        public List<?> getCardBox() { return cardBox; }
-        public List<?> getTicketBox() { return ticketBox; }
+    private static List<Double> parseSingleBox(JsonElement element) {
+        if (element == null || !element.isJsonArray()) return null;
+        List<Double> parsed = new ArrayList<>();
+        for (JsonElement valueElement : element.getAsJsonArray()) {
+            if (valueElement != null && valueElement.isJsonPrimitive() && valueElement.getAsJsonPrimitive().isNumber()) {
+                parsed.add(valueElement.getAsDouble());
+            }
+        }
+        return parsed.isEmpty() ? null : parsed;
     }
 
     public static class TicketBarrierDoorInfo {
@@ -105,27 +131,19 @@ public class TicketBarrierContent extends BaseContent {
             this.doors = doors;
         }
 
-        public static TicketBarrierDoorInfo fromMap(Map<?, ?> baseMap) {
-            if (baseMap == null) {
+        public static TicketBarrierDoorInfo fromJson(JsonObject json) {
+            if (json == null || !json.has("model")) {
                 return null;
             }
-            Object modelObj = baseMap.get("model");
-            if (!(modelObj instanceof String modelPath)) {
-                return null;
-            }
-            boolean usePartedModel = Boolean.TRUE.equals(baseMap.get("use_parted_model"));
-            boolean flipV = Boolean.TRUE.equals(baseMap.get("flipV"));
-            int doorType = 1;
-            Object dtObj = baseMap.get("doorType");
-            if (dtObj instanceof Number num) {
-                doorType = num.intValue();
-            }
+            String modelPath = json.get("model").getAsString();
+            boolean usePartedModel = json.has("use_parted_model") && json.get("use_parted_model").getAsBoolean();
+            boolean flipV = json.has("flipV") && json.get("flipV").getAsBoolean();
+            int doorType = json.has("doorType") ? json.get("doorType").getAsInt() : 1;
             List<DoorInfo> doors = new ArrayList<>();
-            Object posObj = baseMap.get("pos");
-            if (posObj instanceof List<?> mapPos) {
-                for (Object posEntry : mapPos) {
-                    if (posEntry instanceof Map<?, ?> thisMap) {
-                        DoorInfo doorInfo = DoorInfo.fromMap(thisMap);
+            if (json.has("pos") && json.get("pos").isJsonArray()) {
+                for (JsonElement posEntry : json.getAsJsonArray("pos")) {
+                    if (posEntry != null && posEntry.isJsonObject()) {
+                        DoorInfo doorInfo = DoorInfo.fromJson(posEntry.getAsJsonObject());
                         if (doorInfo != null) {
                             doors.add(doorInfo);
                         }
@@ -182,35 +200,26 @@ public class TicketBarrierContent extends BaseContent {
                 this.step = step;
             }
 
-            public static DoorInfo fromMap(Map<?, ?> map) {
-                if (map == null) {
+            public static DoorInfo fromJson(JsonObject json) {
+                if (json == null || !json.has("subModel")) {
                     return null;
                 }
-                Object subModelObj = map.get("subModel");
-                if (!(subModelObj instanceof String subModel)) {
-                    return null;
-                }
-                Object posListObj = map.get("pos");
-                if (!(posListObj instanceof List<?> posList) || posList.isEmpty()) {
+                String subModel = json.get("subModel").getAsString();
+                if (!json.has("pos") || !json.get("pos").isJsonArray()) {
                     return null;
                 }
                 List<Double> pos = new ArrayList<>();
-                for (Object o : posList) {
-                    if (!(o instanceof Number n)) {
+                for (JsonElement posElement : json.getAsJsonArray("pos")) {
+                    if (posElement == null || !posElement.isJsonPrimitive() || !posElement.getAsJsonPrimitive().isNumber()) {
                         return null;
                     }
-                    pos.add(n.doubleValue());
+                    pos.add(posElement.getAsDouble());
                 }
-                int side = 0;
-                Object sideObj = map.get("side");
-                if (sideObj instanceof Number n) {
-                    side = n.intValue();
+                if (pos.isEmpty()) {
+                    return null;
                 }
-                double step = 1;
-                Object stepObj = map.get("step");
-                if (stepObj instanceof Number n) {
-                    step = n.doubleValue();
-                }
+                int side = json.has("side") ? json.get("side").getAsInt() : 0;
+                double step = json.has("step") ? json.get("step").getAsDouble() : 1;
                 return new DoorInfo(subModel, pos, side, step);
             }
 
