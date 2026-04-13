@@ -13,16 +13,16 @@ public final class ContentInfoUtil {
     private ContentInfoUtil() {
     }
 
-    public static PidsContent.PidsDisplayInfo getPidsDisplayInfo(String mainModel, String subModel) {
-        return PidsContent.PidsDisplayInfo.fromMap(CustomItems.getContentInfo(mainModel, "content", subModel));
+    public static PidsContent getPidsContent(String mainModel, String subModel) {
+        return ContentManager.getInstance().getContentById("pids", mainModel, subModel, PidsContent.class);
     }
 
-    public static DiaobanContent.DiaobanDisplayInfo getDiaobanDisplayInfo(String mainModel, String subModel) {
-        return DiaobanContent.DiaobanDisplayInfo.fromMap(CustomItems.getContentInfo(mainModel, "content", subModel));
+    public static DiaobanContent getDiaobanContent(String mainModel, String subModel) {
+        return ContentManager.getInstance().getContentById("diaoban", mainModel, subModel, DiaobanContent.class);
     }
 
-    public static TicketBarrierContent.TicketBarrierDisplayInfo getTicketBarrierDisplayInfo(String mainModel, String subModel) {
-        return TicketBarrierContent.TicketBarrierDisplayInfo.fromMap(CustomItems.getContentInfo(mainModel, "", subModel));
+    public static TicketBarrierContent getTicketBarrierContent(String mainModel, String subModel) {
+        return ContentManager.getInstance().getContentById("ticketBarrier", mainModel, subModel, TicketBarrierContent.class);
     }
 
     public static SignContent.SignDisplayInfo getSignDisplayInfo(String mainModel, String subModel) {

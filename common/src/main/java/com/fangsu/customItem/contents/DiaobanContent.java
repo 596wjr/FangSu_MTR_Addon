@@ -13,11 +13,79 @@ import java.util.Map;
 public class DiaobanContent extends BaseContent {
     private final String model;
     private final boolean flipV;
+    private final int unit;
+    private final double leftSpace;
+    private final double rightSpace;
+    private final int texSize;
+    private final List<List<Double>> tex;
+    private final Map<String, String> subModel;
+    private final Map<String, String> doorlight;
+    private final Map<String, List<Double>> shape;
 
     private DiaobanContent(JsonObject json) {
         super(json);
         model = json.get("model").getAsString();
         flipV = json.has("flipV") && json.get("flipV").getAsBoolean();
+        unit = json.has("unit") ? json.get("unit").getAsInt() : 8;
+        leftSpace = json.has("left_space") ? json.get("left_space").getAsDouble() : 0;
+        rightSpace = json.has("right_space") ? json.get("right_space").getAsDouble() : 0;
+        texSize = json.has("texSize") ? json.get("texSize").getAsInt() : 64;
+
+        tex = new ArrayList<>();
+        if (json.has("tex") && json.get("tex").isJsonArray()) {
+            for (JsonElement lineElement : json.getAsJsonArray("tex")) {
+                if (lineElement == null || !lineElement.isJsonArray()) continue;
+                List<Double> line = new ArrayList<>();
+                for (JsonElement valueElement : lineElement.getAsJsonArray()) {
+                    if (valueElement != null && valueElement.isJsonPrimitive() && valueElement.getAsJsonPrimitive().isNumber()) {
+                        line.add(valueElement.getAsDouble());
+                    }
+                }
+                if (!line.isEmpty()) {
+                    tex.add(line);
+                }
+            }
+        }
+
+        subModel = new HashMap<>();
+        if (json.has("subModel") && json.get("subModel").isJsonObject()) {
+            JsonObject subModelObject = json.getAsJsonObject("subModel");
+            for (Map.Entry<String, JsonElement> entry : subModelObject.entrySet()) {
+                JsonElement value = entry.getValue();
+                if (value != null && value.isJsonPrimitive()) {
+                    subModel.put(entry.getKey(), value.getAsString());
+                }
+            }
+        }
+
+        doorlight = new HashMap<>();
+        if (json.has("doorlight") && json.get("doorlight").isJsonObject()) {
+            JsonObject doorlightObject = json.getAsJsonObject("doorlight");
+            for (Map.Entry<String, JsonElement> entry : doorlightObject.entrySet()) {
+                JsonElement value = entry.getValue();
+                if (value != null && value.isJsonPrimitive()) {
+                    doorlight.put(entry.getKey(), value.getAsString());
+                }
+            }
+        }
+
+        shape = new HashMap<>();
+        if (json.has("shape") && json.get("shape").isJsonObject()) {
+            JsonObject shapeObject = json.getAsJsonObject("shape");
+            for (Map.Entry<String, JsonElement> entry : shapeObject.entrySet()) {
+                JsonElement value = entry.getValue();
+                if (value == null || !value.isJsonArray()) continue;
+                List<Double> box = new ArrayList<>();
+                for (JsonElement boxValue : value.getAsJsonArray()) {
+                    if (boxValue != null && boxValue.isJsonPrimitive() && boxValue.getAsJsonPrimitive().isNumber()) {
+                        box.add(boxValue.getAsDouble());
+                    }
+                }
+                if (!box.isEmpty()) {
+                    shape.put(entry.getKey(), box);
+                }
+            }
+        }
     }
 
     public String getModel() {
@@ -28,122 +96,36 @@ public class DiaobanContent extends BaseContent {
         return flipV;
     }
 
-    public static class DiaobanDisplayInfo {
-        private final String model;
-        private final boolean flipV;
-        private final int unit;
-        private final double leftSpace;
-        private final double rightSpace;
-        private final int texSize;
-        private final List<List<Double>> tex;
-        private final Map<String, String> subModel;
-        private final Map<String, Object> doorlight;
-        private final Map<String, List<Double>> shape;
+    public int getUnit() {
+        return unit;
+    }
 
-        private DiaobanDisplayInfo(String model, boolean flipV, int unit, double leftSpace, double rightSpace, int texSize,
-                                   List<List<Double>> tex, Map<String, String> subModel, Map<String, Object> doorlight,
-                                   Map<String, List<Double>> shape) {
-            this.model = model;
-            this.flipV = flipV;
-            this.unit = unit;
-            this.leftSpace = leftSpace;
-            this.rightSpace = rightSpace;
-            this.texSize = texSize;
-            this.tex = tex;
-            this.subModel = subModel;
-            this.doorlight = doorlight;
-            this.shape = shape;
-        }
+    public double getLeftSpace() {
+        return leftSpace;
+    }
 
-        public static DiaobanDisplayInfo fromMap(Map<String, Object> current) {
-            if (current == null || !(current.get("model") instanceof String model)) return null;
+    public double getRightSpace() {
+        return rightSpace;
+    }
 
-            boolean flipV = current.get("flipV") instanceof Boolean b && b;
-            int unit = current.get("unit") instanceof Number n ? n.intValue() : 8;
-            double leftSpace = current.get("left_space") instanceof Number n ? n.doubleValue() : 0;
-            double rightSpace = current.get("right_space") instanceof Number n ? n.doubleValue() : 0;
-            int texSize = current.get("texSize") instanceof Number n ? n.intValue() : 64;
+    public int getTexSize() {
+        return texSize;
+    }
 
-            List<List<Double>> tex = new ArrayList<>();
-            if (current.get("tex") instanceof List<?> texRaw) {
-                for (Object line : texRaw) {
-                    if (!(line instanceof List<?> lineList)) continue;
-                    List<Double> parsed = new ArrayList<>();
-                    for (Object v : lineList) {
-                        if (v instanceof Number n) parsed.add(n.doubleValue());
-                    }
-                    if (!parsed.isEmpty()) tex.add(parsed);
-                }
-            }
+    public List<List<Double>> getTex() {
+        return tex;
+    }
 
-            Map<String, String> subModel = new HashMap<>();
-            if (current.get("subModel") instanceof Map<?, ?> m) {
-                if (m.get("left") instanceof String s) subModel.put("left", s);
-                if (m.get("center") instanceof String s) subModel.put("center", s);
-                if (m.get("right") instanceof String s) subModel.put("right", s);
-            }
+    public Map<String, String> getSubModel() {
+        return subModel;
+    }
 
-            Map<String, Object> doorlight = new HashMap<>();
-            if (current.get("doorlight") instanceof Map<?, ?> m) {
-                if (m.get("on") instanceof String s) doorlight.put("on", s);
-                if (m.get("off") instanceof String s) doorlight.put("off", s);
-                if (m.get("type") instanceof String s) doorlight.put("type", s);
-            }
+    public Map<String, String> getDoorlight() {
+        return doorlight;
+    }
 
-            Map<String, List<Double>> shape = new HashMap<>();
-            if (current.get("shape") instanceof Map<?, ?> m) {
-                for (Map.Entry<?, ?> entry : m.entrySet()) {
-                    if (!(entry.getKey() instanceof String key) || !(entry.getValue() instanceof List<?> list)) continue;
-                    List<Double> parsed = new ArrayList<>();
-                    for (Object v : list) {
-                        if (v instanceof Number n) parsed.add(n.doubleValue());
-                    }
-                    if (parsed.size() == 6) shape.put(key, parsed);
-                }
-            }
-
-            return new DiaobanDisplayInfo(model, flipV, unit, leftSpace, rightSpace, texSize, tex, subModel, doorlight, shape);
-        }
-
-        public String getModel() {
-            return model;
-        }
-
-        public boolean isFlipV() {
-            return flipV;
-        }
-
-        public int getUnit() {
-            return unit;
-        }
-
-        public double getLeftSpace() {
-            return leftSpace;
-        }
-
-        public double getRightSpace() {
-            return rightSpace;
-        }
-
-        public int getTexSize() {
-            return texSize;
-        }
-
-        public List<List<Double>> getTex() {
-            return tex;
-        }
-
-        public Map<String, String> getSubModel() {
-            return subModel;
-        }
-
-        public Map<String, Object> getDoorlight() {
-            return doorlight;
-        }
-
-        public Map<String, List<Double>> getShape() {
-            return shape;
-        }
+    public Map<String, List<Double>> getShape() {
+        return shape;
     }
 
     protected static class DiaobanLoader extends BaseLoader {

@@ -77,24 +77,24 @@ public class BlockEntityPids extends BaseObjBlockEntity {
         }
 
         try {
-            PidsContent.PidsDisplayInfo displayInfo = ContentInfoUtil.getPidsDisplayInfo(mainModel, subModel);
-            if (displayInfo == null) {
+            PidsContent content = ContentInfoUtil.getPidsContent(mainModel, subModel);
+            if (content == null) {
                 markedError = true;
                 return;
             }
-            List<Integer> texSize = displayInfo.getTexSize();
+            List<Integer> texSize = content.getTexSize();
             texW = texSize.size() > 0 ? texSize.get(0) : 128;
             texH = texSize.size() > 1 ? texSize.get(1) : 128;
             Main.LOGGER.info("texW={}, texH={}", texW, texH);
-            if (!displayInfo.getScript().isEmpty()) {
-                initScriptDrawingAsync(displayInfo.getScript());
+            if (!content.getScript().isEmpty()) {
+                initScriptDrawingAsync(content.getScript());
             }
-            boolean flipV = displayInfo.isFlipV();
-            String model = displayInfo.getModel();
+            boolean flipV = content.isFlipV();
+            String model = content.getModel();
             dmhMain = ResourceUtil.loadDmh(new ResourceLocation(model), flipV);
-            if (!displayInfo.getSlots().isEmpty()) {
+            if (!content.getSlots().isEmpty()) {
                 RawMeshBuilder builder = new RawMeshBuilder(4, "light", new ResourceLocation("fangsu:pids/black.png"));
-                for (List<List<Double>> currentSlot : displayInfo.getSlots()) {
+                for (List<List<Double>> currentSlot : content.getSlots()) {
                     List<List<Double>> finalList = new ArrayList<>();
                     for (List<Double> point : currentSlot) {
                         if (point.size() == 3) finalList.add(point);
@@ -110,8 +110,8 @@ public class BlockEntityPids extends BaseObjBlockEntity {
                 dispRawModel.generateNormals();
                 dmhDisp.uploadLater(dispRawModel);
             }
-            if (displayInfo.getShape() != null) {
-                this.shape = new CollisionBoxUtil.CollisionBox(displayInfo.getShape());
+            if (!content.getShape().isEmpty()) {
+                this.shape = new CollisionBoxUtil.CollisionBox(content.getShape());
             }
         } catch (Exception e) {
             Main.LOGGER.warn(e.getMessage());

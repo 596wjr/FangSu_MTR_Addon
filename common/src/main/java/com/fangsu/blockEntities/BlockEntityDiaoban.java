@@ -101,26 +101,26 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
         reloadRoute();
 
         try {
-            DiaobanContent.DiaobanDisplayInfo displayInfo = ContentInfoUtil.getDiaobanDisplayInfo(mainModel, subModel);
-            if (displayInfo == null) {
+            DiaobanContent content = ContentInfoUtil.getDiaobanContent(mainModel, subModel);
+            if (content == null) {
                 markedError = true;
                 return;
             }
-            boolean flipV = displayInfo.isFlipV();
-            String modelKey = displayInfo.getModel();
+            boolean flipV = content.isFlipV();
+            String modelKey = content.getModel();
             Map<String, DynamicModelHolder> models = ResourceUtil.loadPartedDmh(new ResourceLocation(modelKey), flipV);
             String modelKeyLeft = "l", modelKeyCenter = "center", modelKeyRight = "r", modelKeyDlOn = "", modelKeyDlOff = "";
-            Map<String, String> subModelMap = displayInfo.getSubModel();
+            Map<String, String> subModelMap = content.getSubModel();
             if (subModelMap.containsKey("left")) modelKeyLeft = subModelMap.get("left");
             if (subModelMap.containsKey("center")) modelKeyCenter = subModelMap.get("center");
             if (subModelMap.containsKey("right")) modelKeyRight = subModelMap.get("right");
 
-            Map<String, Object> doorlightMap = displayInfo.getDoorlight();
+            Map<String, String> doorlightMap = content.getDoorlight();
             if (!doorlightMap.isEmpty()) {
-                if (doorlightMap.get("on") != null) modelKeyDlOn = doorlightMap.get("on").toString();
-                if (doorlightMap.get("off") != null) modelKeyDlOff = doorlightMap.get("off").toString();
+                if (doorlightMap.get("on") != null) modelKeyDlOn = doorlightMap.get("on");
+                if (doorlightMap.get("off") != null) modelKeyDlOff = doorlightMap.get("off");
                 if (doorlightMap.get("type") != null) {
-                    String rawType = doorlightMap.get("type").toString();
+                    String rawType = doorlightMap.get("type");
                     doorLightType = switch (rawType) {
                         case "common", "simple" -> 0;
                         case "blink" -> 1;
@@ -134,10 +134,10 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
             if (!"".equals(modelKeyDlOn)) dmhDlOn = models.get(modelKeyDlOn);
             if (!"".equals(modelKeyDlOff)) dmhDlOff = models.get(modelKeyDlOff);
 
-            double leftSpace = displayInfo.getLeftSpace(), rightSpace = displayInfo.getRightSpace();
+            double leftSpace = content.getLeftSpace(), rightSpace = content.getRightSpace();
             double y1 = 0.75, z1 = 0.25, y2 = 0.25, z2 = 0.25;
-            unit = displayInfo.getUnit();
-            List<List<Double>> tex = displayInfo.getTex();
+            unit = content.getUnit();
+            List<List<Double>> tex = content.getTex();
             if (!tex.isEmpty()) {
                 List<?> l = tex;
                 if (l.size() == 2) {
@@ -168,11 +168,11 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
             dispRawModel.generateNormals();
             dmhDisp.uploadLater(dispRawModel);
 
-            int texSize = displayInfo.getTexSize();
+            int texSize = content.getTexSize();
             texW = texSize * length + 1;
             texH = texSize;
 
-            Map<String, List<Double>> shapeMap = displayInfo.getShape();
+            Map<String, List<Double>> shapeMap = content.getShape();
             shapeLeftSerialized = ShapeSerializer.serialize(shapeMap.get("left"));
             shapeCenterSerialized = ShapeSerializer.serialize(shapeMap.get("center"));
             shapeRightSerialized = ShapeSerializer.serialize(shapeMap.get("right"));

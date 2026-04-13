@@ -12,11 +12,64 @@ import java.util.Map;
 public class PidsContent extends BaseContent {
     private final String model;
     private final boolean flipV;
+    private final String script;
+    private final List<Integer> texSize;
+    private final List<List<List<Double>>> slots;
+    private final List<List<Double>> shape;
 
     private PidsContent(JsonObject json) {
         super(json);
         model = json.get("model").getAsString();
         flipV = json.has("flipV") && json.get("flipV").getAsBoolean();
+        script = json.has("script") ? json.get("script").getAsString() : "";
+
+        texSize = new ArrayList<>();
+        if (json.has("texSize") && json.get("texSize").isJsonArray()) {
+            for (JsonElement element : json.getAsJsonArray("texSize")) {
+                if (element != null && element.isJsonPrimitive() && element.getAsJsonPrimitive().isNumber()) {
+                    texSize.add(element.getAsInt());
+                }
+            }
+        }
+
+        slots = new ArrayList<>();
+        if (json.has("slots") && json.get("slots").isJsonArray()) {
+            for (JsonElement slotElement : json.getAsJsonArray("slots")) {
+                if (slotElement == null || !slotElement.isJsonArray()) continue;
+                List<List<Double>> quad = new ArrayList<>();
+                for (JsonElement pointElement : slotElement.getAsJsonArray()) {
+                    if (pointElement == null || !pointElement.isJsonArray()) continue;
+                    List<Double> point = new ArrayList<>();
+                    for (JsonElement valueElement : pointElement.getAsJsonArray()) {
+                        if (valueElement != null && valueElement.isJsonPrimitive() && valueElement.getAsJsonPrimitive().isNumber()) {
+                            point.add(valueElement.getAsDouble());
+                        }
+                    }
+                    if (point.size() == 3) {
+                        quad.add(point);
+                    }
+                }
+                if (!quad.isEmpty()) {
+                    slots.add(quad);
+                }
+            }
+        }
+
+        shape = new ArrayList<>();
+        if (json.has("shape") && json.get("shape").isJsonArray()) {
+            for (JsonElement shapeElement : json.getAsJsonArray("shape")) {
+                if (shapeElement == null || !shapeElement.isJsonArray()) continue;
+                List<Double> box = new ArrayList<>();
+                for (JsonElement valueElement : shapeElement.getAsJsonArray()) {
+                    if (valueElement != null && valueElement.isJsonPrimitive() && valueElement.getAsJsonPrimitive().isNumber()) {
+                        box.add(valueElement.getAsDouble());
+                    }
+                }
+                if (!box.isEmpty()) {
+                    shape.add(box);
+                }
+            }
+        }
     }
 
     public String getModel() {
@@ -27,79 +80,20 @@ public class PidsContent extends BaseContent {
         return flipV;
     }
 
-    public static class PidsDisplayInfo {
-        private final String model;
-        private final boolean flipV;
-        private final String script;
-        private final List<Integer> texSize;
-        private final List<List<List<Double>>> slots;
-        private final List<?> shape;
+    public String getScript() {
+        return script;
+    }
 
-        private PidsDisplayInfo(String model, boolean flipV, String script, List<Integer> texSize, List<List<List<Double>>> slots, List<?> shape) {
-            this.model = model;
-            this.flipV = flipV;
-            this.script = script;
-            this.texSize = texSize;
-            this.slots = slots;
-            this.shape = shape;
-        }
+    public List<Integer> getTexSize() {
+        return texSize;
+    }
 
-        public static PidsDisplayInfo fromMap(Map<String, Object> current) {
-            if (current == null || !(current.get("model") instanceof String model)) return null;
-            boolean flipV = current.get("flipV") instanceof Boolean b && b;
-            String script = current.get("script") instanceof String s ? s : "";
+    public List<List<List<Double>>> getSlots() {
+        return slots;
+    }
 
-            List<Integer> texSize = new ArrayList<>();
-            if (current.get("texSize") instanceof List<?> l) {
-                for (Object o : l) {
-                    if (o instanceof Number n) texSize.add(n.intValue());
-                }
-            }
-
-            List<List<List<Double>>> slots = new ArrayList<>();
-            if (current.get("slots") instanceof List<?> slotList) {
-                for (Object slot : slotList) {
-                    if (!(slot instanceof List<?> quadList)) continue;
-                    List<List<Double>> quad = new ArrayList<>();
-                    for (Object point : quadList) {
-                        if (!(point instanceof List<?> pointRaw)) continue;
-                        List<Double> pos = new ArrayList<>();
-                        for (Object value : pointRaw) {
-                            if (value instanceof Number n) pos.add(n.doubleValue());
-                        }
-                        if (pos.size() == 3) quad.add(pos);
-                    }
-                    if (!quad.isEmpty()) slots.add(quad);
-                }
-            }
-
-            List<?> shape = current.get("shape") instanceof List<?> s ? s : null;
-            return new PidsDisplayInfo(model, flipV, script, texSize, slots, shape);
-        }
-
-        public String getModel() {
-            return model;
-        }
-
-        public boolean isFlipV() {
-            return flipV;
-        }
-
-        public String getScript() {
-            return script;
-        }
-
-        public List<Integer> getTexSize() {
-            return texSize;
-        }
-
-        public List<List<List<Double>>> getSlots() {
-            return slots;
-        }
-
-        public List<?> getShape() {
-            return shape;
-        }
+    public List<List<Double>> getShape() {
+        return shape;
     }
 
     protected static class PidsLoader extends BaseLoader {
