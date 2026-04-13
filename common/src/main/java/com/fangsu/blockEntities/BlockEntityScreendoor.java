@@ -294,9 +294,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
         private DoorRenderInfo(ScreendoorDoorContent.DoorInfo info, Map<String, DynamicModelHolder> models) {
             step = info.step();
             model = models.get(info.subModel());
-            if (info.shape() instanceof List<?> v) {
-                shape = new CollisionBoxUtil.CollisionBox(v);
-            }
+            shape = new CollisionBoxUtil.CollisionBox(info.shape());
         }
     }
 

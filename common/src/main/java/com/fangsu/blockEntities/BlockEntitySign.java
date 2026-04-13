@@ -97,13 +97,17 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
             }
             Map<String, DynamicModelHolder> models = ResourceUtil.loadPartedDmh(new ResourceLocation(displayInfo.model()), displayInfo.flipV());
             unit = displayInfo.unit();
-            if (displayInfo.main() instanceof Map<?, ?> main) {
+
+            {
+                Map<?, ?> main = displayInfo.main();
                 String modelKey = (String) main.get("subModel");
                 dmhCenter = models.get(modelKey);
                 if (main.containsKey("shape") && main.get("shape") instanceof List<?> l)
                     shapeCenter = new CollisionBoxUtil.CollisionBox(l);
             }
-            if (displayInfo.side() instanceof Map<?, ?> side) {
+
+            {
+                Map<?, ?> side = displayInfo.side();
                 if (side.get("left") instanceof Map<?, ?> left) {
                     String modelKey = (String) left.get("subModel");
                     dmhLeft = models.get(modelKey);
@@ -119,7 +123,9 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                     }
                 }
             }
-            if (displayInfo.pole() instanceof Map<?, ?> pole) {
+
+            {
+                Map<?, ?> pole = displayInfo.pole();
                 String modelKey = (String) pole.get("subModel");
                 dmhPole = models.get(modelKey);
                 if (pole.containsKey("shape") && pole.get("shape") instanceof List<?> l) {
