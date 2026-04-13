@@ -26,6 +26,10 @@ public class TicketBarrierContent extends BaseContent {
         return filpV;
     }
 
+    public static class TicketBarrierDoorInfo {
+        //TODO 数据结构位置迁移
+    }
+
     protected static class TicketBarrierLoader extends BaseLoader {
         @Override
         public void load(String type, String path, JsonObject content) {
@@ -51,6 +55,4 @@ public class TicketBarrierContent extends BaseContent {
             }
         }
     }
-
-
 }
