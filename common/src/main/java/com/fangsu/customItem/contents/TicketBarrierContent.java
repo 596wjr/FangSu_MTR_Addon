@@ -31,8 +31,7 @@ public class TicketBarrierContent extends BaseContent {
     }
 
     protected static class TicketBarrierLoader extends BaseLoader {
-        @Override
-        public void load(String type, String path, JsonObject content) {
+        public static void load(String type, String path, JsonObject content) {
             ContentManager cm = ContentManager.getInstance();
             for (Map.Entry<String, JsonElement> entry : content.entrySet()) {
                 String entryKey = entry.getKey();
@@ -49,7 +48,7 @@ public class TicketBarrierContent extends BaseContent {
                         continue;
                     }
                     JsonObject detailObject = detailElement.getAsJsonObject();
-
+                    cm.addContent(type, path, new TicketBarrierContent(detailObject));
                 }
 
             }

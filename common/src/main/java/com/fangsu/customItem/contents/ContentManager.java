@@ -26,6 +26,8 @@ public class ContentManager {
     private ContentManager() {
         contents = new HashMap<>();
         loaders = new HashMap<>();
+
+        registerContent("ticketBarrier", TicketBarrierContent.TicketBarrierLoader::load);
     }
 
     public void reset() {
