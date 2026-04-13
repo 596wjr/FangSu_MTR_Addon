@@ -141,7 +141,7 @@ public abstract class BaseObjBlock extends HorizontalDirectionalBlock implements
         }
         return Shapes.block();
     }
-
+    
     public BlockState rotate(BlockState blockState, Rotation rotation) {
         return (BlockState) blockState.setValue(FACING, rotation.rotate((Direction) blockState.getValue(FACING)));
     }
