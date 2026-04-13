@@ -9,6 +9,7 @@ import com.fangsu.customItem.contents.DiaobanContent;
 import com.fangsu.extraConfig.*;
 import com.fangsu.mtr.LocalRoute;
 import com.fangsu.mtr.LocalRouteDetail;
+import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcer.math.Matrices;
 import com.fangsu.render.sowcerext.model.RawModel;
@@ -26,14 +27,19 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import mtr.data.Platform;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.awt.*;
 import java.util.*;
@@ -52,7 +58,9 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     protected String drawScript;
 
     private DynamicModelHolder dmhLeft, dmhCenter, dmhRight, dmhDlOn, dmhDlOff, dmhDisp = new DynamicModelHolder();
-    private CollisionBoxUtil.CollisionBox shape;
+    private String shapeLeftSerialized = "";
+    private String shapeCenterSerialized = "";
+    private String shapeRightSerialized = "";
     private Map<String, JsonElement> userExtraConfigs;
 
     private volatile ScriptHolderBase scriptHolder;
@@ -164,12 +172,68 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
             texW = texSize * length + 1;
             texH = texSize;
 
+            Map<String, List<Double>> shapeMap = displayInfo.getShape();
+            shapeLeftSerialized = ShapeSerializer.serialize(shapeMap.get("left"));
+            shapeCenterSerialized = ShapeSerializer.serialize(shapeMap.get("center"));
+            shapeRightSerialized = ShapeSerializer.serialize(shapeMap.get("right"));
+
 
             firstInit = true;
             scriptInit = false;
 
         } catch (Exception e) {
             Main.LOGGER.warn("Failed to load diaoban: {}", e.getMessage());
+        }
+    }
+
+    @Override
+    public VoxelShape setCollisionShape(BlockState state) {
+        return getDiaobanShape(state, true);
+    }
+
+    @Override
+    public VoxelShape setShape(BlockState state) {
+        return getDiaobanShape(state, false);
+    }
+
+    private VoxelShape getDiaobanShape(BlockState state, boolean collision) {
+        try {
+            String serialized = buildDiaobanShapeString();
+            if (serialized.isEmpty()) return collision ? Shapes.empty() : Shapes.block();
+            Direction facing = state.getValue(BaseObjBlock.FACING);
+            int yRot = Math.floorMod((int) facing.toYRot(), 360);
+            VoxelShape shape = ShapeSerializer.getShape(serialized, yRot);
+            Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
+            return shape.move(trans.x, trans.y, trans.z);
+        } catch (Exception e) {
+            return collision ? Shapes.empty() : Block.box(0, 0, 0, 16, 16, 16);
+        }
+    }
+
+    private String buildDiaobanShapeString() {
+        if (length <= 0) return "";
+        List<String> parts = new ArrayList<>();
+        double startX = (-0.5 * unit * (length - 1));
+        appendShapeWithOffset(parts, shapeLeftSerialized, startX);
+        for (int i = 0; i < length - 2; i++) {
+            appendShapeWithOffset(parts, shapeCenterSerialized, startX + (i + 1) * unit);
+        }
+        appendShapeWithOffset(parts, shapeRightSerialized, startX + (length - 1) * unit);
+        return String.join("/", parts);
+    }
+
+    private void appendShapeWithOffset(List<String> parts, String serialized, double offsetX) {
+        if (serialized == null || serialized.isEmpty()) return;
+        String[] boxes = serialized.split("/");
+        for (String box : boxes) {
+            String[] values = box.split(",");
+            if (values.length != 6) continue;
+            try {
+                double x1 = Double.parseDouble(values[0].trim()) + offsetX;
+                double x2 = Double.parseDouble(values[3].trim()) + offsetX;
+                parts.add(x1 + "," + values[1].trim() + "," + values[2].trim() + "," + x2 + "," + values[4].trim() + "," + values[5].trim());
+            } catch (Exception ignored) {
+            }
         }
     }
 

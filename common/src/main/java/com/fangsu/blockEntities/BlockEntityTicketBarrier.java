@@ -9,6 +9,7 @@ import com.fangsu.Main;
 import com.fangsu.utils.ContentInfoUtil;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.ResourceUtil;
+import com.fangsu.utils.ShapeSerializer;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.utils.CollisionBoxUtil;
 import com.fangsu.ticketSystem.*;
@@ -56,6 +57,10 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     private DynamicModelHolder mainDmh;
     private TicketBarrierDoorRenderInfo subInfo;
     private CollisionBoxUtil.CollisionBox shape, collisionShape, doorCloseShape, doorCloseCollisionShape;
+    private String shapeSerialized = "";
+    private String collisionShapeSerialized = "";
+    private String doorCloseShapeSerialized = "";
+    private String doorCloseCollisionShapeSerialized = "";
     private AABB ticketBox, cardBox;
 
     public BlockEntityTicketBarrier(BlockPos blockPos, BlockState blockState) {
@@ -106,6 +111,10 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
             } else {
                 doorCloseCollisionShape = new CollisionBoxUtil.CollisionBox(List.of(List.of(1, 0, 12, 15, 24, 15)));
             }
+            shapeSerialized = ShapeSerializer.serialize(displayInfo.getShape());
+            collisionShapeSerialized = ShapeSerializer.serialize(displayInfo.getCollisionShape());
+            doorCloseShapeSerialized = ShapeSerializer.serialize(displayInfo.getDoorCloseShape());
+            doorCloseCollisionShapeSerialized = ShapeSerializer.serialize(displayInfo.getDoorCloseCollisionShape());
 
             gatePos = displayInfo.getGatePos() != null ? displayInfo.getGatePos().floatValue() : 0.5f;
 
@@ -294,7 +303,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     @Override
     public List<SubModelDispInfo> getSubModelInfos() {
         List<SubModelDispInfo> infos = new ArrayList<>();
-        infos.add(createSubModelSelectInfo("", DEFAULT_SUB_MODEL));
+        infos.add(createSubModelSelectInfo("content", DEFAULT_SUB_MODEL));
         return infos;
     }
 
@@ -318,6 +327,9 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                     continue;
                 }
                 DynamicModelHolder dmh = dmhs.get(door.getSubModel());
+                if (dmh == null && dmhs.size() == 1) {
+                    dmh = dmhs.values().iterator().next();
+                }
                 if (dmh == null) {
                     continue;
                 }
@@ -331,6 +343,14 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     }
 
     private VoxelShape buildOutlineShape(BlockState state, boolean isOpen) {
+        if (!shapeSerialized.isEmpty()) {
+            VoxelShape openShape = resolveSerializedShape(shapeSerialized, state);
+            if (isOpen || doorCloseShapeSerialized.isEmpty()) {
+                return openShape;
+            }
+            VoxelShape closeShape = resolveSerializedShape(doorCloseShapeSerialized, state);
+            return Shapes.or(openShape, closeShape);
+        }
         if (shape == null) return null;
         Direction facing = state.getValue(BaseObjBlock.FACING);
         Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
@@ -349,6 +369,17 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     }
 
     private VoxelShape buildCollisionShape(BlockState state, boolean isOpen) {
+        if (!shapeSerialized.isEmpty() || !collisionShapeSerialized.isEmpty()) {
+            String baseShape = !collisionShapeSerialized.isEmpty() ? collisionShapeSerialized : shapeSerialized;
+            if (baseShape.isEmpty()) return null;
+            VoxelShape openShape = resolveSerializedShape(baseShape, state);
+            String closeShapeRaw = !doorCloseCollisionShapeSerialized.isEmpty() ? doorCloseCollisionShapeSerialized : doorCloseShapeSerialized;
+            if (isOpen || closeShapeRaw.isEmpty()) {
+                return openShape;
+            }
+            VoxelShape closeShape = resolveSerializedShape(closeShapeRaw, state);
+            return Shapes.or(openShape, closeShape);
+        }
         CollisionBoxUtil.CollisionBox baseCollision = collisionShape != null ? collisionShape : shape;
         if (baseCollision == null) return null;
         CollisionBoxUtil.CollisionBox closeCollision = doorCloseCollisionShape != null ? doorCloseCollisionShape : doorCloseShape;
@@ -366,6 +397,17 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         VoxelShape closeShape = CollisionBoxUtil.cachedRotatedShape(posLong, closeCollision, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
         closeShape = closeShape.move(trans.x, trans.y, trans.z);
         return Shapes.or(openShape, closeShape);
+    }
+
+    private VoxelShape resolveSerializedShape(String serialized, BlockState state) {
+        try {
+            Direction facing = state.getValue(BaseObjBlock.FACING);
+            int yRot = Math.floorMod((int) facing.toYRot(), 360);
+            Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
+            return ShapeSerializer.getShape(serialized, yRot).move(trans.x, trans.y, trans.z);
+        } catch (Exception e) {
+            return Shapes.empty();
+        }
     }
 
     private static AABB parseBox(List<?> rawList) {

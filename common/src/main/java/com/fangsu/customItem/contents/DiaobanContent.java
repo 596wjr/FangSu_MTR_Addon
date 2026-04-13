@@ -38,9 +38,11 @@ public class DiaobanContent extends BaseContent {
         private final List<List<Double>> tex;
         private final Map<String, String> subModel;
         private final Map<String, Object> doorlight;
+        private final Map<String, List<Double>> shape;
 
         private DiaobanDisplayInfo(String model, boolean flipV, int unit, double leftSpace, double rightSpace, int texSize,
-                                   List<List<Double>> tex, Map<String, String> subModel, Map<String, Object> doorlight) {
+                                   List<List<Double>> tex, Map<String, String> subModel, Map<String, Object> doorlight,
+                                   Map<String, List<Double>> shape) {
             this.model = model;
             this.flipV = flipV;
             this.unit = unit;
@@ -50,6 +52,7 @@ public class DiaobanContent extends BaseContent {
             this.tex = tex;
             this.subModel = subModel;
             this.doorlight = doorlight;
+            this.shape = shape;
         }
 
         public static DiaobanDisplayInfo fromMap(Map<String, Object> current) {
@@ -87,7 +90,19 @@ public class DiaobanContent extends BaseContent {
                 if (m.get("type") instanceof String s) doorlight.put("type", s);
             }
 
-            return new DiaobanDisplayInfo(model, flipV, unit, leftSpace, rightSpace, texSize, tex, subModel, doorlight);
+            Map<String, List<Double>> shape = new HashMap<>();
+            if (current.get("shape") instanceof Map<?, ?> m) {
+                for (Map.Entry<?, ?> entry : m.entrySet()) {
+                    if (!(entry.getKey() instanceof String key) || !(entry.getValue() instanceof List<?> list)) continue;
+                    List<Double> parsed = new ArrayList<>();
+                    for (Object v : list) {
+                        if (v instanceof Number n) parsed.add(n.doubleValue());
+                    }
+                    if (parsed.size() == 6) shape.put(key, parsed);
+                }
+            }
+
+            return new DiaobanDisplayInfo(model, flipV, unit, leftSpace, rightSpace, texSize, tex, subModel, doorlight, shape);
         }
 
         public String getModel() {
@@ -124,6 +139,10 @@ public class DiaobanContent extends BaseContent {
 
         public Map<String, Object> getDoorlight() {
             return doorlight;
+        }
+
+        public Map<String, List<Double>> getShape() {
+            return shape;
         }
     }
 

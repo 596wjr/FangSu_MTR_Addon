@@ -94,68 +94,75 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
 
     // ★ 抽出的 auto 重算逻辑
     private void recomputeAuto() {
+        subModelLeft = subModels.getOrDefault("subModelLeft", DEFAULT_SUB_MODEL_LEFT);
+        subModelRight = subModels.getOrDefault("subModelRight", DEFAULT_SUB_MODEL_RIGHT);
+        actualSubModelLeft = subModelLeft;
+        actualSubModelRight = subModelRight;
+
         Map<String, Object> a = loadedLeft.get(subModelLeft);
         Map<String, Object> b = loadedRight.get(subModelRight);
         boolean leftIsAuto = a != null && a.containsKey("auto");
         boolean rightIsAuto = b != null && b.containsKey("auto");
 
-        if (!leftIsAuto && !rightIsAuto) return;
-
         String prevLeft = actualSubModelLeft;
         String prevRight = actualSubModelRight;
 
         try {
-            String autoKey = (String) loadedLeft.get(subModelLeft).get("auto");
-            List<JsonObject> commands = ScreendoorGlassContent.loadAutoCommands(mainModel, autoKey);
+            if (leftIsAuto || rightIsAuto) {
+                String autoKey = (String) loadedLeft.get(subModelLeft).get("auto");
+                List<JsonObject> commands = ScreendoorGlassContent.loadAutoCommands(mainModel, autoKey);
 
-            blockRelation.refresh();
+                blockRelation.refresh();
 
-            for (int i = commands.size() - 1; i >= 0; i--) {
-                JsonObject commandJson = commands.get(i);
-                if (!commandJson.has("if")) continue;
+                for (int i = commands.size() - 1; i >= 0; i--) {
+                    JsonObject commandJson = commands.get(i);
+                    if (!commandJson.has("if")) continue;
 
-                boolean isAvailable = false;
-                JsonElement ifElement = commandJson.get("if");
+                    boolean isAvailable = false;
+                    JsonElement ifElement = commandJson.get("if");
 
-                // if: "LEFT_BLOCK"
-                if (ifElement.isJsonPrimitive()) {
-                    String key = ifElement.getAsString();
-                    if ("TRUE".equals(key)) {
-                        isAvailable = true;
-                    } else {
-                        String target = blockRelation.get(key);
-                        if (commandJson.has("is")) {
-                            isAvailable = target.equals(commandJson.get("is").getAsString());
-                        } else if (commandJson.has("not")) {
-                            isAvailable = !target.equals(commandJson.get("not").getAsString());
+                    // if: "LEFT_BLOCK"
+                    if (ifElement.isJsonPrimitive()) {
+                        String key = ifElement.getAsString();
+                        if ("TRUE".equals(key)) {
+                            isAvailable = true;
+                        } else {
+                            String target = blockRelation.get(key);
+                            if (commandJson.has("is")) {
+                                isAvailable = target.equals(commandJson.get("is").getAsString());
+                            } else if (commandJson.has("not")) {
+                                isAvailable = !target.equals(commandJson.get("not").getAsString());
+                            }
                         }
                     }
-                }
-                // if: { ... }
-                else if (ifElement.isJsonObject()) {
-                    boolean failed = false;
-                    for (Map.Entry<String, JsonElement> e : ifElement.getAsJsonObject().entrySet()) {
-                        String target = blockRelation.get(e.getKey());
-                        JsonObject cond = e.getValue().getAsJsonObject();
-                        if (cond.has("is") && !target.equals(cond.get("is").getAsString())) {
-                            failed = true;
-                            break;
+                    // if: { ... }
+                    else if (ifElement.isJsonObject()) {
+                        boolean failed = false;
+                        for (Map.Entry<String, JsonElement> e : ifElement.getAsJsonObject().entrySet()) {
+                            String target = blockRelation.get(e.getKey());
+                            JsonObject cond = e.getValue().getAsJsonObject();
+                            if (cond.has("is") && !target.equals(cond.get("is").getAsString())) {
+                                failed = true;
+                                break;
+                            }
+                            if (cond.has("not") && target.equals(cond.get("not").getAsString())) {
+                                failed = true;
+                                break;
+                            }
                         }
-                        if (cond.has("not") && target.equals(cond.get("not").getAsString())) {
-                            failed = true;
-                            break;
-                        }
+                        isAvailable = !failed;
                     }
-                    isAvailable = !failed;
-                }
 
-                if (isAvailable) {
-                    if (leftIsAuto && commandJson.has("left"))
-                        actualSubModelLeft = commandJson.get("left").getAsString();
-                    if (rightIsAuto && commandJson.has("right"))
-                        actualSubModelRight = commandJson.get("right").getAsString();
+                    if (isAvailable) {
+                        if (leftIsAuto && commandJson.has("left"))
+                            actualSubModelLeft = commandJson.get("left").getAsString();
+                        if (rightIsAuto && commandJson.has("right"))
+                            actualSubModelRight = commandJson.get("right").getAsString();
+                    }
                 }
             }
+
+            reloadModelAndShape();
 
             // ★ 结果变了才通知邻居
             boolean changed =
@@ -164,7 +171,6 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
 
             if (changed) {
                 notifyNeighborsForAuto();
-                reloadModelAndShape();
             }
 
         } catch (Exception e) {
@@ -181,6 +187,7 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
 
         Map<String, Object> left = loadedLeft.get(actualSubModelLeft);
         Map<String, Object> right = loadedRight.get(actualSubModelRight);
+        if (left == null || right == null) return;
 
         dhmLeft = dhmRight = null;
         shapeLeft = shapeRight = null;
@@ -231,11 +238,34 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
 
     @Override
     public void whenSaving(Map<String, String> extraConfigs) {
+        if (DEFAULT_SUB_MODEL_LEFT.equals(subModels.getOrDefault("subModelLeft", DEFAULT_SUB_MODEL_LEFT))
+                && actualSubModelLeft != null && !actualSubModelLeft.isEmpty()) {
+            subModels.put("subModelLeft", actualSubModelLeft);
+        }
+        if (DEFAULT_SUB_MODEL_RIGHT.equals(subModels.getOrDefault("subModelRight", DEFAULT_SUB_MODEL_RIGHT))
+                && actualSubModelRight != null && !actualSubModelRight.isEmpty()) {
+            subModels.put("subModelRight", actualSubModelRight);
+        }
     }
 
     @Override
     public InteractionResult whenUseWithOther(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         return InteractionResult.PASS;
+    }
+
+    @Override
+    public InteractionResult whenUseWithBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        if (level.isClientSide) return InteractionResult.SUCCESS;
+        triggerAutoSync(true, true);
+        BlockEntity left = FacingBlockUtil.getLeftBlockEntity(level, pos, getBlockState());
+        if (left instanceof BlockEntityScreendoorGlass g) {
+            g.triggerAutoSync(false, true);
+        }
+        BlockEntity right = FacingBlockUtil.getRightBlockEntity(level, pos, getBlockState());
+        if (right instanceof BlockEntityScreendoorGlass g) {
+            g.triggerAutoSync(true, false);
+        }
+        return InteractionResult.SUCCESS;
     }
 
     @Override
@@ -289,6 +319,15 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
     @Override
     public void afterChangeModel() {
         recomputeAuto();
+    }
+
+    private void triggerAutoSync(boolean triggerLeft, boolean triggerRight) {
+        if (triggerLeft) subModels.put("subModelLeft", DEFAULT_SUB_MODEL_LEFT);
+        if (triggerRight) subModels.put("subModelRight", DEFAULT_SUB_MODEL_RIGHT);
+        pendingAuto = true;
+        recomputeAuto();
+        sendUpdateC2S();
+        setChanged();
     }
 
     // =========================================================
