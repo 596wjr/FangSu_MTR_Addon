@@ -1,64 +1,65 @@
 {
-    "ticketBarrier": [
-        {
-            "text": "fangsu.item.ticketbarrier.text",
-            "content": "fangsu:ticketbarrier/mtr_ticketbarrier.json"
-        }
-    ],
-    "screendoor": [
-        {
-            "text": "fangsu.item.screendoor_qg1.text",
-            "content": "fangsu:screendoor/kaba.json",
-            "contentText": "fangsu.item.screendoor_qg1.contentText"
-        },
-        {
-            "text": "fangsu.item.screendoor_qg2.text",
-            "content": "fangsu:screendoor/mtr_screendoor_b.json",
-            "contentText": "fangsu.item.screendoor_qg2.contentText"
-        },
-        {
-            "text": "fangsu.item.screendoor_bg2.text",
-            "content": "fangsu:screendoor/mtr_screendoor_bg_2.json",
-            "contentText": "fangsu.item.screendoor_bg2.contentText"
-        }
-    ],
-    "diaoban": [
-        {
-            "text":"fangsu.item.diaoban.text",
-            "content":"fangsu:diaoban/mtr_diaoban.json"
-            ,
-            "default":{
-                "subModel":"mtr_diaoban_a"
-            }
-        }
-        
-    ],
-    "pids": [
-        {
-            "text": "fangsu.item.pids.mtr_js.text",
-            "content": "fangsu:pids/mtr_pids.json"
-        },
-        {
-            "text": "fangsu.item.pids.jcm_js.text",
-            "content": "fangsu:pids/jcm_pids.json"
-        }
-    ],
-    "sign": [
-        
-    ],
-    "adv_board": [
-        {
-            "text": "fangsu.item.adv_board.common_adv.text",
-            "content": "fangsu:adv_board/common_adv.json"
-        }
-    ],
-    "route_info_sign":[
-        {
-            "text":"fangsu.item.ris.mtr",
-            "content":"fangsu:route_info_sign/mtr_route_info_sign.json",
-            "default":{
-                "subModel":"mtr_ris_wm"
-            }
-        }
-    ]
+  "ticketBarrier": [
+    {
+      "text": "fangsu.item.ticketbarrier.text",
+      "content": "fangsu:ticketbarrier/mtr_ticketbarrier.json"
+    }
+  ],
+  "screendoor": [
+    {
+      "text": "fangsu.item.screendoor_qg1.text",
+      "content": "fangsu:screendoor/kaba.json",
+      "contentText": "fangsu.item.screendoor_qg1.contentText"
+    },
+    {
+      "text": "fangsu.item.screendoor_qg2.text",
+      "content": "fangsu:screendoor/mtr_screendoor_b.json",
+      "contentText": "fangsu.item.screendoor_qg2.contentText"
+    },
+    {
+      "text": "fangsu.item.screendoor_bg2.text",
+      "content": "fangsu:screendoor/mtr_screendoor_bg_2.json",
+      "contentText": "fangsu.item.screendoor_bg2.contentText"
+    }
+  ],
+  "diaoban": [
+    {
+      "text": "fangsu.item.diaoban.text",
+      "content": "fangsu:diaoban/mtr_diaoban.json",
+      "default": {
+        "subModel": "mtr_diaoban_a"
+      }
+    }
+  ],
+  "pids": [
+    {
+      "text": "fangsu.item.pids.mtr_js.text",
+      "content": "fangsu:pids/mtr_pids.json"
+    },
+    {
+      "text": "fangsu.item.pids.jcm_js.text",
+      "content": "fangsu:pids/jcm_pids.json"
+    }
+  ],
+  "sign": [
+    {
+      "text": "fangsu.item.sign.mtr_sign.text",
+      "content": "fangsu:sign/mtr_sign/mtr_sign.json"
+    }
+  ],
+  "adv_board": [
+    {
+      "text": "fangsu.item.adv_board.common_adv.text",
+      "content": "fangsu:adv_board/common_adv.json"
+    }
+  ],
+  "route_info_sign": [
+    {
+      "text": "fangsu.item.ris.mtr",
+      "content": "fangsu:route_info_sign/mtr_route_info_sign.json",
+      "default": {
+        "subModel": "mtr_ris_wm"
+      }
+    }
+  ]
 }

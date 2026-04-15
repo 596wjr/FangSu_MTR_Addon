@@ -39,7 +39,8 @@ public abstract class BaseObjBlock extends HorizontalDirectionalBlock implements
         super(BlockBehaviour.Properties.of()
                 .strength(2)
                 .noOcclusion()
-                .dynamicShape());
+                .dynamicShape()
+        );
     }
 
     @Override

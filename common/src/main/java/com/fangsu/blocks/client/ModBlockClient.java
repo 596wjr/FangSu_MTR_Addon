@@ -20,6 +20,10 @@ public class ModBlockClient {
                 ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
         );
         BlockEntityRendererRegistry.register(
+                ModBlocks.BLOCK_ENTITY_DUANMEN.get(),
+                ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
+        );
+        BlockEntityRendererRegistry.register(
                 ModBlocks.BLOCK_ENTITY_SIGN.get(),
                 ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
         );

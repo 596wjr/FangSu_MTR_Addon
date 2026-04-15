@@ -25,6 +25,10 @@ public final class ContentInfoUtil {
         return ContentManager.getInstance().getContentById("ticketBarrier", mainModel, subModel, TicketBarrierContent.class);
     }
 
+    public static DuanmenContent getDuanmenContent(String mainModel, String subModel) {
+        return ContentManager.getInstance().getContentById("duanmen", mainModel, subModel, DuanmenContent.class);
+    }
+
     public static SignContent.SignDisplayInfo getSignDisplayInfo(String mainModel, String subModel) {
         return SignContent.SignDisplayInfo.fromMap(CustomItems.getContentInfo(mainModel, "common", subModel));
     }

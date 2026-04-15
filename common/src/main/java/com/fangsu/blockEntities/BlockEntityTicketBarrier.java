@@ -61,7 +61,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     private String collisionShapeSerialized = "";
     private String doorCloseShapeSerialized = "";
     private String doorCloseCollisionShapeSerialized = "";
-    private AABB ticketBox, cardBox;
+//    private AABB ticketBox, cardBox;
 
     public BlockEntityTicketBarrier(BlockPos blockPos, BlockState blockState) {
         super(BLOCK_ENTITY_TICKET_BARRIER.get(), blockPos, blockState);
@@ -76,10 +76,6 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         ensureExtraConfig("useCustomZone", "false");
         ensureExtraConfig("customZone", "0");
         ensureExtraConfig("customDisplayName", "");
-
-        ObjBlockScriptContext ctx = this.scriptContext;
-        BaseObjBlockEntity entity = this;
-        ObjBlockProperty property = this.getProperty();
 
         String mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
         String subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
@@ -118,19 +114,18 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
 
             gatePos = content.getGatePos() != null ? content.getGatePos().floatValue() : 0.5f;
 
-            cardBox = parseBox(content.getCardBox());
-            ticketBox = parseBox(content.getTicketBox());
+//            cardBox = parseBox(content.getCardBox());
+//            ticketBox = parseBox(content.getTicketBox());
         } catch (Exception e) {
             Main.LOGGER.warn(e.getMessage());
+            markedError = true;
         }
 
     }
 
     @Override
     public void whenRendering() {
-
         ObjBlockScriptContext ctx = this.scriptContext;
-        Map<String, String> extra = this.extraConfigs;
         boolean isOpen = getExtraConfigBool("isOpen", false);
         long currentTime = System.currentTimeMillis();
         if (isOpen != cacheIsOpen) {
@@ -140,8 +135,6 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
             } else {
                 openTime = currentTime;
             }
-            Main.LOGGER.info("Open time : " + openTime);
-            Main.LOGGER.info("Close time : " + closeTime);
         }
 
         if (mainDmh != null) ctx.drawModel(mainDmh, null);
@@ -170,15 +163,9 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     }
 
     @Override
-    public void whenSaving(Map<String, String> extraConfigs) {
-
-    }
-
-    @Override
     public InteractionResult whenUseWithOther(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (level.isClientSide) return InteractionResult.SUCCESS;
 
-        ObjBlockScriptContext ctx = this.scriptContext;
         Map<String, String> extra = this.extraConfigs;
 
         Vec3 hitPos = hit.getLocation().subtract(pos.getX(), pos.getY(), pos.getZ());
@@ -209,8 +196,6 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     @Override
     public void whenEntityInside(Player player) {
 
-        ObjBlockScriptContext ctx = this.scriptContext;
-        Map<String, String> extra = this.extraConfigs;
         boolean isOpen = getExtraConfigBool("isOpen", false);
         if (isOpen) {
             if (worldToLocal(player.position()).z > gatePos) {

@@ -55,6 +55,7 @@ public class CustomItems {
                 Main.LOGGER.warn("Failed to load contents: value is null or empty!");
                 continue;
             }
+            ContentManager cm = ContentManager.getInstance();
             long contentBegin = System.currentTimeMillis();
             List<ModelSelectInfo> thisItemInfo = getModelSelectInfos(value);
             items.put(key, thisItemInfo);

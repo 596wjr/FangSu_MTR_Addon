@@ -30,6 +30,7 @@ public class ContentManager {
         registerContent("ticketBarrier", TicketBarrierContent.TicketBarrierLoader::load);
         registerContent("diaoban", DiaobanContent.DiaobanLoader::load);
         registerContent("pids", PidsContent.PidsLoader::load);
+        registerContent("duanmen", DuanmenContent.DuanmenLoader::load);
     }
 
     public void reset() {
@@ -103,6 +104,6 @@ public class ContentManager {
 
     @FunctionalInterface
     public interface ContentLoader {
-        public void loadContent(String type, String path, JsonObject content);
+        void loadContent(String type, String path, JsonObject content);
     }
 }

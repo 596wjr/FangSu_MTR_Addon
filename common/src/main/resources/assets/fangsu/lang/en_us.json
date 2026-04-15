@@ -51,6 +51,7 @@
   "block.fangsu.ticket_barrier": "Ticket Barrier",
   "block.fangsu.screendoor_door": "Platform Screen Door (Door)",
   "block.fangsu.screendoor_glass": "Platform Screen Door (Glass)",
+  "block.fangsu.duanmen": "Platform Screen Door (End Door)",
   "block.fangsu.collision_compensation_block": "Collision Compensation Block",
   "block.fangsu.sign": "Sign",
   "block.fangsu.sign_on_wall": "Sign (On-Wall)",
@@ -124,5 +125,6 @@
   "mtr.fangsu.lift.vanilla": "MTR Vanilla",
   "mtr.fangsu.lift.vanilla.description": "Transparent elevator from MTR Vanilla",
   "mtr.fangsu.lift.non_transparent": "Opaque",
-  "mtr.fangsu.lift.non_transparent.description": "Opaque elevator"
+  "mtr.fangsu.lift.non_transparent.description": "Opaque elevator",
+  "msg.fangsu.duanmen.requiresKey": "Door Locked"
 }

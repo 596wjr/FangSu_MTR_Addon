@@ -44,8 +44,8 @@ import com.fangsu.render.sowcer.math.Matrices;
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_SIGN;
 
 public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
-    private static final String DEFAULT_MAIN_MODEL = "fangsu:sign/beijing/beijing_sign.json";
-    private static final String DEFAULT_SUB_MODEL = "beijing_sign_a";
+    private static final String DEFAULT_MAIN_MODEL = "fangsu:sign/mtr_sign/mtr_sign.json";
+    private static final String DEFAULT_SUB_MODEL = "mtr_sign_a";
     private static final String MAIN_MODEL_KEY = "sign";
     protected String subModel;
 
@@ -58,6 +58,9 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
     private double length = 2;
     private boolean showLeftPole = true, showRightPole = true;
     private int leftPolePos = 8, rightPolePos = 8;
+    private boolean isMtrTheme = false;
+    private double mtrPoleOffset = 0d;
+    private int defaultBgColor = -1;
 
     private boolean requiresRedraw = true;
 
@@ -133,6 +136,10 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                 }
             }
 
+            isMtrTheme = displayInfo.isMtrTheme();
+            mtrPoleOffset = displayInfo.mtrPoleOffset();
+            defaultBgColor = displayInfo.defaultBgColor();
+
             RawMeshBuilder rawModelBuilderFront = new RawMeshBuilder(4, "lighttranslucent", new ResourceLocation("fangsu:sign/def_face1.png")),
                     rawMeshBuilderBack = new RawMeshBuilder(4, "lighttranslucent", new ResourceLocation("fangsu:sign/def_face1.png"));
             RawModel dispRawModelFront = new RawModel(),
@@ -186,9 +193,20 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
 
             if (gtFront != null && !gtFront.isClosed.get()) {
                 var g = gtFront.graphics;
-                g.setComposite(AlphaComposite.Clear); // 设置透明混合模式
-                g.fillRect(0, 0, gtFront.width, gtFront.height);   // 填充整个区域
-                g.setComposite(AlphaComposite.SrcOver); // 恢复默认混合模式
+                boolean frontIsEmpty =
+                        itemsFront.isEmpty() ||
+                                ((itemsFront.containsKey("left") && itemsFront.get("left").isEmpty()) &&
+                                        (itemsFront.containsKey("right") && itemsFront.get("right").isEmpty()) &&
+                                        (itemsFront.containsKey("center") && itemsFront.get("center").isEmpty())
+                                );
+                if (defaultBgColor == -1 || frontIsEmpty) {
+                    g.setComposite(AlphaComposite.Clear); // 设置透明混合模式
+                    g.fillRect(0, 0, gtFront.width, gtFront.height);   // 填充整个区域
+                    g.setComposite(AlphaComposite.SrcOver); // 恢复默认混合模式
+                } else {
+                    g.setColor(new Color(defaultBgColor));
+                    g.fillRect(0, 0, gtFront.width, gtFront.height);
+                }
                 if (itemsFront != null) {
                     if (itemsFront.containsKey("left"))
                         drawLane(gtFront, itemsFront.get("left"), 0, gtFront.height * 0.1f, 0, gtFront.height * 0.8f);
@@ -201,9 +219,20 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
             }
             if (gtBack != null && !gtBack.isClosed.get()) {
                 var g = gtBack.graphics;
-                g.setComposite(AlphaComposite.Clear);
-                g.fillRect(0, 0, gtBack.width, gtBack.height);
-                g.setComposite(AlphaComposite.SrcOver);
+                boolean backIsEmpty =
+                        itemsBack.isEmpty() ||
+                                ((itemsBack.containsKey("left") && itemsBack.get("left").isEmpty()) &&
+                                        (itemsBack.containsKey("right") && itemsBack.get("right").isEmpty()) &&
+                                        (itemsBack.containsKey("center") && itemsBack.get("center").isEmpty())
+                                );
+                if (defaultBgColor == -1 || backIsEmpty) {
+                    g.setComposite(AlphaComposite.Clear); // 设置透明混合模式
+                    g.fillRect(0, 0, gtFront.width, gtFront.height);   // 填充整个区域
+                    g.setComposite(AlphaComposite.SrcOver); // 恢复默认混合模式
+                } else {
+                    g.setColor(new Color(defaultBgColor));
+                    g.fillRect(0, 0, gtFront.width, gtFront.height);
+                }
                 if (itemsBack != null) {
                     if (itemsBack.containsKey("left"))
                         drawLane(gtBack, itemsBack.get("left"), 0, gtBack.height * 0.1f, 0, gtBack.height * 0.8f);
@@ -241,22 +270,22 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
         if (dmhPole != null) {
             if (showLeftPole) {
                 mat.pushPose();
-                mat.translate(leftPolePos / 16d, 0, 0);
+                if (!isMtrTheme)
+                    mat.translate(leftPolePos / 16d, 0, 0);
+                else mat.translate(mtrPoleOffset / 16d, 0, 0);
                 ctx.drawModel(dmhPole, mat);
                 mat.popPose();
             }
             if (showRightPole) {
                 mat.pushPose();
                 mat.translate(unit * length / 16, 0, 0);
-                mat.translate(-rightPolePos / 16d, 0, 0);
+                if (!isMtrTheme)
+                    mat.translate(-rightPolePos / 16d, 0, 0);
+                else mat.translate(-mtrPoleOffset / 16d, 0, 0);
                 ctx.drawModel(dmhPole, mat);
                 mat.popPose();
             }
         } else mat.popPose();
-    }
-
-    @Override
-    public void whenSaving(Map<String, String> extraConfigs) {
     }
 
     @Override
@@ -311,7 +340,7 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                     this.leftPolePos = v.intValue();
                     extraConfigs.put("leftPolePos", leftPolePos + "");
                 }
-        ).setShowCondition((v) -> this.showLeftPole));
+        ).setShowCondition((v) -> this.showLeftPole && (!isMtrTheme)));
         configs.add(new BoolConfig(
                 Component.translatable("ui.fangsu.sign.dispRightPole"),
                 new ConfigSpec("bool"),
@@ -329,7 +358,7 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                     this.rightPolePos = v.intValue();
                     extraConfigs.put("rightPolePos", rightPolePos + "");
                 }
-        ).setShowCondition((v) -> this.showRightPole));
+        ).setShowCondition((v) -> this.showRightPole && (!isMtrTheme)));
         return configs;
     }
 

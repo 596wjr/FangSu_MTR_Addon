@@ -14,10 +14,11 @@ import java.util.Map;
 public class DuanmenContent extends BaseContent {
     private final String model;
     private final boolean filpV;
-    private final int[] doorPos;
+    private final double[] doorPos;
     private final Map<String, String> subModels;
     private final double doorAngle;
     private final Map<String, List<List<Integer>>> shape;
+    private final double hitPos;
 
     protected DuanmenContent(JsonObject json) {
         super(json);
@@ -26,12 +27,12 @@ public class DuanmenContent extends BaseContent {
         filpV = json.has("flipV") && json.get("flipV").getAsBoolean();
         if (json.has("doorPos")) {
             JsonArray doorPosArray = json.get("doorPos").getAsJsonArray();
-            doorPos = new int[doorPosArray.size()];
+            doorPos = new double[doorPosArray.size()];
             for (int i = 0; i < doorPosArray.size(); i++) {
-                doorPos[i] = doorPosArray.get(i).getAsInt();
+                doorPos[i] = doorPosArray.get(i).getAsDouble();
             }
         } else {
-            doorPos = new int[]{0, 0, 0};
+            doorPos = new double[]{0, 0, 0};
         }
         subModels = new HashMap<>();
         if (json.has("subModels")) {
@@ -52,6 +53,9 @@ public class DuanmenContent extends BaseContent {
                 shape.put(key, shapes);
             }
         }
+        if (json.has("hitPos")) {
+            hitPos = json.get("hitPos").getAsDouble();
+        } else hitPos = doorPos[2];
     }
 
     private static @NotNull List<List<Integer>> getShapes(Map.Entry<String, JsonElement> entry) {
@@ -72,7 +76,35 @@ public class DuanmenContent extends BaseContent {
         return shapes;
     }
 
-    protected static class TicketBarrierLoader extends BaseLoader {
+    public String getModel() {
+        return model;
+    }
+
+    public boolean isFilpV() {
+        return filpV;
+    }
+
+    public double[] getDoorPos() {
+        return doorPos;
+    }
+
+    public Map<String, String> getSubModels() {
+        return subModels;
+    }
+
+    public double getDoorAngle() {
+        return doorAngle;
+    }
+
+    public Map<String, List<List<Integer>>> getShape() {
+        return shape;
+    }
+
+    public double getHitPos() {
+        return hitPos;
+    }
+
+    protected static class DuanmenLoader extends BaseLoader {
         public static void load(String type, String path, JsonObject content) {
             ContentManager cm = ContentManager.getInstance();
             for (Map.Entry<String, JsonElement> entry : content.entrySet()) {

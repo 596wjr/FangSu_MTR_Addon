@@ -87,6 +87,11 @@ public class TicketBarrierContent extends BaseContent {
         return parsed;
     }
 
+    @Override
+    public String toString() {
+        return "TicketBarrierContent [model=" + model + ", filpV=" + filpV + ", doors=" + doors + ", shape=" + shape + ", collisionShape=" + collisionShape + ", doorCloseShape=" + doorCloseShape + ", doorCloseCollisionShape=" + doorCloseCollisionShape + "]";
+    }
+
     private static List<List<Double>> parseBoxList(JsonElement element) {
         List<List<Double>> parsed = new ArrayList<>();
         if (element == null || !element.isJsonArray()) return parsed;
