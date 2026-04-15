@@ -31,8 +31,8 @@ import java.util.Map;
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_DUANMEN;
 
 public class BlockEntityDuanmen extends BaseObjBlockEntity {
-    public static final String DEFAULT_MAIN_MODEL = "fangsu:duanmen/beijing_duanmen.json";
-    public static final String DEFAULT_SUB_MODEL = "beijing_duanmen_bg_1_right";
+    public static final String DEFAULT_MAIN_MODEL = "fangsu:duanmen/kaba_duanmen.json";
+    public static final String DEFAULT_SUB_MODEL = "kaba_a_right";
     public static final String MAIN_MODEL_KEY = "duanmen";
 
     private static final long ANIMATION_DURATION = 500;
@@ -152,6 +152,7 @@ public class BlockEntityDuanmen extends BaseObjBlockEntity {
         if (getExtraConfigBool("isOpen", false))
             setExtraConfig("isOpen", "false");
         else setExtraConfig("isOpen", "true");
+        sendUpdateC2S();
         return InteractionResult.SUCCESS;
     }
 

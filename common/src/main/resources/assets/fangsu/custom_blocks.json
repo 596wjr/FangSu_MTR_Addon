@@ -61,5 +61,11 @@
         "subModel": "mtr_ris_wm"
       }
     }
+  ],
+  "duanmen": [
+    {
+      "text": "item.fangsu.duanmen.kaba.text",
+      "content": "fangsu:duanmen/kaba_duanmen.json"
+    }
   ]
 }

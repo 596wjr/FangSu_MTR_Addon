@@ -1,0 +1,98 @@
+{
+  "content": [
+    {
+      "id": "kaba_a_right",
+      "text": "item.duanmen.kaba_a.right",
+      "model": "fangsu:duanmen/kaba_duanmen.obj",
+      "flipV": true,
+      "doorPos": [
+        -0.4375,
+        0,
+        -0.4375
+      ],
+      "subModels": {
+        "main": "main_right",
+        "door": "door_right"
+      },
+      "doorAngle": -1,
+      "shape": {
+        "close": [
+          [
+            0,
+            0,
+            15,
+            16,
+            32,
+            16
+          ]
+        ],
+        "open": [
+          [
+            15,
+            0,
+            15,
+            16,
+            32,
+            16
+          ],
+          [
+            14,
+            0,
+            0,
+            15,
+            32,
+            16
+          ]
+        ]
+      },
+      "hitPos": 0.05
+    },
+    {
+      "id": "kaba_a_left",
+      "text": "item.duanmen.kaba_a.left",
+      "model": "fangsu:duanmen/kaba_duanmen.obj",
+      "flipV": true,
+      "doorPos": [
+        0.4375,
+        0,
+        0.4375
+      ],
+      "subModels": {
+        "main": "main_left",
+        "door": "door_left"
+      },
+      "doorAngle": 1,
+      "shape": {
+        "close": [
+          [
+            0,
+            0,
+            15,
+            16,
+            32,
+            16
+          ]
+        ],
+        "open": [
+          [
+            0,
+            0,
+            15,
+            1,
+            32,
+            16
+          ],
+          [
+            1,
+            0,
+            0,
+            2,
+            32,
+            16
+          ]
+        ]
+      },
+      "hitPos": 0.05
+    }
+  ]
+}
