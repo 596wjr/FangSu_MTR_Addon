@@ -22,14 +22,6 @@ import java.util.Set;
 
 @Mixin(value = Train.class, remap = false, priority = 1100)
 public abstract class TrainMixin {
-
-    /* ==========================================================
-     *  反射加载你的平台 Block 接口
-     * ========================================================== */
-
-    @Unique
-    private static final Class<?> fangsu$IBlockPlatformClass = IBlockPlatform.class;
-
     /* ==========================================================
      *  Shadow：Train 原生字段 / 方法
      * ========================================================== */
@@ -41,18 +33,13 @@ public abstract class TrainMixin {
     protected float doorValue;
 
     @Shadow
-    protected abstract boolean skipScanBlocks(
-            Level world, double trainX, double trainY, double trainZ
-    );
-
-    @Shadow
     protected abstract boolean openDoors(
             Level world, Block block, BlockPos pos, int dwellTicks
     );
 
     @Inject(
             method = "scanDoors",
-            at = @At("HEAD"),
+            at = @At("RETURN"),
             cancellable = true,
             remap = false
     )
@@ -63,19 +50,12 @@ public abstract class TrainMixin {
             double halfSpacing, int dwellTicks,
             CallbackInfoReturnable<Boolean> ci
     ) {
-        if (skipScanBlocks(world, trainX, trainY, trainZ)) {
-            ci.setReturnValue(false);
-            ci.cancel();
-            return;
-        }
+        boolean original = ci.getReturnValue();
 
         boolean hasPlatform = false;
 
         final Vec3 offsetVec = new Vec3(1, 0, 0).yRot(checkYaw).xRot(pitch);
         final Vec3 traverseVec = new Vec3(0, 0, 1).yRot(checkYaw).xRot(pitch);
-        //#if ANTE
-        Set<BlockPos> OKPos = new HashSet<>();
-        //#endif
 
         for (int x = 1; x <= 3; x++) {
             for (int y = -2; y <= 3; y++) {
@@ -88,11 +68,6 @@ public abstract class TrainMixin {
                     );
 
                     Block block = world.getBlockState(pos).getBlock();
-
-                    if (block instanceof BlockPlatform || block instanceof BlockPSDAPGBase || fangsu$IBlockPlatformClass.isInstance(block)) {
-                        openDoors(world, block, pos, dwellTicks);
-                        hasPlatform = true;
-                    }
                     if (block instanceof IBlockPlatform) {
                         openDoors(world, block, pos, dwellTicks);
                         BlockEntity entity = world.getBlockEntity(pos);
@@ -110,7 +85,7 @@ public abstract class TrainMixin {
             }
         }
 
-        ci.setReturnValue(hasPlatform);
-        ci.cancel();
+        ci.setReturnValue(original || hasPlatform);
+//        ci.cancel();
     }
 }

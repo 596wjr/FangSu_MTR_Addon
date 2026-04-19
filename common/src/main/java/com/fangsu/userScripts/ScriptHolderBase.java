@@ -146,6 +146,12 @@ public abstract class ScriptHolderBase {
      */
     private void recordFailure(String name, Throwable e) {
         failTime.put(name, System.currentTimeMillis());
+        if (e instanceof org.graalvm.polyglot.PolyglotException &&
+                ((org.graalvm.polyglot.PolyglotException) e).isCancelled()) {
+            Main.LOGGER.error("Script function {} in {} timed out after {}ms",
+                    name, scriptName, FUNCTION_TIMEOUT_MS);
+            return; // 超时异常不打印完整堆栈，避免刷屏
+        }
         Main.LOGGER.error("==== Error executing script function {} in {} ====",
                 name, scriptName);
         Main.LOGGER.error(e.getMessage());

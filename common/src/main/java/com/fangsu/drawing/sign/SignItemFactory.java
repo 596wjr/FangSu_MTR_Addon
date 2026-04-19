@@ -5,11 +5,13 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.function.Function;
 
 public final class SignItemFactory {
+    private static final ResourceLocation SIGN_LOCATION = new ResourceLocation("fangsu:sign/script_sign.json");
 
     private static final Map<String, Function<JsonObject, SignItem>> REGISTRY = new HashMap<>();
     public static final List<SignItem> EDITOR_ITEMS = new ArrayList<>();
@@ -27,7 +29,6 @@ public final class SignItemFactory {
         REGISTRY.put("routeb", RouteItemB::new);
         REGISTRY.put("destination", DestinationItem::new);
         REGISTRY.put("trainicon", TrainIconItem::new);
-
     }
 
     public static Function<JsonObject, SignItem> get(String type) {
@@ -48,6 +49,7 @@ public final class SignItemFactory {
 
     public static void init() {
         registerBuiltInSign();
+//        registerJsItems();    //暂时不实装
         JsonElement builtInSign = ResourceUtil.loadAsJSON(new ResourceLocation("fangsu:sign/builtinsign.json"));
         if (builtInSign != null && builtInSign.isJsonObject()) {
             JsonObject obj = builtInSign.getAsJsonObject();
@@ -62,9 +64,17 @@ public final class SignItemFactory {
             }
         }
         JsonElement mtrItem = ResourceUtil.loadAsJSON(new ResourceLocation("mtr:mtr_custom_resources.json"));
+        Map<String, SignItem> mtrItems = getMtrItems(mtrItem);
+        for (Map.Entry<String, SignItem> entry : mtrItems.entrySet()) {
+            SignItem current = entry.getValue();
+            EDITOR_ITEMS.add(current);
+        }
+    }
+
+    private static @NotNull Map<String, SignItem> getMtrItems(JsonElement mtrJson) {
         Map<String, SignItem> mtrItems = new HashMap<>();
-        if (mtrItem != null && mtrItem.isJsonObject()) {
-            JsonObject obj = mtrItem.getAsJsonObject();
+        if (mtrJson != null && mtrJson.isJsonObject()) {
+            JsonObject obj = mtrJson.getAsJsonObject();
             if (obj.has("custom_signs") && obj.get("custom_signs").isJsonArray()) {
                 JsonArray array = obj.get("custom_signs").getAsJsonArray();
                 for (JsonElement item : array) {
@@ -85,9 +95,49 @@ public final class SignItemFactory {
                 }
             }
         }
-        for (Map.Entry<String, SignItem> entry : mtrItems.entrySet()) {
-            SignItem current = entry.getValue();
-            EDITOR_ITEMS.add(current);
+        return mtrItems;
+    }
+
+    private static void registerJsItems() {
+        JsonElement signJsonElement = ResourceUtil.loadAsJSON(SIGN_LOCATION);
+        if (signJsonElement == null || !signJsonElement.isJsonObject()) return;
+        JsonObject signJsonObject = signJsonElement.getAsJsonObject();
+        for (Map.Entry<String, JsonElement> entry : signJsonObject.entrySet()) {
+            String key = entry.getKey();
+            JsonElement value = entry.getValue();
+            if (!value.isJsonObject()) continue;
+            JsonObject valueObject = value.getAsJsonObject();
+            if (!valueObject.has("content")) continue;
+            String finalKey = "JS_" + key;
+            String content = valueObject.getAsJsonPrimitive("content").getAsString();
+            if (valueObject.has("extraConfig")) {
+                List<JsonObject> configs = new ArrayList<>();
+                JsonElement extraConfig = valueObject.get("extraConfig");
+                if (extraConfig.isJsonArray()) {
+                    for (JsonElement item : extraConfig.getAsJsonArray()) {
+                        if (!item.isJsonObject()) continue;
+                        configs.add(item.getAsJsonObject());
+                    }
+                } else if (extraConfig.isJsonPrimitive()) {
+                    String config = extraConfig.getAsJsonPrimitive().getAsString();
+                    if ("route".equals(config)) {
+                        JsonObject configObject = new JsonObject();
+                        configObject.addProperty("type", "route");
+                        configObject.addProperty("savePos", "route");
+                        configs.add(configObject);
+                    } else if ("destination".equals(config)) {
+                        JsonObject configObject = new JsonObject();
+                        configObject.addProperty("type", "destination");
+                        configObject.addProperty("savePos", "destination");
+                        configs.add(configObject);
+                    }
+                }
+                REGISTRY.put(finalKey, json -> new JsItem(finalKey, new ResourceLocation(content), json));
+                EDITOR_ITEMS.add(new JsItem(finalKey, new ResourceLocation(content), new JsonObject()));
+            } else {
+                REGISTRY.put(finalKey, json -> new JsItem(finalKey, null, json));
+                EDITOR_ITEMS.add(new JsItem(finalKey, null, new JsonObject()));
+            }
         }
     }
 }

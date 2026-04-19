@@ -5,19 +5,14 @@ import com.fangsu.scripting.*;
 import com.fangsu.utils.ModuleAccessHelper;
 import net.minecraft.resources.ResourceLocation;
 import org.graalvm.polyglot.Context;
-import org.graalvm.polyglot.Engine;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
 import org.graalvm.polyglot.proxy.ProxyObject;
 
 import java.util.HashMap;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -26,6 +21,7 @@ public class ScriptManager {
 
     private static final ScriptManager INSTANCE = new ScriptManager();
     private static final long FAIL_TIMEOUT_MS = 4000;
+    private static final long SCRIPT_EXECUTION_TIMEOUT_MS = 5000;
 
     private Context context;
     private final Map<ResourceLocation, ScriptHolderBase> holders;
@@ -123,12 +119,9 @@ public class ScriptManager {
                 .option("js.nashorn-compat", "true")
                 .option("js.ecmascript-version", "2020")
                 .option("log.file", "./logs/latest.log")
-//                .option("engine.timeout", "5000")
-//                .option("engine.ScriptTimeout", "5000")
                 .allowHostAccess(hostAccess)
                 .allowHostClassLookup(c -> true)
                 .allowCreateThread(true)
-//                .allowHostAccess(org.graalvm.polyglot.HostAccess.ALL)
                 .build();
 
         initializeGlobalBindings();
@@ -353,31 +346,48 @@ public class ScriptManager {
 
     //线程优化
     public synchronized void requestRunFunction(ScriptHolderBase holder, String name, Object... params) {
-        if (isShutdown) {
-            return;
-        }
-        if (holder == null) {
-            return;
-        }
-        if (holder.hasFunction(name)) {
-            CompletableFuture.runAsync(() -> {
-                holder.runFunction(name, params);
-            }, ScriptManager.SCRIPT_EXECUTOR);
-        }
+        executeScriptWithTimeout(holder, name, params, null);
     }
 
-    public synchronized void requestRunFunctionWithResult(ScriptHolderBase holder, Consumer<Value> consumer, String name, Object... params) {
-        if (isShutdown) {
-            return;
-        }
-        if (holder == null) {
-            return;
-        }
-        if (holder.hasFunction(name)) {
-            CompletableFuture.runAsync(() -> {
-                holder.runFunctionWithResult(name, consumer, params);
-            }, SCRIPT_EXECUTOR);
-        }
-        return;
+    public synchronized void requestRunFunctionWithResult(ScriptHolderBase holder,
+                                                          Consumer<Value> consumer,
+                                                          String name,
+                                                          Object... params) {
+        executeScriptWithTimeout(holder, name, params, consumer);
+    }
+
+
+    private void executeScriptWithTimeout(ScriptHolderBase holder,
+                                          String name,
+                                          Object[] params,
+                                          Consumer<Value> resultConsumer) {
+        if (!initialized || isShutdown) return;
+        if (holder == null || !holder.hasFunction(name)) return;
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                // 设置超时中断（GraalVM 21.0+）
+                context.interrupt(java.time.Duration.ofMillis(SCRIPT_EXECUTION_TIMEOUT_MS));
+
+                // 执行函数
+                if (resultConsumer == null) {
+                    holder.runFunction(name, params);
+                } else {
+                    holder.runFunctionWithResult(name, resultConsumer, params);
+                }
+            } catch (TimeoutException e) {
+                throw new RuntimeException(e);
+            } finally {
+                // 无论执行结果如何，清除中断状态
+                try {
+                    context.interrupt(java.time.Duration.ZERO);
+                } catch (TimeoutException ignored) {
+                }
+            }
+        }, SCRIPT_EXECUTOR).exceptionally(throwable -> {
+            Main.LOGGER.error("Unexpected error in script execution framework: {}",
+                    throwable.getMessage());
+            return null;
+        });
     }
 }
