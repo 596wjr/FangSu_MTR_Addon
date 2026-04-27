@@ -33,9 +33,9 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
             this.translateX = be.translateX;
             this.translateY = be.translateY;
             this.translateZ = be.translateZ;
-            this.rotateX = be.rotateX;
-            this.rotateY = be.rotateY;
-            this.rotateZ = be.rotateZ;
+            this.rotateX = (float) Math.toDegrees(be.rotateX);
+            this.rotateY = (float) Math.toDegrees(be.rotateY);
+            this.rotateZ = (float) Math.toDegrees(be.rotateZ);
             this.configs = be.getConfigs();
         } else {
             this.translateX = this.translateY = this.translateZ = 0f;
@@ -185,9 +185,9 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
         be.translateX = translateX;
         be.translateY = translateY;
         be.translateZ = translateZ;
-        be.rotateX = rotateX;
-        be.rotateY = rotateY;
-        be.rotateZ = rotateZ;
+        be.rotateX = (float) Math.toRadians(rotateX);
+        be.rotateY = (float) Math.toRadians(rotateY);
+        be.rotateZ = (float) Math.toRadians(rotateZ);
         be.sendUpdateC2S();
     }
 

@@ -1,0 +1,21 @@
+{
+  "custom_trains": {
+    "s_train_fangsu_lcd": {
+      "name": "S-TRAIN (LCD)",
+      "description": "Provided by FangSu Blocks",
+      "color": "C1CD23",
+      "gangway_connection_id": "mtr:textures/gangway/s_train",
+      "train_barrier_id": "",
+      "door_animation_type": "R179",
+      "render_door_overlay": false,
+      "rider_offset": 0.0,
+      "lcd": {
+        "id": "mtr",
+        "slots": "mtr:s_train/slots.json"
+      },
+      "texture_id": "mtr:textures:entity:s_train",
+      "base_train_type": "s_train",
+      "speed_sound_base_id": "s_train"
+    }
+  }
+}

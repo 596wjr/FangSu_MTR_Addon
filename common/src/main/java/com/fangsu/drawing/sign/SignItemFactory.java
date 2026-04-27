@@ -132,11 +132,11 @@ public final class SignItemFactory {
                         configs.add(configObject);
                     }
                 }
-                REGISTRY.put(finalKey, json -> new JsItem(finalKey, new ResourceLocation(content), json));
-                EDITOR_ITEMS.add(new JsItem(finalKey, new ResourceLocation(content), new JsonObject()));
+                REGISTRY.put(finalKey, json -> new JsItem(finalKey, new ResourceLocation(content), configs, json));
+                EDITOR_ITEMS.add(new JsItem(finalKey, new ResourceLocation(content), configs, new JsonObject()));
             } else {
-                REGISTRY.put(finalKey, json -> new JsItem(finalKey, null, json));
-                EDITOR_ITEMS.add(new JsItem(finalKey, null, new JsonObject()));
+                REGISTRY.put(finalKey, json -> new JsItem(finalKey, null, null, json));
+                EDITOR_ITEMS.add(new JsItem(finalKey, null, null, new JsonObject()));
             }
         }
     }

@@ -9,6 +9,7 @@ import com.fangsu.render.sowcerext.reuse.AtlasManager;
 import com.fangsu.render.sowcerext.reuse.DrawScheduler;
 import com.fangsu.render.sowcerext.reuse.ModelManager;
 import com.fangsu.drawing.sign.SignItemFactory;
+import com.fangsu.train.FunctionalCustomTrains;
 import com.fangsu.ui.ModMenus;
 import com.fangsu.userScripts.ScriptManager;
 import com.fangsu.utils.ResourceUtil;
@@ -77,5 +78,6 @@ public class MainClient {
             customMtrLifts.injectBuiltInTexturedLifts(defaultLift);
             customMtrLifts.injectBuiltInTexturedLifts(nonTransparent);
         }
+//        FunctionalCustomTrains.init(resourceManager);
     }
 }

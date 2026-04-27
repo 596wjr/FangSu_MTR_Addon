@@ -6,10 +6,7 @@ import mtr.data.Route;
 import mtr.data.RouteType;
 import mtr.data.Station;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class LocalRoute {
     public RouteType routeType;
@@ -22,7 +19,7 @@ public class LocalRoute {
     public String name;
     public int color;
     public long id;
-
+    
     private LocalRouteDetail cachedRouteDetail;
 
     public LocalRoute(Route route) {
@@ -62,6 +59,19 @@ public class LocalRoute {
             this.platformId = platformId;
             this.customDestination = customDestination;
         }
+
+        @Override
+        public int hashCode() {
+            return super.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj instanceof RoutePlatform o) {
+                return platformId == o.platformId && customDestination.equals(o.customDestination);
+            }
+            return false;
+        }
     }
 
     public int getPlatformIdIndex(long platformId) {
@@ -95,14 +105,14 @@ public class LocalRoute {
                 Station stn = MtrUtil.getStationByPlatform(plat);
                 if (stn != null) {
                     List<Platform> plats = MtrUtil.getPlatformByStation(stn);
-                    Set<LocalRouteDetail.ColorNameTuple> trans = new HashSet<>();
+                    Set<ColorNameTuple> trans = new HashSet<>();
 
                     if (plats != null) {
                         for (Platform plat1 : plats) {
                             List<LocalRoute> routes = MtrUtil.getRouteByPlatform(plat1);
                             if (routes != null) {
                                 for (LocalRoute route : routes) {
-                                    trans.add(new LocalRouteDetail.ColorNameTuple(route.color, route.name));
+                                    trans.add(new ColorNameTuple(route.color, route.name));
                                 }
                             }
                         }

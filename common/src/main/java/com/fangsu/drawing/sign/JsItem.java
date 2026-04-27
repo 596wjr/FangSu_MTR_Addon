@@ -1,5 +1,7 @@
 package com.fangsu.drawing.sign;
 
+import com.fangsu.extraConfig.ConfigEntry;
+import com.fangsu.scripting.JsHelper;
 import com.fangsu.userScripts.ScriptHolderBase;
 import com.fangsu.userScripts.ScriptManager;
 import com.fangsu.userScripts.SignItemScriptHolder;
@@ -10,32 +12,50 @@ import org.graalvm.polyglot.Value;
 
 import java.awt.*;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class JsItem extends SignItem {
     private final String id;
     private final ResourceLocation scriptLocation;
+    private final List<JsonObject> configs;
     private ScriptHolderBase scriptHolder;
 
     private float width = 1f;
     private boolean widthInit = false;
 
+
     private Map<String, Value> extra;
 
-    public JsItem(String id, ResourceLocation scriptLocation, JsonObject json) {
+    public JsItem(String id, ResourceLocation scriptLocation, List<JsonObject> configs, JsonObject json) {
         super();
         this.id = id;
         this.scriptLocation = scriptLocation;
+        this.configs = configs;
 
         ScriptManager scriptManager = ScriptManager.getInstance();
         this.scriptHolder = scriptManager.getOrInitHolder(this.scriptLocation, SignItemScriptHolder::new);
 
         extra = new HashMap<>();
+        if (json.has("extra") && json.get("extra").isJsonObject()) {
+            JsonObject extraJson = json.get("extra").getAsJsonObject();
+            for (Map.Entry<String, JsonElement> entry : extraJson.entrySet()) {
+                String key = entry.getKey();
+                JsonElement value = entry.getValue();
+                extra.put(key, JsHelper.toValue(value));
+            }
+        }
     }
 
     @Override
     protected JsonObject saveToJson() {
-        return null;
+        JsonObject json = new JsonObject();
+        for (Map.Entry<String, Value> entry : extra.entrySet()) {
+            String key = entry.getKey();
+            Value value = entry.getValue();
+            json.add(key, JsHelper.toJsonElement(value));
+        }
+        return json;
     }
 
     @Override
@@ -70,5 +90,10 @@ public class JsItem extends SignItem {
     @Override
     public ResourceLocation getIconLocation() {
         return null;
+    }
+
+    @Override
+    public List<ConfigEntry<?>> getConfigs() {
+        return super.getConfigs();
     }
 }

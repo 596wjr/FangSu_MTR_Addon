@@ -25,7 +25,8 @@ public class GraphicsTextureHelper {
        字段
        ========================= */
 
-    private final Map<String, String> blockIds = new HashMap<>();
+    // 抽象 ID -> DrawInfo.id
+    private final Map<String, String> idToDrawInfoId = new HashMap<>();
     private final Map<String, GTInfo> loadGts = new HashMap<>();
 
     private final ScheduledExecutorService pool =
@@ -109,30 +110,33 @@ public class GraphicsTextureHelper {
     }
 
     /* =========================
-       对外 API
+       对外 API（通用 ID 版本）
        ========================= */
 
+    /**
+     * 为一个抽象 ID 绑定图形纹理
+     */
     public synchronized void addDrawGraphic(
-            BlockPos block,
+            String id,
             DrawInfo drawInfo,
             DrawFunction drawFunction
     ) {
-        String blockId = getBlockId(block);
         String drawInfoId = drawInfo.id;
 
-        if (blockIds.containsKey(blockId)) return;
-        blockIds.put(blockId, drawInfoId);
+        // 同一 ID 只能绑定一次
+        if (idToDrawInfoId.containsKey(id)) return;
+        idToDrawInfoId.put(id, drawInfoId);
 
         GTInfo info = loadGts.get(drawInfoId);
         if (info != null && !info.isClosed) {
-            if (!info.blocks.contains(block)) {
-                info.blocks.add(block);
+            if (!info.ids.contains(id)) {
+                info.ids.add(id);
             }
             return;
         }
 
         info = new GTInfo();
-        info.blocks.add(block);
+        info.ids.add(id);
         info.drawFunction = drawFunction;
         info.gt = new GraphicsTexture(drawInfo.w, drawInfo.h);
         info.isStatic = drawInfo.isStatic;
@@ -141,24 +145,29 @@ public class GraphicsTextureHelper {
         loadGts.put(drawInfoId, info);
     }
 
-    public synchronized void removeDrawGraphic(BlockPos block) {
-        String blockId = getBlockId(block);
-        String drawInfoId = blockIds.remove(blockId);
+    /**
+     * 移除一个抽象 ID 的绑定
+     */
+    public synchronized void removeDrawGraphic(String id) {
+        String drawInfoId = idToDrawInfoId.remove(id);
         if (drawInfoId == null) return;
 
         GTInfo info = loadGts.get(drawInfoId);
         if (info == null) return;
 
-        info.blocks.remove(block);
-        if (info.blocks.isEmpty()) {
+        info.ids.remove(id);
+        if (info.ids.isEmpty()) {
             info.gt.closeLater();
             info.isClosed = true;
             loadGts.remove(drawInfoId);
         }
     }
 
-    public GraphicsTexture getBlockGraphics(BlockPos block) {
-        String drawInfoId = blockIds.get(getBlockId(block));
+    /**
+     * 获取抽象 ID 对应的 GraphicsTexture
+     */
+    public GraphicsTexture getGraphics(String id) {
+        String drawInfoId = idToDrawInfoId.get(id);
         if (drawInfoId == null) return null;
 
         GTInfo info = loadGts.get(drawInfoId);
@@ -170,11 +179,42 @@ public class GraphicsTextureHelper {
         return info.gt;
     }
 
-    public boolean hasDrawGraphic(BlockPos block) {
-        String drawInfoId = blockIds.get(getBlockId(block));
+    /**
+     * 判断抽象 ID 是否有可用的图形
+     */
+    public boolean hasGraphic(String id) {
+        String drawInfoId = idToDrawInfoId.get(id);
         if (drawInfoId == null) return false;
         return loadGts.containsKey(drawInfoId) && loadGts.get(drawInfoId).available;
     }
+
+    /* =========================
+       对外 API（BlockPos 兼容版本）
+       ========================= */
+
+    public synchronized void addDrawGraphic(
+            BlockPos block,
+            DrawInfo drawInfo,
+            DrawFunction drawFunction
+    ) {
+        addDrawGraphic(getBlockId(block), drawInfo, drawFunction);
+    }
+
+    public synchronized void removeDrawGraphic(BlockPos block) {
+        removeDrawGraphic(getBlockId(block));
+    }
+
+    public GraphicsTexture getBlockGraphics(BlockPos block) {
+        return getGraphics(getBlockId(block));
+    }
+
+    public boolean hasDrawGraphic(BlockPos block) {
+        return hasGraphic(getBlockId(block));
+    }
+
+    /* =========================
+       动态配置
+       ========================= */
 
     public synchronized void setMaxFps(int fps) {
         this.maxFps = fps;
@@ -186,6 +226,9 @@ public class GraphicsTextureHelper {
        工具方法
        ========================= */
 
+    /**
+     * 将 BlockPos 转为内部使用的 ID
+     */
     private static String getBlockId(BlockPos pos) {
         return "block_" + pos.getX() + "_" + pos.getY() + "_" + pos.getZ();
     }
@@ -195,7 +238,7 @@ public class GraphicsTextureHelper {
        ========================= */
 
     public static class GTInfo {
-        List<BlockPos> blocks = new ArrayList<>();
+        List<String> ids = new ArrayList<>();   // 绑定的抽象 ID 列表
         GraphicsTexture gt;
 
         DrawFunction drawFunction;
@@ -209,7 +252,7 @@ public class GraphicsTextureHelper {
 
         @Override
         public String toString() {
-            return "GTInfo [blocks=" + blocks + ", gt=" + gt + ", drawFunction=" + drawFunction + ", available=" + available + ", isClosed=" + isClosed + ", isStatic=" + isStatic + ", waitUntilDraw=" + waitUntilDraw + "]@" + hashCode();
+            return "GTInfo [ids=" + ids + ", gt=" + gt + ", drawFunction=" + drawFunction + ", available=" + available + ", isClosed=" + isClosed + ", isStatic=" + isStatic + ", waitUntilDraw=" + waitUntilDraw + "]@" + hashCode();
         }
     }
 

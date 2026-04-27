@@ -1,6 +1,7 @@
 package com.fangsu.utils;
 
 import com.fangsu.mtr.LocalRoute;
+import com.fangsu.scripting.TextUtil;
 import mtr.block.BlockNode;
 import mtr.client.ClientCache;
 import mtr.data.*;
@@ -11,6 +12,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
 
@@ -105,6 +107,18 @@ public class MtrUtil {
             if (r.id == routeId) return new LocalRoute(r);
         }
         return null;
+    }
+    
+    public static List<LocalRoute> getRouteByName(String routeName) {
+        String compareName = TextUtil.getNonExtraParts(routeName);
+        List<LocalRoute> routes = new ArrayList<>();
+        for (Route r : ClientData.ROUTES) {
+            String currentRouteName = TextUtil.getNonExtraParts(r.name);
+            if (compareName.equals(currentRouteName)) {
+                routes.add(new LocalRoute(r));
+            }
+        }
+        return routes;
     }
 
     /**
