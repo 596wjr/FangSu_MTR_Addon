@@ -56,6 +56,7 @@
   "block.fangsu.sign_on_wall": "指示牌 (挂墙)",
   "block.fangsu.pids": "PIDS",
   "block.fangsu.diaoban": "吊板",
+  "block.fangsu.route_info_sign": "线路信息版",
   "ui.fangsu.sign.title": "指示牌配置",
   "ui.fangsu.sign.editing": "正在编辑",
   "ui.fangsu.sign.front": "正面",

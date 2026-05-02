@@ -1,4 +1,6 @@
 function draw(g, state, drawInfo) {
+    setDebugInfo("drawing")
+
     var x = drawInfo.texArea[0];
     var y = drawInfo.texArea[1];
     var w = drawInfo.texArea[2] - drawInfo.texArea[0];

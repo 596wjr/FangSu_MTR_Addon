@@ -131,15 +131,15 @@ public class BlockEntityPids extends BaseObjBlockEntity {
 
         ResourceLocation location = new ResourceLocation(scriptPath);
 
-        gtHelper.addDrawGraphic(getBlockPos(),
+        gtHelper.addDrawGraphicWithGt(getBlockPos(),
                 new GraphicsTextureHelper.DrawInfo(
                         "PIDS_" + scriptPath + "_" + plats,
                         texW, texH, false, false
                 ),
-                (g) -> {
+                (gt) -> {
                     ScriptHolderBase holder = scriptHolder;
                     if (holder == null) return;
-                    ScriptManager.getInstance().requestRunFunction(holder, "draw", g, drawState,
+                    ScriptManager.getInstance().requestRunFunctionWithCallback(holder, gt::upload, "draw", gt.graphics, drawState,
                             new DrawInfoPids(getArrivalInfoList(), new int[]{0, 0, texW, texH}, scriptContext, this),
                             userExtraConfigs);
                 }

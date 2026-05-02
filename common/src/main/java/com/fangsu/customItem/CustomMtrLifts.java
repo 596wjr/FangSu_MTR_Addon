@@ -60,19 +60,19 @@ public class CustomMtrLifts {
                 } else {
                     current = (new TexturedLiftSelectInfo(liftObject));
                 }
-                infos.put(current.content(), current);
+                infos.put(current.getContent(), current);
             }
         }
     }
 
     public void injectBuiltInTexturedLifts(JsonObject object) {
         TexturedLiftSelectInfo info = new TexturedLiftSelectInfo(object);
-        builtInInfos.put(info.content(), info);
+        builtInInfos.put(info.getContent(), info);
     }
 
     public void injectBuiltInModelLifts(JsonObject object) {
         ModeledLiftSelectInfo info = new ModeledLiftSelectInfo(object);
-        infos.put(info.content(), info);
+        infos.put(info.getContent(), info);
     }
 
     public List<LiftSelectInfo> getInfoList() {

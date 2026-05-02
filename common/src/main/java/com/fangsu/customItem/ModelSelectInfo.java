@@ -42,19 +42,19 @@ public class ModelSelectInfo {
         return "ModelSelectInfo {\"text\":" + text + ", \"content\":" + contentText + ", \"contentText\":" + contentText + "}";
     }
 
-    public String text() {
+    public String getText() {
         return text;
     }
 
-    public String content() {
+    public String getContent() {
         return content;
     }
 
-    public String contentText() {
+    public String getContentText() {
         return contentText;
     }
 
-    public JsonObject defaultItem() {
+    public JsonObject getDefault() {
         return defaultItem;
     }
 

@@ -7,10 +7,14 @@ public class ColorNameTuple {
 
     public final Color color;
     public final String name;
+    public final Color routeColor;
+    public final String routeName;
 
     public ColorNameTuple(int color, String name) {
         this.color = new Color(color);
         this.name = name;
+        this.routeColor = this.color;
+        this.routeName = name;
     }
 
     @Override

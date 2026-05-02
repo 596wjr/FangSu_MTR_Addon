@@ -37,6 +37,10 @@ public final class ContentInfoUtil {
         return SignOnWallContent.SignOnWallDisplayInfo.fromMap(CustomItems.getContentInfo(mainModel, "on_wall", subModel));
     }
 
+    public static RouteInfoSignContent getRisContent(String mainModel, String subModel) {
+        return ContentManager.getInstance().getContentById("route_info_sign", mainModel, subModel, RouteInfoSignContent.class);
+    }
+
     public static ScreendoorDoorContent.ScreendoorDoorDisplayInfo getScreendoorDisplayInfo(String mainModel, String subModel, int doorSide) {
         Map<String, Object> current = CustomItems.getContentInfo(mainModel, getScreendoorContentPath(doorSide), subModel);
         if (current == null) return null;
@@ -63,7 +67,7 @@ public final class ContentInfoUtil {
     public static void preloadByType(String contentType, List<ModelSelectInfo> infos) {
         if (infos == null || infos.isEmpty()) return;
         for (ModelSelectInfo info : infos) {
-            preloadByType(contentType, info.content());
+            preloadByType(contentType, info.getContent());
         }
     }
 

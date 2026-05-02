@@ -514,7 +514,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         for (final SubModelDispInfo subModelInfo : subModelInfos) {
             List<ModelSelectInfo> infos = subModelInfo.infos();
             if (infos == null || infos.isEmpty()) continue;
-            subModelInfo.setter().accept(this, infos.get(0).content());
+            subModelInfo.setter().accept(this, infos.get(0).getContent());
         }
     }
 

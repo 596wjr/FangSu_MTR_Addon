@@ -5,7 +5,7 @@ import org.graalvm.polyglot.Value;
 
 public class PidsScriptHolder extends ScriptHolderBase {
     @Override
-    protected void init(Context context) {
-        loadFunction(context, "draw");
+    protected void init() {
+        loadFunction("draw");
     }
 }

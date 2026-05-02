@@ -57,6 +57,7 @@
   "block.fangsu.sign_on_wall": "Sign (On-Wall)",
   "block.fangsu.pids": "PIDS",
   "block.fangsu.diaoban": "Hanging Panel",
+  "block.fangsu.route_info_sign": "Route Information Sign",
   "ui.fangsu.sign.title": "Sign Configuration",
   "ui.fangsu.sign.editing": "Currently Editing",
   "ui.fangsu.sign.front": "Front",

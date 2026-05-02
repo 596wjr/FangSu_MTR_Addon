@@ -1,14 +1,41 @@
 package com.fangsu.scripting;
 
+import com.fangsu.Main;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.IntStream;
 
 public class ModelHelper {
     public static float[] calculateNormal(List<Double> p1, List<Double> p2, List<Double> p3) {
         float[] v1 = {(float) (p2.get(0) - p1.get(0)), (float) (p2.get(1) - p1.get(1)), (float) (p2.get(2) - p1.get(2))};
         float[] v2 = {(float) (p3.get(0) - p1.get(0)), (float) (p3.get(1) - p1.get(1)), (float) (p3.get(2) - p1.get(2))};
 
+        return calcNormal(v1, v2);
+    }
+
+    public static float[] calculateNormal(double[] p1, double[] p2, double[] p3) {
+        if (p1 == null || p2 == null || p3 == null
+                || p1.length < 3 || p2.length < 3 || p3.length < 3) {
+            return new float[]{0, 0, 0};
+        }
+
+        float[] v1 = {
+                (float) (p2[0] - p1[0]),
+                (float) (p2[1] - p1[1]),
+                (float) (p2[2] - p1[2])
+        };
+        float[] v2 = {
+                (float) (p3[0] - p1[0]),
+                (float) (p3[1] - p1[1]),
+                (float) (p3[2] - p1[2])
+        };
+
+        return calcNormal(v1, v2);
+    }
+
+    private static float[] calcNormal(float[] v1, float[] v2) {
         float[] normal = {
                 v1[1] * v2[2] - v1[2] * v2[1],
                 v1[2] * v2[0] - v1[0] * v2[2],
@@ -63,5 +90,73 @@ public class ModelHelper {
 
         builder.vertex(quad.get(3).get(0), quad.get(3).get(1), quad.get(3).get(2))
                 .normal(normal[0], normal[1], normal[2]).uv(1f, 0f).endVertex();
+    }
+
+    public static void addQuad(RawMeshBuilder builder, double[][] quad, boolean reverse) {
+        // 契约校验
+        if (quad == null || (quad.length < 4)) {
+            Main.LOGGER.error("1 {}", quad != null ? quad.length + Arrays.deepToString(quad) : "quad == null");
+            return;
+        }
+        for (int i = 0; i < 4; i++) {
+            double[] v = quad[i];
+            if (v == null || v.length < 3) {
+                Main.LOGGER.error("2");
+                return;
+            }
+        }
+        boolean hasUV = (quad.length == 5);
+        double[] uvArr = null;
+        if (hasUV) {
+            uvArr = quad[4];
+            if (uvArr == null || uvArr.length < 4) {
+                Main.LOGGER.error("3");
+                return;
+            }
+        }
+
+        // 计算法线
+        float[] normal = calculateNormal(quad[0], quad[1], quad[2]);
+
+        if (reverse) {
+            normal[0] = -normal[0];
+            normal[1] = -normal[1];
+            normal[2] = -normal[2];
+        }
+
+        // 确定UV
+        float u1, v1, u2, v2;
+        if (hasUV) {
+            u1 = (float) uvArr[0];
+            v1 = (float) uvArr[1];
+            u2 = (float) uvArr[2];
+            v2 = (float) uvArr[3];
+        } else {
+            u1 = 0f;
+            v1 = 0f;
+            u2 = 1f;
+            v2 = 1f;
+        }
+
+        builder.vertex(quad[0][0], quad[0][1], quad[0][2])
+                .normal(normal[0], normal[1], normal[2]).uv(u1, v1).endVertex();
+
+        builder.vertex(quad[1][0], quad[1][1], quad[1][2])
+                .normal(normal[0], normal[1], normal[2]).uv(u1, v2).endVertex();
+
+        builder.vertex(quad[2][0], quad[2][1], quad[2][2])
+                .normal(normal[0], normal[1], normal[2]).uv(u2, v2).endVertex();
+
+        builder.vertex(quad[3][0], quad[3][1], quad[3][2])
+                .normal(normal[0], normal[1], normal[2]).uv(u2, v1).endVertex();
+    }
+
+    public static void addQuad(RawMeshBuilder builder, float[][] quad, boolean reverse) {
+        double[][] quadDouble = Arrays.stream(quad)
+                .map(row -> IntStream.range(0, row.length)
+                        .mapToDouble(i -> row[i])
+                        .toArray())
+                .toArray(double[][]::new);
+        addQuad(builder, quadDouble, reverse);
     }
 }

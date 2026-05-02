@@ -7,11 +7,15 @@ import java.awt.font.FontRenderContext;
 import java.awt.geom.Rectangle2D;
 
 public class G2dTextHelper {
+
+    public static final double ACTUAL_DRAW_HEIGHT = 0.9;
+
     public static int getMultiLinesWidth(Graphics2D g, Font cjkFont, Font nonCjkFont, float h, String... lines) {
+        if (lines == null || lines.length == 0) return 0;
         int width = 0;
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i];
-            int fontSize = (int) (h * 0.9 / (lines.length + 2) * (i == 0 ? 3 : 1));
+            int fontSize = (int) (h * ACTUAL_DRAW_HEIGHT / (lines.length + 2) * (i == 0 ? 3 : 1));
             g.setFont((TextUtil.isCjk(line) ? cjkFont : nonCjkFont).deriveFont(Font.PLAIN, fontSize));
             width = Math.max(width, g.getFontMetrics().stringWidth(line));
         }
@@ -23,11 +27,12 @@ public class G2dTextHelper {
     }
 
     public static int drawStrMultiLines(Graphics2D g, Font cjFfont, Font nonCjkFont, int x, int y, int h, int align, String... lines) {
+        if (lines.length == 0) return 0;
         int width = getMultiLinesWidth(g, cjFfont, nonCjkFont, h, lines);
-        int currentY = (int) (y - h * 0.095);
+        int currentY = (int) (y - h * (0.095));
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i];
-            int fontSize = (int) (h * 0.9 / (lines.length + 2) * (i == 0 ? 3 : 1));
+            int fontSize = (int) (h * ACTUAL_DRAW_HEIGHT / (lines.length + 2) * (i == 0 ? 3 : 1));
             int lineGap = lines.length == 1 ? 0 : (int) (h * 0.1 / (lines.length - 1));
             currentY += fontSize + lineGap;
             if (TextUtil.isCjk(line))
@@ -63,6 +68,7 @@ public class G2dTextHelper {
      * @return 实际绘制的总宽度（像素）
      */
     public static int drawStrUnified(Graphics2D g, Font font, String str, int x, int y, float h, int align) {
+        if (str == null || str.isEmpty()) return 0;
         Font drawFont = font.deriveFont(Font.PLAIN, h);
         g.setFont(drawFont);
 
@@ -107,6 +113,7 @@ public class G2dTextHelper {
      * @return 字符串的像素宽度
      */
     public static int getUnifiedStringWidth(Graphics2D g, Font font, String str, float h) {
+        if (str == null || str.isEmpty()) return 0;
         Font drawFont = font.deriveFont(Font.PLAIN, h);
 
         // 获取字体度量

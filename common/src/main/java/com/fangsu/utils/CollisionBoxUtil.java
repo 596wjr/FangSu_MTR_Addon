@@ -33,6 +33,22 @@ public class CollisionBoxUtil {
             ));
         }
 
+        public CollisionBox(double[][] pos) {
+            if (pos == null) return;
+            for (double[] a : pos) {
+                if (a == null || a.length < 6) continue;
+                boxes.add(new AABB(a[0], a[1], a[2], a[3], a[4], a[5]));
+            }
+        }
+
+        public CollisionBox(float[][] pos) {
+            if (pos == null) return;
+            for (float[] a : pos) {
+                if (a == null || a.length < 6) continue;
+                boxes.add(new AABB(a[0], a[1], a[2], a[3], a[4], a[5]));
+            }
+        }
+
         public CollisionBox(List<?> pos) {
             if (pos == null || pos.isEmpty()) return;
 

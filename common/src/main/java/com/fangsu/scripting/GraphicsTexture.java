@@ -1,6 +1,5 @@
 package com.fangsu.scripting;
 
-import com.fangsu.scripting.smarterGraphics.SmarterG2D;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 
@@ -22,7 +21,7 @@ public class GraphicsTexture implements AutoCloseable {
     private DynamicTexture dynamicTexture;
     public final ResourceLocation identifier;
     public final BufferedImage bufferedImage;
-    public final SmarterG2D graphics;
+    public final Graphics2D graphics;
     public final int width;
     public final int height;
 
@@ -44,8 +43,7 @@ public class GraphicsTexture implements AutoCloseable {
 
         // 创建可操作的 BufferedImage
         this.bufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D raw = this.bufferedImage.createGraphics();
-        this.graphics = new SmarterG2D(raw);
+        this.graphics = this.bufferedImage.createGraphics();
         this.graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         this.graphics.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
 

@@ -105,7 +105,7 @@ public class ModelSelectScreen extends Screen {
             String initial = initialGetter.apply(be);
             if (initial != null) {
                 selected = options.stream()
-                        .filter(info -> Objects.equals(info.content(), initial))
+                        .filter(info -> Objects.equals(info.getContent(), initial))
                         .findFirst()
                         .orElse(null);
             }
@@ -114,7 +114,7 @@ public class ModelSelectScreen extends Screen {
         int y = getContentTop();
         for (ModelSelectInfo info : options) {
             int baseY = y;
-            Button button = Button.builder(Component.translatable(info.text()), btn -> setSelected(info))
+            Button button = Button.builder(Component.translatable(info.getText()), btn -> setSelected(info))
                     .bounds(getListLeft(), baseY, LIST_WIDTH, LIST_ITEM_HEIGHT)
                     .build();
             addRenderableWidget(button);
@@ -126,9 +126,9 @@ public class ModelSelectScreen extends Screen {
         confirmButton = addRenderableWidget(
                 Button.builder(Component.translatable("ui.fangsu.block.confirm"), btn -> {
                     if (selected != null && setter != null) {
-                        setter.accept(be, selected.content());
-                        if (be != null && selected.defaultItem() != null) {
-                            for (Map.Entry<String, JsonElement> entry : selected.defaultItem().entrySet()) {
+                        setter.accept(be, selected.getContent());
+                        if (be != null && selected.getDefault() != null) {
+                            for (Map.Entry<String, JsonElement> entry : selected.getDefault().entrySet()) {
                                 String key = entry.getKey();
                                 String value = entry.getValue().getAsString();
                                 be.subModels.put(key, value);
@@ -174,10 +174,10 @@ public class ModelSelectScreen extends Screen {
         for (int i = 0; i < listButtons.size(); i++) {
             Button button = listButtons.get(i);
             ModelSelectInfo info = options.get(i);
-            if (selected != null && Objects.equals(selected.content(), info.content())) {
-                button.setMessage(Component.literal(">" + Component.translatable(info.text()).getString() + "<"));
+            if (selected != null && Objects.equals(selected.getContent(), info.getContent())) {
+                button.setMessage(Component.literal(">" + Component.translatable(info.getText()).getString() + "<"));
             } else {
-                button.setMessage(Component.translatable(info.text()));
+                button.setMessage(Component.translatable(info.getText()));
             }
         }
     }
@@ -250,7 +250,7 @@ public class ModelSelectScreen extends Screen {
     }
 
     private List<Component> getSelectedContentLines(int width) {
-        String text = selected == null ? "" : selected.contentText();
+        String text = selected == null ? "" : selected.getContentText();
         return this.font.split(Component.translatable(text), width).stream()
                 .map(this::sequenceToComponent)
                 .toList();

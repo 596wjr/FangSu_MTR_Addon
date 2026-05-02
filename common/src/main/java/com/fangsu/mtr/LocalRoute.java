@@ -19,7 +19,7 @@ public class LocalRoute {
     public String name;
     public int color;
     public long id;
-    
+
     private LocalRouteDetail cachedRouteDetail;
 
     public LocalRoute(Route route) {
@@ -112,11 +112,14 @@ public class LocalRoute {
                             List<LocalRoute> routes = MtrUtil.getRouteByPlatform(plat1);
                             if (routes != null) {
                                 for (LocalRoute route : routes) {
-                                    trans.add(new ColorNameTuple(route.color, route.name));
+                                    if (!this.name.equals(route.name))
+                                        trans.add(new ColorNameTuple(route.color, route.name));
                                 }
                             }
                         }
-                        stations.add(new LocalRouteDetail.StationDetails(stn.name, new ArrayList<>(trans)));
+                        if (!trans.isEmpty())
+                            stations.add(new LocalRouteDetail.StationDetails(stn.name, new ArrayList<>(trans)));
+                        else stations.add(new LocalRouteDetail.StationDetails(stn.name, List.of()));
                     } else {
                         stations.add(new LocalRouteDetail.StationDetails(stn.name, null));
                     }

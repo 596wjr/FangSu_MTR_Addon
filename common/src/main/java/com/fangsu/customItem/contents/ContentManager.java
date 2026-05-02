@@ -31,6 +31,7 @@ public class ContentManager {
         registerContent("diaoban", DiaobanContent.DiaobanLoader::load);
         registerContent("pids", PidsContent.PidsLoader::load);
         registerContent("duanmen", DuanmenContent.DuanmenLoader::load);
+        registerContent("route_info_sign", RouteInfoSignContent.RouteInfoSignLoader::load);
     }
 
     public void reset() {

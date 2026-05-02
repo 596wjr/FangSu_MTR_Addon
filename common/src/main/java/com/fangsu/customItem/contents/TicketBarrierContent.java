@@ -21,6 +21,7 @@ public class TicketBarrierContent extends BaseContent {
     private final Double gatePos;
     private final List<Double> cardBox;
     private final List<Double> ticketBox;
+    private final TicketBarrierConnectType connectType;
 
     private TicketBarrierContent(JsonObject json) {
         super(json);
@@ -34,6 +35,7 @@ public class TicketBarrierContent extends BaseContent {
         gatePos = json.has("gatePos") ? json.get("gatePos").getAsDouble() : null;
         cardBox = parseSingleBox(json.get("cardBox"));
         ticketBox = parseSingleBox(json.get("ticketBox"));
+        connectType = TicketBarrierConnectType.fromInt(json.has("connectType") ? json.get("connectType").getAsInt() : 0);
     }
 
     public String getModel() {
@@ -74,6 +76,10 @@ public class TicketBarrierContent extends BaseContent {
 
     public List<Double> getTicketBox() {
         return ticketBox;
+    }
+
+    public TicketBarrierConnectType getConnectType() {
+        return connectType;
     }
 
     private static List<TicketBarrierDoorInfo> parseDoors(JsonElement doorsElement) {
@@ -277,6 +283,18 @@ public class TicketBarrierContent extends BaseContent {
                 }
 
             }
+        }
+    }
+
+    public enum TicketBarrierConnectType {
+        NONE, LEFT, RIGHT;
+
+        public static TicketBarrierConnectType fromInt(int i) {
+            return switch (i) {
+                case 1 -> LEFT;
+                case 2 -> RIGHT;
+                default -> NONE;
+            };
         }
     }
 }

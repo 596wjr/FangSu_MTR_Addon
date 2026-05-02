@@ -48,7 +48,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_DIAOBAN;
 
-public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformDoor {
+public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformDoor, RouteDrawer {
     private static final String DEFAULT_MAIN_MODEL = "fangsu:diaoban/mtr_diaoban.json";
     private static final String DEFAULT_SUB_MODEL = "mtr_diaoban_a";
     private static final String DEFAULT_DRAW_SCRIPT = "fangsu:diaoban/blank.js";
@@ -98,7 +98,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
         arrowDirection = getExtraConfigInt("arrowDirection", 0);
         withDoorlight = getExtraConfigBool("withDoorlight", false);
 
-        reloadRoute();
+        routes = reloadRoute(getExtraConfig("routes", "[]"));
 
         try {
             DiaobanContent content = ContentInfoUtil.getDiaobanContent(mainModel, subModel);
@@ -139,15 +139,14 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
             unit = content.getUnit();
             List<List<Double>> tex = content.getTex();
             if (!tex.isEmpty()) {
-                List<?> l = tex;
-                if (l.size() == 2) {
-                    if (l.get(0) instanceof List<?> l1) {
+                if (tex.size() == 2) {
+                    if (((List<?>) tex).get(0) instanceof List<?> l1) {
                         if (l1.size() == 2) {
                             y1 = (Double) l1.get(0);
                             z1 = (Double) l1.get(1);
                         }
                     }
-                    if (l.get(1) instanceof List<?> l2) {
+                    if (((List<?>) tex).get(1) instanceof List<?> l2) {
                         if (l2.size() == 2) {
                             y2 = (Double) l2.get(0);
                             z2 = (Double) l2.get(1);
@@ -309,15 +308,6 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     }
 
     @Override
-    public void whenSaving(Map<String, String> extraConfigs) {
-    }
-
-    @Override
-    public InteractionResult whenUseWithOther(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-        return InteractionResult.PASS;
-    }
-
-    @Override
     public InteractionResult whenUseWithBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         arrowDirection += 1;
         if (arrowDirection >= 3) arrowDirection = 0;
@@ -427,7 +417,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     }
 
     private void initScriptDrawingAsync() {
-        reloadRoute();
+        routes = reloadRoute(getExtraConfig("routes", "[]"));
 
         GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
         gtHelper.removeDrawGraphic(getBlockPos());
@@ -437,33 +427,12 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
         String scriptPath = drawScript;
         ResourceLocation location = new ResourceLocation(scriptPath);
 
-        gtHelper.addDrawGraphic(getBlockPos(),
+        gtHelper.addDrawGraphicWithGt(getBlockPos(),
                 new GraphicsTextureHelper.DrawInfo(
                         "DIAOBAN_" + scriptPath + "_" + routes + "_" + arrowDirection,
                         texW, texH, true, false
                 ),
-                (g) -> {
-                    ScriptHolderBase holder = scriptHolder;
-                    if (holder == null) return;
-                    LocalRoute route = null;
-                    Platform plat = null;
-                    int index = 0;
-                    if (!routes.isEmpty()) {
-                        RouteSelectionScreen.RouteSelectInfo routeSelectInfo = routes.get(0);
-                        route = routeSelectInfo.route;
-                        plat = routeSelectInfo.plat;
-                        if (plat != null)
-                            index = route.getPlatformIdIndex(routeSelectInfo.plat.id);
-                    }
-                    if (route == null) {
-                        route = new LocalRoute();
-                        Main.LOGGER.error("route not found");
-                    }
-                    ScriptManager.getInstance().requestRunFunction(holder, "draw", g, drawState,
-                            new DrawInfoDiaoban(
-                                    route.asRouteDetail(), arrowDirection, plat, index, new int[]{0, 0, texW, texH}
-                            ));
-                }
+                gt -> drawFunction(gt, scriptHolder, routes, drawState, arrowDirection, texW, texH)
                 //TODO 支持多选
         );
 
@@ -481,84 +450,6 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
         scriptInit = true;
     }
 
-    private void reloadRoute() {
-        List<JsonElement> rawRoutes = Main.JSON_PARSER.parse(getExtraConfig("routes", "[]")).getAsJsonArray().asList();
-        Main.LOGGER.info("rawRoutes {}", rawRoutes);
-        routes = new ArrayList<>();
-        for (JsonElement rawRoute : rawRoutes) {
-            if (rawRoute.getAsJsonArray().size() < 2) continue;
-            JsonArray a = rawRoute.getAsJsonArray();
-            routes.add(new RouteSelectionScreen.RouteSelectInfo(MtrUtil.getRouteById(a.get(0).getAsLong()), MtrUtil.getPlatformById(a.get(1).getAsLong())));
-        }
-        Main.LOGGER.info("Loaded {} routes", routes.size());
-        Main.LOGGER.info(routes.toString());
-    }
-
-    public static final class DrawInfoDiaoban {
-        public final LocalRouteDetail routeInfo;
-        public final int arrowDirection;
-        public final Platform plat;
-        public final int index;
-        public final int[] texArea;
-
-        public DrawInfoDiaoban(LocalRouteDetail routeInfo, int arrowDirection, Platform plat, int index,
-                               int[] texArea) {
-            this.routeInfo = routeInfo;
-            this.arrowDirection = arrowDirection;
-            this.plat = plat;
-            this.index = index;
-            this.texArea = texArea;
-        }
-
-        public LocalRouteDetail routeInfo() {
-            return routeInfo;
-        }
-
-        public int arrowDirection() {
-            return arrowDirection;
-        }
-
-        public Platform plat() {
-            return plat;
-        }
-
-        public int index() {
-            return index;
-        }
-
-        public int[] texArea() {
-            return texArea;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (obj == this) return true;
-            if (obj == null || obj.getClass() != this.getClass()) return false;
-            var that = (DrawInfoDiaoban) obj;
-            return Objects.equals(this.routeInfo, that.routeInfo) &&
-                    this.arrowDirection == that.arrowDirection &&
-                    Objects.equals(this.plat, that.plat) &&
-                    this.index == that.index &&
-                    Arrays.equals(this.texArea, that.texArea);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(routeInfo, arrowDirection, plat, index, texArea);
-        }
-
-        @Override
-        public String toString() {
-            return "DrawInfoDiaoban[" +
-                    "routeInfo=" + routeInfo + ", " +
-                    "arrowDirection=" + arrowDirection + ", " +
-                    "plat=" + plat + ", " +
-                    "index=" + index + ", " +
-                    "texArea=" + Arrays.toString(texArea) + ']';
-        }
-
-    }
-
     @Override
     public boolean getDoorTarget() {
         return doorTarget;
@@ -567,7 +458,6 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     @Override
     public void setDoorTarget(boolean target) {
         this.doorTarget = target;
-
     }
 
     @Override

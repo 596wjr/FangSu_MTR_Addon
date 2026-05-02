@@ -1,7 +1,6 @@
 package com.fangsu.customItem;
 
 import com.fangsu.Main;
-import com.fangsu.customItem.contents.BaseContent;
 import com.fangsu.customItem.contents.ContentManager;
 import com.fangsu.customItem.contents.ContentResourceLoader;
 import com.fangsu.utils.ContentInfoUtil;
@@ -61,7 +60,7 @@ public class CustomItems {
             items.put(key, thisItemInfo);
             if (cm.canLoadType(key)) {
                 for (ModelSelectInfo modelSelectInfo : thisItemInfo) {
-                    cm.loadItem(key, modelSelectInfo.content());
+                    cm.loadItem(key, modelSelectInfo.getContent());
                 }
             } else {
                 ContentInfoUtil.preloadByType(key, thisItemInfo);

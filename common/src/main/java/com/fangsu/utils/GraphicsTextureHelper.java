@@ -91,15 +91,14 @@ public class GraphicsTextureHelper {
                     continue;
                 }
                 if (info.isClosed) continue;
+                if (!info.flameCompleted) continue;
 
                 if (info.waitUntilDraw) {
                     info.waitUntilDraw = false;
                     continue;
                 }
 
-                Graphics2D g = info.gt.graphics;
-
-                info.drawFunction.draw(g);
+                info.drawFunction.draw(info.gt);
                 info.gt.upload();
                 info.available = true;
 
@@ -116,10 +115,10 @@ public class GraphicsTextureHelper {
     /**
      * 为一个抽象 ID 绑定图形纹理
      */
-    public synchronized void addDrawGraphic(
+    public synchronized void addDrawGraphicWithGt(
             String id,
             DrawInfo drawInfo,
-            DrawFunction drawFunction
+            DrawFunctionGt drawFunction
     ) {
         String drawInfoId = drawInfo.id;
 
@@ -143,6 +142,14 @@ public class GraphicsTextureHelper {
         info.waitUntilDraw = drawInfo.waitUntilDraw;
 
         loadGts.put(drawInfoId, info);
+    }
+
+    public synchronized void addDrawGraphic(String id,
+                                            DrawInfo drawInfo,
+                                            DrawFunction drawFunction) {
+        addDrawGraphicWithGt(id, drawInfo, (gt) -> {
+            drawFunction.draw(gt.graphics);
+        });
     }
 
     /**
@@ -172,10 +179,9 @@ public class GraphicsTextureHelper {
 
         GTInfo info = loadGts.get(drawInfoId);
         if (info == null || !info.available) {
-            Main.LOGGER.info("info = {} , is available {}", info, info.available);
             return null;
         }
-
+        info.markFlameCompleted();
         return info.gt;
     }
 
@@ -186,6 +192,13 @@ public class GraphicsTextureHelper {
         String drawInfoId = idToDrawInfoId.get(id);
         if (drawInfoId == null) return false;
         return loadGts.containsKey(drawInfoId) && loadGts.get(drawInfoId).available;
+    }
+
+    public boolean isTextureAvailable(String id) {
+        String drawInfoId = idToDrawInfoId.get(id);
+        if (drawInfoId == null) return false;
+        GTInfo info = loadGts.get(drawInfoId);
+        return info != null && info.available;
     }
 
     /* =========================
@@ -200,6 +213,14 @@ public class GraphicsTextureHelper {
         addDrawGraphic(getBlockId(block), drawInfo, drawFunction);
     }
 
+    public synchronized void addDrawGraphicWithGt(
+            BlockPos block,
+            DrawInfo drawInfo,
+            DrawFunctionGt drawFunction
+    ) {
+        addDrawGraphicWithGt(getBlockId(block), drawInfo, drawFunction);
+    }
+
     public synchronized void removeDrawGraphic(BlockPos block) {
         removeDrawGraphic(getBlockId(block));
     }
@@ -209,6 +230,10 @@ public class GraphicsTextureHelper {
     }
 
     public boolean hasDrawGraphic(BlockPos block) {
+        return hasGraphic(getBlockId(block));
+    }
+
+    public boolean isTextureAvailable(BlockPos block) {
         return hasGraphic(getBlockId(block));
     }
 
@@ -237,22 +262,28 @@ public class GraphicsTextureHelper {
        内部结构
        ========================= */
 
-    public static class GTInfo {
+    private static class GTInfo {
         List<String> ids = new ArrayList<>();   // 绑定的抽象 ID 列表
         GraphicsTexture gt;
 
-        DrawFunction drawFunction;
+        DrawFunctionGt drawFunction;
 
         boolean available = false;
         boolean isClosed = false;
         boolean isStatic = false;
         boolean waitUntilDraw = false;
 
+        boolean flameCompleted = true;
+
         int expectedExceptionCount = 0;
 
         @Override
         public String toString() {
             return "GTInfo [ids=" + ids + ", gt=" + gt + ", drawFunction=" + drawFunction + ", available=" + available + ", isClosed=" + isClosed + ", isStatic=" + isStatic + ", waitUntilDraw=" + waitUntilDraw + "]@" + hashCode();
+        }
+
+        public void markFlameCompleted() {
+            flameCompleted = true;
         }
     }
 
@@ -262,5 +293,10 @@ public class GraphicsTextureHelper {
     @FunctionalInterface
     public interface DrawFunction {
         void draw(Graphics2D g);
+    }
+
+    @FunctionalInterface
+    public interface DrawFunctionGt {
+        void draw(GraphicsTexture gt);
     }
 }

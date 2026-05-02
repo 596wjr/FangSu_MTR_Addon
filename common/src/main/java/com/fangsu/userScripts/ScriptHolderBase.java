@@ -4,6 +4,7 @@ import com.fangsu.Main;
 import com.fangsu.utils.ResourceUtil;
 import net.minecraft.resources.ResourceLocation;
 import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.Engine;
 import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.Value;
 
@@ -23,10 +24,25 @@ public abstract class ScriptHolderBase {
 
     private final Object executionLock = new Object();
 
+    protected final Context context;
+
+    public ScriptHolderBase() {
+        Engine engine = ScriptManager.getInstance().engine;
+        context = Context.newBuilder("js")
+                .engine(engine)
+                .allowHostAccess(ScriptManager.getInstance().hostAccess)
+                .allowHostClassLookup(c -> true)
+                .allowCreateThread(true)
+                .build();
+        ScriptManager.initializeGlobalBindings(context);
+    }
+
     /**
      * 加载脚本内容
      */
-    protected synchronized void loadScript(Context context, ResourceLocation location, Value scope) {
+    protected synchronized void loadScript(ResourceLocation location, Value scope) {
+
+
         this.scriptName = location.toString();
         this.isValid = true;
 
@@ -67,7 +83,7 @@ public abstract class ScriptHolderBase {
             }
 
             // 子类注册函数（从独立作用域中获取）
-            init(context);
+            init();
 
         } catch (Exception e) {
             isValid = false;
@@ -83,12 +99,12 @@ public abstract class ScriptHolderBase {
     /**
      * 子类实现：注册需要的 JS 函数
      */
-    protected abstract void init(Context context);
+    protected abstract void init();
 
     /**
      * 注册 JS 函数到 Map
      */
-    protected void loadFunction(Context context, String name) {
+    protected void loadFunction(String name) {
         if (scriptScope != null && scriptScope.hasMember(name)) {
             Value fn = scriptScope.getMember(name);
             if (fn != null && fn.canExecute()) {
@@ -100,7 +116,7 @@ public abstract class ScriptHolderBase {
     /**
      * 执行 JS 函数 - 修改为使用独立作用域作为闭包环境
      */
-    protected void runFunction(String name, Object... params) {
+    protected void runFunction(String name, Runnable callback, Object... params) {
         if (!isValid || duringFailTimeout(name)) return;
 
         Value fn = functions.get(name);
@@ -108,6 +124,7 @@ public abstract class ScriptHolderBase {
             synchronized (executionLock) {
                 try {
                     fn.execute(params);
+                    if (callback != null) callback.run();
                 } catch (Throwable e) {
                     recordFailure(name, e);
                 }
@@ -175,6 +192,7 @@ public abstract class ScriptHolderBase {
      */
     protected synchronized void close() {
         isValid = false;
+        context.close();
         functions.clear();
         failTime.clear();
     }

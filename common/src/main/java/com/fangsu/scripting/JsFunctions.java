@@ -1,7 +1,6 @@
 package com.fangsu.scripting;
 
 import com.fangsu.Main;
-import com.fangsu.scripting.smarterGraphics.SmarterFont;
 import com.fangsu.utils.ColorUtil;
 import com.fangsu.utils.ResourceUtil;
 import net.minecraft.resources.ResourceLocation;
@@ -19,14 +18,14 @@ import java.util.regex.Pattern;
 public class JsFunctions {
     public static Object loadResource(String type, String path) throws Exception {
         if ("systemFont".equals(type)) {
-            return new SmarterFont(new Font(path, Font.PLAIN, 12));
+            return (new Font(path, Font.PLAIN, 12));
 
         }
         ResourceLocation rl = new ResourceLocation(path);
         return switch (type) {
             case "string", "str" -> ResourceUtil.loadString(rl);
             case "image", "img" -> ResourceUtil.loadImage(rl);
-            case "font" -> new SmarterFont(ResourceUtil.loadFont(rl));
+            case "font" -> (ResourceUtil.loadFont(rl));
             case "model" -> ResourceUtil.loadModel(rl, false);
             case "partedModel" -> ResourceUtil.loadPartedModel(rl, true);
             case "json", "JSON" -> ResourceUtil.loadAsJSON(rl);
@@ -135,6 +134,14 @@ public class JsFunctions {
     public static int jsGetDLStringWidth(Graphics2D g, Font cjkFont, Font nonCjkFont, String str, double h) {
         String drawStr = str == null ? "" : str;
         return G2dTextHelper.getMultiLinesWidth(g, cjkFont, nonCjkFont, (float) h, drawStr.split("\\|"));
+    }
+
+    public static int jsDrawStrUnified(Graphics2D g, Font font, String str, double x, double y, double h, int align) {
+        return G2dTextHelper.drawStrUnified(g, font, str, x, y, h, align);
+    }
+
+    public static int jsGetUnifiedStringWidth(Graphics2D g, Font font, String str, double h) {
+        return G2dTextHelper.getUnifiedStringWidth(g, font, str, (float) h);
     }
 
     private static final Pattern CJK_PATTERN = Pattern.compile("^(\\d+|[\u4e00-\u9fa5]+)线$");

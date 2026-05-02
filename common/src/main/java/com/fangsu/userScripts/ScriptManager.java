@@ -5,6 +5,7 @@ import com.fangsu.scripting.*;
 import com.fangsu.utils.ModuleAccessHelper;
 import net.minecraft.resources.ResourceLocation;
 import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.Engine;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
@@ -13,17 +14,19 @@ import org.graalvm.polyglot.proxy.ProxyObject;
 import java.util.HashMap;
 import java.util.concurrent.*;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class ScriptManager {
-    private boolean initialized = false;
+    private final AtomicBoolean initialized = new AtomicBoolean(false);
 
     private static final ScriptManager INSTANCE = new ScriptManager();
     private static final long FAIL_TIMEOUT_MS = 4000;
-    private static final long SCRIPT_EXECUTION_TIMEOUT_MS = 5000;
+    private static final long SCRIPT_EXECUTION_TIMEOUT_MS = 500;
 
-    private Context context;
+    protected HostAccess hostAccess;
+    protected Engine engine;
     private final Map<ResourceLocation, ScriptHolderBase> holders;
     private boolean isShutdown = false;
 
@@ -34,23 +37,23 @@ public class ScriptManager {
     });
 
     public void init() {
-        if (initialized) throw new IllegalStateException("ScriptManager has already been initialized");
+        if (initialized.get()) throw new IllegalStateException("ScriptManager has already been initialized");
 
         ModuleAccessHelper.ensureModuleAccess();
 
-        createContext();
+        createEngine();
 
-        initialized = true;
+        initialized.set(true);
     }
 
     private ScriptManager() {
         this.holders = new ConcurrentHashMap<>();
     }
 
-    private void createContext() {
+    private void createEngine() {
         long beginTime = System.currentTimeMillis();
 
-        HostAccess hostAccess = HostAccess.newBuilder()
+        hostAccess = HostAccess.newBuilder()
                 .allowPublicAccess(true)
                 .allowAllImplementations(true)
                 .allowAllClassImplementations(true)
@@ -113,23 +116,18 @@ public class ScriptManager {
                 .build();
 
 
-        this.context = Context.newBuilder("js")
+        this.engine = Engine.newBuilder("js")
                 .allowExperimentalOptions(true)
 //                .option("engine.WarnInterpreterOnly", "false")
                 .option("js.nashorn-compat", "true")
                 .option("js.ecmascript-version", "2020")
                 .option("log.file", "./logs/latest.log")
-                .allowHostAccess(hostAccess)
-                .allowHostClassLookup(c -> true)
-                .allowCreateThread(true)
                 .build();
 
-        initializeGlobalBindings();
-
-        Main.LOGGER.info("Initialized ScriptManager in {} ms", System.currentTimeMillis() - beginTime);
+        Main.LOGGER.info("Initialized ScriptManager engine in {} ms", System.currentTimeMillis() - beginTime);
     }
 
-    private void initializeGlobalBindings() {
+    protected static void initializeGlobalBindings(Context context) {
         Value bindings = context.getBindings("js");
 
         // Java 类绑定
@@ -139,28 +137,30 @@ public class ScriptManager {
         bindings.putMember("RenderingHints", java.awt.RenderingHints.class);
         bindings.putMember("Rectangle", java.awt.Rectangle.class);
 
-        inject(java.awt.geom.Point2D.class, "Point2D");
-        inject(java.awt.geom.Rectangle2D.class, "Rectangle2D");
-        inject(java.awt.geom.Line2D.class, "Line2D");
-        inject(java.awt.geom.Ellipse2D.class, "Ellipse2D");
-        inject(java.awt.geom.Arc2D.class, "Arc2D");
-        inject(java.awt.geom.CubicCurve2D.class, "CubicCurve2D");
-        inject(java.awt.geom.QuadCurve2D.class, "QuadCurve2D");
-        inject(java.awt.geom.Path2D.class, "Path2D");
-        inject(java.awt.geom.RoundRectangle2D.class, "RoundRectangle2D");
+        inject(context, java.awt.geom.Point2D.class, "Point2D");
+        inject(context, java.awt.geom.Rectangle2D.class, "Rectangle2D");
+        inject(context, java.awt.geom.Line2D.class, "Line2D");
+        inject(context, java.awt.geom.Ellipse2D.class, "Ellipse2D");
+        inject(context, java.awt.geom.Arc2D.class, "Arc2D");
+        inject(context, java.awt.geom.CubicCurve2D.class, "CubicCurve2D");
+        inject(context, java.awt.geom.QuadCurve2D.class, "QuadCurve2D");
+        inject(context, java.awt.geom.Path2D.class, "Path2D");
+        inject(context, java.awt.geom.RoundRectangle2D.class, "RoundRectangle2D");
+        inject(context, java.awt.geom.AffineTransform.class, "AffineTransform");
 
-        inject(java.awt.Polygon.class, "Polygon");
-        inject(java.awt.Rectangle.class, "Rectangle");
-        inject(java.awt.Shape.class, "Shape");
+        inject(context, java.awt.Polygon.class, "Polygon");
+        inject(context, java.awt.Rectangle.class, "Rectangle");
+        inject(context, java.awt.Shape.class, "Shape");
 
         // 工具类绑定
         bindings.putMember("Timing", JsStaticBridge.fromStaticClass(TimingUtil.class));
         bindings.putMember("TextUtil", JsStaticBridge.fromStaticClass(TextUtil.class));
         bindings.putMember("MinecraftClient", JsStaticBridge.fromStaticClass(MinecraftClientUtil.class));
+        bindings.putMember("Resources", JsStaticBridge.fromStaticClass(JsResources.class));
 
         // 函数绑定
-        bindings.putMember("drawStrUnified", fn(a -> G2dTextHelper.drawStrUnified(a[0].asHostObject(), a[1].asHostObject(), a[2].asString(), a[3].asDouble(), a[4].asDouble(), a[5].asDouble(), a[6].asInt())));
-        bindings.putMember("getUnifiedStringWidth", fn(a -> G2dTextHelper.getUnifiedStringWidth(a[0].asHostObject(), a[1].asHostObject(), a[2].asString(), a[4].asFloat())));
+        bindings.putMember("drawStrUnified", fn(a -> JsFunctions.jsDrawStrUnified(a[0].asHostObject(), a[1].asHostObject(), a[2].asString(), a[3].asDouble(), a[4].asDouble(), a[5].asDouble(), a[6].asInt())));
+        bindings.putMember("getUnifiedStringWidth", fn(a -> JsFunctions.jsGetUnifiedStringWidth(a[0].asHostObject(), a[1].asHostObject(), a[2].asString(), a[3].asDouble())));
         bindings.putMember("drawStrDL", fn(a -> JsFunctions.jsDrawStrDl(a[0].asHostObject(), a[1].asHostObject(), a[2].asHostObject(), a[3].asString(), a[4].asDouble(), a[5].asDouble(), a[6].asDouble(), a[7].asInt(), a[8].asInt())));
         bindings.putMember("getDLStringWidth", fn(a -> JsFunctions.jsGetDLStringWidth(a[0].asHostObject(), a[1].asHostObject(), a[2].asHostObject(), a[3].asString(), a[4].asDouble())));
         bindings.putMember("getMatching", fn(a -> TextUtil.getCjkMatching(a[0].asString(), a[1].asBoolean())));
@@ -204,7 +204,7 @@ public class ScriptManager {
      * 获取或初始化脚本持有者（线程安全）
      */
     public ScriptHolderBase getOrInitHolder(ResourceLocation pos, Supplier<? extends ScriptHolderBase> holderSupplier) {
-        if (!initialized) {
+        if (!initialized.get()) {
             return null;
         }
 
@@ -214,33 +214,33 @@ public class ScriptManager {
 
         return holders.computeIfAbsent(pos, k -> {
             ScriptHolderBase holder = holderSupplier.get();
-            holder.loadScript(context, k, null);
+            holder.loadScript(k, null);
             return holder;
         });
     }
 
-    /**
-     * 重载指定脚本
-     */
-    public boolean reloadScript(ResourceLocation pos) {
-        ScriptHolderBase holder = holders.get(pos);
-        if (holder != null) {
-            holder.close();
-            holder.loadScript(context, pos, null);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * 重载所有脚本
-     */
-    public void reloadAllScripts() {
-        holders.forEach((pos, holder) -> {
-            holder.close();
-            holder.loadScript(context, pos, null);
-        });
-    }
+//    /**
+//     * 重载指定脚本
+//     */
+//    public boolean reloadScript(ResourceLocation pos) {
+//        ScriptHolderBase holder = holders.get(pos);
+//        if (holder != null) {
+//            holder.close();
+//            holder.loadScript(context, pos, null);
+//            return true;
+//        }
+//        return false;
+//    }
+//
+//    /**
+//     * 重载所有脚本
+//     */
+//    public void reloadAllScripts(Context context) {
+//        holders.forEach((pos, holder) -> {
+//            holder.close();
+//            holder.loadScript(context, pos, null);
+//        });
+//    }
 
     /**
      * 移除脚本持有者
@@ -260,8 +260,8 @@ public class ScriptManager {
             isShutdown = true;
             holders.values().forEach(ScriptHolderBase::close);
             holders.clear();
-            if (context != null) {
-                context.close();
+            if (engine != null) {
+                engine.close();
             }
         }
     }
@@ -276,17 +276,17 @@ public class ScriptManager {
         };
     }
 
-    protected void inject(Class<?> clazz, String method, String alias) {
+    protected static void inject(Context context, Class<?> clazz, String method, String alias) {
         if (alias == null) alias = method;
         context.eval("js", "var " + alias + " = Java.type('" + clazz.getName() + "')." + method + ";");
     }
 
-    protected void inject(Class<?> clazz, String alias) {
+    protected static void inject(Context context, Class<?> clazz, String alias) {
         if (alias == null) alias = clazz.getSimpleName();
         context.eval("js", "var " + alias + " = Java.type('" + clazz.getName() + "');");
     }
 
-    protected void inject(String key, String value) {
+    protected void inject(Context context, String key, String value) {
         context.eval("js", "var " + key + " = '" + value + "';");
     }
 
@@ -294,7 +294,7 @@ public class ScriptManager {
         return FAIL_TIMEOUT_MS;
     }
 
-    private ProxyObject createColorBinding() {
+    private static ProxyObject createColorBinding() {
         Map<String, Object> map = new HashMap<>();
 
         // 静态常量
@@ -346,7 +346,12 @@ public class ScriptManager {
 
     //线程优化
     public synchronized void requestRunFunction(ScriptHolderBase holder, String name, Object... params) {
-        executeScriptWithTimeout(holder, name, params, null);
+        executeScriptWithTimeout(holder, name, params, () -> {
+        });
+    }
+
+    public synchronized void requestRunFunctionWithCallback(ScriptHolderBase holder, Runnable callback, String name, Object... params) {
+        executeScriptWithTimeout(holder, name, params, callback);
     }
 
     public synchronized void requestRunFunctionWithResult(ScriptHolderBase holder,
@@ -356,22 +361,50 @@ public class ScriptManager {
         executeScriptWithTimeout(holder, name, params, consumer);
     }
 
-
     private void executeScriptWithTimeout(ScriptHolderBase holder,
                                           String name,
                                           Object[] params,
-                                          Consumer<Value> resultConsumer) {
-        if (!initialized || isShutdown) return;
+                                          Runnable callback) {
+        if (!initialized.get() || isShutdown) return;
         if (holder == null || !holder.hasFunction(name)) return;
 
         CompletableFuture.runAsync(() -> {
             try {
                 // 设置超时中断（GraalVM 21.0+）
-                context.interrupt(java.time.Duration.ofMillis(SCRIPT_EXECUTION_TIMEOUT_MS));
+                holder.context.interrupt(java.time.Duration.ofMillis(SCRIPT_EXECUTION_TIMEOUT_MS));
+
+                holder.runFunction(name, callback, params);
+            } catch (TimeoutException e) {
+                throw new RuntimeException(e);
+            } finally {
+                // 无论执行结果如何，清除中断状态
+                try {
+                    holder.context.interrupt(java.time.Duration.ZERO);
+                } catch (TimeoutException ignored) {
+                }
+            }
+        }, SCRIPT_EXECUTOR).exceptionally(throwable -> {
+            Main.LOGGER.error("Unexpected error in script execution framework: {}",
+                    throwable.getMessage());
+            return null;
+        });
+    }
+
+    private void executeScriptWithTimeout(ScriptHolderBase holder,
+                                          String name,
+                                          Object[] params,
+                                          Consumer<Value> resultConsumer) {
+        if (!initialized.get() || isShutdown) return;
+        if (holder == null || !holder.hasFunction(name)) return;
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                // 设置超时中断（GraalVM 21.0+）
+                holder.context.interrupt(java.time.Duration.ofMillis(SCRIPT_EXECUTION_TIMEOUT_MS));
 
                 // 执行函数
                 if (resultConsumer == null) {
-                    holder.runFunction(name, params);
+                    holder.runFunction(name, null, params);
                 } else {
                     holder.runFunctionWithResult(name, resultConsumer, params);
                 }
@@ -380,7 +413,7 @@ public class ScriptManager {
             } finally {
                 // 无论执行结果如何，清除中断状态
                 try {
-                    context.interrupt(java.time.Duration.ZERO);
+                    holder.context.interrupt(java.time.Duration.ZERO);
                 } catch (TimeoutException ignored) {
                 }
             }
