@@ -22,6 +22,7 @@ import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.*;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -31,6 +32,9 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -40,6 +44,7 @@ import java.util.Map;
 
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcer.math.Matrices;
+import com.fangsu.blocks.BaseObjBlock;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_SIGN;
 
@@ -400,6 +405,57 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                 }
         ).setShowCondition((v) -> this.showRightPole && (!isMtrTheme)));
         return configs;
+    }
+
+    @Override
+    public VoxelShape setCollisionShape(BlockState state) {
+        return getFinalShape(state);
+    }
+
+    @Override
+    public VoxelShape setShape(BlockState state) {
+        return getFinalShape(state);
+    }
+
+    private VoxelShape getFinalShape(BlockState state) {
+        Direction facing = state.getValue(BaseObjBlock.FACING);
+        Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
+        float rotX = this.rotateX;
+        float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
+        float rotZ = this.rotateZ;
+        long posLong = worldPosition.asLong();
+
+        VoxelShape shape = Shapes.empty();
+        double startX = -0.5 * unit * length / 16d;
+        if (shapeLeft != null) {
+            VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeLeft, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+            shape = Shapes.or(shape, s.move(startX + trans.x, trans.y, trans.z));
+        }
+        for (int i = 0; i < length / (unit / 8d); i++) {
+            if (shapeCenter != null) {
+                double x = startX + unit / 32d + i * (unit / 16d);
+                VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeCenter, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+                shape = Shapes.or(shape, s.move(x + trans.x, trans.y, trans.z));
+            }
+        }
+        if (shapeRight != null) {
+            double x = startX + unit / 32d + (length / (unit / 8d)) * (unit / 16d) + unit / 32d;
+            VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeRight, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+            shape = Shapes.or(shape, s.move(x + trans.x, trans.y, trans.z));
+        }
+        if (shapePole != null) {
+            if (showLeftPole) {
+                double x = startX + leftPolePos / 16d + mtrPoleOffset / 16d;
+                VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapePole, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+                shape = Shapes.or(shape, s.move(x + trans.x, trans.y, trans.z));
+            }
+            if (showRightPole) {
+                double x = startX + (unit * length - rightPolePos) / 16d - mtrPoleOffset / 16d;
+                VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapePole, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+                shape = Shapes.or(shape, s.move(x + trans.x, trans.y, trans.z));
+            }
+        }
+        return shape;
     }
 
     @Override

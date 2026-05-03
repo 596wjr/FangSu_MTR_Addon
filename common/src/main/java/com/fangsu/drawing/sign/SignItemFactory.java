@@ -49,7 +49,7 @@ public final class SignItemFactory {
 
     public static void init() {
         registerBuiltInSign();
-//        registerJsItems();    //暂时不实装
+        registerJsItems();
         JsonElement builtInSign = ResourceUtil.loadAsJSON(new ResourceLocation("fangsu:sign/builtinsign.json"));
         if (builtInSign != null && builtInSign.isJsonObject()) {
             JsonObject obj = builtInSign.getAsJsonObject();
@@ -110,6 +110,7 @@ public final class SignItemFactory {
             if (!valueObject.has("content")) continue;
             String finalKey = "JS_" + key;
             String content = valueObject.getAsJsonPrimitive("content").getAsString();
+            ResourceLocation icon = valueObject.has("icon") ? new ResourceLocation(valueObject.getAsJsonPrimitive("icon").getAsString()) : null;
             if (valueObject.has("extraConfig")) {
                 List<JsonObject> configs = new ArrayList<>();
                 JsonElement extraConfig = valueObject.get("extraConfig");
@@ -132,11 +133,11 @@ public final class SignItemFactory {
                         configs.add(configObject);
                     }
                 }
-                REGISTRY.put(finalKey, json -> new JsItem(finalKey, new ResourceLocation(content), configs, json));
-                EDITOR_ITEMS.add(new JsItem(finalKey, new ResourceLocation(content), configs, new JsonObject()));
+                REGISTRY.put(finalKey, json -> new JsItem(finalKey, new ResourceLocation(content), icon, configs, json));
+                EDITOR_ITEMS.add(new JsItem(finalKey, new ResourceLocation(content), icon, configs, new JsonObject()));
             } else {
-                REGISTRY.put(finalKey, json -> new JsItem(finalKey, null, null, json));
-                EDITOR_ITEMS.add(new JsItem(finalKey, null, null, new JsonObject()));
+                REGISTRY.put(finalKey, json -> new JsItem(finalKey, null, icon, null, json));
+                EDITOR_ITEMS.add(new JsItem(finalKey, null, icon, null, new JsonObject()));
             }
         }
     }

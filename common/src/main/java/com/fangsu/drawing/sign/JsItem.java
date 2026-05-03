@@ -18,6 +18,7 @@ import java.util.Map;
 public class JsItem extends SignItem {
     private final String id;
     private final ResourceLocation scriptLocation;
+    private final ResourceLocation iconLocation;
     private final List<JsonObject> configs;
     private ScriptHolderBase scriptHolder;
 
@@ -30,9 +31,14 @@ public class JsItem extends SignItem {
     private Map<String, Value> extra;
 
     public JsItem(String id, ResourceLocation scriptLocation, List<JsonObject> configs, JsonObject json) {
+        this(id, scriptLocation, null, configs, json);
+    }
+
+    public JsItem(String id, ResourceLocation scriptLocation, ResourceLocation iconLocation, List<JsonObject> configs, JsonObject json) {
         super();
         this.id = id;
         this.scriptLocation = scriptLocation;
+        this.iconLocation = iconLocation;
         this.configs = configs;
 
         ScriptManager scriptManager = ScriptManager.getInstance();
@@ -94,7 +100,7 @@ public class JsItem extends SignItem {
 
     @Override
     public ResourceLocation getIconLocation() {
-        return null;
+        return iconLocation;
     }
 
     @Override

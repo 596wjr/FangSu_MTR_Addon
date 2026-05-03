@@ -100,5 +100,26 @@
     }
   ],
   "on_wall": [
+    {
+      "id": "mtr_sign_on_wall_a",
+      "text": "fangsu.item.mtr_sign_on_wall_a",
+      "model": "fangsu:sign/mtr_sign/mtr_sign.obj",
+      "unit": 8,
+      "isMtrTheme": true,
+      "defaultBgColor": 0,
+      "tex": [
+        [0.0625, 0.06],
+        [0.5625, 0.06]
+      ],
+      "main": {
+        "subModel": "main",
+        "shape": [[4, 0, 7.25, 12, 6, 8.75]]
+      },
+      "side": {
+        "right": {"subModel": "sidea", "shape": [[8, 0, 7.25, 9, 6, 8.75]]},
+        "left": {"subModel": "sideb", "shape": [[7, 0, 7.25, 8, 6, 8.75]]}
+      },
+      "pole": {"subModel": "pole", "height": 0, "shape": []}
+    }
   ]
 }
