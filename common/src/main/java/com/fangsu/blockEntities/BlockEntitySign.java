@@ -65,6 +65,7 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
     private boolean requiresRedraw = true;
 
     private Map<String, List<SignItem>> itemsFront, itemsBack;
+    private boolean frontReady, frontCompleted, backReady, backCompleted;
 
     public BlockEntitySign(BlockPos pos, BlockState state) {
         super(BLOCK_ENTITY_SIGN.get(), pos, state);
@@ -172,6 +173,11 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
             dmhDispBack = new DynamicModelHolder();
             dmhDispBack.uploadLater(dispRawModelBack);
 
+            frontReady = false;
+            frontCompleted = false;
+            backReady = false;
+            backCompleted = false;
+
             requiresRedraw = true;
         } catch (Exception e) {
             Main.LOGGER.warn(e.getMessage());
@@ -208,14 +214,22 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                     g.fillRect(0, 0, gtFront.width, gtFront.height);
                 }
                 if (itemsFront != null) {
-                    if (itemsFront.containsKey("left"))
-                        drawLane(gtFront, itemsFront.get("left"), 0, gtFront.height * 0.1f, 0, gtFront.height * 0.8f);
-                    if (itemsFront.containsKey("right"))
-                        drawLane(gtFront, itemsFront.get("right"), gtFront.width, gtFront.height * 0.1f, 2, gtFront.height * 0.8f);
-                    if (itemsFront.containsKey("center"))
-                        drawLane(gtFront, itemsFront.get("center"), gtFront.width * 0.5f, gtFront.height * 0.1f, 1, gtFront.height * 0.8f);
+                    if (itemsFront.containsKey("left")) {
+                        if (checkAllReady(gtFront.graphics, gtFront.height * 0.8f, itemsFront.get("left")))
+                            drawLane(gtFront, itemsFront.get("left"), 0, gtFront.height * 0.1f, 0, gtFront.height * 0.8f);
+                    }
+                    if (itemsFront.containsKey("right")) {
+                        if (checkAllReady(gtFront.graphics, gtFront.height * 0.8f, itemsFront.get("right")))
+                            drawLane(gtFront, itemsFront.get("right"), gtFront.width, gtFront.height * 0.1f, 2, gtFront.height * 0.8f);
+                    }
+                    if (itemsFront.containsKey("center")) {
+                        if (checkAllReady(gtFront.graphics, gtFront.height * 0.8f, itemsFront.get("center")))
+                            drawLane(gtFront, itemsFront.get("center"), gtFront.width * 0.5f, gtFront.height * 0.1f, 1, gtFront.height * 0.8f);
+                    }
                 }
-                gtFront.upload();
+                frontCompleted = checkCompleted(itemsFront);
+                if (frontCompleted)
+                    gtFront.upload();
             }
             if (gtBack != null && !gtBack.isClosed.get()) {
                 var g = gtBack.graphics;
@@ -235,15 +249,20 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                 }
                 if (itemsBack != null) {
                     if (itemsBack.containsKey("left"))
-                        drawLane(gtBack, itemsBack.get("left"), 0, gtBack.height * 0.1f, 0, gtBack.height * 0.8f);
+                        if (checkAllReady(gtBack.graphics, gtBack.height * 0.8f, itemsBack.get("left")))
+                            drawLane(gtBack, itemsBack.get("left"), 0, gtBack.height * 0.1f, 0, gtBack.height * 0.8f);
                     if (itemsBack.containsKey("right"))
-                        drawLane(gtBack, itemsBack.get("right"), gtBack.width, gtFront.height * 0.1f, 2, gtBack.height * 0.8f);
+                        if (checkAllReady(gtBack.graphics, gtBack.height * 0.8f, itemsBack.get("right")))
+                            drawLane(gtBack, itemsBack.get("right"), gtBack.width, gtFront.height * 0.1f, 2, gtBack.height * 0.8f);
                     if (itemsBack.containsKey("center"))
-                        drawLane(gtBack, itemsBack.get("center"), gtBack.width * 0.5f, gtFront.height * 0.1f, 1, gtBack.height * 0.8f);
+                        if (checkAllReady(gtBack.graphics, gtBack.height * 0.8f, itemsBack.get("center")))
+                            drawLane(gtBack, itemsBack.get("center"), gtBack.width * 0.5f, gtFront.height * 0.1f, 1, gtBack.height * 0.8f);
                 }
-                gtBack.upload();
+                backCompleted = checkCompleted(itemsBack);
+                if (backCompleted)
+                    gtBack.upload();
             }
-            requiresRedraw = false;
+            requiresRedraw = !(frontCompleted && backCompleted);
         }
         if (dmhDispFront != null && dmhDispFront.getUploadedModel() != null) {
             dmhDispFront.getUploadedModel().replaceAllTexture(gtFront.identifier);
@@ -286,6 +305,27 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                 mat.popPose();
             }
         } else mat.popPose();
+    }
+
+    private boolean checkAllReady(Graphics2D g, float unit, List<SignItem> items) {
+        boolean allReady = true;
+        for (SignItem item : items) {
+            item.getWidth(g, unit);
+            allReady &= item.isReady();
+        }
+        return allReady;
+    }
+
+    private boolean checkCompleted(Map<String, List<SignItem>> items) {
+        if (items == null) return true;
+        boolean completed = true;
+        for (List<SignItem> item : items.values()) {
+            if (item == null) continue;
+            for (SignItem i : item) {
+                completed &= i.isReady();
+            }
+        }
+        return completed;
     }
 
     @Override

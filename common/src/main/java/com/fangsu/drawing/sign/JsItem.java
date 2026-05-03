@@ -24,6 +24,8 @@ public class JsItem extends SignItem {
     private float width = 1f;
     private boolean widthInit = false;
 
+    private boolean isReady = false;
+    private boolean isCompleted = false;
 
     private Map<String, Value> extra;
 
@@ -69,6 +71,7 @@ public class JsItem extends SignItem {
             ScriptManager scriptManager = ScriptManager.getInstance();
             scriptManager.requestRunFunctionWithResult(scriptHolder, v -> {
                 width = v.asFloat();
+                isReady = true;
             }, "getWidth", g, unit, extra);
             widthInit = true;
         }
@@ -84,7 +87,9 @@ public class JsItem extends SignItem {
         float unit = ctx.unit();
         int align = ctx.align();
 
-        scriptManager.requestRunFunction(scriptHolder, "draw", g, x, y, unit, align, extra);
+        scriptManager.requestRunFunctionWithCallback(scriptHolder, () -> {
+            isCompleted = true;
+        }, "draw", g, x, y, unit, align, extra);
     }
 
     @Override
@@ -95,5 +100,15 @@ public class JsItem extends SignItem {
     @Override
     public List<ConfigEntry<?>> getConfigs() {
         return super.getConfigs();
+    }
+
+    @Override
+    public boolean isReady() {
+        return isReady;
+    }
+
+    @Override
+    public boolean isCompleted() {
+        return isCompleted;
     }
 }

@@ -60,4 +60,12 @@ public abstract class SignItem {
         this.text = text;
         return this;
     }
+
+    public boolean isReady() {
+        return true;
+    }
+
+    public boolean isCompleted() {
+        return true;
+    }
 }
