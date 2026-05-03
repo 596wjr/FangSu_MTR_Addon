@@ -1,28 +1,29 @@
 {
-    "trainRoute": {
-        "text": "fangsu.scriptsign.route",
-        "content": "fangsu:diaoban/route.js",
-        "extraConfig": [
-            {
-                "type": "str",
-                "text": "cfg.sign.imgpath",
-                "savePos": "img",
-                "default": "",
-                "param": {
-                    "savePos": "img",
-                    "lines": 2
-                }
-            },
-            {
-                "type": "str",
-                "text": "cfg.sign.color",
-                "savePos": "color",
-                "default": "ABCDEF",
-                "param": {
-                    "savePos": "color",
-                    "lines": 1
-                }
-            }
-        ]
-    }
+  "trainRoute": {
+    "text": "fangsu.scriptsign.route",
+    "icon": "fangsu:sign/routea.png",
+    "content": "fangsu:diaoban/route.js",
+    "extraConfig": [
+      {
+        "type": "str",
+        "text": "cfg.sign.imgpath",
+        "savePos": "img",
+        "default": "",
+        "param": {
+          "savePos": "img",
+          "lines": 2
+        }
+      },
+      {
+        "type": "str",
+        "text": "cfg.sign.color",
+        "savePos": "color",
+        "default": "ABCDEF",
+        "param": {
+          "savePos": "color",
+          "lines": 1
+        }
+      }
+    ]
+  }
 }
