@@ -19,7 +19,7 @@ public final class TicketBarrierHandler {
     private TicketBarrierHandler() {
     }
 
-    public static InteractionResult handle(
+    public static boolean handle(
             Level level,
             BlockPos pos,
             Player player,
@@ -28,10 +28,10 @@ public final class TicketBarrierHandler {
             Map<String, String> extraConfigs,
             Runnable sendUpdateC2S
     ) {
-        if (level.isClientSide) return InteractionResult.SUCCESS;
+        if (level.isClientSide) return false;
 
         boolean isOpen = Boolean.parseBoolean(extraConfigs.getOrDefault("isOpen", "false"));
-        if (isOpen) return InteractionResult.PASS;
+        if (isOpen) return false;
 
         int fareType = Integer.parseInt(extraConfigs.getOrDefault("fareType", "0"));
         boolean isExit = Boolean.parseBoolean(extraConfigs.getOrDefault("isExit", "false"));
@@ -48,7 +48,7 @@ public final class TicketBarrierHandler {
                     dispName = extraConfigs.getOrDefault("customDisplayName", "");
                 } else {
                     Station station = MtrTicketSystem.getStation(level, pos);
-                    if (station == null) return InteractionResult.PASS;
+                    if (station == null) return false;
                     dispName = station.name;
                     zone = station.zone;
                 }
@@ -58,24 +58,24 @@ public final class TicketBarrierHandler {
                         if (MtrTicketSystem.enter(level, dispName, zone, player)) {
                             extraConfigs.put("isOpen", "true");
                             sendUpdateC2S.run();
-                            return InteractionResult.SUCCESS;
+                            return true;
                         }
                     } else {
                         if (MtrTicketSystem.exit(level, dispName, zone, player)) {
                             extraConfigs.put("isOpen", "true");
                             sendUpdateC2S.run();
-                            return InteractionResult.SUCCESS;
+                            return true;
                         }
                     }
-                    return InteractionResult.PASS;
+                    return true;
                 } else {
                     boolean success = isExit
                             ? ticket.exit(level, player, stack, new FareInfo(FareType.CUSTOM, zone, dispName))
                             : ticket.enter(level, player, stack, new FareInfo(FareType.CUSTOM, zone, dispName));
-                    if (!success) return InteractionResult.PASS;
+                    if (!success) return false;
                     extraConfigs.put("isOpen", "true");
                     sendUpdateC2S.run();
-                    return InteractionResult.SUCCESS;
+                    return true;
                 }
 
             case 1:
@@ -85,24 +85,24 @@ public final class TicketBarrierHandler {
                     int val = Integer.parseInt(extraConfigs.getOrDefault("fareVal", "10"));
                     if (balance.getScore() < val) {
                         player.displayClientMessage(Component.translatable("gui.mtr.insufficient_balance", balance.getScore()), true);
-                        return InteractionResult.PASS;
+                        return false;
                     }
                     balance.add(-val);
                     player.displayClientMessage(Component.translatable("msg.fangsu.ticketbarrier.fareOnce", val, balance.getScore()), true);
                     extraConfigs.put("isOpen", "true");
                     sendUpdateC2S.run();
-                    return InteractionResult.SUCCESS;
+                    return true;
                 } else {
                     int val = Integer.parseInt(extraConfigs.getOrDefault("fareVal", "10"));
                     boolean success = ticket.enter(level, player, stack, new FareInfo(FareType.FARE_ONCE, val, ""));
-                    if (!success) return InteractionResult.PASS;
+                    if (!success) return false;
                     extraConfigs.put("isOpen", "true");
                     sendUpdateC2S.run();
-                    return InteractionResult.SUCCESS;
+                    return true;
                 }
 
             default:
-                return InteractionResult.PASS;
+                return false;
         }
     }
 }

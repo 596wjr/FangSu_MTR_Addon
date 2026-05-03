@@ -6,18 +6,13 @@ import com.fangsu.render.sowcer.math.Matrices;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.contents.TicketBarrierContent;
 import com.fangsu.Main;
-import com.fangsu.utils.ContentInfoUtil;
-import com.fangsu.utils.CustomItemHelper;
-import com.fangsu.utils.ResourceUtil;
-import com.fangsu.utils.ShapeSerializer;
+import com.fangsu.utils.*;
 import com.fangsu.blocks.BaseObjBlock;
-import com.fangsu.utils.CollisionBoxUtil;
 import com.fangsu.ticketSystem.*;
 import com.fangsu.extraConfig.*;
 
 import com.google.gson.JsonPrimitive;
 
-import mtr.mappings.Text;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -27,13 +22,12 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.minecraft.world.scores.Score;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +39,8 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
     public static final String DEFAULT_MAIN_MODEL = "fangsu:ticketbarrier/mtr_ticketbarrier.json";
     public static final String DEFAULT_SUB_MODEL = "mtr_ticketbarrier_1";
     public static final String MAIN_MODEL_KEY = "ticketBarrier";
+
+    TicketBarrierContent content;
 
     private boolean cacheIsOpen = false;
     private long closeTime = 0;
@@ -81,7 +77,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         String subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
 
         try {
-            TicketBarrierContent content = ContentInfoUtil.getTicketBarrierContent(mainModel, subModel);
+            content = ContentInfoUtil.getTicketBarrierContent(mainModel, subModel);
             if (content == null) {
                 markedError = true;
                 return;
@@ -177,8 +173,8 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                 (facing == Direction.SOUTH && hitPos.z < 0.5) ||
                 (facing == Direction.WEST && hitPos.x > 0.5) ||
                 (facing == Direction.WEST && hitPos.x < 0.5)
-        )
-            return TicketBarrierHandler.handle(
+        ) {
+            boolean success = TicketBarrierHandler.handle(
                     level,
                     pos,
                     player,
@@ -187,9 +183,61 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                     extra,
                     this::sendUpdateC2S
             );
-        else {
+            if (success) {
+                checkSideOpen(level, pos);
+                return InteractionResult.SUCCESS;
+            } else return InteractionResult.PASS;
+        } else {
             player.displayClientMessage(Component.translatable("mst.fangsu.ticketbarrier.wrongDirection"), true);
             return InteractionResult.PASS;
+        }
+    }
+
+    private void checkSideOpen(Level level, BlockPos pos) {
+        if (content == null) return;
+        TicketBarrierContent.TicketBarrierConnectType connectType = content.getConnectType();
+        BlockEntity sideBlockEntity;
+        switch (connectType) {
+            case LEFT -> sideBlockEntity = FacingBlockUtil.getRightBlockEntity(level, pos, getBlockState());
+            case RIGHT -> sideBlockEntity = FacingBlockUtil.getLeftBlockEntity(level, pos, getBlockState());
+            default -> sideBlockEntity = null;
+        }
+        if (sideBlockEntity instanceof BlockEntityTicketBarrier barrier) {
+            barrier.requestOpen(connectType);
+        }
+    }
+
+    private void checkSideClose(Level level, BlockPos pos) {
+        if (content == null) return;
+        TicketBarrierContent.TicketBarrierConnectType connectType = content.getConnectType();
+        BlockEntity sideBlockEntity;
+        switch (connectType) {
+            case LEFT -> sideBlockEntity = FacingBlockUtil.getRightBlockEntity(level, pos, getBlockState());
+            case RIGHT -> sideBlockEntity = FacingBlockUtil.getLeftBlockEntity(level, pos, getBlockState());
+            default -> sideBlockEntity = null;
+        }
+        if (sideBlockEntity instanceof BlockEntityTicketBarrier barrier) {
+            barrier.requestClose(connectType);
+        }
+    }
+
+    private void requestOpen(TicketBarrierContent.TicketBarrierConnectType source) {
+        if (content == null) return;
+        TicketBarrierContent.TicketBarrierConnectType connectType = content.getConnectType();
+        if ((connectType == TicketBarrierContent.TicketBarrierConnectType.LEFT && source == TicketBarrierContent.TicketBarrierConnectType.RIGHT) ||
+                (connectType == TicketBarrierContent.TicketBarrierConnectType.RIGHT && source == TicketBarrierContent.TicketBarrierConnectType.LEFT)) {
+            extraConfigs.put("isOpen", "true");
+            sendUpdateC2S();
+        }
+    }
+
+    private void requestClose(TicketBarrierContent.TicketBarrierConnectType source) {
+        if (content == null) return;
+        TicketBarrierContent.TicketBarrierConnectType connectType = content.getConnectType();
+        if ((connectType == TicketBarrierContent.TicketBarrierConnectType.LEFT && source == TicketBarrierContent.TicketBarrierConnectType.RIGHT) ||
+                (connectType == TicketBarrierContent.TicketBarrierConnectType.RIGHT && source == TicketBarrierContent.TicketBarrierConnectType.LEFT)) {
+            extraConfigs.put("isOpen", "false");
+            sendUpdateC2S();
         }
     }
 
@@ -200,6 +248,9 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         if (isOpen) {
             if (worldToLocal(player.position()).z > gatePos) {
                 extraConfigs.put("isOpen", "false");
+                Level level = getLevel();
+                BlockPos pos = getBlockPos();
+                checkSideClose(level, pos);
                 sendUpdateC2S();
             }
         }
@@ -394,22 +445,4 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
             return Shapes.empty();
         }
     }
-
-    private static AABB parseBox(List<?> rawList) {
-        if (rawList == null || rawList.size() != 6) {
-            return null;
-        }
-        List<Double> doubleList = new ArrayList<>();
-        for (Object o : rawList) {
-            if (o instanceof Number n) doubleList.add(n.doubleValue());
-        }
-        if (doubleList.size() != 6) {
-            return null;
-        }
-        return new AABB(
-                doubleList.get(0) / 16d, doubleList.get(1) / 16d, doubleList.get(2) / 16d,
-                doubleList.get(3) / 16d, doubleList.get(4) / 16d, doubleList.get(5) / 16d
-        );
-    }
-
 }
