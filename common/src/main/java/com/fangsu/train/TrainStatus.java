@@ -1,9 +1,12 @@
 package com.fangsu.train;
 
+import com.fangsu.mtr.DrawableRoute;
 import com.fangsu.mtr.LocalRoute;
 import com.fangsu.render.sowcer.math.Matrix4f;
 import com.fangsu.render.sowcer.math.Vector3f;
+import mtr.client.ClientData;
 import mtr.data.*;
+import mtr.path.PathData;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,23 +16,133 @@ import java.util.TreeMap;
 public class TrainStatus {
     private final TrainClient train;
 
-    public boolean[] doorLeftOpen;
-    public boolean[] doorRightOpen;
+    public final boolean[] doorLeftOpen;
+    public final boolean[] doorRightOpen;
 
-    public Matrix4f[] lastWorldPose;
-    public Vector3f[] lastCarPosition;
-    public Vector3f[] lastCarRotation;
+    public final Matrix4f[] lastWorldPose;
+    public final Vector3f[] lastCarPosition;
+    public final Vector3f[] lastCarRotation;
 
     public boolean shouldRender;
     public boolean isInDetailDistance;
 
     public LocalRoute currentRoute;
+    public DrawableRoute drawableRoute;
+    public boolean isOnRoute;
+    public boolean isReverse;
+    /**
+     * 0 = no route
+     * 1 = waiting
+     * 2 = leaving
+     * 3 = on_route
+     * 4 = arrived
+     * 5 = changing
+     * 6 = returning
+     */
+    public int trainStatus;
 
     private PlatformLookupMap trainPlatforms;
-//    private List<PathData> trainPlatformsValidPath;
+    private List<PathData> trainPlatformsValidPath;
 
     public TrainStatus(TrainClient train) {
         this.train = train;
+        int trainCars = train.trainCars;
+        doorLeftOpen = new boolean[trainCars];
+        doorRightOpen = new boolean[trainCars];
+        lastWorldPose = new Matrix4f[trainCars];
+        lastCarPosition = new Vector3f[trainCars];
+        lastCarRotation = new Vector3f[trainCars];
+        shouldRender = true;
+        isInDetailDistance = false;
+    }
+
+    public void reset() {
+        if (trainPlatformsValidPath == null || !trainPlatformsValidPath.equals(train.path)) {
+            if (!train.getRouteIds().isEmpty()) {
+                trainPlatforms = getTrainPlatforms();
+                trainPlatformsValidPath = train.path;
+            } else {
+                trainPlatforms = new PlatformLookupMap();
+            }
+        }
+    }
+
+    public void updateRoute() {
+        reset();
+        this.currentRoute = train.getThisRoute() == null ? null : new LocalRoute(train.getThisRoute());
+
+        if (currentRoute != null)
+            this.drawableRoute = DrawableRoute.requestLongestRoute(currentRoute);
+
+        this.isOnRoute = train.isOnRoute();
+        this.isReverse = train.isReversed();
+        this.trainStatus = geTrainStatus();
+    }
+
+    public void update(int carIndex, boolean doorLeftOpen, boolean doorRightOpen, Matrix4f carPose) {
+        updateRoute();
+        this.doorLeftOpen[carIndex] = doorLeftOpen;
+        this.doorRightOpen[carIndex] = doorRightOpen;
+        this.lastWorldPose[carIndex] = carPose.copy();
+        this.lastCarPosition[carIndex] = carPose.getTranslationPart();
+//        this.lastCarRotation[carIndex] = carPose.getEulerAnglesXYZ();
+
+    }
+
+    private PlatformLookupMap getTrainPlatforms() {
+        List<Long> routeIds = train.getRouteIds();
+        DataCache dataCache = ClientData.DATA_CACHE;
+        PlatformLookupMap result = new PlatformLookupMap();
+        result.siding = dataCache.sidingIdMap.get(train.sidingId);
+        if (routeIds.isEmpty()) return result;
+
+        int routeIndex = 0;
+        List<PlatformInfo> currentRoutePlatforms = new ArrayList<>();
+        for (int pathIndex = 0; pathIndex < train.path.size(); pathIndex++) {
+            if (train.path.get(pathIndex).dwellTime <= 0) continue;
+            if (train.path.get(pathIndex).rail.railType != RailType.PLATFORM) continue;
+
+            if (routeIndex >= routeIds.size()) break;
+            Route thisRoute = dataCache.routeIdMap.get(routeIds.get(routeIndex));
+            Route nextRoute = routeIndex < routeIds.size() - 1 ? dataCache.routeIdMap.get(routeIds.get(routeIndex + 1)) : null;
+            boolean reverseAtPlatform = !thisRoute.platformIds.isEmpty() && nextRoute != null && !nextRoute.platformIds.isEmpty()
+                    && thisRoute.getLastPlatformId() == nextRoute.getFirstPlatformId();
+
+            int routeStationIndex = currentRoutePlatforms.size();
+            Station thisStation = dataCache.platformIdToStation.get((thisRoute.platformIds.get(routeStationIndex)).platformId);
+            Platform thisPlatform = dataCache.platformIdMap.get((thisRoute.platformIds.get(routeStationIndex)).platformId);
+            String customDestination = thisRoute.getDestination(routeStationIndex);
+//            double distance = ((TrainAccessor)train).getDistances().get(pathIndex);
+            boolean reverseAtThisPlatform = (currentRoutePlatforms.size() + 1 >= thisRoute.platformIds.size() && reverseAtPlatform);
+            Station lastStation = ClientData.DATA_CACHE.platformIdToStation.get(thisRoute.getLastPlatformId());
+            PlatformInfo platformInfo = new PlatformInfo(thisRoute, thisStation, thisPlatform, lastStation,
+                    customDestination != null ? customDestination : (lastStation != null ? lastStation.name : ""),
+                    0, reverseAtThisPlatform);
+
+            result.pathToPlatformIndex.put(pathIndex, result.platforms.size());
+            result.platforms.add(platformInfo);
+            result.pathToRoutePlatformIndex.put(pathIndex, currentRoutePlatforms.size());
+            currentRoutePlatforms.add(platformInfo);
+
+            if (currentRoutePlatforms.size() >= thisRoute.platformIds.size()) {
+                result.pathToRoutePlatforms.put(pathIndex, currentRoutePlatforms);
+                currentRoutePlatforms = new ArrayList<>();
+                routeIndex++;
+                if (reverseAtPlatform) {
+                    currentRoutePlatforms.add(platformInfo);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private int geTrainStatus() {
+        if (currentRoute == null) return 0;
+        if (!train.isOnRoute()) return 1;
+        if (getAllPlatformsNextIndex() >= trainPlatforms.platforms.size()) return 6;
+        if (onPlatformRail()) return 4;
+        return 3;
     }
 
     public List<PlatformInfo> getThisRoutePlatforms() {
@@ -44,6 +157,24 @@ public class TrainStatus {
         Map.Entry<Integer, Integer> ceilEntry = trainPlatforms.pathToRoutePlatformIndex.ceilingEntry(headIndex);
         if (ceilEntry == null) return getThisRoutePlatforms().size();
         return ceilEntry.getValue();
+    }
+
+    public int getAllPlatformsNextIndex() {
+        int headIndex = train.getIndex(0, train.spacing, true);
+        Map.Entry<Integer, Integer> ceilEntry = trainPlatforms.pathToPlatformIndex.ceilingEntry(headIndex);
+        if (ceilEntry == null) return trainPlatforms.platforms.size();
+        return ceilEntry.getValue();
+    }
+
+    private boolean onPlatformRail() {
+        var path1 = train.path.get(train.getIndex(getRailProgress(0), false)); // 车头所在轨道
+        var path2 = train.path.get(train.getIndex(getRailProgress(train.trainCars - 1), true)); // 车尾所在轨道
+        var nextPlatformId = trainPlatforms.platforms.get(getAllPlatformsNextIndex()).platform.id;
+        return (path1.dwellTime != 0 && path1.savedRailBaseId == nextPlatformId) || (path2.dwellTime != 0 && path2.savedRailBaseId == nextPlatformId);
+    }
+
+    public double getRailProgress(int car) {
+        return train.getRailProgress() - car * train.spacing;
     }
 
     private static class PlatformLookupMap {

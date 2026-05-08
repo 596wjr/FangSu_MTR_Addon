@@ -1,0 +1,12 @@
+{
+  "meta_data": {
+    "name": "FangSu MTR Addon",
+    "id": "fangsu",
+    "description": "A resource pack for Beijing Subway in MTR.",
+    "version": "0.8.1",
+    "version_number": 801,
+    "author": "596wjr"
+  },
+  "dependencies": [
+  ]
+}

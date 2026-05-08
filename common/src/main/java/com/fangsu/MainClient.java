@@ -78,6 +78,6 @@ public class MainClient {
             customMtrLifts.injectBuiltInTexturedLifts(defaultLift);
             customMtrLifts.injectBuiltInTexturedLifts(nonTransparent);
         }
-//        FunctionalCustomTrains.init(resourceManager);
+        FunctionalCustomTrains.init(resourceManager);
     }
 }

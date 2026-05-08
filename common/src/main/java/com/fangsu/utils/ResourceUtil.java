@@ -11,6 +11,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
+import org.jetbrains.annotations.NotNull;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -321,27 +322,27 @@ public class ResourceUtil {
      * 合并规则：第一层对象合并属性，第一层数组合并元素，更深层直接覆盖
      *
      * @param location 资源位置
-     * @return 合并后的JsonElement，如果所有资源包都没有该文件返回null
+     * @return 合并后的JsonElement
      */
-    public static JsonElement loadAsJSON(ResourceLocation location) {
-        List<Resource> resources = new ArrayList<>();
+    public static @NotNull JsonElement loadAsJSON(ResourceLocation location) {
+        List<Resource> resources;
 
         try {
             // 获取所有资源包中的该资源
             resources = resourceManager.getResourceStack(location);
         } catch (Exception e) {
             Main.LOGGER.warn("Failed to get resources for {}: {}", location, e.getMessage());
-            return null;
+            return new JsonObject();
         }
 
         if (!hasResources(location)) {
             Main.debug("No resources found for: {}", location);
-            return null;
+            return new JsonObject();
         }
 
         Main.debug("Found {} resources for: {}", resources.size(), location);
 
-        Gson gson = new GsonBuilder().setLenient().create();
+        Gson gson = Main.GSON;
         JsonElement mergedResult = null;
 
         // 按资源包优先级从低到高处理（Minecraft返回的顺序是从低优先级到高优先级）
@@ -364,7 +365,10 @@ public class ResourceUtil {
             }
         }
 
-        return mergedResult;
+        if (mergedResult != null) {
+            return mergedResult;
+        }
+        return new JsonObject();
     }
 
     /**

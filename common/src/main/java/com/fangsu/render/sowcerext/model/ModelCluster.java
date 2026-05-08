@@ -11,9 +11,11 @@ import com.fangsu.render.sowcer.vertex.VertAttrMapping;
 import com.fangsu.render.sowcer.vertex.VertAttrState;
 import com.fangsu.render.sowcerext.model.integration.BufferSourceProxy;
 import com.fangsu.render.sowcerext.reuse.ModelManager;
+import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 
 import java.io.Closeable;
+import java.nio.charset.MalformedInputException;
 
 public class ModelCluster implements Closeable {
 

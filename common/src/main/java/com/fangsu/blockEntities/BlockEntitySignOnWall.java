@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_SIGN_ON_WALL;
+
 import com.fangsu.blocks.BaseObjBlock;
 
 public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncable {
@@ -246,25 +247,27 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
         float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
         float rotZ = this.rotateZ;
         long posLong = worldPosition.asLong();
+        Vec3 unitTrans = transformOffset(facing, new Vec3(unit / 16d, 0, 0));
 
         VoxelShape shape = Shapes.empty();
         double startX = -0.5 * unit * length / 16d;
-        if (shapeLeft != null) {
-            VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeLeft, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
-            shape = Shapes.or(shape, s.move(startX + trans.x, trans.y, trans.z));
-        }
+//        if (shapeLeft != null) {
+//            VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeLeft, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+//            shape = Shapes.or(shape, s.move(startX + trans.x, trans.y, trans.z));
+//        }
         for (int i = 0; i < length / (unit / 8d); i++) {
             if (shapeCenter != null) {
-                double x = startX + unit / 32d + i * (unit / 16d);
+                double x = startX + unit / 32d + i * unitTrans.x;
+                double z = startX + unit / 32d + i * unitTrans.z;
                 VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeCenter, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
-                shape = Shapes.or(shape, s.move(x + trans.x, trans.y, trans.z));
+                shape = Shapes.or(shape, s.move(x + trans.x, trans.y, z + trans.z));
             }
         }
-        if (shapeRight != null) {
-            double x = startX + unit / 32d + (length / (unit / 8d)) * (unit / 16d) + unit / 32d;
-            VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeRight, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
-            shape = Shapes.or(shape, s.move(x + trans.x, trans.y, trans.z));
-        }
+//        if (shapeRight != null) {
+//            double x = startX + unit / 32d + (length / (unit / 8d)) * (unit / 16d) + unit / 32d;
+//            VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeRight, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+//            shape = Shapes.or(shape, s.move(x + trans.x, trans.y, trans.z));
+//        }
         return shape;
     }
 

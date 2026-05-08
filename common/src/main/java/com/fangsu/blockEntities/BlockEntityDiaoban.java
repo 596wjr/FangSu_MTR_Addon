@@ -246,14 +246,16 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
 
         if (!routes.isEmpty()) {
             LocalRoute r1 = routes.get(0).route;
-            GraphicsTexture gt = ResourceUtil.createSolidColorGT(16, 16, new Color(r1.color));
-            if (gt.isValid()) {
-                if (dmhLeft.getUploadedModel() != null)
-                    dmhLeft.getUploadedModel().replaceTexture("routecolor.png", gt.identifier);
-                if (dmhCenter.getUploadedModel() != null)
-                    dmhCenter.getUploadedModel().replaceTexture("routecolor.png", gt.identifier);
-                if (dmhRight.getUploadedModel() != null)
-                    dmhRight.getUploadedModel().replaceTexture("routecolor.png", gt.identifier);
+            if (r1 != null) {
+                GraphicsTexture gt = ResourceUtil.createSolidColorGT(16, 16, new Color(r1.color));
+                if (gt.isValid()) {
+                    if (dmhLeft.getUploadedModel() != null)
+                        dmhLeft.getUploadedModel().replaceTexture("routecolor.png", gt.identifier);
+                    if (dmhCenter.getUploadedModel() != null)
+                        dmhCenter.getUploadedModel().replaceTexture("routecolor.png", gt.identifier);
+                    if (dmhRight.getUploadedModel() != null)
+                        dmhRight.getUploadedModel().replaceTexture("routecolor.png", gt.identifier);
+                }
             }
         }
 

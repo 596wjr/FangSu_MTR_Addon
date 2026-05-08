@@ -347,11 +347,6 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
     }
 
     @Override
-    public InteractionResult whenUseWithOther(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-        return InteractionResult.PASS;
-    }
-
-    @Override
     public String getMainModelKey() {
         return MAIN_MODEL_KEY;
     }
@@ -424,37 +419,41 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
         float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
         float rotZ = this.rotateZ;
         long posLong = worldPosition.asLong();
+        Vec3 unitTrans = transformOffset(facing, new Vec3(unit / 16d, 0, 0));
 
         VoxelShape shape = Shapes.empty();
         double startX = -0.5 * unit * length / 16d;
-        if (shapeLeft != null) {
-            VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeLeft, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
-            shape = Shapes.or(shape, s.move(startX + trans.x, trans.y, trans.z));
-        }
+//        if (shapeLeft != null) {
+//            VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeLeft, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+//            shape = Shapes.or(shape, s.move(startX + (unit / 16d) + trans.x, trans.y, trans.z));
+//        }
         for (int i = 0; i < length / (unit / 8d); i++) {
             if (shapeCenter != null) {
-                double x = startX + unit / 32d + i * (unit / 16d);
+                double x = startX + unit / 32d + i * unitTrans.x;
+                double z = startX + unit / 32d + i * unitTrans.z;
                 VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeCenter, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
-                shape = Shapes.or(shape, s.move(x + trans.x, trans.y, trans.z));
+                shape = Shapes.or(shape, s.move(x + trans.x, trans.y, z + trans.z));
             }
         }
-        if (shapeRight != null) {
-            double x = startX + unit / 32d + (length / (unit / 8d)) * (unit / 16d) + unit / 32d;
-            VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeRight, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
-            shape = Shapes.or(shape, s.move(x + trans.x, trans.y, trans.z));
-        }
-        if (shapePole != null) {
-            if (showLeftPole) {
-                double x = startX + leftPolePos / 16d + mtrPoleOffset / 16d;
-                VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapePole, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
-                shape = Shapes.or(shape, s.move(x + trans.x, trans.y, trans.z));
-            }
-            if (showRightPole) {
-                double x = startX + (unit * length - rightPolePos) / 16d - mtrPoleOffset / 16d;
-                VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapePole, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
-                shape = Shapes.or(shape, s.move(x + trans.x, trans.y, trans.z));
-            }
-        }
+//        if (shapeRight != null) {
+//            double x = startX + unit / 32d + (length / (unit / 8d)) * (unit / 16d) + unit / 32d;
+//            VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeRight, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+//            shape = Shapes.or(shape, s.move(x + (unit / 16d) + trans.x, trans.y, trans.z));
+//        }
+//        if (shapePole != null) {
+//            if (showLeftPole) {
+//                double x = startX +
+//                        (!isMtrTheme ?
+//                                leftPolePos / 16d : mtrPoleOffset / 16d);
+//                VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapePole, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+//                shape = Shapes.or(shape, s.move(x + trans.x, trans.y, trans.z));
+//            }
+//            if (showRightPole) {
+//                double x = startX + (unit * length) / 16d - (!isMtrTheme ? rightPolePos / 16d : mtrPoleOffset / 16d);
+//                VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapePole, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+//                shape = Shapes.or(shape, s.move(x + trans.x, trans.y, trans.z));
+//            }
+//        }
         return shape;
     }
 

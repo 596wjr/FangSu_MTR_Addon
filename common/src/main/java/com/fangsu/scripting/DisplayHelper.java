@@ -1,6 +1,8 @@
 package com.fangsu.scripting;
 
 import com.fangsu.MainClient;
+import com.fangsu.render.scripting.util.DynamicModelHolder;
+import com.fangsu.render.sowcer.math.Vector3f;
 import com.fangsu.render.sowcerext.model.ModelCluster;
 import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
@@ -19,11 +21,11 @@ public class DisplayHelper {
     private JsonObject cfg;
     public GraphicsTexture texture;
     private boolean ownsTexture;
-    private ModelCluster baseModel;
+    private DynamicModelHolder baseModel;
     private Graphics2D graphics;
     private AffineTransform emptyTransform;
     private Map<String, AffineTransform> slotTransforms;
-    public ModelCluster model;
+    public DynamicModelHolder model;
 
     private DisplayHelper() {
     }
@@ -101,26 +103,35 @@ public class DisplayHelper {
             RawModel rawModel = new RawModel();
             rawModel.append(meshBuilder.getMesh());
             rawModel.triangulate();
-            Minecraft.getInstance().executeBlocking(() ->
-                    this.baseModel = MainClient.modelManager.uploadVertArrays(rawModel)
-            );
+            this.baseModel = new DynamicModelHolder();
+            this.baseModel.uploadLater(rawModel);
         } else {
             throw new IllegalArgumentException("Unknown version: " + version);
         }
     }
 
     public DisplayHelper create() {
-        return create(null);
+        return create(null, false);
+    }
+
+    public DisplayHelper createWithinGt() {
+        return create(null, true);
     }
 
     public DisplayHelper create(GraphicsTexture sharedTexture) {
+        return create(sharedTexture, false);
+    }
+
+    public DisplayHelper create(GraphicsTexture sharedTexture, boolean withinGt) {
         DisplayHelper instance = new DisplayHelper();
         instance.cfg = this.cfg;
         instance.baseModel = this.baseModel;
 
         int version = cfg.get("version").getAsInt();
         if (version == 1) {
-            if (sharedTexture != null) {
+            if (withinGt) {
+                instance.ownsTexture = false;
+            } else if (sharedTexture != null) {
                 instance.texture = sharedTexture;
                 instance.ownsTexture = false;
             } else {
@@ -156,12 +167,19 @@ public class DisplayHelper {
                 instance.graphics.setTransform(instance.emptyTransform);
             }
 
-            instance.model = this.baseModel.copyForMaterialChanges();
-            instance.model.replaceAllTexture(instance.texture.identifier);
+            if (baseModel != null && baseModel.getUploadedModel() != null) {
+                instance.model = baseModel;
+                instance.model.getUploadedModel().replaceAllTexture(instance.texture.identifier);
+            }
         } else {
             throw new IllegalArgumentException("Unknown version: " + version);
         }
         return instance;
+    }
+
+    public void changeSharedGt(GraphicsTexture sharedTexture) {
+        ownsTexture = false;
+        texture = sharedTexture;
     }
 
     public void upload() {
@@ -187,5 +205,92 @@ public class DisplayHelper {
             graphics.setTransform(transform);
         }
         return graphics;
+    }
+
+    private static double[][] getCubeVertices(float[] p1, float[] p2, float[] center,
+                                              float rx, float ry, float rz) {
+        float rxRad = (float) (rx * Math.PI / 180f);
+        float ryRad = (float) (ry * Math.PI / 180f);
+        float rzRad = (float) (rz * Math.PI / 180f);
+
+        Vector3f c = new Vector3f(center[0], center[1], center[2]);
+
+        if (p1[1] == p2[1]) {
+            Vector3f v1 = new Vector3f(p1[0], p1[1], p1[2]);
+            Vector3f v2 = new Vector3f(p2[0], p1[1], p1[2]);
+            Vector3f v3 = new Vector3f(p2[0], p2[1], p2[2]);
+            Vector3f v4 = new Vector3f(p1[0], p2[1], p2[2]);
+
+            v1.sub(c);
+            v1.rotX(rxRad);
+            v1.rotY(ryRad);
+            v1.rotZ(rzRad);
+            v1.add(c);
+
+            v2.sub(c);
+            v2.rotX(rxRad);
+            v2.rotY(ryRad);
+            v2.rotZ(rzRad);
+            v2.add(c);
+
+            v3.sub(c);
+            v3.rotX(rxRad);
+            v3.rotY(ryRad);
+            v3.rotZ(rzRad);
+            v3.add(c);
+
+            v4.sub(c);
+            v4.rotX(rxRad);
+            v4.rotY(ryRad);
+            v4.rotZ(rzRad);
+            v4.add(c);
+
+            return new double[][]{
+                    {v1.x(), v1.y(), v1.z()},
+                    {v2.x(), v2.y(), v2.z()},
+                    {v3.x(), v3.y(), v3.z()},
+                    {v4.x(), v4.y(), v4.z()}
+            };
+        } else if (p1[0] == p2[0]) {
+            Vector3f v1 = new Vector3f(p1[0], p1[1], p1[2]);
+            Vector3f v2 = new Vector3f(p1[0], p2[1], p1[2]);
+            Vector3f v3 = new Vector3f(p2[0], p2[1], p2[2]);
+            Vector3f v4 = new Vector3f(p2[0], p1[1], p2[2]);
+
+            v1.sub(c);
+            v1.rotX(rxRad);
+            v1.rotY(ryRad);
+            v1.rotZ(rzRad);
+            v1.add(c);
+
+            v2.sub(c);
+            v2.rotX(rxRad);
+            v2.rotY(ryRad);
+            v2.rotZ(rzRad);
+            v2.add(c);
+
+            v3.sub(c);
+            v3.rotX(rxRad);
+            v3.rotY(ryRad);
+            v3.rotZ(rzRad);
+            v3.add(c);
+
+            v4.sub(c);
+            v4.rotX(rxRad);
+            v4.rotY(ryRad);
+            v4.rotZ(rzRad);
+            v4.add(c);
+
+            return new double[][]{
+                    {v1.x(), v1.y(), v1.z()},
+                    {v2.x(), v2.y(), v2.z()},
+                    {v3.x(), v3.y(), v3.z()},
+                    {v4.x(), v4.y(), v4.z()}
+            };
+        } else {
+            throw new IllegalArgumentException("指定对角顶点不与地面垂直或平行：顶点一 [" +
+                    p1[0] + "," + p1[1] + "," + p1[2] +
+                    "]，顶点二 [" + p2[0] + "," + p2[1] + "," + p2[2] + "]");
+        }
     }
 }

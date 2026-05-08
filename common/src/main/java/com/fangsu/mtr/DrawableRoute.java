@@ -182,8 +182,7 @@ public class DrawableRoute {
             beginIdx = r.platformIds.indexOf(route.platformIds.get(0));
             endIdx = r.platformIds.indexOf(route.platformIds.get(route.platformIds.size() - 1));
         }
-
-        // 注意：此处不再交换 beginIdx/endIdx，直接传入工厂方法
+        
         DrawableRoute result = getDrawableRoute(longestRoute.asRouteDetail(), isReversed, beginIdx, endIdx);
         cacheRequestLongestRoute.put(route.id, result);
         return result;
@@ -197,7 +196,14 @@ public class DrawableRoute {
     public static class DrawableRouteStation {
         public final String stationName;
         public final List<ColorNameTuple> transInfo;
-        public final int passingStatus; // 0~4
+        /**
+         * 0 = 运行区间之前
+         * 1 = 已通过
+         * 2 = 下一站/本站
+         * 3 = 未到达
+         * 4 = 运行区间之后
+         */
+        public final int passingStatus;
 
         public DrawableRouteStation(String stationName, List<ColorNameTuple> transInfo, int passingStatus) {
             this.stationName = stationName;

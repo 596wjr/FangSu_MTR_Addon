@@ -47,7 +47,6 @@ public class TextUtil {
         String[] stringSplit = getNonExtraParts(src).split("\\|");
         StringBuilder result = new StringBuilder();
 
-
         for (String stringSplitPart : stringSplit) {
             if (isCjk(stringSplitPart) == cjk) {
                 if (!result.isEmpty()) result.append(' ');

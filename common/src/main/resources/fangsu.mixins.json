@@ -4,12 +4,13 @@
   "compatibilityLevel": "JAVA_17",
   "minVersion": "0.8",
   "client": [
-    "LiftClientMixin",
     "LevelRendererMixin",
+    "LiftClientMixin",
     "LiftCustomizationScreenMixin",
     "RenderTrainsMixin"
   ],
   "mixins": [
+    "CustomResourcesMixin",
     "LiftMixin",
     "TrainMixin"
   ],
