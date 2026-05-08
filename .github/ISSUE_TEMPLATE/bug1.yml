@@ -82,13 +82,26 @@ body:
   - type: textarea
     id: screenshots
     attributes:
-      label: Screenshots / Logs（截图 / 日志）
+      label: Screenshots （截图）
       description: |
-        Add screenshots or logs if applicable.
-        请提供截图或日志文件。
+        Add screenshots if applicable.
+        请提供截图。
       placeholder: |
-        You can drag and drop images or log files here.
-        可以直接拖拽截图或日志到这里。
+        You can drag and drop images files here.
+        可以直接拖拽截图到这里。
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs（日志）
+      description: |
+        Add logs.
+        请提供日志文件。
+      placeholder: |
+        You can drag and drop log files here.
+        可以直接拖拽日志到这里。
     validations:
       required: true
 
