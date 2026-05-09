@@ -37,6 +37,12 @@ public class GraphicsTextureHelper {
     private int maxFps = 10;
     private boolean closed = true;
 
+    private final ExecutorService drawExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "graphics-texture-draw");
+        t.setDaemon(true);
+        return t;
+    });
+
     /* =========================
        生命周期
        ========================= */
@@ -63,6 +69,7 @@ public class GraphicsTextureHelper {
             stopTicking();
             pool.shutdown();
             closed = true;
+            drawExecutor.shutdownNow();
         }
     }
 
@@ -84,6 +91,14 @@ public class GraphicsTextureHelper {
 
     private void tick() {
         for (GTInfo info : loadGts.values()) {
+            if (info.needsUpload) {
+                info.gt.upload();
+                info.needsUpload = false;
+                info.flameCompleted = false;
+            }
+        }
+
+        for (GTInfo info : loadGts.values()) {
             try {
                 if (info.isStatic && info.available &&
                         info.gt.isValid()) {
@@ -98,9 +113,21 @@ public class GraphicsTextureHelper {
                     continue;
                 }
 
-                info.drawFunction.draw(info.gt);
-                info.gt.upload();
-                info.available = true;
+//                info.drawFunction.draw(info.gt);
+//                info.gt.upload();
+//                info.available = true;
+
+                info.drawing = true;
+                CompletableFuture.runAsync(() -> {
+                            info.drawFunction.draw(info.gt);
+                            info.available = true;
+                            info.needsUpload = true;
+                        }, drawExecutor).orTimeout(200, TimeUnit.MILLISECONDS)
+                        .exceptionally(t -> {
+                            Main.LOGGER.warn("Draw timed out for {}", info.ids);
+                            return null;
+                        })
+                        .thenRun(() -> info.drawing = false);
 
             } catch (Throwable t) {
                 Main.LOGGER.warn("Error when running draw function: {}", t.getLocalizedMessage());
@@ -274,6 +301,9 @@ public class GraphicsTextureHelper {
         boolean waitUntilDraw = false;
 
         boolean flameCompleted = true;
+
+        volatile boolean drawing = false;
+        volatile boolean needsUpload = false;
 
         int expectedExceptionCount = 0;
 

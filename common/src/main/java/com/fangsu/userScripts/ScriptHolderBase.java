@@ -9,6 +9,7 @@ import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.Value;
 
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
@@ -168,6 +169,12 @@ public abstract class ScriptHolderBase {
             Main.LOGGER.error("Script function {} in {} timed out after {}ms",
                     name, scriptName, FUNCTION_TIMEOUT_MS);
             return; // 超时异常不打印完整堆栈，避免刷屏
+        }
+        if (e instanceof CancellationException) {
+            Main.LOGGER.error("=== Script function {} in {} timed out in drawing thread ===", name, scriptName);
+            Main.LOGGER.error("- If you are a resource pack developer: check for infinite loops or heavy computations in your script.");
+            Main.LOGGER.error("- If you are a player: please report this to the resource pack author, or submit an issue to the mod's bug tracker if you are sure this is caused by the mod.");
+            return;
         }
         Main.LOGGER.error("==== Error executing script function {} in {} ====",
                 name, scriptName);

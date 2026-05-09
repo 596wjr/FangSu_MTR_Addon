@@ -11,6 +11,7 @@ import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
 import org.graalvm.polyglot.proxy.ProxyObject;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.concurrent.*;
 import java.util.Map;
@@ -35,6 +36,13 @@ public class ScriptManager {
         t.setDaemon(true);
         return t;
     });
+
+    private static final ScheduledExecutorService SCRIPT_WATCHDOG =
+            Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "fangsu-script-watchdog");
+                t.setDaemon(true);
+                return t;
+            });
 
     public void init() {
         if (initialized.get()) throw new IllegalStateException("ScriptManager has already been initialized");
@@ -263,6 +271,7 @@ public class ScriptManager {
             if (engine != null) {
                 engine.close();
             }
+            SCRIPT_WATCHDOG.shutdownNow();
         }
     }
 
@@ -365,62 +374,84 @@ public class ScriptManager {
                                           String name,
                                           Object[] params,
                                           Runnable callback) {
-        if (!initialized.get() || isShutdown) return;
-        if (holder == null || !holder.hasFunction(name)) return;
-
-        CompletableFuture.runAsync(() -> {
-            try {
-                // 设置超时中断（GraalVM 21.0+）
-                holder.context.interrupt(java.time.Duration.ofMillis(SCRIPT_EXECUTION_TIMEOUT_MS));
-
-                holder.runFunction(name, callback, params);
-            } catch (TimeoutException e) {
-                throw new RuntimeException(e);
-            } finally {
-                // 无论执行结果如何，清除中断状态
-                try {
-                    holder.context.interrupt(java.time.Duration.ZERO);
-                } catch (TimeoutException ignored) {
-                }
-            }
-        }, SCRIPT_EXECUTOR).exceptionally(throwable -> {
-            Main.LOGGER.error("Unexpected error in script execution framework: {}",
-                    throwable.getMessage());
-            return null;
-        });
+        executeWithWatchdog(holder, name, params, () -> {
+            holder.runFunction(name, callback, params);
+            return null; // 不需要返回值
+        }, null);
     }
 
     private void executeScriptWithTimeout(ScriptHolderBase holder,
                                           String name,
                                           Object[] params,
                                           Consumer<Value> resultConsumer) {
+        executeWithWatchdog(holder, name, params, () -> {
+            if (resultConsumer != null) {
+                holder.runFunctionWithResult(name, resultConsumer, params);
+            } else {
+                holder.runFunction(name, null, params);
+            }
+            return null;
+        }, null);
+    }
+
+    /**
+     * 带看门狗超时的脚本执行
+     */
+    private void executeWithWatchdog(ScriptHolderBase holder,
+                                     String name,
+                                     Object[] params,
+                                     Supplier<Void> action,
+                                     Consumer<Value> resultConsumer) {
         if (!initialized.get() || isShutdown) return;
         if (holder == null || !holder.hasFunction(name)) return;
 
-        CompletableFuture.runAsync(() -> {
+        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+            // 清除可能残留的中断状态（重要！）
+            Thread.interrupted();
             try {
-                // 设置超时中断（GraalVM 21.0+）
-                holder.context.interrupt(java.time.Duration.ofMillis(SCRIPT_EXECUTION_TIMEOUT_MS));
-
-                // 执行函数
-                if (resultConsumer == null) {
-                    holder.runFunction(name, null, params);
-                } else {
-                    holder.runFunctionWithResult(name, resultConsumer, params);
-                }
-            } catch (TimeoutException e) {
+                action.get();
+            } catch (Exception e) {
                 throw new RuntimeException(e);
             } finally {
-                // 无论执行结果如何，清除中断状态
+                // 正常结束后主动取消看门狗并清除中断
+                clearContextInterrupt(holder);
+            }
+        }, SCRIPT_EXECUTOR);
+
+        // 安排看门狗：超时后从外部线程发起中断
+        ScheduledFuture<?> watchdog = SCRIPT_WATCHDOG.schedule(() -> {
+            if (!future.isDone()) {
+                // 关键：从看门狗线程调用 interrupt，此时执行线程正在 runFunction 内部等待 JS
                 try {
-                    holder.context.interrupt(java.time.Duration.ZERO);
+                    holder.context.interrupt(Duration.ZERO); // 立即中断
                 } catch (TimeoutException ignored) {
                 }
+                future.cancel(true); // 中断 Java 线程（配合下面 exceptionally 处理）
+                Main.LOGGER.warn("Script function {} timed out after {}ms, interrupting",
+                        name, SCRIPT_EXECUTION_TIMEOUT_MS);
             }
-        }, SCRIPT_EXECUTOR).exceptionally(throwable -> {
-            Main.LOGGER.error("Unexpected error in script execution framework: {}",
-                    throwable.getMessage());
+        }, SCRIPT_EXECUTION_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+
+        // 任务结束时取消看门狗
+        future.whenComplete((res, ex) -> {
+            watchdog.cancel(false);
+        }).exceptionally(throwable -> {
+            if (throwable instanceof CancellationException) {
+                Main.LOGGER.error("Script function {} was cancelled due to timeout", name);
+            } else {
+                Main.LOGGER.error("Unexpected error in script execution: {}", throwable.getMessage());
+            }
             return null;
         });
+    }
+
+    /**
+     * 清除上下文中断状态（需要重置超时倒计时）
+     */
+    private void clearContextInterrupt(ScriptHolderBase holder) {
+        try {
+            holder.context.interrupt(Duration.ZERO);
+        } catch (TimeoutException ignored) {
+        }
     }
 }
