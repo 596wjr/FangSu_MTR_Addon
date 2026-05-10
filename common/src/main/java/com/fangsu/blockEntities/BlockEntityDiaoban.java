@@ -7,9 +7,9 @@ import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
 import com.fangsu.customItem.contents.DiaobanContent;
 import com.fangsu.drawing.diaoban.DiaobanDrawManager;
+import com.fangsu.drawing.diaoban.BaseDiaobanDrawing;
 import com.fangsu.extraConfig.*;
 import com.fangsu.mtr.LocalRoute;
-import com.fangsu.mtr.LocalRouteDetail;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcer.math.Matrices;
@@ -18,13 +18,9 @@ import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
 import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.scripting.ModelHelper;
 import com.fangsu.ui.RouteSelectionScreen;
-import com.fangsu.userScripts.PidsScriptHolder;
-import com.fangsu.userScripts.ScriptHolderBase;
-import com.fangsu.userScripts.ScriptManager;
 import com.fangsu.utils.*;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
-import mtr.data.Platform;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -44,7 +40,6 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import java.awt.*;
 import java.util.*;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_DIAOBAN;
 
@@ -63,7 +58,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     private String shapeRightSerialized = "";
     private Map<String, JsonElement> userExtraConfigs;
 
-    private volatile ScriptHolderBase scriptHolder;
+    private volatile BaseDiaobanDrawing drawing;
     private int texW, texH;
     private boolean withDoorlight;
     private int doorLightType;
@@ -79,8 +74,6 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     private boolean drawInit = false;
 
     private List<RouteSelectionScreen.RouteSelectInfo> routes;
-
-    private volatile int scriptLoadToken = 0;
 
     public BlockEntityDiaoban(BlockPos blockPos, BlockState blockState) {
         super(BLOCK_ENTITY_DIAOBAN.get(), blockPos, blockState);
@@ -423,21 +416,14 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
                         "DIAOBAN_" + drawKey + "_" + routes + "_" + arrowDirection,
                         texW, texH, true, false
                 ),
-                gt -> drawFunction(gt, scriptHolder, routes, drawState, arrowDirection, texW, texH)
-        );
-
-        final int thisLoadToken = ++scriptLoadToken;
-        ResourceLocation location = new ResourceLocation(drawScript);
-        CompletableFuture.runAsync(() -> {
-            try {
-                ScriptHolderBase loadedHolder = ScriptManager.getInstance().getOrInitHolder(location, PidsScriptHolder::new);
-                if (loadedHolder != null && thisLoadToken == scriptLoadToken) {
-                    scriptHolder = loadedHolder;
+                gt -> {
+                    BaseDiaobanDrawing drawer = drawing;
+                    if (drawer != null) {
+                        drawer.draw(gt, routes, drawState, arrowDirection, texW, texH);
+                    }
                 }
-            } catch (Throwable e) {
-                Main.LOGGER.error("Failed to load Diaoban script async {}", location, e);
-            }
-        }, ScriptManager.SCRIPT_EXECUTOR);
+        );
+        drawing = DiaobanDrawManager.createDrawing(drawScript);
         drawInit = true;
     }
 
