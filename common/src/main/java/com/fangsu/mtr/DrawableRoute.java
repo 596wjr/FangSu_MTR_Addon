@@ -133,7 +133,7 @@ public class DrawableRoute {
         if (cacheRequestLongestRoute.containsKey(routeId)) return cacheRequestLongestRoute.get(routeId);
         LocalRoute route = MtrUtil.getRouteById(routeId);
         if (route == null) return null;
-        return getDrawableRoute(route);
+        return requestLongestRoute(route);
     }
 
     public static DrawableRoute requestLongestRoute(LocalRoute route) {
@@ -182,7 +182,7 @@ public class DrawableRoute {
             beginIdx = r.platformIds.indexOf(route.platformIds.get(0));
             endIdx = r.platformIds.indexOf(route.platformIds.get(route.platformIds.size() - 1));
         }
-        
+
         DrawableRoute result = getDrawableRoute(longestRoute.asRouteDetail(), isReversed, beginIdx, endIdx);
         cacheRequestLongestRoute.put(route.id, result);
         return result;

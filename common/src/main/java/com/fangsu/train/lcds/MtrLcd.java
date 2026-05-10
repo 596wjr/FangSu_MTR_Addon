@@ -62,6 +62,11 @@ public class MtrLcd extends LcdBase {
                 if (leftOpen || rightOpen) {
                     drawDoorOpen(g, x, y, w, h, cjkFont, nonCjkFont, isLeft ? leftOpen : rightOpen, isLeft);
                 }
+            } else {
+                boolean isLeft = side.contains("left");
+                boolean isReverse = isLeft == status.isReverse;
+                drawRoute(g, x, y, w, h, route, stations, cjkFont, nonCjkFont, isReverse);
+                drawRouteName(g, x, y, w, h, cjkFont, nonCjkFont, route.routeColor, route.routeName, isLeft);
             }
         } else {
 //            g.setColor(Color.BLACK);

@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.HashSet;
 import java.util.Set;
 
-@Mixin(value = Train.class, remap = false, priority = 1100)
+@Mixin(value = Train.class, remap = false, priority = 888)
 public abstract class TrainMixin {
     /* ==========================================================
      *  Shadow：Train 原生字段 / 方法

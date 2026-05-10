@@ -44,6 +44,8 @@ public class TrainStatus {
     private PlatformLookupMap trainPlatforms;
     private List<PathData> trainPlatformsValidPath;
 
+    private int cacheIndex;
+
     public TrainStatus(TrainClient train) {
         this.train = train;
         int trainCars = train.trainCars;
@@ -69,7 +71,9 @@ public class TrainStatus {
 
     public void updateRoute() {
         reset();
-        this.currentRoute = train.getThisRoute() == null ? null : new LocalRoute(train.getThisRoute());
+        var nextPlatformInfo = trainPlatforms.platforms.get(getAllPlatformsNextIndex());
+        this.currentRoute = new LocalRoute(nextPlatformInfo.route);
+//        this.currentRoute = train.getThisRoute() == null ? null : new LocalRoute(train.getThisRoute());
 
         if (currentRoute != null)
             this.drawableRoute = DrawableRoute.requestLongestRoute(currentRoute);
@@ -135,6 +139,10 @@ public class TrainStatus {
         }
 
         return result;
+    }
+
+    public List<PlatformInfo> getAllPlatforms() {
+        return trainPlatforms.platforms;
     }
 
     private int geTrainStatus() {

@@ -14,9 +14,11 @@ import com.fangsu.ui.ModMenus;
 import com.fangsu.userScripts.ScriptManager;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonObject;
-import com.oracle.truffle.regex.tregex.util.json.Json;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.packs.resources.ResourceManager;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainClient {
     public static DrawScheduler drawScheduler = new DrawScheduler();
@@ -26,6 +28,8 @@ public class MainClient {
     public static boolean is_nte_loaded = false;
 
     public static DrawContext drawContext = new DrawContext();
+
+    public static List<Runnable> resourceInitRunnables = new ArrayList<>();
 
     public static void initClient() {
         ModBlocks.initClient();
@@ -79,5 +83,17 @@ public class MainClient {
             customMtrLifts.injectBuiltInTexturedLifts(nonTransparent);
         }
         FunctionalCustomTrains.init(resourceManager);
+
+        for (Runnable runnable : resourceInitRunnables) {
+            try {
+                runnable.run();
+            } catch (Exception e) {
+                Main.LOGGER.error("failed to run resource runnable", e);
+            }
+        }
+    }
+
+    public static void addResourceRunnable(Runnable runnable) {
+        resourceInitRunnables.add(runnable);
     }
 }

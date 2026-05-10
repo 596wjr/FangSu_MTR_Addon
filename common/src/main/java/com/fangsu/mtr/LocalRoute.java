@@ -1,5 +1,6 @@
 package com.fangsu.mtr;
 
+import com.fangsu.scripting.TextUtil;
 import com.fangsu.utils.MtrUtil;
 import mtr.data.Platform;
 import mtr.data.Route;
@@ -112,8 +113,11 @@ public class LocalRoute {
                             List<LocalRoute> routes = MtrUtil.getRouteByPlatform(plat1);
                             if (routes != null) {
                                 for (LocalRoute route : routes) {
-                                    if (!this.name.equals(route.name))
-                                        trans.add(new ColorNameTuple(route.color, route.name));
+                                    if (
+                                            !(TextUtil.getCjkMatching(this.name, true).equals(TextUtil.getCjkMatching(route.name, true)) &&
+                                                    TextUtil.getCjkMatching(this.name, false).equals(TextUtil.getCjkMatching(route.name, false)))
+                                    )
+                                        trans.add(new ColorNameTuple(route.color, TextUtil.getNonExtraParts(route.name)));
                                 }
                             }
                         }
