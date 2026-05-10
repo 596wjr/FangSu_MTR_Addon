@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class DiaobanDrawManager {
-    public static final String JAVA_DRAW_ID = "fangsu:diaoban/java_draw";
     private static final ResourceLocation SCRIPTS_LOCATION = new ResourceLocation("fangsu:diaoban/diaoban_scripts.json");
 
     private DiaobanDrawManager() {
@@ -19,17 +18,8 @@ public final class DiaobanDrawManager {
 
     public static List<ModelSelectInfo> getDrawOptions() {
         List<ModelSelectInfo> result = new ArrayList<>();
-        injectJavaDrawer(result);
         injectScriptDrawers(result);
         return result;
-    }
-
-    public static boolean isJavaDrawer(String drawId) {
-        return JAVA_DRAW_ID.equals(drawId);
-    }
-
-    private static void injectJavaDrawer(List<ModelSelectInfo> out) {
-        out.add(new ModelSelectInfo("fangsu.diaoban.java_draw", JAVA_DRAW_ID));
     }
 
     private static void injectScriptDrawers(List<ModelSelectInfo> out) {

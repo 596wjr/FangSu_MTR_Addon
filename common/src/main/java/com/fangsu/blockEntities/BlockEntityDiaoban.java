@@ -411,35 +411,20 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
         return configs;
     }
 
-    private boolean isJavaDrawMode() {
-        return DiaobanDrawManager.isJavaDrawer(drawScript);
-    }
-
     private void initDrawingAsync() {
         routes = reloadRoute(getExtraConfig("routes", "[]"));
 
         GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
         gtHelper.removeDrawGraphic(getBlockPos());
 
-        final String drawKey = isJavaDrawMode() ? "java" : drawScript;
+        final String drawKey = drawScript;
         gtHelper.addDrawGraphicWithGt(getBlockPos(),
                 new GraphicsTextureHelper.DrawInfo(
                         "DIAOBAN_" + drawKey + "_" + routes + "_" + arrowDirection,
                         texW, texH, true, false
                 ),
-                gt -> {
-                    if (isJavaDrawMode()) {
-                        drawJavaFunction(gt);
-                    } else {
-                        drawFunction(gt, scriptHolder, routes, drawState, arrowDirection, texW, texH);
-                    }
-                }
+                gt -> drawFunction(gt, scriptHolder, routes, drawState, arrowDirection, texW, texH)
         );
-
-        if (isJavaDrawMode()) {
-            drawInit = true;
-            return;
-        }
 
         final int thisLoadToken = ++scriptLoadToken;
         ResourceLocation location = new ResourceLocation(drawScript);
@@ -454,23 +439,6 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
             }
         }, ScriptManager.SCRIPT_EXECUTOR);
         drawInit = true;
-    }
-
-    private void drawJavaFunction(GraphicsTexture gt) {
-        Graphics2D g = gt.graphics;
-        g.setColor(new Color(0, 0, 0, 255));
-        g.fillRect(0, 0, texW, texH);
-        if (routes == null || routes.isEmpty() || routes.get(0).route == null) {
-            gt.upload();
-            return;
-        }
-        LocalRoute route = routes.get(0).route;
-        g.setColor(new Color(route.color));
-        g.fillRect(0, 0, Math.max(2, texH / 6), texH);
-        g.setColor(Color.WHITE);
-        g.setFont(g.getFont().deriveFont(Font.BOLD, Math.max(10, texH * 0.35f)));
-        g.drawString(route.name == null ? "?" : route.name, Math.max(6, texH / 4), (int) (texH * 0.62f));
-        gt.upload();
     }
 
     @Override
