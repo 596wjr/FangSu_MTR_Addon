@@ -424,13 +424,11 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
     }
 
     protected static Vec3 transformOffset(Direction facing, Vec3 trans) {
-        return switch (facing) {
-            case NORTH -> new Vec3(trans.x, trans.y, -trans.z);
-            case SOUTH -> new Vec3(-trans.x, trans.y, trans.z);
-            case WEST -> new Vec3(trans.z, trans.y, -trans.x);
-            case EAST -> new Vec3(-trans.z, trans.y, trans.x);
-            default -> trans;
-        };
+        // Keep translation in world axes so collision/outline offsets match rendering.
+        // Rendering applies translate first, then facing rotation:
+        //   translate(translateX, translateY, translateZ) -> rotateY(facing) -> rotateXYZ(custom)
+        // so the offset itself should not be remapped by block facing.
+        return trans;
     }
 
     protected void markShapeDirty() {

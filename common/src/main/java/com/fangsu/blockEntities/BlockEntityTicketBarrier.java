@@ -24,6 +24,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -440,7 +441,20 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
             Direction facing = state.getValue(BaseObjBlock.FACING);
             int yRot = Math.floorMod((int) facing.toYRot(), 360);
             Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
-            return ShapeSerializer.getShape(serialized, yRot).move(trans.x, trans.y, trans.z);
+            VoxelShape shape = ShapeSerializer.getShape(serialized, yRot);
+
+            if (rotateX != 0 || rotateY != 0 || rotateZ != 0) {
+                VoxelShape rotated = Shapes.empty();
+                long posLong = worldPosition.asLong();
+                for (AABB box : shape.toAabbs()) {
+                    CollisionBoxUtil.CollisionBox collisionBox = new CollisionBoxUtil.CollisionBox(box.minX * 16, box.minY * 16, box.minZ * 16, box.maxX * 16, box.maxY * 16, box.maxZ * 16);
+                    VoxelShape part = CollisionBoxUtil.cachedRotatedShape(posLong, collisionBox, Vec3.ZERO, rotateX, rotateY, rotateZ, 0.1f);
+                    rotated = Shapes.or(rotated, part);
+                }
+                shape = rotated.optimize();
+            }
+
+            return shape.move(trans.x, trans.y, trans.z);
         } catch (Exception e) {
             return Shapes.empty();
         }

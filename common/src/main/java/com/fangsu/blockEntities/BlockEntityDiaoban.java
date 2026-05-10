@@ -6,6 +6,7 @@ import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
 import com.fangsu.customItem.contents.DiaobanContent;
+import com.fangsu.drawing.diaoban.DiaobanDrawManager;
 import com.fangsu.extraConfig.*;
 import com.fangsu.mtr.LocalRoute;
 import com.fangsu.mtr.LocalRouteDetail;
@@ -21,9 +22,7 @@ import com.fangsu.userScripts.PidsScriptHolder;
 import com.fangsu.userScripts.ScriptHolderBase;
 import com.fangsu.userScripts.ScriptManager;
 import com.fangsu.utils.*;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import mtr.data.Platform;
 import net.minecraft.core.BlockPos;
@@ -36,6 +35,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -76,7 +76,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     private float doorValue;
 
     private boolean firstInit = false;
-    private boolean scriptInit = false;
+    private boolean drawInit = false;
 
     private List<RouteSelectionScreen.RouteSelectInfo> routes;
 
@@ -178,7 +178,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
 
 
             firstInit = true;
-            scriptInit = false;
+            drawInit = false;
 
         } catch (Exception e) {
             Main.LOGGER.warn("Failed to load diaoban: {}", e.getMessage());
@@ -202,6 +202,18 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
             Direction facing = state.getValue(BaseObjBlock.FACING);
             int yRot = Math.floorMod((int) facing.toYRot(), 360);
             VoxelShape shape = ShapeSerializer.getShape(serialized, yRot);
+
+            if (rotateX != 0 || rotateY != 0 || rotateZ != 0) {
+                VoxelShape rotated = Shapes.empty();
+                long posLong = worldPosition.asLong();
+                for (AABB box : shape.toAabbs()) {
+                    CollisionBoxUtil.CollisionBox collisionBox = new CollisionBoxUtil.CollisionBox(box.minX * 16, box.minY * 16, box.minZ * 16, box.maxX * 16, box.maxY * 16, box.maxZ * 16);
+                    VoxelShape part = CollisionBoxUtil.cachedRotatedShape(posLong, collisionBox, Vec3.ZERO, rotateX, rotateY, rotateZ, 0.1f);
+                    rotated = Shapes.or(rotated, part);
+                }
+                shape = rotated.optimize();
+            }
+
             Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
             return shape.move(trans.x, trans.y, trans.z);
         } catch (Exception e) {
@@ -238,8 +250,8 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
 
     @Override
     public void whenRendering() {
-        if (firstInit && !scriptInit) {
-            initScriptDrawingAsync();
+        if (firstInit && !drawInit) {
+            initDrawingAsync();
         }
 
         ObjBlockScriptContext ctx = this.scriptContext;
@@ -326,26 +338,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     @Override
     public List<SubModelDispInfo> getSubModelInfos() {
         List<SubModelDispInfo> infos = new ArrayList<>();
-        List<ModelSelectInfo> drawFuncs = new ArrayList<>();
-        try {
-            JsonObject loaded = ResourceUtil.loadAsJSON(new ResourceLocation("fangsu:diaoban/diaoban_scripts.json")).getAsJsonObject();
-            if (loaded.has("content")) {
-                JsonArray c = loaded.getAsJsonArray("content");
-                for (JsonElement e : c) {
-                    if (!e.isJsonObject()) continue;
-                    JsonObject item = e.getAsJsonObject();
-                    String text = item.get("text").getAsString();
-                    String content = item.get("content").getAsString();
-                    String contentText = "";
-                    if (item.has("contentText")) {
-                        contentText = item.get("contentText").getAsString();
-                        drawFuncs.add(new ModelSelectInfo(text, content, contentText));
-                    } else drawFuncs.add(new ModelSelectInfo(text, content));
-
-                }
-            }
-        } catch (Exception ignored) {
-        }
+        List<ModelSelectInfo> drawFuncs = DiaobanDrawManager.getDrawOptions();
         infos.add(createSubModelSelectInfo("content", DEFAULT_SUB_MODEL));
         infos.add(new SubModelDispInfo(
                 Component.translatable("ui.fangsu.diaoban.selectDrawFunction"),
@@ -418,26 +411,38 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
         return configs;
     }
 
-    private void initScriptDrawingAsync() {
+    private boolean isJavaDrawMode() {
+        return DiaobanDrawManager.isJavaDrawer(drawScript);
+    }
+
+    private void initDrawingAsync() {
         routes = reloadRoute(getExtraConfig("routes", "[]"));
 
         GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
         gtHelper.removeDrawGraphic(getBlockPos());
 
-        final int thisLoadToken = ++scriptLoadToken;
-
-        String scriptPath = drawScript;
-        ResourceLocation location = new ResourceLocation(scriptPath);
-
+        final String drawKey = isJavaDrawMode() ? "java" : drawScript;
         gtHelper.addDrawGraphicWithGt(getBlockPos(),
                 new GraphicsTextureHelper.DrawInfo(
-                        "DIAOBAN_" + scriptPath + "_" + routes + "_" + arrowDirection,
+                        "DIAOBAN_" + drawKey + "_" + routes + "_" + arrowDirection,
                         texW, texH, true, false
                 ),
-                gt -> drawFunction(gt, scriptHolder, routes, drawState, arrowDirection, texW, texH)
-                //TODO 支持多选
+                gt -> {
+                    if (isJavaDrawMode()) {
+                        drawJavaFunction(gt);
+                    } else {
+                        drawFunction(gt, scriptHolder, routes, drawState, arrowDirection, texW, texH);
+                    }
+                }
         );
 
+        if (isJavaDrawMode()) {
+            drawInit = true;
+            return;
+        }
+
+        final int thisLoadToken = ++scriptLoadToken;
+        ResourceLocation location = new ResourceLocation(drawScript);
         CompletableFuture.runAsync(() -> {
             try {
                 ScriptHolderBase loadedHolder = ScriptManager.getInstance().getOrInitHolder(location, PidsScriptHolder::new);
@@ -448,8 +453,24 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
                 Main.LOGGER.error("Failed to load Diaoban script async {}", location, e);
             }
         }, ScriptManager.SCRIPT_EXECUTOR);
+        drawInit = true;
+    }
 
-        scriptInit = true;
+    private void drawJavaFunction(GraphicsTexture gt) {
+        Graphics2D g = gt.graphics;
+        g.setColor(new Color(0, 0, 0, 255));
+        g.fillRect(0, 0, texW, texH);
+        if (routes == null || routes.isEmpty() || routes.get(0).route == null) {
+            gt.upload();
+            return;
+        }
+        LocalRoute route = routes.get(0).route;
+        g.setColor(new Color(route.color));
+        g.fillRect(0, 0, Math.max(2, texH / 6), texH);
+        g.setColor(Color.WHITE);
+        g.setFont(g.getFont().deriveFont(Font.BOLD, Math.max(10, texH * 0.35f)));
+        g.drawString(route.name == null ? "?" : route.name, Math.max(6, texH / 4), (int) (texH * 0.62f));
+        gt.upload();
     }
 
     @Override
