@@ -148,7 +148,7 @@ public class MtrLcd extends LcdBase {
                     g.fillRoundRect(currentX - lineSize / 2, centralY - interchangeHeight, lineSize, interchangeHeight, lineSize, lineSize);
                     g.setColor(isInRoute ? Color.BLACK : passedColor);
                     int textWidth = G2dTextHelper.getMultiLinesWidth(g, cjkFont, nonCjkFont, stationSize, thisTrans.routeName.split("\\|"));
-                    G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX - textWidth / 2, centralY - interchangeHeight - stationSize - lineSize / 5, stationSize, 1, thisTrans.routeName.split("\\|"));
+                    G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX - textWidth / 2, centralY - interchangeHeight - stationSize - lineSize / 5 - stationSize, stationSize, 1, thisTrans.routeName.split("\\|"));
                 } else {
                     for (int j = 0; j < station.transInfo.size(); j++) {
                         ColorNameTuple thisTrans = station.transInfo.get(j);
@@ -156,7 +156,7 @@ public class MtrLcd extends LcdBase {
                         g.setColor(isInRoute ? thisTrans.routeColor : passedColor);
                         g.fillRoundRect(currentX, currentY, interchangeWidth, lineSize, lineSize, lineSize);
                         g.setColor(isInRoute ? Color.BLACK : passedColor);
-                        G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX + interchangeWidth, currentY, lineSize, 0, thisTrans.routeName.split("\\|"));
+                        G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX + interchangeWidth, currentY - lineSize, lineSize, 0, thisTrans.routeName.split("\\|"));
                     }
                     int stationHeight = (int) (lineSize * 0.5 + lineSize * 1.5 * station.transInfo.size());
                     g.setColor(!isInRoute ? passedColor : routeColor);
@@ -173,7 +173,7 @@ public class MtrLcd extends LcdBase {
             }
             g.setColor(hasPassed || !isInRoute ? passedColor : Color.BLACK);
             int stationNameWidth = G2dTextHelper.getMultiLinesWidth(g, cjkFont, nonCjkFont, lineSize * 2, station.stationName.split("\\|"));
-            G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX - stationNameWidth / 2, (int) (centralY + lineSize * 2.5), lineSize * 2, 1, station.stationName.split("\\|"));
+            G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX - stationNameWidth / 2, (int) (centralY + lineSize * 2.5) - lineSize * 2, lineSize * 2, 1, station.stationName.split("\\|"));
         }
 
         //draw route name
@@ -196,7 +196,7 @@ public class MtrLcd extends LcdBase {
         currentX += routeNameColorWidth;
         currentX += routeNameBlank;
         g.setColor(Color.BLACK);
-        G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX, centralY - routeNameTextHeight / 2, routeNameTextHeight, 0, routeName.split("\\|"));
+        G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX, centralY - routeNameTextHeight / 2 - routeNameTextHeight, routeNameTextHeight, 0, routeName.split("\\|"));
 
     }
 
@@ -216,7 +216,7 @@ public class MtrLcd extends LcdBase {
             g.fillRoundRect(currentX, y + h / 20, textWidth + blankWidth * 2, doorOpenHeight, doorOpenHeight, doorOpenHeight);
         }
         g.setColor(Color.BLACK);
-        G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX + blankWidth, y + h / 20 + (doorOpenHeight - textHeight) / 2, textHeight, 1, cjkText, nonCjkText);
+        G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX + blankWidth, y + h / 20 + (doorOpenHeight - textHeight) / 2 - textHeight, textHeight, 1, cjkText, nonCjkText);
     }
 
     private void drawStationNameCenter(Graphics2D g, int x, int y, int w, int h, String cjkName, String nonCjkName, Font cjkFont, Font nonCjkFont) {

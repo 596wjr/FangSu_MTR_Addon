@@ -57,7 +57,7 @@ public class DestinationItem extends SignItem {
         Graphics2D g = ctx.graphics();
         float u = ctx.unit();
         g.setColor(Color.WHITE);
-        G2dTextHelper.drawStrMultiLines(g, font, (int) ctx.x(), (int) ctx.y(), (int) u, align, lines);
+        G2dTextHelper.drawStrMultiLines(g, font, (int) ctx.x(), (int) ctx.y() - (int) u, (int) u, align, lines);
     }
 
     @Override

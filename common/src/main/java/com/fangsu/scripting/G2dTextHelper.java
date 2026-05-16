@@ -29,7 +29,7 @@ public class G2dTextHelper {
     public static int drawStrMultiLines(Graphics2D g, Font cjkFont, Font nonCjkFont, int x, int y, int h, int align, String... lines) {
         if (lines.length == 0) return 0;
         int width = getMultiLinesWidth(g, cjkFont, nonCjkFont, h, lines);
-        int currentY = (int) (y - h * (0.095));
+        int currentY = (int) (y + h - h * (0.095));
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i];
             int fontSize = (int) (h * ACTUAL_DRAW_HEIGHT / (lines.length + 2) * (i == 0 ? 3 : 1));
