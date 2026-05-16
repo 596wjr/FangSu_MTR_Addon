@@ -26,9 +26,9 @@ public class G2dTextHelper {
         return getMultiLinesWidth(g, font, font, h, lines);
     }
 
-    public static int drawStrMultiLines(Graphics2D g, Font cjFfont, Font nonCjkFont, int x, int y, int h, int align, String... lines) {
+    public static int drawStrMultiLines(Graphics2D g, Font cjkFont, Font nonCjkFont, int x, int y, int h, int align, String... lines) {
         if (lines.length == 0) return 0;
-        int width = getMultiLinesWidth(g, cjFfont, nonCjkFont, h, lines);
+        int width = getMultiLinesWidth(g, cjkFont, nonCjkFont, h, lines);
         int currentY = (int) (y - h * (0.095));
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i];
@@ -36,7 +36,7 @@ public class G2dTextHelper {
             int lineGap = lines.length == 1 ? 0 : (int) (h * 0.1 / (lines.length - 1));
             currentY += fontSize + lineGap;
             if (TextUtil.isCjk(line))
-                g.setFont(cjFfont.deriveFont(Font.PLAIN, fontSize));
+                g.setFont(cjkFont.deriveFont(Font.PLAIN, fontSize));
             else
                 g.setFont(nonCjkFont.deriveFont(Font.PLAIN, fontSize));
             int lineWidth = g.getFontMetrics().stringWidth(line);
@@ -46,6 +46,15 @@ public class G2dTextHelper {
             g.drawString(line, baseX, currentY);
         }
         return width;
+    }
+
+    public static int drawStrMultiLines(Graphics2D g, Font cjkFont, Font nonCjkFont, int x, int y, int h, int allAlign, int align, String... lines) {
+        int width = G2dTextHelper.getMultiLinesWidth(g, cjkFont, nonCjkFont, (float) h, lines);
+        return switch (allAlign) {
+            case 1 -> drawStrMultiLines(g, cjkFont, nonCjkFont, x - width / 2, y, h, align, lines);
+            case 2 -> drawStrMultiLines(g, cjkFont, nonCjkFont, x - width, y, h, align, lines);
+            default -> drawStrMultiLines(g, cjkFont, nonCjkFont, x, y, h, align, lines);
+        };
     }
 
     public static int drawStrMultiLines(Graphics2D g, Font font, int x, int y, int h, int align, String... lines) {

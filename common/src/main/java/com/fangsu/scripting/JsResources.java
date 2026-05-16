@@ -7,7 +7,6 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 
-@Deprecated//JS only
 public class JsResources {
     public static ResourceLocation id(String path) {
         return ResourceLocation.tryParse(path);

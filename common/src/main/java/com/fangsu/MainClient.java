@@ -11,6 +11,8 @@ import com.fangsu.render.sowcerext.reuse.ModelManager;
 import com.fangsu.drawing.sign.SignItemFactory;
 import com.fangsu.drawing.diaoban.DiaobanDrawManager;
 import com.fangsu.train.FunctionalCustomTrains;
+import com.fangsu.train.LcdManager;
+import com.fangsu.train.lcds.MtrLcd;
 import com.fangsu.ui.ModMenus;
 import com.fangsu.userScripts.ScriptManager;
 import com.fangsu.utils.ResourceUtil;
@@ -84,6 +86,8 @@ public class MainClient {
             customMtrLifts.injectBuiltInTexturedLifts(defaultLift);
             customMtrLifts.injectBuiltInTexturedLifts(nonTransparent);
         }
+        LcdManager.getInstance().injectLcd("mtr", MtrLcd::new);
+
         FunctionalCustomTrains.init(resourceManager);
 
         for (Runnable runnable : resourceInitRunnables) {

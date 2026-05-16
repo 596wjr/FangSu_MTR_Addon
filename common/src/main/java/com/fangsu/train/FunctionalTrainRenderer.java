@@ -1,5 +1,6 @@
 package com.fangsu.train;
 
+import com.fangsu.Main;
 import com.fangsu.MainClient;
 import com.fangsu.render.RenderUtil;
 import com.fangsu.render.scripting.AbstractDrawCalls;
@@ -40,7 +41,6 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
         this.train = null;
         this.baseRenderer = base;
 
-        //TODO ce shi dai ma
         this.lcd = null;
 
         this.dhBase = new DisplayHelper(lcdInfo.slotsInfo());
@@ -63,7 +63,7 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
         var instanceBaseRenderer = baseRenderer == null ? null : baseRenderer.createTrainInstance(trainClient);
 
         TrainStatus trainStatus = new TrainStatus(trainClient);
-        LcdBase lcd = new MtrLcd();
+        LcdBase lcd = LcdManager.getInstance().getLcd(lcdInfo.id());
 
         GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
         gtHelper.addDrawGraphicWithGt("train_" + (trainClient.trainId),
@@ -79,7 +79,7 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
                         String name = obj.get("name").getAsString();
                         JsonArray texAreaJson = obj.get("texArea").getAsJsonArray();
                         int[] texArea = new int[]{texAreaJson.get(0).getAsInt(), texAreaJson.get(1).getAsInt(), texAreaJson.get(2).getAsInt(), texAreaJson.get(3).getAsInt()};
-                        lcd.draw(gt.graphics, trainStatus, drawState,
+                        lcd.draw(gt.graphics, trainStatus, lcdInfo, drawState,
                                 name, texArea[0], texArea[1], texArea[2], texArea[3], gt::upload);
                     }
                 });
@@ -126,17 +126,23 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
         matrices.translate(x, y, z);
         PoseStackUtil.rotY(matrices, (float) Math.PI + yaw);
         PoseStackUtil.rotX(matrices, hasPitch ? pitch : 0);
-        final int light = LightTexture.pack(world.getBrightness(LightLayer.BLOCK, posAverage), world.getBrightness(LightLayer.SKY, posAverage));
-        Matrix4f drawPose = new Matrix4f(matrices.last().pose());
-        if (true) {
-            GraphicsTexture texture = GraphicsTextureHelper.getInstance().getGraphics("train_" + (train.trainId));
-            var model = dh.model.getUploadedModel();
-            if (model != null && texture != null) {
-                model.replaceAllTexture(texture.identifier);
-                new AbstractDrawCalls.ClusterDrawCall(model, Matrix4f.IDENTITY).commit(MainClient.drawScheduler, drawPose, light);
+        try {
+            final int light = LightTexture.pack(world.getBrightness(LightLayer.BLOCK, posAverage), world.getBrightness(LightLayer.SKY, posAverage));
+            Matrix4f drawPose = new Matrix4f(matrices.last().pose());
+            if (true) {
+                GraphicsTexture texture = GraphicsTextureHelper.getInstance().getGraphics("train_" + (train.trainId));
+                var model = dh.model.getUploadedModel();
+                if (model != null && texture != null) {
+                    model.replaceAllTexture(texture.identifier);
+                    new AbstractDrawCalls.ClusterDrawCall(model, Matrix4f.IDENTITY).commit(MainClient.drawScheduler, drawPose, light);
+                }
             }
+        } catch (Exception e) {
+            Main.LOGGER.error("", e);
+        } finally {
+            matrices.popPose();
         }
-        matrices.popPose();
+
     }
 
     @Override

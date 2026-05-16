@@ -17,7 +17,6 @@ import java.util.function.Supplier;
 
 public final class DiaobanDrawManager {
     private static final ResourceLocation SCRIPTS_LOCATION = new ResourceLocation("fangsu:diaoban/diaoban_scripts.json");
-    private static final String JAVA_DRAW_ROUTE_LIKE = "java:route_like";
     private static final List<ModelSelectInfo> drawOptions = new ArrayList<>();
     private static final Map<String, Supplier<BaseDiaobanDrawing>> drawingSuppliers = new HashMap<>();
 
@@ -28,7 +27,7 @@ public final class DiaobanDrawManager {
         drawOptions.clear();
         drawingSuppliers.clear();
 
-        registerJavaDrawing("指示牌样式(Java)", JAVA_DRAW_ROUTE_LIKE, "内置 Java 绘制，无需 JS", RouteLikeDiaobanDrawing::new);
+//        registerJavaDrawing("指示牌样式(Java)", JAVA_DRAW_ROUTE_LIKE, "内置 Java 绘制，无需 JS", RouteLikeDiaobanDrawing::new);
         injectScriptDrawers();
     }
 

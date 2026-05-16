@@ -48,7 +48,7 @@ public class FunctionalCustomTrains implements IResourcePackCreatorProperties, I
                             String slotsPath = lcd.get("slots").getAsString();
                             ResourceLocation slotsLocation = new ResourceLocation(slotsPath);
                             JsonObject slots = ResourceUtil.loadAsJSON(slotsLocation).getAsJsonObject();
-                            lcdInfo = new LcdInfo(lcdId, slots);
+                            lcdInfo = new LcdInfo(lcdId, slots, lcd);
                         }
 
 

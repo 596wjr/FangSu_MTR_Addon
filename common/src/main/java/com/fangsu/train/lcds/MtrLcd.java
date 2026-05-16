@@ -5,6 +5,7 @@ import com.fangsu.mtr.DrawableRoute;
 import com.fangsu.scripting.G2dTextHelper;
 import com.fangsu.scripting.TextUtil;
 import com.fangsu.train.LcdBase;
+import com.fangsu.train.LcdInfo;
 import com.fangsu.train.TrainStatus;
 import com.fangsu.utils.ResourceUtil;
 import net.minecraft.resources.ResourceLocation;
@@ -18,7 +19,7 @@ import java.util.Map;
 
 public class MtrLcd extends LcdBase {
     @Override
-    public void draw(Graphics2D g, TrainStatus status, Map<String, Object> state, String side, int x, int y, int w, int h, Runnable callback) {
+    public void draw(Graphics2D g, TrainStatus status, LcdInfo info, Map<String, Object> state, String side, int x, int y, int w, int h, Runnable callback) {
         Font cjkFont = ResourceUtil.loadFont(new ResourceLocation("mtr:font/noto-serif-cjk-tc-semibold.ttf"));
         Font nonCjkFont = ResourceUtil.loadFont(new ResourceLocation("mtr:font/noto-sans-semibold.ttf"));
 

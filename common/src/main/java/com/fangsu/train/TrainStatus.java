@@ -71,8 +71,11 @@ public class TrainStatus {
 
     public void updateRoute() {
         reset();
-        var nextPlatformInfo = trainPlatforms.platforms.get(getAllPlatformsNextIndex());
-        this.currentRoute = new LocalRoute(nextPlatformInfo.route);
+        try {
+            var nextPlatformInfo = trainPlatforms.platforms.get(getAllPlatformsNextIndex());
+            this.currentRoute = new LocalRoute(nextPlatformInfo.route);
+        } catch (Exception ignored) {
+        }
 //        this.currentRoute = train.getThisRoute() == null ? null : new LocalRoute(train.getThisRoute());
 
         if (currentRoute != null)
@@ -181,10 +184,6 @@ public class TrainStatus {
         return (path1.dwellTime != 0 && path1.savedRailBaseId == nextPlatformId) || (path2.dwellTime != 0 && path2.savedRailBaseId == nextPlatformId);
     }
 
-    public double getRailProgress(int car) {
-        return train.getRailProgress() - car * train.spacing;
-    }
-
     private static class PlatformLookupMap {
         public Siding siding;
         public final List<PlatformInfo> platforms = new ArrayList<>();
@@ -214,5 +213,140 @@ public class TrainStatus {
             this.distance = distance;
             this.reverseAtPlatform = reverseAtPlatform;
         }
+    }
+
+    @SuppressWarnings("unused")
+    public Train mtrTrain() {
+        return train;
+    }
+
+    @SuppressWarnings("unused")
+    public long id() {
+        return train.id;
+    }
+
+    @SuppressWarnings("unused")
+    public Siding siding() {
+        return trainPlatforms.siding;
+    }
+
+    @SuppressWarnings("unused")
+    public String trainTypeId() {
+        return train.trainId;
+    }
+
+    @SuppressWarnings("unused")
+    public String baseTrainType() {
+        return train.baseTrainType;
+    }
+
+    @SuppressWarnings("unused")
+    public TransportMode transportMode() {
+        return train.transportMode;
+    }
+
+    @SuppressWarnings("unused")
+    public int spacing() {
+        return train.spacing;
+    }
+
+    @SuppressWarnings("unused")
+    public int width() {
+        return train.width;
+    }
+
+    @SuppressWarnings("unused")
+    public int trainCars() {
+        return train.trainCars;
+    }
+
+    @SuppressWarnings("unused")
+    public float accelerationConstant() {
+        return train.accelerationConstant;
+    }
+
+    @SuppressWarnings("unused")
+    public boolean manualAllowed() {
+        return train.isManualAllowed;
+    }
+
+    @SuppressWarnings("unused")
+    public int maxManualSpeed() {
+        return train.maxManualSpeed;
+    }
+
+    @SuppressWarnings("unused")
+    public int manualToAutomaticTime() {
+        return train.manualToAutomaticTime;
+    }
+
+    @SuppressWarnings("unused")
+    public List<PathData> path() {
+        return train.path;
+    }
+
+    @SuppressWarnings("unused")
+    public double railProgress() {
+        return train.getRailProgress();
+    }
+
+    @SuppressWarnings("unused")
+    public double getRailProgress(int car) {
+        return train.getRailProgress() - car * train.spacing;
+    }
+
+    @SuppressWarnings("unused")
+    public int getRailIndex(double railProgress, boolean roundDown) {
+        return train.getIndex(railProgress, roundDown);
+    }
+
+    @SuppressWarnings("unused")
+    public float getRailSpeed(int railIndex) {
+        return train.getRailSpeed(railIndex);
+    }
+
+    @SuppressWarnings("unused")
+    public float speed() {
+        return train.getSpeed();
+    }
+
+    @SuppressWarnings("unused")
+    public float doorValue() {
+        return train.getDoorValue();
+    }
+
+    @SuppressWarnings("unused")
+    public boolean isCurrentlyManual() {
+        return train.isCurrentlyManual();
+    }
+
+    @SuppressWarnings("unused")
+    public boolean isReversed() {
+        return train.isReversed();
+    }
+
+    @SuppressWarnings("unused")
+    public boolean isOnRoute() {
+        return train.isOnRoute();
+    }
+
+    @SuppressWarnings("unused")
+    public boolean justOpening() {
+        return train.justOpening();
+    }
+
+    @SuppressWarnings("unused")
+    public boolean justClosing(float doorCloseTime) {
+        return train.justClosing(doorCloseTime);
+    }
+
+    @SuppressWarnings("unused")
+    public final boolean isDoorOpening() {
+        return train.isDoorOpening();
+    }
+
+    @SuppressWarnings("unused")
+    public boolean doorTarget() {
+        return train.isDoorOpening();
     }
 }
