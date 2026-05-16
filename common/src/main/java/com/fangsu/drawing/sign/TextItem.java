@@ -66,7 +66,7 @@ public class TextItem extends SignItem {
         g.setColor(color);
         Font font;
         font = ResourceUtil.loadFont(fontLocation);
-        G2dTextHelper.drawStrMultiLines(g, font, (int) ctx.x(), (int) ctx.y(), (int) u, align, lines);
+        G2dTextHelper.drawStrMultiLines(g, font, (int) ctx.x(), (int) ctx.y() - (int) u, (int) u, align, lines);
     }
 
     @Override
