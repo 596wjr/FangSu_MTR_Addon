@@ -1,7 +1,3 @@
-# Sowcer 茶碟
-
-Simple OpenGL Wrapper for Complex Entity Rendering.
-
 This package contains code from mtr-nte
 
 Original project:https://github.com/zbx1425/mtr-nte
