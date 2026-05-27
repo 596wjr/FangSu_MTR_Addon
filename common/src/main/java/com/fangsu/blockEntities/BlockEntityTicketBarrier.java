@@ -173,7 +173,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         if ((facing == Direction.NORTH && hitPos.z > 0.5) ||
                 (facing == Direction.SOUTH && hitPos.z < 0.5) ||
                 (facing == Direction.WEST && hitPos.x > 0.5) ||
-                (facing == Direction.WEST && hitPos.x < 0.5)
+                (facing == Direction.EAST && hitPos.x < 0.5)
         ) {
             boolean success = TicketBarrierHandler.handle(
                     level,

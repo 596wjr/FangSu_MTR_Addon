@@ -8,7 +8,7 @@ import java.util.function.Supplier;
 
 public abstract class ConfigEntry<T> {
 
-    protected final Component title;
+    public final Component title;
     protected final ConfigSpec spec;
 
     protected final Supplier<T> getter;

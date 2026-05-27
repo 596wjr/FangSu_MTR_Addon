@@ -247,27 +247,37 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
         float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
         float rotZ = this.rotateZ;
         long posLong = worldPosition.asLong();
-        Vec3 unitTrans = transformOffset(facing, new Vec3(unit / 16d, 0, 0));
 
         VoxelShape shape = Shapes.empty();
         double startX = -0.5 * unit * length / 16d;
-//        if (shapeLeft != null) {
-//            VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeLeft, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
-//            shape = Shapes.or(shape, s.move(startX + trans.x, trans.y, trans.z));
-//        }
-        for (int i = 0; i < length / (unit / 8d); i++) {
+        double n = length / (unit / 8d);
+
+        // 将局部X轴偏移按朝向旋转到世界坐标
+        java.util.function.Function<Double, Vec3> localToWorld = (localX) -> {
+            Vec3 v = new Vec3(localX, 0, 0);
+            return v.yRot((float) Math.toRadians(-facing.toYRot()));
+        };
+
+        if (shapeLeft != null) {
+            VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeLeft, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+            Vec3 offset = localToWorld.apply(startX);
+            shape = Shapes.or(shape, s.move(offset.x + trans.x, trans.y, offset.z + trans.z));
+        }
+        for (int i = 0; i < n; i++) {
             if (shapeCenter != null) {
-                double x = startX + unit / 32d + i * unitTrans.x;
-                double z = startX + unit / 32d + i * unitTrans.z;
+                double localOffsetX = startX + unit / 32d + i * unit / 16d;
+                Vec3 offset = localToWorld.apply(localOffsetX);
                 VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeCenter, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
-                shape = Shapes.or(shape, s.move(x + trans.x, trans.y, z + trans.z));
+                shape = Shapes.or(shape, s.move(offset.x + trans.x, trans.y, offset.z + trans.z));
             }
         }
-//        if (shapeRight != null) {
-//            double x = startX + unit / 32d + (length / (unit / 8d)) * (unit / 16d) + unit / 32d;
-//            VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeRight, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
-//            shape = Shapes.or(shape, s.move(x + trans.x, trans.y, trans.z));
-//        }
+        if (shapeRight != null) {
+            // right在渲染中的位置: startX + n * unit/16
+            double rightLocalX = startX + n * unit / 16d;
+            Vec3 offset = localToWorld.apply(rightLocalX);
+            VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeRight, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+            shape = Shapes.or(shape, s.move(offset.x + trans.x, trans.y, offset.z + trans.z));
+        }
         return shape;
     }
 

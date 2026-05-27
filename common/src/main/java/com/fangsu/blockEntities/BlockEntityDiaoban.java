@@ -387,7 +387,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
                 () -> arrowDirection,
                 (v) -> {
                     arrowDirection = v;
-                    extraConfigs.put("doorSide", v.toString());
+                    extraConfigs.put("arrowDirection", v.toString());
                     sendUpdateC2S();
                 }
         ));
@@ -405,12 +405,14 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     }
 
     private void initDrawingAsync() {
-        routes = reloadRoute(getExtraConfig("routes", "[]"));
+        if (!firstInit) return;
 
         GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
         gtHelper.removeDrawGraphic(getBlockPos());
 
+        routes = reloadRoute(getExtraConfig("routes", "[]"));
         final String drawKey = drawScript;
+        drawing = DiaobanDrawManager.createDrawing(drawScript);
         gtHelper.addDrawGraphicWithGt(getBlockPos(),
                 new GraphicsTextureHelper.DrawInfo(
                         "DIAOBAN_" + drawKey + "_" + routes + "_" + arrowDirection,
@@ -423,7 +425,6 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
                     }
                 }
         );
-        drawing = DiaobanDrawManager.createDrawing(drawScript);
         drawInit = true;
     }
 

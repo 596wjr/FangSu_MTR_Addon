@@ -158,15 +158,7 @@ public abstract class BasicConfigScreen extends Screen {
         }
         renderBackground(graphics);
 
-        int areaLeft = getPanelLeft();
-        int areaTop = getPanelTop();
-        int areaRight = getPanelRight();
-        int areaBottom = getPanelBottom();
-        graphics.fill(areaLeft, areaTop, areaRight, areaBottom, 0xCCFFFFFF);
-
-        int titleX = this.width / 2 - this.font.width(this.title.getString()) / 2;
-        int titleY = areaTop - 18;
-        graphics.drawString(this.font, this.title, titleX, titleY, 0x101010, false);
+        renderPanelBackground(graphics);
 
         for (ScrollEntry e : entries) {
             e.applyScroll(scrollOffset);
@@ -203,6 +195,17 @@ public abstract class BasicConfigScreen extends Screen {
         int minOffset = visibleHeight - contentHeight;
         scrollOffset = Mth.clamp(scrollOffset, minOffset, 0);
         return true;
+    }
+
+    /**
+     * 子类可重写此方法绘制面板背景
+     */
+    protected void renderPanelBackground(GuiGraphics graphics) {
+        int areaLeft = getPanelLeft();
+        int areaTop = getPanelTop();
+        int areaRight = getPanelRight();
+        int areaBottom = getPanelBottom();
+        graphics.fill(areaLeft, areaTop, areaRight, areaBottom, 0xCCFFFFFF);
     }
 
     protected int getPanelLeft() {
@@ -266,7 +269,7 @@ public abstract class BasicConfigScreen extends Screen {
     }
 
     protected String formatValue(float value) {
-        return String.format("%.3f", value);
+        return String.format("%.4f", value);
     }
 
     protected static class ContentLayout {

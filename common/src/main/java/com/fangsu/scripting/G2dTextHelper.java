@@ -51,9 +51,9 @@ public class G2dTextHelper {
     public static int drawStrMultiLines(Graphics2D g, Font cjkFont, Font nonCjkFont, int x, int y, int h, int allAlign, int align, String... lines) {
         int width = G2dTextHelper.getMultiLinesWidth(g, cjkFont, nonCjkFont, (float) h, lines);
         return switch (allAlign) {
-            case 1 -> drawStrMultiLines(g, cjkFont, nonCjkFont, x - width / 2, y - h, h, align, lines);
-            case 2 -> drawStrMultiLines(g, cjkFont, nonCjkFont, x - width, y - h, h, align, lines);
-            default -> drawStrMultiLines(g, cjkFont, nonCjkFont, x, y - h, h, align, lines);
+            case 1 -> drawStrMultiLines(g, cjkFont, nonCjkFont, x - width / 2, y - h * 2, h, align, lines);
+            case 2 -> drawStrMultiLines(g, cjkFont, nonCjkFont, x - width, y - h * 2, h, align, lines);
+            default -> drawStrMultiLines(g, cjkFont, nonCjkFont, x, y - h * 2, h, align, lines);
         };
     }
 

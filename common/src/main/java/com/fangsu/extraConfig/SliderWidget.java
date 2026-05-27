@@ -6,6 +6,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.*;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 
 import java.util.function.Consumer;
 
@@ -122,6 +123,43 @@ public class SliderWidget extends AbstractWidget {
         }
 
         /**
+         * 覆盖 onClick，使点击滑块时也吸附到 step 的整数倍位置。
+         */
+        @Override
+        public void onClick(double mouseX, double mouseY) {
+            this.setValueFromMouse(mouseX);
+        }
+
+        /**
+         * 覆盖 setValueFromMouse，使鼠标点击计算值时直接使用吸附后的值。
+         */
+        private void setValueFromMouse(double mouseX) {
+            double raw = (mouseX - (double) (this.getX() + 4)) / (double) (this.width - 8);
+            raw = Mth.clamp(raw, 0.0D, 1.0D);
+            float snapped = snap(denormalize(raw));
+            this.value = normalize(snapped);
+            this.applyValue();
+        }
+
+        /**
+         * 覆盖鼠标拖动：当光标在滑块区域内且鼠标按下时，直接根据鼠标位置吸附并更新值。
+         * 不依赖 isFocused() 判断，因为外部 SliderWidget 才是 Screen 中的焦点组件。
+         */
+        @Override
+        public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+            if (!this.visible || button != 0) {
+                return false;
+            }
+            // 检查鼠标是否在滑块范围内
+            if (mouseX < this.getX() || mouseX > this.getX() + this.width
+                    || mouseY < this.getY() || mouseY > this.getY() + this.height) {
+                return false;
+            }
+            setValueFromMouse(mouseX);
+            return true;
+        }
+
+        /**
          * 唯一允许写 AbstractSliderButton.value 的地方
          */
         void setFromExternal(float v) {
@@ -154,6 +192,6 @@ public class SliderWidget extends AbstractWidget {
     }
 
     private String format(float v) {
-        return String.format("%.3f", v);
+        return String.format("%.4f", v);
     }
 }

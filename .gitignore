@@ -1,4 +1,8 @@
 /forge/run/
 /fabric/run/
-/build/
+build/
 /common/build/
+
+.gradle/
+.idea/
+
