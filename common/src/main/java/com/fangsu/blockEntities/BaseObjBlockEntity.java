@@ -68,7 +68,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
     }
 
     @Override
-    public void saveAdditional(@NotNull CompoundTag tag) {
+    public final void saveAdditional(@NotNull CompoundTag tag) {
         super.saveAdditional(tag);
 
         tag.putBoolean("fullLight", fullLight);
@@ -102,7 +102,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
     }
 
     @Override
-    public void load(@NotNull CompoundTag tag) {
+    public final void load(@NotNull CompoundTag tag) {
         super.load(tag);
 
         fullLight = tag.getBoolean("fullLight");
@@ -133,23 +133,23 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         this.whenLoading();
     }
 
-    public String getExtraConfig(String key) {
+    public final String getExtraConfig(String key) {
         return extraConfigs.get(key);
     }
 
-    public String getExtraConfig(String key, String defaultValue) {
+    public final String getExtraConfig(String key, String defaultValue) {
         return extraConfigs.getOrDefault(key, defaultValue);
     }
 
-    public void setExtraConfig(String key, String value) {
+    public final void setExtraConfig(String key, String value) {
         extraConfigs.put(key, value);
     }
 
-    public void ensureExtraConfig(String key, String value) {
+    public final void ensureExtraConfig(String key, String value) {
         extraConfigs.putIfAbsent(key, value);
     }
 
-    public boolean getExtraConfigBool(String key, boolean defaultValue) {
+    public final boolean getExtraConfigBool(String key, boolean defaultValue) {
         String value = extraConfigs.get(key);
         if (value == null) {
             return defaultValue;
@@ -157,7 +157,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         return "true".equalsIgnoreCase(value);
     }
 
-    public int getExtraConfigInt(String key, int defaultValue) {
+    public final int getExtraConfigInt(String key, int defaultValue) {
         String value = extraConfigs.get(key);
         if (value == null) {
             return defaultValue;
@@ -169,7 +169,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         }
     }
 
-    public float getExtraConfigFloat(String key, float defaultValue) {
+    public final float getExtraConfigFloat(String key, float defaultValue) {
         String value = extraConfigs.get(key);
         if (value == null) {
             return defaultValue;
@@ -181,11 +181,11 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         }
     }
 
-    public ObjBlockProperty getProperty() {
+    public final ObjBlockProperty getProperty() {
         return property;
     }
 
-    public BlockPos getWorldPos() {
+    public final BlockPos getWorldPos() {
         return this.worldPosition;
     }
 
@@ -288,11 +288,11 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
     public void serverTick() {
     }
 
-    public VoxelShape getShapeInternal(BlockState state) {
+    public final VoxelShape getShapeInternal(BlockState state) {
         return setShape(state); // 你已有的逻辑
     }
 
-    public VoxelShape getCollisionShapeInternal(BlockState state) {
+    public final VoxelShape getCollisionShapeInternal(BlockState state) {
         return setCollisionShape(state);
     }
 
@@ -335,14 +335,14 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         int size = buf.readInt();
         for (int i = 0; i < size; i++) {
             String key = buf.readUtf(64);
-            String value = buf.readUtf(128);
+            String value = buf.readUtf(1024);
             extraConfigs.put(key, value);
         }
 
         size = buf.readInt();
         for (int i = 0; i < size; i++) {
             String key = buf.readUtf(64);
-            String value = buf.readUtf(128);
+            String value = buf.readUtf(1024);
             subModels.put(key, value);
         }
         if (level != null && !level.isClientSide) {
@@ -354,12 +354,6 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
             );
         }
         this.setChanged();
-    }
-
-    public void syncData() {
-        if (level instanceof ServerLevel) {
-            ((ServerLevel) level).getChunkSource().blockChanged(worldPosition);
-        }
     }
 
     @Override

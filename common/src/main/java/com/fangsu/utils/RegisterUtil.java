@@ -54,6 +54,7 @@ public class RegisterUtil {
         );
     }
 
+    @SafeVarargs
     public static RegistrySupplier<CreativeModeTab> addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
         return CREATIVE_TABS.register(
                 id,

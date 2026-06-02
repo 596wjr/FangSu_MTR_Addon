@@ -176,11 +176,18 @@ public class DrawableRoute {
                 prevStnIdx = curIdx;
             }
 
-            // 通过校验，替换为更长（或相等但符合方向）的路线
-            longestRoute = r;
-            isReversed = reversedCandidate;
-            beginIdx = r.platformIds.indexOf(route.platformIds.get(0));
-            endIdx = r.platformIds.indexOf(route.platformIds.get(route.platformIds.size() - 1));
+            // 通过校验
+            boolean longer = r.platformIds.size() > longestRoute.platformIds.size();
+            boolean sameLengthPreferSameDir = r.platformIds.size() == longestRoute.platformIds.size()
+                    && !reversedCandidate && isReversed;
+
+            if (longer || sameLengthPreferSameDir) {
+                // 更长 → 直接替换；等长但当前为反向候选为同向 → 优选同向
+                longestRoute = r;
+                isReversed = reversedCandidate;
+                beginIdx = r.platformIds.indexOf(route.platformIds.get(0));
+                endIdx = r.platformIds.indexOf(route.platformIds.get(route.platformIds.size() - 1));
+            }
         }
 
         DrawableRoute result = getDrawableRoute(longestRoute.asRouteDetail(), isReversed, beginIdx, endIdx);

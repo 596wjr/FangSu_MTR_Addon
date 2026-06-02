@@ -22,6 +22,8 @@ public class ModCreativeTabs {
             ModBlocks.ITEM_PIDS,
             ModBlocks.ITEM_DIAOBAN,
             ModBlocks.ITEM_TICKET_MACHINE,
+            ModBlocks.ITEM_RIS,
+            ModBlocks.ITEM_ADV_BOARD,
             ModBlocks.ITEM_COLLISION_COMPENSATOR
     );
 

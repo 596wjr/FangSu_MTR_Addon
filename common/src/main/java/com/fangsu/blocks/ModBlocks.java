@@ -21,6 +21,7 @@ public class ModBlocks {
     public static final RegistrySupplier<Block> BLOCK_PIDS = RegisterUtil.addBlock("pids", BlockPids::new);
     public static final RegistrySupplier<Block> BLOCK_DIAOBAN = RegisterUtil.addBlock("diaoban", BlockDiaoban::new);
     public static final RegistrySupplier<Block> BLOCK_RIS = RegisterUtil.addBlock("route_info_sign", BlockRis::new);
+    public static final RegistrySupplier<Block> BLOCK_ADV_BOARD = RegisterUtil.addBlock("adv_board", BlockAdvBoard::new);
     public static final RegistrySupplier<Block> BLOCK_TICKET_MACHINE = RegisterUtil.addBlock("ticket_machine", BlockTicketMachine::new);
 
     public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_TICKET_BARRIER =
@@ -39,6 +40,8 @@ public class ModBlocks {
             RegisterUtil.addBlockEntity("block_entity_pids", BLOCK_PIDS, BlockEntityPids::new);
     public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_DIAOBAN =
             RegisterUtil.addBlockEntity("block_entity_diaoban", BLOCK_DIAOBAN, BlockEntityDiaoban::new);
+    public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_ADV_BOARD =
+            RegisterUtil.addBlockEntity("block_entity_adv_board", BLOCK_ADV_BOARD, BlockEntityAdvBoard::new);
     public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_RIS =
             RegisterUtil.addBlockEntity("block_entity_route_info_sign", BLOCK_RIS, BlockEntityRis::new);
 
@@ -52,6 +55,8 @@ public class ModBlocks {
     public static final RegistrySupplier<Item> ITEM_PIDS = RegisterUtil.addBlockItem("pids", BLOCK_PIDS);
     public static final RegistrySupplier<Item> ITEM_DIAOBAN = RegisterUtil.addBlockItem("diaoban", BLOCK_DIAOBAN);
     public static final RegistrySupplier<Item> ITEM_RIS = RegisterUtil.addBlockItem("route_info_sign", BLOCK_RIS);
+    public static final RegistrySupplier<Item> ITEM_ADV_BOARD = RegisterUtil.addBlockItem("adv_board", BLOCK_ADV_BOARD);
+    
     public static final RegistrySupplier<Block> BLOCK_COLLISION_COMPENSATOR =
             RegisterUtil.addBlock("collision_compensation_block", BlockCollisionCompensator::new);
     public static final RegistrySupplier<Item> ITEM_COLLISION_COMPENSATOR =

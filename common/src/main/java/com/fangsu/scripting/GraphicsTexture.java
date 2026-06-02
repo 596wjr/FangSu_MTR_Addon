@@ -292,6 +292,9 @@ public class GraphicsTexture implements AutoCloseable {
 
         // 复制新图像内容到 bufferedImage
         Graphics2D g = this.bufferedImage.createGraphics();
+        // 先清除旧内容（透明背景），防止透明帧叠加造成残影
+        g.setBackground(new java.awt.Color(0, 0, 0, 0));
+        g.clearRect(0, 0, width, height);
         g.drawImage(newImage, 0, 0, null);
         g.dispose();
 

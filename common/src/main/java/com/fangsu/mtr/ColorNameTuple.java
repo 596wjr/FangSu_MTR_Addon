@@ -20,13 +20,13 @@ public class ColorNameTuple {
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof ColorNameTuple o1) {
-            return o1.color == color && o1.name.equals(name);
+            return color.equals(o1.color) && name.equals(o1.name);
         }
         return false;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(color, color);
+        return Objects.hash(color, name);
     }
 }

@@ -32,6 +32,7 @@ public class ContentManager {
         registerContent("pids", PidsContent.PidsLoader::load);
         registerContent("duanmen", DuanmenContent.DuanmenLoader::load);
         registerContent("route_info_sign", RouteInfoSignContent.RouteInfoSignLoader::load);
+        registerContent("adv_board", AdvBoardContent.AdvBoardLoader::load);
     }
 
     public void reset() {

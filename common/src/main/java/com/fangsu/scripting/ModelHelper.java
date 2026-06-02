@@ -1,7 +1,9 @@
 package com.fangsu.scripting;
 
 import com.fangsu.Main;
+import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
 import java.util.List;
@@ -158,5 +160,52 @@ public class ModelHelper {
                         .toArray())
                 .toArray(double[][]::new);
         addQuad(builder, quadDouble, reverse);
+    }
+
+    public static RawModel buildSpiltModel(
+            @NotNull RawModel leftTop, @NotNull RawModel top, @NotNull RawModel rightTop,
+            @NotNull RawModel left, @NotNull RawModel center, @NotNull RawModel right,
+            @NotNull RawModel leftBottom, @NotNull RawModel bottom, @NotNull RawModel rightBottom,
+            int w, int h, double widthStep, double heightStep
+    ) {
+        RawModel spiltModel = new RawModel();
+
+        for (int x = 0; x < w; x++) {
+            for (int y = 0; y < h; y++) {
+                RawModel thisModel;
+                if (x == 0) {
+                    if (y == 0) {
+                        thisModel = leftBottom;
+                    } else if (y == h - 1) {
+                        thisModel = leftTop;
+                    } else {
+                        thisModel = left;
+                    }
+                } else if (x == w - 1) {
+                    if (y == 0) {
+                        thisModel = rightBottom;
+                    } else if (y == h - 1) {
+                        thisModel = rightTop;
+                    } else {
+                        thisModel = right;
+                    }
+                } else {
+                    if (y == 0) {
+                        thisModel = bottom;
+                    } else if (y == h - 1) {
+                        thisModel = top;
+                    } else {
+                        thisModel = center;
+                    }
+                }
+                RawModel copy = thisModel.copy();
+                copy.applyTranslation((float) (x * widthStep), (float) (y * heightStep), 0);
+                spiltModel.append(copy);
+
+            }
+        }
+        spiltModel.applyTranslation((float) (w * widthStep / -2f + widthStep / 2f), 0, 0);
+
+        return spiltModel;
     }
 }

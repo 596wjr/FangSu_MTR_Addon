@@ -1,5 +1,7 @@
 package com.fangsu.utils;
 
+import com.fangsu.shape.RawShape;
+import com.fangsu.shape.ShapeCollection;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -10,6 +12,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * @deprecated 请使用 {@link com.fangsu.shape.RotatableShapeHelper} 替代。
+ * RotatableShapeHelper 提供了更简洁的碰撞箱旋转和缓存管理 API，
+ * 直接基于 ShapeCollection / RawShape 工作，无需手动构建 CollisionBox。
+ */
+@Deprecated
 public class CollisionBoxUtil {
 
     /* ========= CollisionBox (使用者侧 API) ========= */
@@ -47,6 +55,14 @@ public class CollisionBoxUtil {
                 if (a == null || a.length < 6) continue;
                 boxes.add(new AABB(a[0], a[1], a[2], a[3], a[4], a[5]));
             }
+        }
+
+        public CollisionBox(RawShape rawShape) {
+            boxes.add(rawShape.asAABB());
+        }
+
+        public CollisionBox(ShapeCollection shapeCollection) {
+            shapeCollection.getShapes().forEach(shape -> boxes.add(shape.asAABB()));
         }
 
         public CollisionBox(List<?> pos) {
@@ -157,7 +173,7 @@ public class CollisionBoxUtil {
     }
 
     /**
-     * ✅ 泛型 LRU Cache 工具方法（关键修改点）
+     * 泛型 LRU Cache 工具方法（关键修改点）
      */
     private static <K> Map<K, VoxelShape> createLRUCache(int capacity) {
         return new LinkedHashMap<>(capacity, 0.75f, true) {

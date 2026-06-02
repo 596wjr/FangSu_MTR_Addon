@@ -41,6 +41,10 @@ public final class ContentInfoUtil {
         return ContentManager.getInstance().getContentById("route_info_sign", mainModel, subModel, RouteInfoSignContent.class);
     }
 
+    public static AdvBoardContent getAdvBoardContent(String mainModel, String subModel) {
+        return ContentManager.getInstance().getContentById("adv_board", mainModel, subModel, AdvBoardContent.class);
+    }
+
     public static ScreendoorDoorContent.ScreendoorDoorDisplayInfo getScreendoorDisplayInfo(String mainModel, String subModel, int doorSide) {
         Map<String, Object> current = CustomItems.getContentInfo(mainModel, getScreendoorContentPath(doorSide), subModel);
         if (current == null) return null;

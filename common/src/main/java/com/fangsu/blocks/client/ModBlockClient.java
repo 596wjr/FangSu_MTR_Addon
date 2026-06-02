@@ -43,5 +43,9 @@ public class ModBlockClient {
                 ModBlocks.BLOCK_ENTITY_RIS.get(),
                 ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
         );
+        BlockEntityRendererRegistry.register(
+                ModBlocks.BLOCK_ENTITY_ADV_BOARD.get(),
+                ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
+        );
     }
 }
