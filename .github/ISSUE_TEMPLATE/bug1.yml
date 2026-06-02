@@ -2,9 +2,10 @@ name: Bug Report
 description: |
   Report a bug.
   提交 Bug。
-title: "[Bug]: 在这里填写标题!!!Enter the title here!!!"
+title: ""
 labels:
   - 新 New
+  - BUG 特性
 assignees: [ ]
 
 body:
