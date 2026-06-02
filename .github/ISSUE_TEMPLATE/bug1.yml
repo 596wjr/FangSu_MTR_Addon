@@ -1,10 +1,10 @@
-name: Bug Report / Feature Report
+name: Bug Report
 description: |
-  Report a bug or a "feature".
-  提交 Bug，或者那个“这不是 Bug，这是特性”的东西。
-title: "[Bug / Feature]: "
+  Report a bug.
+  提交 Bug。
+title: "[Bug]: 在这里填写标题!!!Enter the title here!!!"
 labels:
-  - bug
+  - 新 New
 assignees: [ ]
 
 body:
@@ -17,8 +17,8 @@ body:
         在提交 Issue 之前，请确认以下内容。
       options:
         - label: |
-            I have searched the Issues page and confirmed that this bug / feature has not been reported.
-            我已在 Issues 页面中搜索，确认该 Bug / 特性未被提交过。
+            I have searched the Issues page and confirmed that this bug has not been reported.
+            我已在 Issues 页面中搜索，确认该 Bug 未被提交过。
           required: true
         - label: |
             I have checked the FAQ / documentation and confirmed this is not a known issue.
@@ -28,7 +28,7 @@ body:
   - type: textarea
     id: description
     attributes:
-      label: Describe the Bug / Feature（描述 Bug / 特性）
+      label: Describe the Bug（描述 Bug ）
       description: |
         Clearly describe what happened.
         清晰描述发生了什么。
@@ -132,6 +132,7 @@ body:
         - Forge
         - Fabric
         - Quilt
+        - NeoForge
         - Other / 其他
     validations:
       required: true
