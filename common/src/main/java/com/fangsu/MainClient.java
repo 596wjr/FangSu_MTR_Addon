@@ -10,6 +10,9 @@ import com.fangsu.render.sowcerext.reuse.DrawScheduler;
 import com.fangsu.render.sowcerext.reuse.ModelManager;
 import com.fangsu.drawing.sign.SignItemFactory;
 import com.fangsu.drawing.diaoban.DiaobanDrawManager;
+import com.fangsu.drawing.pids.PidsDrawManager;
+import com.fangsu.drawing.sign.RisDrawManager;
+import com.fangsu.drawing.sign.SisDrawManager;
 import com.fangsu.train.FunctionalCustomTrains;
 import com.fangsu.train.LcdManager;
 import com.fangsu.train.lcds.MtrLcd;
@@ -64,6 +67,9 @@ public class MainClient {
         CustomItems.getInstance().init();
         SignItemFactory.init();
         DiaobanDrawManager.preload();
+        PidsDrawManager.preload();
+        RisDrawManager.preload();
+        SisDrawManager.preload();
         try {
             MainClient.drawScheduler.reloadShaders(resourceManager);
         } catch (Exception e) {

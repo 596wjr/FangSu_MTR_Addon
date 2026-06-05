@@ -1,6 +1,7 @@
 package com.fangsu.userScripts;
 
 import com.fangsu.Main;
+import com.fangsu.render.sowcer.math.Vector3f;
 import com.fangsu.scripting.*;
 import com.fangsu.utils.ModuleAccessHelper;
 import net.minecraft.resources.ResourceLocation;
@@ -166,6 +167,9 @@ public class ScriptManager {
         bindings.putMember("MinecraftClient", JsStaticBridge.fromStaticClass(MinecraftClientUtil.class));
         bindings.putMember("Resources", JsStaticBridge.fromStaticClass(JsResources.class));
 
+        // 数学类
+        bindings.putMember("Vector3f", JsStaticBridge.fromStaticClass(Vector3f.class));
+
         // 函数绑定
         bindings.putMember("drawStrUnified", fn(a -> JsFunctions.jsDrawStrUnified(a[0].asHostObject(), a[1].asHostObject(), a[2].asString(), a[3].asDouble(), a[4].asDouble(), a[5].asDouble(), a[6].asInt())));
         bindings.putMember("getUnifiedStringWidth", fn(a -> JsFunctions.jsGetUnifiedStringWidth(a[0].asHostObject(), a[1].asHostObject(), a[2].asString(), a[3].asDouble())));
@@ -202,6 +206,7 @@ public class ScriptManager {
         bindings.putMember("getNonCJKLineName", fn(a -> JsFunctions.getNonCJKLineName(a[0].asString())));
         bindings.putMember("isNumLine", fn(a -> JsFunctions.isNumLine(a[0].asString())));
         bindings.putMember("changeImageColor", fn(a -> JsFunctions.changeImageColor(a[0].asHostObject(), a[1].asHostObject())));
+        bindings.putMember("routeToObj", fn(a -> JsFunctions.jsRouteToObj(a[0].asHostObject())));
     }
 
     public static ScriptManager getInstance() {
@@ -351,6 +356,19 @@ public class ScriptManager {
         });
 
         return ProxyObject.fromMap(map);
+    }
+
+    /**
+     * 同步执行 JS 函数（用于绘制回调，确保 GraphicsTextureHelper 能正确感知绘制完成状态）。
+     * 直接在调用线程上执行 JS，阻塞直到完成或失败。
+     * 与 requestRunFunctionWithCallback 不同，这个方法不提交到 SCRIPT_EXECUTOR，
+     * 因此调用者可以精确知道 JS 执行是否成功。
+     * 如果 JS 执行失败或函数不存在，会抛出异常让调用者重试。
+     */
+    public void requestRunFunctionSync(ScriptHolderBase holder, Runnable callback, String name, Object... params) {
+        if (!initialized.get() || isShutdown) return;
+        if (holder == null) return;
+        holder.runFunctionSync(name, callback, params);
     }
 
     //线程优化

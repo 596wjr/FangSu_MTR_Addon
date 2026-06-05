@@ -1,10 +1,13 @@
 package com.fangsu.client;
 
 import com.fangsu.blockEntities.BaseObjBlockEntity;
+import com.fangsu.blockEntities.BlockEntityScreendoorCentralControl;
 import com.fangsu.drawing.sign.SignItem;
 import com.fangsu.ui.ObjBlockConfigScreen;
 import com.fangsu.ui.PlatformSelectionScreen;
 import com.fangsu.ui.RouteSelectionScreen;
+import com.fangsu.ui.ScreendoorCentralControlScreen;
+import com.fangsu.ui.StationSelectionScreen;
 import com.fangsu.ui.SignConfigUI;
 import com.fangsu.ui.ticketMachine.TicketMachineMainScreen;
 import net.minecraft.client.Minecraft;
@@ -46,6 +49,20 @@ public final class ClientHooksImpl {
             Minecraft.getInstance().setScreen(new RouteSelectionScreen(
                     component, defaultValue, setter, pos, maxSelect, Minecraft.getInstance().screen
             ));
+        });
+    }
+
+    public static void openStationSelectScreen(Component component, List<Long> defaultValue, Consumer<List<Long>> setter, BlockPos pos, int maxSelect) {
+        Minecraft.getInstance().execute(() -> {
+            Minecraft.getInstance().setScreen(new StationSelectionScreen(
+                    component, defaultValue, setter, pos, maxSelect, Minecraft.getInstance().screen
+            ));
+        });
+    }
+
+    public static void openScreendoorCentralControlScreen(BlockEntityScreendoorCentralControl ctrl) {
+        Minecraft.getInstance().execute(() -> {
+            Minecraft.getInstance().setScreen(new ScreendoorCentralControlScreen(ctrl));
         });
     }
 }

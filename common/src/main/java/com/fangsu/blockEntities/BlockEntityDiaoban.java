@@ -17,6 +17,7 @@ import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
 import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.scripting.ModelHelper;
+import com.fangsu.shape.*;
 import com.fangsu.ui.RouteSelectionScreen;
 import com.fangsu.utils.*;
 import com.google.gson.JsonElement;
@@ -29,9 +30,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -53,9 +52,10 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     protected String drawScript;
 
     private DynamicModelHolder dmhLeft, dmhCenter, dmhRight, dmhDlOn, dmhDlOff, dmhDisp = new DynamicModelHolder();
-    private String shapeLeftSerialized = "";
-    private String shapeCenterSerialized = "";
-    private String shapeRightSerialized = "";
+    private ShapeCollection shapeLeft;
+    private ShapeCollection shapeCenter;
+    private ShapeCollection shapeRight;
+    private ShapeCollection fullShape;
     private Map<String, JsonElement> userExtraConfigs;
 
     private volatile BaseDiaobanDrawing drawing;
@@ -71,9 +71,13 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     private float doorValue;
 
     private boolean firstInit = false;
-    private boolean drawInit = false;
+    private boolean scriptInit = false;
+    private boolean scriptDone = false;
 
     private List<RouteSelectionScreen.RouteSelectInfo> routes;
+
+    /** 上次注册绘制的标识，避免重复注册 */
+    private String lastRegisteredDrawInfoId = "";
 
     public BlockEntityDiaoban(BlockPos blockPos, BlockState blockState) {
         super(BLOCK_ENTITY_DIAOBAN.get(), blockPos, blockState);
@@ -164,14 +168,20 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
             texW = texSize * length + 1;
             texH = texSize;
 
+            // 构建 ShapeCollection，从像素坐标(0~16)转换为世界坐标(0~1)
             Map<String, List<Double>> shapeMap = content.getShape();
-            shapeLeftSerialized = ShapeSerializer.serialize(shapeMap.get("left"));
-            shapeCenterSerialized = ShapeSerializer.serialize(shapeMap.get("center"));
-            shapeRightSerialized = ShapeSerializer.serialize(shapeMap.get("right"));
+            shapeLeft = buildShapeCollection(shapeMap.get("left"));
+            shapeCenter = buildShapeCollection(shapeMap.get("center"));
+            shapeRight = buildShapeCollection(shapeMap.get("right"));
 
+            // 构建完整形状
+            fullShape = buildFullShape();
 
             firstInit = true;
-            drawInit = false;
+
+            scriptInit = false;
+            scriptDone = false;
+            lastRegisteredDrawInfoId = "";
 
         } catch (Exception e) {
             Main.LOGGER.warn("Failed to load diaoban: {}", e.getMessage());
@@ -180,70 +190,82 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
 
     @Override
     public VoxelShape setCollisionShape(BlockState state) {
-        return getDiaobanShape(state, true);
+        if (markedError || fullShape == null || fullShape.isEmpty()) return Shapes.empty();
+        return setShape(state);
     }
 
     @Override
     public VoxelShape setShape(BlockState state) {
-        return getDiaobanShape(state, false);
+        if (markedError || fullShape == null || fullShape.isEmpty()) return Shapes.block();
+        Direction facing = state.getValue(BaseObjBlock.FACING);
+        Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
+        float rotX = this.rotateX;
+        float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
+        float rotZ = this.rotateZ;
+
+        RotatableShapeHelper helper = RotatableShapeHelper.getInstance();
+        VoxelShape rotated = helper.getShapeForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
+        if (rotated == null) {
+            helper.initForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ, this.fullShape);
+            rotated = helper.getShapeForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
+        }
+        return rotated.move(trans.x, trans.y, trans.z).optimize();
     }
 
-    private VoxelShape getDiaobanShape(BlockState state, boolean collision) {
-        try {
-            String serialized = buildDiaobanShapeString();
-            if (serialized.isEmpty()) return collision ? Shapes.empty() : Shapes.block();
-            Direction facing = state.getValue(BaseObjBlock.FACING);
-            int yRot = Math.floorMod((int) facing.toYRot(), 360);
-            VoxelShape shape = ShapeSerializer.getShape(serialized, yRot);
+    /**
+     * 从 DiaobanContent 的 List&lt;Double&gt;（像素坐标 0~16）构建 ShapeCollection（世界坐标 0~1）
+     */
+    private static ShapeCollection buildShapeCollection(List<Double> shapeData) {
+        ShapeCollection col = new ShapeCollection();
+        if (shapeData == null || shapeData.size() < 6) return col;
+        double[] box = new double[6];
+        for (int i = 0; i < 6; i++) {
+            box[i] = shapeData.get(i) / 16.0;
+        }
+        col.add(new RawShape(box));
+        return col;
+    }
 
-            if (rotateX != 0 || rotateY != 0 || rotateZ != 0) {
-                VoxelShape rotated = Shapes.empty();
-                long posLong = worldPosition.asLong();
-                for (AABB box : shape.toAabbs()) {
-                    CollisionBoxUtil.CollisionBox collisionBox = new CollisionBoxUtil.CollisionBox(box.minX * 16, box.minY * 16, box.minZ * 16, box.maxX * 16, box.maxY * 16, box.maxZ * 16);
-                    VoxelShape part = CollisionBoxUtil.cachedRotatedShape(posLong, collisionBox, Vec3.ZERO, rotateX, rotateY, rotateZ, 0.1f);
-                    rotated = Shapes.or(rotated, part);
-                }
-                shape = rotated.optimize();
+    /**
+     * 根据 length 拼接 left / center × (length-2) / right 得到完整形状
+     */
+    private ShapeCollection buildFullShape() {
+        if (length <= 0) return new ShapeCollection();
+        ShapeCollection result = new ShapeCollection();
+        // 起始 X 偏移（像素值），用于形状拼接
+        double startX = (-0.5 * unit * (length - 1)) / 16.0;
+
+        // 左
+        if (shapeLeft != null) {
+            ShapeCollection copy = shapeLeft.copy();
+            copy.moveAll(startX, 0, 0);
+            result.addAll(copy);
+        }
+
+        // 中间（重复 length - 2 次）
+        if (shapeCenter != null) {
+            for (int i = 0; i < length - 2; i++) {
+                ShapeCollection copy = shapeCenter.copy();
+                double centerX = startX + (i + 1) * unit / 16.0;
+                copy.moveAll(centerX, 0, 0);
+                result.addAll(copy);
             }
-
-            Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
-            return shape.move(trans.x, trans.y, trans.z);
-        } catch (Exception e) {
-            return collision ? Shapes.empty() : Block.box(0, 0, 0, 16, 16, 16);
         }
-    }
 
-    private String buildDiaobanShapeString() {
-        if (length <= 0) return "";
-        List<String> parts = new ArrayList<>();
-        double startX = (-0.5 * unit * (length - 1));
-        appendShapeWithOffset(parts, shapeLeftSerialized, startX);
-        for (int i = 0; i < length - 2; i++) {
-            appendShapeWithOffset(parts, shapeCenterSerialized, startX + (i + 1) * unit);
+        // 右
+        if (shapeRight != null) {
+            ShapeCollection copy = shapeRight.copy();
+            double rightX = startX + (length - 1) * unit / 16.0;
+            copy.moveAll(rightX, 0, 0);
+            result.addAll(copy);
         }
-        appendShapeWithOffset(parts, shapeRightSerialized, startX + (length - 1) * unit);
-        return String.join("/", parts);
-    }
 
-    private void appendShapeWithOffset(List<String> parts, String serialized, double offsetX) {
-        if (serialized == null || serialized.isEmpty()) return;
-        String[] boxes = serialized.split("/");
-        for (String box : boxes) {
-            String[] values = box.split(",");
-            if (values.length != 6) continue;
-            try {
-                double x1 = Double.parseDouble(values[0].trim()) + offsetX;
-                double x2 = Double.parseDouble(values[3].trim()) + offsetX;
-                parts.add(x1 + "," + values[1].trim() + "," + values[2].trim() + "," + x2 + "," + values[4].trim() + "," + values[5].trim());
-            } catch (Exception ignored) {
-            }
-        }
+        return result;
     }
 
     @Override
     public void whenRendering() {
-        if (firstInit && !drawInit) {
+        if (!scriptDone) {
             initDrawingAsync();
         }
 
@@ -281,22 +303,20 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
         // 绘制中心模型
         Matrices matCenter = new Matrices();
         for (int i = 0; i < length - 2; i++) {
-            // 第一个中心模型位置 = startX + unit/16，之后每次递增 unit/16
             double centerX = startX + (i + 1) * unit / 16.0;
-            matCenter.setIdentity();  // 重置矩阵
+            matCenter.setIdentity();
             matCenter.translate(centerX, 0, 0);
             ctx.drawModel(dmhCenter, matCenter);
         }
 
-        if (dmhDisp != null) {
-            if (dmhDisp.getUploadedModel() != null && GraphicsTextureHelper.getInstance().hasDrawGraphic(getBlockPos())) {
-                dmhDisp.getUploadedModel().replaceAllTexture(GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos()).identifier);
+        // 仅在贴图就绪后才绘制 display 模型
+        if (scriptDone && dmhDisp != null && dmhDisp.getUploadedModel() != null
+                && GraphicsTextureHelper.getInstance().isTextureAvailable(getBlockPos())) {
+            GraphicsTexture tex = GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos());
+            if (tex != null && tex.isValid()) {
+                dmhDisp.getUploadedModel().replaceAllTexture(tex.identifier);
+                ctx.drawModel(dmhDisp.getUploadedModel(), null);
             }
-            Matrices matDisp = new Matrices();
-            double dispX = 0;
-            //(-0.5 * unit * length) / 16.0;
-            matDisp.translate(dispX, 0, 0);
-            ctx.drawModel(dmhDisp, matDisp);
         }
 
         if (doorLightType >= 0 && withDoorlight) {
@@ -407,25 +427,54 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     private void initDrawingAsync() {
         if (!firstInit) return;
 
-        GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
-        gtHelper.removeDrawGraphic(getBlockPos());
-
-        routes = reloadRoute(getExtraConfig("routes", "[]"));
         final String drawKey = drawScript;
-        drawing = DiaobanDrawManager.createDrawing(drawScript);
-        gtHelper.addDrawGraphicWithGt(getBlockPos(),
-                new GraphicsTextureHelper.DrawInfo(
-                        "DIAOBAN_" + drawKey + "_" + routes + "_" + arrowDirection,
-                        texW, texH, true, false
-                ),
-                gt -> {
-                    BaseDiaobanDrawing drawer = drawing;
-                    if (drawer != null) {
-                        drawer.draw(gt, routes, drawState, arrowDirection, texW, texH);
+
+        // 阶段1：同步获取 Drawing 实例
+        if (!scriptInit) {
+            scriptInit = true;
+            try {
+                drawing = DiaobanDrawManager.createDrawing(drawKey);
+            } catch (Throwable e) {
+                Main.LOGGER.error("Failed to create diaoban drawing {}", drawKey, e);
+            }
+            // 如果创建失败，直接标记完成（避免卡在第二阶段一直等待）
+            if (drawing == null) {
+                scriptDone = true;
+                return;
+            }
+            return;
+        }
+
+        // Drawing 尚未就绪，等待（首次创建后的等待）
+        if (drawing == null) return;
+
+        // 阶段2：Drawing 已就绪，注册绘制（仅一次）
+        if (!scriptDone) {
+            GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
+            routes = reloadRoute(getExtraConfig("routes", "[]"));
+            String drawInfoId = "DIAOBAN_" + drawKey + "_" + routes + "_" + arrowDirection;
+            // 如果标识相同（数据未变化），直接标记完成
+            if (drawInfoId.equals(lastRegisteredDrawInfoId)) {
+                scriptDone = true;
+                return;
+            }
+            // 标识变化，先移除旧绘制再注册新绘制
+            gtHelper.removeDrawGraphic(getBlockPos());
+            gtHelper.addDrawGraphicWithGt(getBlockPos(),
+                    new GraphicsTextureHelper.DrawInfo(
+                            drawInfoId,
+                            texW, texH, true, false
+                    ),
+                    gt -> {
+                        BaseDiaobanDrawing drawer = drawing;
+                        if (drawer != null) {
+                            drawer.draw(gt, routes, drawState, arrowDirection, texW, texH);
+                        }
                     }
-                }
-        );
-        drawInit = true;
+            );
+            lastRegisteredDrawInfoId = drawInfoId;
+            scriptDone = true;
+        }
     }
 
     @Override
@@ -450,6 +499,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
 
     @Override
     public void whenDisposing() {
+        RotatableShapeHelper.getInstance().removeCache(getWorldPos());
         GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
         gtHelper.removeDrawGraphic(getBlockPos());
     }

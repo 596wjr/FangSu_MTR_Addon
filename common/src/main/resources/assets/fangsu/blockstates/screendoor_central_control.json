@@ -1,0 +1,23 @@
+{
+    "variants": {
+        "facing=north,light_1=false,light_2=false": { "model": "fangsu:block/screendoor_centeral_control" },
+        "facing=north,light_1=false,light_2=true": { "model": "fangsu:block/screendoor_centeral_control" },
+        "facing=north,light_1=true,light_2=false": { "model": "fangsu:block/screendoor_centeral_control_l1_closed" },
+        "facing=north,light_1=true,light_2=true": { "model": "fangsu:block/screendoor_centeral_control_l1_open" },
+
+        "facing=east,light_1=false,light_2=false": { "model": "fangsu:block/screendoor_centeral_control", "y": 90 },
+        "facing=east,light_1=false,light_2=true": { "model": "fangsu:block/screendoor_centeral_control", "y": 90 },
+        "facing=east,light_1=true,light_2=false": { "model": "fangsu:block/screendoor_centeral_control_l1_closed", "y": 90 },
+        "facing=east,light_1=true,light_2=true": { "model": "fangsu:block/screendoor_centeral_control_l1_open", "y": 90 },
+
+        "facing=south,light_1=false,light_2=false": { "model": "fangsu:block/screendoor_centeral_control", "y": 180 },
+        "facing=south,light_1=false,light_2=true": { "model": "fangsu:block/screendoor_centeral_control", "y": 180 },
+        "facing=south,light_1=true,light_2=false": { "model": "fangsu:block/screendoor_centeral_control_l1_closed", "y": 180 },
+        "facing=south,light_1=true,light_2=true": { "model": "fangsu:block/screendoor_centeral_control_l1_open", "y": 180 },
+
+        "facing=west,light_1=false,light_2=false": { "model": "fangsu:block/screendoor_centeral_control", "y": 270 },
+        "facing=west,light_1=false,light_2=true": { "model": "fangsu:block/screendoor_centeral_control", "y": 270 },
+        "facing=west,light_1=true,light_2=false": { "model": "fangsu:block/screendoor_centeral_control_l1_closed", "y": 270 },
+        "facing=west,light_1=true,light_2=true": { "model": "fangsu:block/screendoor_centeral_control_l1_open", "y": 270 }
+    }
+}

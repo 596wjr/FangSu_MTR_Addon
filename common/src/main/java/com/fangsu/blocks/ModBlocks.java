@@ -11,6 +11,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 
+import java.util.List;
+
 public class ModBlocks {
     public static final RegistrySupplier<Block> BLOCK_TICKET_BARRIER = RegisterUtil.addBlock("ticket_barrier", BlockTicketBarrier::new);
     public static final RegistrySupplier<Block> BLOCK_SCREENDOOR = RegisterUtil.addBlock("screendoor_door", BlockScreendoor::new);
@@ -23,6 +25,12 @@ public class ModBlocks {
     public static final RegistrySupplier<Block> BLOCK_RIS = RegisterUtil.addBlock("route_info_sign", BlockRis::new);
     public static final RegistrySupplier<Block> BLOCK_ADV_BOARD = RegisterUtil.addBlock("adv_board", BlockAdvBoard::new);
     public static final RegistrySupplier<Block> BLOCK_TICKET_MACHINE = RegisterUtil.addBlock("ticket_machine", BlockTicketMachine::new);
+    public static final RegistrySupplier<Block> BLOCK_SIS = RegisterUtil.addBlock("station_info_sign", BlockSis::new);
+    public static final RegistrySupplier<Block> BLOCK_SCREENDOOR_CENTRAL_CONTROL =
+            RegisterUtil.addBlock("screendoor_central_control", BlockScreendoorCentralControl::new);
+
+    public static final RegistrySupplier<BlockEntityType<BlockEntityScreendoorCentralControl>> BLOCK_ENTITY_SCREENDOOR_CENTRAL_CONTROL =
+            RegisterUtil.addBlockEntity("block_entity_screendoor_central_control", BLOCK_SCREENDOOR_CENTRAL_CONTROL, BlockEntityScreendoorCentralControl::new);
 
     public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_TICKET_BARRIER =
             RegisterUtil.addBlockEntity("block_entity_ticket_barrier", BLOCK_TICKET_BARRIER, BlockEntityTicketBarrier::new);
@@ -44,6 +52,8 @@ public class ModBlocks {
             RegisterUtil.addBlockEntity("block_entity_adv_board", BLOCK_ADV_BOARD, BlockEntityAdvBoard::new);
     public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_RIS =
             RegisterUtil.addBlockEntity("block_entity_route_info_sign", BLOCK_RIS, BlockEntityRis::new);
+    public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_SIS =
+            RegisterUtil.addBlockEntity("block_entity_station_info_sign", BLOCK_SIS, BlockEntitySis::new);
 
     public static final RegistrySupplier<Item> ITEM_TICKET_BARRIER = RegisterUtil.addBlockItem("ticket_barrier", BLOCK_TICKET_BARRIER);
     public static final RegistrySupplier<Item> ITEM_SCREENDOOR = RegisterUtil.addBlockItem("screendoor_door", BLOCK_SCREENDOOR);
@@ -56,7 +66,10 @@ public class ModBlocks {
     public static final RegistrySupplier<Item> ITEM_DIAOBAN = RegisterUtil.addBlockItem("diaoban", BLOCK_DIAOBAN);
     public static final RegistrySupplier<Item> ITEM_RIS = RegisterUtil.addBlockItem("route_info_sign", BLOCK_RIS);
     public static final RegistrySupplier<Item> ITEM_ADV_BOARD = RegisterUtil.addBlockItem("adv_board", BLOCK_ADV_BOARD);
-    
+    public static final RegistrySupplier<Item> ITEM_SIS = RegisterUtil.addBlockItem("station_info_sign", BLOCK_SIS);
+    public static final RegistrySupplier<Item> ITEM_SCREENDOOR_CENTRAL_CONTROL =
+            RegisterUtil.addBlockItem("screendoor_central_control", BLOCK_SCREENDOOR_CENTRAL_CONTROL);
+
     public static final RegistrySupplier<Block> BLOCK_COLLISION_COMPENSATOR =
             RegisterUtil.addBlock("collision_compensation_block", BlockCollisionCompensator::new);
     public static final RegistrySupplier<Item> ITEM_COLLISION_COMPENSATOR =

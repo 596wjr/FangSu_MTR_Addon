@@ -46,6 +46,14 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
     private boolean doorTarget;
     private float doorValue;
 
+    // ====== 集控 / 隔离相关 ======
+    /** 是否受集控锁定（集控控制中） */
+    private boolean centralLocked = false;
+    /** 门隔离状态（仅非集控时可用） */
+    private boolean isolation = false;
+    /** 门开启状态（仅在隔离打开时有效） */
+    private boolean doorOpenOverride = false;
+
     /**
      * 0 = left
      * 1 = right
@@ -76,9 +84,13 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
     public void whenLoading() {
         ensureExtraConfig("doorSide", "0");
         ensureExtraConfig("isAuto", "true");
+        ensureExtraConfig("isolation", "false");
+        ensureExtraConfig("doorOpenOverride", "false");
 
         doorSide = Integer.parseInt(extraConfigs.get("doorSide"));
         isAutoDoorSide = extraConfigs.getOrDefault("isAuto", "true").equals("true");
+        isolation = extraConfigs.getOrDefault("isolation", "false").equals("true");
+        doorOpenOverride = extraConfigs.getOrDefault("doorOpenOverride", "false").equals("true");
 
         // 不在 loading 阶段直接算
         pendingAutoDoorSide = true;
@@ -199,22 +211,74 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
 
     @Override
     public boolean getDoorTarget() {
+        // 隔离且开门时强制返回 true
+        if (isolation && doorOpenOverride) {
+            return true;
+        }
         return doorTarget;
     }
 
     @Override
     public void setDoorTarget(boolean target) {
-        this.doorTarget = target;
+        // 隔离状态下不接受外部设置
+        if (!isolation) {
+            this.doorTarget = target;
+        }
     }
 
     @Override
     public float getDoorValue() {
+        // 隔离且开门时强制为 1.0
+        if (isolation && doorOpenOverride) {
+            return 1.0f;
+        }
         return doorValue;
     }
 
     @Override
     public void setDoorValue(float value) {
-        this.doorValue = value;
+        if (!isolation) {
+            this.doorValue = value;
+        }
+    }
+
+    @Override
+    public boolean isLocked() {
+        return isolation;
+    }
+
+    public boolean isCentralLocked() {
+        return centralLocked;
+    }
+
+    public void setCentralLocked(boolean locked) {
+        this.centralLocked = locked;
+    }
+
+    public boolean isIsolation() {
+        return isolation;
+    }
+
+    public void setLocalIsolation(boolean isolation) {
+        this.isolation = isolation;
+    }
+
+    public boolean isDoorOpenOverride() {
+        return doorOpenOverride;
+    }
+
+    public void setLocalDoorOpenOverride(boolean doorOpen) {
+        this.doorOpenOverride = doorOpen;
+    }
+
+    /**
+     * 解除隔离时重置门的 transient 目标状态。
+     * 保留 dispDoorValue 让渲染动画自然过渡到关闭。
+     */
+    public void resetDoorState() {
+        this.doorTarget = false;
+        this.doorValue = 0f;
+        this.cacheDispIsOpen = false;
     }
 
     @Override
@@ -264,6 +328,26 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
                 () -> getExtraConfigInt("doorSide", 0),
                 (v) -> extra.put("doorSide", v.toString())
         ).setSaveOnChange(true).setShowCondition(v -> extra.getOrDefault("isAuto", "true").equals("false")));
+
+        // ====== 隔离控制（非集控时可用） ======
+        configs.add(new BoolConfig(
+                Component.translatable("ui.fangsu.screendoor.isolation"),
+                new ConfigSpec("bool"),
+                () -> extra.getOrDefault("isolation", "false").equals("true"),
+                (v) -> {
+                    extra.put("isolation", v ? "true" : "false");
+                    isolation = v;
+                }
+        ).setSaveOnChange(true));
+        configs.add(new BoolConfig(
+                Component.translatable("ui.fangsu.screendoor.doorOpenOverride"),
+                new ConfigSpec("bool"),
+                () -> extra.getOrDefault("doorOpenOverride", "false").equals("true"),
+                (v) -> {
+                    extra.put("doorOpenOverride", v ? "true" : "false");
+                    doorOpenOverride = v;
+                }
+        ).setSaveOnChange(true).setShowCondition(v -> extra.getOrDefault("isolation", "false").equals("true")));
 
         return configs;
     }

@@ -1,0 +1,24 @@
+package com.fangsu.drawing.sign;
+
+import com.fangsu.blockEntities.RouteDrawer;
+import com.fangsu.scripting.GraphicsTexture;
+import com.fangsu.ui.RouteSelectionScreen;
+
+import java.util.List;
+import java.util.Map;
+
+public abstract class BaseRisDrawing {
+
+    public abstract void draw(GraphicsTexture gt, List<RouteSelectionScreen.RouteSelectInfo> routes,
+                              Map<String, Object> drawState, int arrowDirection, int texW, int texH);
+
+    protected RouteDrawer.RouteDrawInfo buildDrawInfo(List<RouteSelectionScreen.RouteSelectInfo> routes,
+                                                      int arrowDirection, int texW, int texH) {
+        RouteSelectionScreen.RouteSelectInfo info = routes.isEmpty() ? null : routes.get(0);
+        if (info == null || info.route == null) {
+            return new RouteDrawer.RouteDrawInfo(null, arrowDirection, null, 0, new int[]{0, 0, texW, texH});
+        }
+        int index = info.plat != null ? info.route.getPlatformIdIndex(info.plat.id) : 0;
+        return new RouteDrawer.RouteDrawInfo(info.route.asRouteDetail(), arrowDirection, info.plat, index, new int[]{0, 0, texW, texH});
+    }
+}

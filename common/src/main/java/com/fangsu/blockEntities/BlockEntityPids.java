@@ -6,14 +6,13 @@ import com.fangsu.client.ClientHooks;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
 import com.fangsu.customItem.contents.PidsContent;
+import com.fangsu.drawing.pids.BasePidsDrawing;
+import com.fangsu.drawing.pids.PidsDrawManager;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
 import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.scripting.ModelHelper;
-import com.fangsu.userScripts.PidsScriptHolder;
-import com.fangsu.userScripts.ScriptHolderBase;
-import com.fangsu.userScripts.ScriptManager;
 import com.fangsu.utils.*;
 import com.google.gson.JsonElement;
 import net.minecraft.core.BlockPos;
@@ -32,7 +31,6 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_PIDS;
 
@@ -47,12 +45,12 @@ public class BlockEntityPids extends BaseObjBlockEntity {
     private CollisionBoxUtil.CollisionBox shape;
     private Map<String, JsonElement> userExtraConfigs;
 
-    private volatile ScriptHolderBase scriptHolder;
+    private volatile BasePidsDrawing pidsDrawing;
     private int texW, texH;
     private Map<String, Object> drawState = new HashMap<>();
+    private String drawScriptKey;
 
     private List<Long> plats;
-    private volatile int scriptLoadToken = 0;
 
     public BlockEntityPids(BlockPos blockPos, BlockState blockState) {
         super(BLOCK_ENTITY_PIDS.get(), blockPos, blockState);
@@ -64,6 +62,9 @@ public class BlockEntityPids extends BaseObjBlockEntity {
         ensureExtraConfig("plats", "[]");
         mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
         subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
+        pidsDrawing = null;
+        drawState.clear();
+        lastRegisteredDrawInfoId = "";
         List<JsonElement> rawPlats = Main.JSON_PARSER.parse(getExtraConfig("plats")).getAsJsonArray().asList();
         plats = new ArrayList<>();
         for (JsonElement rawPlat : rawPlats) {
@@ -87,7 +88,8 @@ public class BlockEntityPids extends BaseObjBlockEntity {
             texH = texSize.size() > 1 ? texSize.get(1) : 128;
             Main.LOGGER.info("texW={}, texH={}", texW, texH);
             if (!content.getScript().isEmpty()) {
-                initScriptDrawingAsync(content.getScript());
+                drawScriptKey = content.getScript();
+                initDrawingAsync();
             }
             boolean flipV = content.isFlipV();
             String model = content.getModel();
@@ -123,59 +125,68 @@ public class BlockEntityPids extends BaseObjBlockEntity {
     }
 
 
-    private void initScriptDrawingAsync(String scriptPath) {
+    /**
+     * 上次注册绘制的标识，避免重复注册
+     */
+    private String lastRegisteredDrawInfoId = "";
+
+    private void initDrawingAsync() {
+        if (drawScriptKey == null || drawScriptKey.isEmpty()) return;
+
         GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
+
+        final String scriptKey = drawScriptKey;
+
+        // 通过 PidsDrawManager 获取绘制实例（支持 Java 类和 JS 脚本）
+        if (pidsDrawing == null) {
+            pidsDrawing = PidsDrawManager.createDrawing(scriptKey);
+        }
+        if (pidsDrawing == null) return;
+
+        // 去重：如果绘制标识未变化，说明数据未更新，无需重新注册
+        String drawInfoId = "PIDS_" + scriptKey + "_" + plats;
+        if (drawInfoId.equals(lastRegisteredDrawInfoId)) return;
+        lastRegisteredDrawInfoId = drawInfoId;
+
+        // 移除旧绘制再注册新绘制
         gtHelper.removeDrawGraphic(getBlockPos());
-
-        final int thisLoadToken = ++scriptLoadToken;
-
-        ResourceLocation location = new ResourceLocation(scriptPath);
-
         gtHelper.addDrawGraphicWithGt(getBlockPos(),
                 new GraphicsTextureHelper.DrawInfo(
-                        "PIDS_" + scriptPath + "_" + plats,
+                        drawInfoId,
                         texW, texH, false, false
                 ),
                 (gt) -> {
-                    ScriptHolderBase holder = scriptHolder;
-                    if (holder == null) return;
-                    ScriptManager.getInstance().requestRunFunctionWithCallback(holder, gt::upload, "draw", gt.graphics, drawState,
-                            new DrawInfoPids(getArrivalInfoList(), new int[]{0, 0, texW, texH}, scriptContext, this),
-                            userExtraConfigs);
+                    BasePidsDrawing drawer = pidsDrawing;
+                    if (drawer == null) return;
+                    drawer.draw(gt, getArrivalInfoList(), drawState, texW, texH,
+                            new DrawInfoPids(getArrivalInfoList(), new int[]{0, 0, texW, texH}, scriptContext, this));
                 }
         );
-
-        CompletableFuture.runAsync(() -> {
-            try {
-                ScriptHolderBase loadedHolder = ScriptManager.getInstance().getOrInitHolder(location, PidsScriptHolder::new);
-                if (loadedHolder != null && thisLoadToken == scriptLoadToken) {
-                    scriptHolder = loadedHolder;
-                }
-            } catch (Throwable e) {
-                Main.LOGGER.error("Failed to load PIDS script async {}", location, e);
-            }
-        }, ScriptManager.SCRIPT_EXECUTOR);
     }
 
     @Override
     public void whenDisposing() {
-        scriptLoadToken++;
         drawState.clear();
-        scriptHolder = null;
+        pidsDrawing = null;
         GraphicsTextureHelper.getInstance().removeDrawGraphic(getBlockPos());
     }
 
     @Override
     public void whenRendering() {
+        // 确保绘制已注册（与RIS/SIS/Diaoban保持一致）
+        initDrawingAsync();
+
         ObjBlockScriptContext ctx = this.scriptContext;
         if (dmhMain != null) ctx.drawModel(dmhMain, null);
-        if (dmhDisp != null) {
-            if (dmhDisp.getUploadedModel() != null) {
-                GraphicsTexture gt = GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos());
-                if (gt != null)
-                    dmhDisp.getUploadedModel().replaceAllTexture(gt.identifier);
+
+        // 仅在贴图就绪后才绘制 display 模型（与RIS/SIS/Diaoban保持一致）
+        if (dmhDisp != null && dmhDisp.getUploadedModel() != null
+                && GraphicsTextureHelper.getInstance().isTextureAvailable(getBlockPos())) {
+            GraphicsTexture gt = GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos());
+            if (gt != null && gt.isValid()) {
+                dmhDisp.getUploadedModel().replaceAllTexture(gt.identifier);
+                ctx.drawModel(dmhDisp.getUploadedModel(), null);
             }
-            ctx.drawModel(dmhDisp, null);
         }
     }
 
@@ -273,6 +284,8 @@ public class BlockEntityPids extends BaseObjBlockEntity {
         }
 
         GraphicsTextureHelper.getInstance().removeDrawGraphic(getBlockPos());
+        // 重置绘制标识，确保 whenLoading() 中的 initDrawingAsync() 会重新注册
+        lastRegisteredDrawInfoId = "";
 
         whenLoading();
 

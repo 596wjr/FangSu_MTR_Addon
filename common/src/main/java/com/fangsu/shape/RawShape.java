@@ -19,16 +19,6 @@ public class RawShape {
         z2 = 0;
     }
 
-    public RawShape(List<Number> points) {
-        if (points.size() != 6) throw new IllegalStateException("RawShape must have 6 points");
-        x1 = points.get(0).doubleValue();
-        y1 = points.get(1).doubleValue();
-        z1 = points.get(2).doubleValue();
-        x2 = points.get(3).doubleValue();
-        y2 = points.get(4).doubleValue();
-        z2 = points.get(5).doubleValue();
-    }
-
     public RawShape(double x1, double y1, double z1, double x2, double y2, double z2) {
         this.x1 = x1;
         this.x2 = x2;
@@ -63,6 +53,18 @@ public class RawShape {
         y1 = other.y1;
         z1 = other.z1;
         z2 = other.z2;
+        normalize();
+    }
+
+    public RawShape(List<? extends Number> points) {
+        if (points.size() != 6)
+            throw new IllegalStateException("RawShape must have 6 points but input " + (points.toString()));
+        x1 = points.get(0).doubleValue();
+        y1 = points.get(1).doubleValue();
+        z1 = points.get(2).doubleValue();
+        x2 = points.get(3).doubleValue();
+        y2 = points.get(4).doubleValue();
+        z2 = points.get(5).doubleValue();
         normalize();
     }
 

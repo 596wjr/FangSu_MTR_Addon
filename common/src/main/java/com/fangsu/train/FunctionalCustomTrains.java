@@ -56,7 +56,12 @@ public class FunctionalCustomTrains implements IResourcePackCreatorProperties, I
                         String baseTrainType = dummyBaseTrain ? jsonObject.get("base_type").getAsString() : prevTrainProp.baseTrainType;
                         boolean hasGangwayConnection = getOrDefault(jsonObject, "has_gangway_connection",
                                 dummyBaseTrain || prevTrainProp.hasGangwayConnection, JsonElement::getAsBoolean);
-                        TrainRendererBase newRenderer = new FunctionalTrainRenderer(lcdInfo, dummyBaseTrain ? null : prevTrainProp.renderer);
+                        TrainRendererBase newRenderer;
+                        if (lcdInfo != null) {
+                            newRenderer = new FunctionalTrainRenderer(lcdInfo, dummyBaseTrain ? null : prevTrainProp.renderer);
+                        } else {
+                            newRenderer = dummyBaseTrain ? null : prevTrainProp.renderer;
+                        }
 
                         mtr.client.TrainClientRegistry.register(trainId, new TrainProperties(
                                 baseTrainType, prevTrainProp.name,

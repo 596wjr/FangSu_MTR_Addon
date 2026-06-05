@@ -1,6 +1,8 @@
 package com.fangsu.scripting;
 
 import com.fangsu.Main;
+import com.fangsu.mtr.DrawableRoute;
+import com.fangsu.mtr.LocalRoute;
 import com.fangsu.utils.ColorUtil;
 import com.fangsu.utils.ResourceUtil;
 import net.minecraft.resources.ResourceLocation;
@@ -271,5 +273,9 @@ public class JsFunctions {
         }
 
         return image;
+    }
+
+    public static DrawableRoute jsRouteToObj(LocalRoute localRoute) {
+        return DrawableRoute.getDrawableRoute(localRoute);
     }
 }

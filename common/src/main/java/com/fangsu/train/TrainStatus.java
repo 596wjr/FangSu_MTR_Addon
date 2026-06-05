@@ -180,7 +180,9 @@ public class TrainStatus {
     private boolean onPlatformRail() {
         var path1 = train.path.get(train.getIndex(getRailProgress(0), false)); // 车头所在轨道
         var path2 = train.path.get(train.getIndex(getRailProgress(train.trainCars - 1), true)); // 车尾所在轨道
-        var nextPlatformId = trainPlatforms.platforms.get(getAllPlatformsNextIndex()).platform.id;
+        int nextIndex = getAllPlatformsNextIndex();
+        if (nextIndex >= trainPlatforms.platforms.size()) return false;
+        var nextPlatformId = trainPlatforms.platforms.get(nextIndex).platform.id;
         return (path1.dwellTime != 0 && path1.savedRailBaseId == nextPlatformId) || (path2.dwellTime != 0 && path2.savedRailBaseId == nextPlatformId);
     }
 

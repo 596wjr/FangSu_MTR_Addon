@@ -24,6 +24,7 @@ public class ModCreativeTabs {
             ModBlocks.ITEM_TICKET_MACHINE,
             ModBlocks.ITEM_RIS,
             ModBlocks.ITEM_ADV_BOARD,
+            ModBlocks.ITEM_SCREENDOOR_CENTRAL_CONTROL,
             ModBlocks.ITEM_COLLISION_COMPENSATOR
     );
 

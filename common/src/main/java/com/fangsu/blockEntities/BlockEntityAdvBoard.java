@@ -136,6 +136,7 @@ public class BlockEntityAdvBoard extends BaseObjBlockEntity {
                 switch (type) {
                     case "identifier", "local":
                         if (path.toLowerCase().endsWith(".gif")) {
+                            //gif
                             ResourceLocation gifLocation = new ResourceLocation(path);
                             ResourceLocation texLocation = GifHelper.getInstance().bindGif(getBlockPos() + "_" + k, gifLocation);
                             if (texLocation != null) {

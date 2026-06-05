@@ -26,8 +26,8 @@ public class GraphicsTextureHelper {
        ========================= */
 
     // 抽象 ID -> DrawInfo.id
-    private final Map<String, String> idToDrawInfoId = new HashMap<>();
-    private final Map<String, GTInfo> loadGts = new HashMap<>();
+    private final Map<String, String> idToDrawInfoId = new ConcurrentHashMap<>();
+    private final Map<String, GTInfo> loadGts = new ConcurrentHashMap<>();
 
     private final ScheduledExecutorService pool =
             Executors.newSingleThreadScheduledExecutor();
@@ -95,6 +95,10 @@ public class GraphicsTextureHelper {
                 info.gt.upload();
                 info.needsUpload = false;
                 info.flameCompleted = false;
+                // 非静态贴图上传完成后，重置 available，允许下一帧重绘
+                if (!info.isStatic && info.available) {
+                    info.available = false;
+                }
             }
         }
 
@@ -106,25 +110,41 @@ public class GraphicsTextureHelper {
                     continue;
                 }
                 if (info.isClosed) continue;
-                if (!info.flameCompleted) continue;
+                if (info.drawing) continue;        // 正在绘制中，跳过
+                if (!info.flameCompleted) continue; // 本帧尚未完成，等待下一帧
 
                 if (info.waitUntilDraw) {
                     info.waitUntilDraw = false;
                     continue;
                 }
 
-//                info.drawFunction.draw(info.gt);
-//                info.gt.upload();
-//                info.available = true;
+                // 静态贴图：如果已标记为可用，不再重复绘制
+                if (info.isStatic && info.available) continue;
 
+                // 超过最大重试次数，放弃
+                if (info.retryCount >= GTInfo.MAX_RETRIES) {
+                    if (info.retryCount == GTInfo.MAX_RETRIES) {
+                        info.retryCount++;
+                        Main.LOGGER.warn("Draw failed after {} retries for {}, giving up", GTInfo.MAX_RETRIES, info.ids);
+                    }
+                    continue;
+                }
+
+                info.retryCount++;
                 info.drawing = true;
+                info.flameCompleted = false;
+
+                final int retry = info.retryCount;
                 CompletableFuture.runAsync(() -> {
                             info.drawFunction.draw(info.gt);
                             info.available = true;
                             info.needsUpload = true;
                         }, drawExecutor).orTimeout(200, TimeUnit.MILLISECONDS)
                         .exceptionally(t -> {
-                            Main.LOGGER.warn("Draw timed out for {}", info.ids);
+                            // 超时或报错：重置 flameCompleted 使下次 tick 可重试
+                            info.flameCompleted = true;
+                            Main.LOGGER.warn("Draw failed (attempt {}/{}) for {}: {}",
+                                    retry, GTInfo.MAX_RETRIES, info.ids, t.getMessage());
                             return null;
                         })
                         .thenRun(() -> info.drawing = false);
@@ -200,7 +220,7 @@ public class GraphicsTextureHelper {
     /**
      * 获取抽象 ID 对应的 GraphicsTexture
      */
-    public GraphicsTexture getGraphics(String id) {
+    public synchronized GraphicsTexture getGraphics(String id) {
         String drawInfoId = idToDrawInfoId.get(id);
         if (drawInfoId == null) return null;
 
@@ -215,13 +235,14 @@ public class GraphicsTextureHelper {
     /**
      * 判断抽象 ID 是否有可用的图形
      */
-    public boolean hasGraphic(String id) {
+    public synchronized boolean hasGraphic(String id) {
         String drawInfoId = idToDrawInfoId.get(id);
         if (drawInfoId == null) return false;
-        return loadGts.containsKey(drawInfoId) && loadGts.get(drawInfoId).available;
+        GTInfo info = loadGts.get(drawInfoId);
+        return info != null && info.available;
     }
 
-    public boolean isTextureAvailable(String id) {
+    public synchronized boolean isTextureAvailable(String id) {
         String drawInfoId = idToDrawInfoId.get(id);
         if (drawInfoId == null) return false;
         GTInfo info = loadGts.get(drawInfoId);
@@ -306,6 +327,11 @@ public class GraphicsTextureHelper {
         volatile boolean needsUpload = false;
 
         int expectedExceptionCount = 0;
+
+        /** 当前绘制失败/超时的重试次数 */
+        int retryCount = 0;
+        /** 最大重试次数 */
+        static final int MAX_RETRIES = 5;
 
         @Override
         public String toString() {

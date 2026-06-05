@@ -2,6 +2,7 @@ package com.fangsu.network;
 
 import com.fangsu.Main;
 import net.minecraft.core.Registry;
+import com.fangsu.blockEntities.BlockEntityScreendoorCentralControl;
 import com.fangsu.blockEntities.Syncable;
 import com.fangsu.items.TicketItem;
 import dev.architectury.networking.NetworkManager;
@@ -25,6 +26,8 @@ public class ModNetwork {
             new ResourceLocation("fangsu", "be_sync");
     public static final ResourceLocation TICKET_MACHINE_SYNC =
             new ResourceLocation("fangsu", "ticket_machine_sync");
+    public static final ResourceLocation CENTRAL_CONTROL_SYNC =
+            new ResourceLocation("fangsu", "central_control_sync");
 
     public static void init() {
         NetworkManager.registerReceiver(
@@ -36,6 +39,11 @@ public class ModNetwork {
                 NetworkManager.Side.C2S,
                 TICKET_MACHINE_SYNC,
                 ModNetwork::ticketMachineSync
+        );
+        NetworkManager.registerReceiver(
+                NetworkManager.Side.C2S,
+                CENTRAL_CONTROL_SYNC,
+                ModNetwork::handleCentralControlSync
         );
     }
 
@@ -155,5 +163,28 @@ public class ModNetwork {
             }
         }
         inv.setChanged();
+    }
+
+    private static void handleCentralControlSync(
+            FriendlyByteBuf buf,
+            NetworkManager.PacketContext ctx
+    ) {
+        BlockPos pos = buf.readBlockPos();
+        byte[] payload = new byte[buf.readableBytes()];
+        buf.readBytes(payload);
+
+        ctx.queue(() -> {
+            ServerPlayer player = (ServerPlayer) ctx.getPlayer();
+            if (player == null) return;
+
+            Level level = player.level();
+            BlockEntity be = level.getBlockEntity(pos);
+
+            if (be instanceof BlockEntityScreendoorCentralControl ctrl) {
+                FriendlyByteBuf safeBuf =
+                        new FriendlyByteBuf(io.netty.buffer.Unpooled.wrappedBuffer(payload));
+                ctrl.readSync(safeBuf);
+            }
+        });
     }
 }

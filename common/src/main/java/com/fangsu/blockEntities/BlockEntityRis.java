@@ -5,15 +5,15 @@ import com.fangsu.client.ClientHooks;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
 import com.fangsu.customItem.contents.RouteInfoSignContent;
+import com.fangsu.drawing.sign.BaseRisDrawing;
+import com.fangsu.drawing.sign.RisDrawManager;
 import com.fangsu.extraConfig.*;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
+import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.scripting.ModelHelper;
 import com.fangsu.ui.RouteSelectionScreen;
-import com.fangsu.userScripts.PidsScriptHolder;
-import com.fangsu.userScripts.ScriptHolderBase;
-import com.fangsu.userScripts.ScriptManager;
 import com.fangsu.utils.*;
 import com.google.gson.JsonPrimitive;
 import net.minecraft.core.BlockPos;
@@ -32,8 +32,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_RIS;
 
@@ -44,22 +42,24 @@ public class BlockEntityRis extends BaseObjBlockEntity implements RouteDrawer {
 
     private RouteInfoSignContent content;
 
-    private volatile ScriptHolderBase scriptHolder;
+    private volatile BaseRisDrawing risDrawing;
 
     private DynamicModelHolder dmhMain;
     private DynamicModelHolder dmhDisp = new DynamicModelHolder();
 
     private boolean firstInit = false;
-    private boolean scriptInit = false;
-    private final AtomicBoolean scriptLoaded = new AtomicBoolean(false);
     private boolean scriptDone = false;
 
-    private volatile int scriptLoadToken = 0;
     private int texW, texH;
     private Map<String, Object> drawState = new HashMap<>();
     private List<RouteSelectionScreen.RouteSelectInfo> routes;
 
     private CollisionBoxUtil.CollisionBox shape;
+
+    /**
+     * 上次注册绘制的标识，避免重复注册
+     */
+    private String lastRegisteredDrawInfoId = "";
 
     public BlockEntityRis(BlockPos blockPos, BlockState blockState) {
         super(BLOCK_ENTITY_RIS.get(), blockPos, blockState);
@@ -100,80 +100,74 @@ public class BlockEntityRis extends BaseObjBlockEntity implements RouteDrawer {
 
             firstInit = true;
 
-            scriptInit = false;
-            scriptLoaded.set(false);
             scriptDone = false;
+            lastRegisteredDrawInfoId = "";
         } catch (Exception e) {
             Main.LOGGER.error("Route info sign content load error", e);
             markedError = true;
         }
     }
 
-    private void initScriptDrawingAsync() {
-        if (content == null) return;
+    private void initDrawingAsync() {
+        if (content == null || !firstInit) return;
 
-        GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
-        gtHelper.removeDrawGraphic(getBlockPos());
-
-        final int thisLoadToken = ++scriptLoadToken;
-
+        // 通过 RisDrawManager 获取绘制实例（支持 Java 类和 JS 脚本）
         String scriptPath = content.getScript();
-        ResourceLocation location = new ResourceLocation(scriptPath);
-        if (!scriptInit || !scriptLoaded.get()) {
-//            Main.LOGGER.info("initing script");
-            AtomicBoolean isLoadError = new AtomicBoolean(false);
-            CompletableFuture.runAsync(() -> {
-                try {
-                    ScriptHolderBase loadedHolder = ScriptManager.getInstance().getOrInitHolder(location, PidsScriptHolder::new);
-                    if (loadedHolder != null && thisLoadToken == scriptLoadToken) {
-                        scriptHolder = loadedHolder;
-                        scriptLoaded.set(true);
-//                        Main.LOGGER.info("[RIS] script loaded");
-                    } else {
-                        isLoadError.set(true);
-                    }
-                } catch (Throwable e) {
-                    Main.LOGGER.error("Failed to load Route info sign script async {}", location, e);
-                    isLoadError.set(true);
-                }
-            }, ScriptManager.SCRIPT_EXECUTOR);
-            if (!isLoadError.get())
-                scriptInit = true;
-        }
-        if (scriptLoaded.get() && !scriptDone) {
-//            Main.LOGGER.info("registering drawing");
+        BaseRisDrawing drawing = RisDrawManager.createDrawing(scriptPath);
+        if (drawing == null) return;
+
+        risDrawing = drawing;
+
+        // 注册绘制
+        if (!scriptDone) {
+            GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
             routes = reloadRoute(getExtraConfig("routes", "[]"));
+            int arrowDirection = getExtraConfigInt("arrowDirection", 0);
+            String drawInfoId = "RIS_" + scriptPath + "_" + routes + "_" + arrowDirection;
+            if (drawInfoId.equals(lastRegisteredDrawInfoId)) {
+                scriptDone = true;
+                return;
+            }
+            gtHelper.removeDrawGraphic(getBlockPos());
             gtHelper.addDrawGraphicWithGt(getBlockPos(),
                     new GraphicsTextureHelper.DrawInfo(
-                            "RIS_" + scriptPath + "_" + routes + "_" + getExtraConfigInt("arrowDirection", 0),
+                            drawInfoId,
                             texW, texH, true, false
                     ),
-                    gt -> drawFunction(gt, scriptHolder, routes, drawState, getExtraConfigInt("arrowDirection", 0), texW, texH)
-                    //TODO 支持多选
+                    gt -> {
+                        BaseRisDrawing drawer = risDrawing;
+                        if (drawer == null) return;
+                        drawer.draw(gt, routes, drawState, arrowDirection, texW, texH);
+                    }
             );
+            lastRegisteredDrawInfoId = drawInfoId;
             scriptDone = true;
         }
     }
 
     @Override
     public void whenRendering() {
-        if ((!scriptInit || !scriptDone)) {
-            initScriptDrawingAsync();
+        if (!scriptDone) {
+            initDrawingAsync();
         }
+
         ObjBlockScriptContext ctx = this.scriptContext;
         ctx.drawModel(dmhMain, null);
 
-        if (dmhDisp.getUploadedModel() != null && scriptDone && GraphicsTextureHelper.getInstance().hasDrawGraphic(getBlockPos())) {
-            if (GraphicsTextureHelper.getInstance().isTextureAvailable(getBlockPos()) &&
-                    GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos()).isValid())
-                dmhDisp.getUploadedModel().replaceAllTexture(GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos()).identifier);
+        // 仅在贴图就绪后才绘制 display 模型
+        if (scriptDone && dmhDisp.getUploadedModel() != null
+                && GraphicsTextureHelper.getInstance().isTextureAvailable(getBlockPos())) {
+            GraphicsTexture tex = GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos());
+            if (tex != null && tex.isValid()) {
+                dmhDisp.getUploadedModel().replaceAllTexture(tex.identifier);
+                ctx.drawModel(dmhDisp.getUploadedModel(), null);
+            }
         }
-        ctx.drawModel(dmhDisp, null);
-
     }
 
     @Override
     public void whenDisposing() {
+        risDrawing = null;
         GraphicsTextureHelper.getInstance().removeDrawGraphic(getBlockPos());
     }
 

@@ -32,6 +32,7 @@ public class LcdManager {
     }
 
     public LcdBase getLcd(String key) {
-        return loadedLcds.get(key).get();
+        Supplier<LcdBase> supplier = loadedLcds.get(key);
+        return supplier != null ? supplier.get() : null;
     }
 }

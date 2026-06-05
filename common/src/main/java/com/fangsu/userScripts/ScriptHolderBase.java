@@ -115,6 +115,38 @@ public abstract class ScriptHolderBase {
     }
 
     /**
+     * 同步执行 JS 函数（公共接口，供外部同步调用）
+     * 在调用线程上直接执行 JS，阻塞直到完成或失败。
+     * 与 runFunction 不同，如果 JS 执行失败，会将异常抛出，
+     * 以便调用者（如 GraphicsTextureHelper）能正确感知绘制失败并重试。
+     */
+    public void runFunctionSync(String name, Runnable callback, Object... params) {
+        if (!isValid) {
+            throw new RuntimeException("Script " + scriptName + " is not valid");
+        }
+        // 失败超时中：抛出异常让调用者重试
+        if (duringFailTimeout(name)) {
+            throw new RuntimeException("Script function " + name + " in " + scriptName + " is in fail timeout, will retry later");
+        }
+
+        Value fn = functions.get(name);
+        if (fn != null) {
+            synchronized (executionLock) {
+                try {
+                    fn.execute(params);
+                    if (callback != null) callback.run();
+                } catch (Throwable e) {
+                    recordFailure(name, e);
+                    throw new RuntimeException("Script function " + name + " in " + scriptName + " failed", e);
+                }
+            }
+        } else {
+            Main.LOGGER.warn("Script function '{}' not found in {}", name, scriptName);
+            throw new RuntimeException("Script function '" + name + "' not found in " + scriptName);
+        }
+    }
+
+    /**
      * 执行 JS 函数 - 修改为使用独立作用域作为闭包环境
      */
     protected void runFunction(String name, Runnable callback, Object... params) {

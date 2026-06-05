@@ -12,6 +12,7 @@ import com.fangsu.render.scripting.eyecandy.EyeCandyDrawCalls;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcer.math.Matrices;
 import com.fangsu.render.sowcer.math.Matrix4f;
+import com.fangsu.render.sowcer.math.Vector3f;
 import com.fangsu.render.sowcerext.model.ModelCluster;
 import dev.architectury.networking.NetworkManager;
 import io.netty.buffer.Unpooled;
@@ -189,6 +190,10 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         return this.worldPosition;
     }
 
+    public final Vector3f getWorldPosVector3f() {
+        return new Vector3f(worldPosition.getX(), worldPosition.getY(), worldPosition.getZ());
+    }
+
     public VoxelShape setCollisionShape(BlockState state) {
         return Block.box(0, 0, 0, 0, 0, 0);
     }
@@ -345,6 +350,11 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
             String value = buf.readUtf(1024);
             subModels.put(key, value);
         }
+
+        // 重新加载配置到字段（确保 isolation/doorOpenOverride 等同步）
+        this.whenLoading();
+        this.setChanged();
+
         if (level != null && !level.isClientSide) {
             level.sendBlockUpdated(
                     worldPosition,
@@ -528,15 +538,8 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         super.clearRemoved();
     }
 
-    public record BaseObjC2SData(
-            float translateX,
-            float translateY,
-            float translateZ,
-            float rotateX,
-            float rotateY,
-            float rotateZ,
-            Map<String, String> extraConfigs
-    ) {
+    public static class BlockInfo {
+
     }
 
 }

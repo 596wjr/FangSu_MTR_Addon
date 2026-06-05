@@ -9,6 +9,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -295,7 +296,8 @@ public class SignConfigUI extends Screen {
             graphics.fill(x, y, x + 1, y + cell, border);
             graphics.fill(x + cell - 1, y, x + cell, y + cell, border);
             SignItem token = EDITOR_ITEMS.get(idx);
-            graphics.blit(token.getIconLocation(), x + 3, y + 3, 0, 0, cell - 6, cell - 6, cell - 6, cell - 6);
+            var location = token.getIconLocation() == null ? new ResourceLocation("mtrsteamloco:imgnnotfound.png") : token.getIconLocation();
+            graphics.blit(location, x + 3, y + 3, 0, 0, cell - 6, cell - 6, cell - 6, cell - 6);
             if (hover) graphics.drawString(font, "+", x + cell / 2 - 3, y + cell / 2 - 4, 0xFFFFFF, false);
             if (hover && token.withText) {
                 graphics.drawString(font, Component.translatable("ui.fangsu.sign.tooltip3"), width - 80, 32, 0xCCCCCC, false);

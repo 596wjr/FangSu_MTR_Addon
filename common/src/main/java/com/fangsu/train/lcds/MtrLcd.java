@@ -23,7 +23,7 @@ public class MtrLcd extends LcdBase {
         Font cjkFont = ResourceUtil.loadFont(new ResourceLocation("mtr:font/noto-serif-cjk-tc-semibold.ttf"));
         Font nonCjkFont = ResourceUtil.loadFont(new ResourceLocation("mtr:font/noto-sans-semibold.ttf"));
 
-        if (status.currentRoute == null && status.drawableRoute == null) {
+        if (status.currentRoute == null || status.drawableRoute == null) {
             g.setColor(Color.WHITE);
             g.fillRect(x, y, w, h);
             g.setColor(Color.BLACK);

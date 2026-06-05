@@ -43,7 +43,7 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
 
         this.lcd = null;
 
-        this.dhBase = new DisplayHelper(lcdInfo.slotsInfo());
+        this.dhBase = lcdInfo != null ? new DisplayHelper(lcdInfo.slotsInfo()) : null;
         this.dh = null;
         this.trainStatus = null;
     }
@@ -63,7 +63,16 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
         var instanceBaseRenderer = baseRenderer == null ? null : baseRenderer.createTrainInstance(trainClient);
 
         TrainStatus trainStatus = new TrainStatus(trainClient);
+
+        if (lcdInfo == null) {
+            return new FunctionalTrainRenderer(null, instanceBaseRenderer, trainClient, null, null, trainStatus);
+        }
+
         LcdBase lcd = LcdManager.getInstance().getLcd(lcdInfo.id());
+        if (lcd == null) {
+            Main.LOGGER.warn("LCD not found for id: {}", lcdInfo.id());
+            return new FunctionalTrainRenderer(lcdInfo, instanceBaseRenderer, trainClient, null, null, trainStatus);
+        }
 
         GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
         gtHelper.addDrawGraphicWithGt("train_" + (trainClient.trainId),
@@ -129,7 +138,7 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
         try {
             final int light = LightTexture.pack(world.getBrightness(LightLayer.BLOCK, posAverage), world.getBrightness(LightLayer.SKY, posAverage));
             Matrix4f drawPose = new Matrix4f(matrices.last().pose());
-            if (true) {
+            if (dh != null) {
                 GraphicsTexture texture = GraphicsTextureHelper.getInstance().getGraphics("train_" + (train.trainId));
                 var model = dh.model.getUploadedModel();
                 if (model != null && texture != null) {

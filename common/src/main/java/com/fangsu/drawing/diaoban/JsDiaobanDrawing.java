@@ -20,7 +20,8 @@ public class JsDiaobanDrawing extends BaseDiaobanDrawing {
     @Override
     public void draw(GraphicsTexture gt, List<RouteSelectionScreen.RouteSelectInfo> routes, Map<String, Object> drawState, int arrowDirection, int texW, int texH) {
         if (scriptHolder == null) return;
-        ScriptManager.getInstance().requestRunFunctionWithCallback(scriptHolder, gt::upload, "draw", gt.graphics, drawState,
+        // 使用同步调用确保 GraphicsTextureHelper 能正确感知绘制完成状态
+        ScriptManager.getInstance().requestRunFunctionSync(scriptHolder, gt::upload, "draw", gt.graphics, drawState,
                 buildDrawInfo(routes, arrowDirection, texW, texH));
     }
 }

@@ -33,6 +33,7 @@ public class ContentManager {
         registerContent("duanmen", DuanmenContent.DuanmenLoader::load);
         registerContent("route_info_sign", RouteInfoSignContent.RouteInfoSignLoader::load);
         registerContent("adv_board", AdvBoardContent.AdvBoardLoader::load);
+        registerContent("station_info_sign", StationInfoSignContent.StationInfoSignLoader::load);
     }
 
     public void reset() {
