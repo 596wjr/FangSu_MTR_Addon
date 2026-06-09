@@ -13,14 +13,6 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 
 import java.util.function.Supplier;
 
-/**
- * 注册表对象的包装类，封装了 {@link DeferredRegister} 的创建、注册和获取。
- * <p>
- * 是一个轻量包装，除构造和 asMinecraft 方法外与 Minecraft 类无关。
- * 内部使用 {@link FangSuRegistries} 处理版本差异。
- *
- * @param <T> 注册的对象类型
- */
 public class RegistryObject<T> {
 
     private final RegistrySupplier<T> supplier;

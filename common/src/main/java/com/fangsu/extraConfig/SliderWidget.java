@@ -64,27 +64,32 @@ public class SliderWidget extends AbstractWidget {
         return value;
     }
 
-    //#if MC_VERSION >= 12000
+    //#if MC_VERSION >= 11900
     @Override
     public void setY(int y) {
         super.setY(y);
         slider.setY(y);
     }
+    //#else
+    //$$public void setY(int y) {
+    //$$    this.y = y;
+    //$$    slider.y = y;
+    //$$}
     //#endif
 
 
     /* ====================================================== */
 
-    //#if MC_VERSION >= 12000
+    //#if MC_VERSION >= 11904
     @Override
     public void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partial) {
         slider.render(g, mouseX, mouseY, partial);
     }
     //#else
-    @Override
-    public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
-        slider.render(poseStack, mouseX, mouseY, partial);
-    }
+    //$$@Override
+    //$$public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
+    //$$    slider.render(poseStack, mouseX, mouseY, partial);
+    //$$}
     //#endif
 
     @Override
@@ -102,9 +107,9 @@ public class SliderWidget extends AbstractWidget {
     protected void updateWidgetNarration(NarrationElementOutput narration) {
     }
     //#else
-    @Override
-    public void updateNarration(NarrationElementOutput narration) {
-    }
+    //$$@Override
+    //$$public void updateNarration(NarrationElementOutput narration) {
+    //$$}
     //#endif
 
     /* ====================================================== */

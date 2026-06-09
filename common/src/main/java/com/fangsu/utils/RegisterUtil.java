@@ -25,8 +25,10 @@ public class RegisterUtil {
             FangSuRegistries.createItemRegister(Main.MOD_ID);
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             FangSuRegistries.createBlockEntityRegister(Main.MOD_ID);
+    //#if MC_VERSION >= 11903
     public static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
             FangSuRegistries.createCreativeTabRegister(Main.MOD_ID);
+    //#endif
     public static final DeferredRegister<MenuType<?>> MENUS =
             FangSuRegistries.createMenuRegister(Main.MOD_ID);
 
@@ -58,11 +60,11 @@ public class RegisterUtil {
 
     @SafeVarargs
     public static RegistrySupplier<CreativeModeTab> addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
+        //#if MC_VERSION >= 12000
         return CREATIVE_TABS.register(
                 id,
                 () -> {
-                    //#if MC_VERSION >= 11900
-                    CreativeModeTab.Builder builder = CreativeModeTab.builder();
+                    CreativeModeTab.Builder builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0);
                     return builder
                             .title(ComponentHelper.translatable(name))
                             .icon(() -> new ItemStack(icon.get()))
@@ -72,11 +74,27 @@ public class RegisterUtil {
                                 }
                             })
                             .build();
-                    //#else
-                    //$$ return new CreativeTab(CreativeModeTab.TABS.length, "fangsu." + id, () -> new ItemStack(icon.get()));
-                    //#endif
                 }
         );
+        //#elseif MC_VERSION >= 11903
+        //$$return CREATIVE_TABS.register(
+        //$$        id,
+        //$$        () -> {
+        //$$            CreativeModeTab.Builder builder = CreativeModeTab.builder();
+        //$$            return builder
+        //$$                    .title(ComponentHelper.translatable(name))
+        //$$                    .icon(() -> new ItemStack(icon.get()))
+        //$$                    .displayItems((parameters, output) -> {
+        //$$                        for (RegistrySupplier<Item> item : items) {
+        //$$                            output.accept(item.get());
+        //$$                        }
+        //$$                    })
+        //$$                    .build();
+        //$$        }
+        //$$);
+        //#else
+        //$$return null;
+        //#endif
     }
 
 //    public static <T extends BlockEntity> void addBlockEntityRenderer(
@@ -93,21 +111,10 @@ public class RegisterUtil {
         BLOCKS.register();
         ITEMS.register();
         BLOCK_ENTITIES.register();
+        //#if MC_VERSION >= 11903
         CREATIVE_TABS.register();
+        //#endif
         MENUS.register();
     }
 
-    // 1.18.2 辅助类：CreativeModeTab 构造函数为 protected，需子类才能调用
-    //#if MC_VERSION < 11900
-    //$$private static class CreativeTab extends CreativeModeTab {
-    //$$    private final java.util.function.Supplier<ItemStack> icon;
-    //$$
-    //$$    CreativeTab(int index, String id, java.util.function.Supplier<ItemStack> icon) {
-    //$$        super(index, id);
-    //$$        this.icon = icon;
-    //$$    }
-    //$$
-    //$$    public ItemStack makeIcon() { return icon.get(); }
-    //$$}
-    //#endif
 }

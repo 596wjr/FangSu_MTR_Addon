@@ -28,17 +28,18 @@ public class FangSuRegistries {
     public static final ResourceLocation CREATIVE_MODE_TAB_KEY = net.minecraft.core.registries.Registries.CREATIVE_MODE_TAB.location();
     public static final ResourceLocation MENU_KEY = net.minecraft.core.registries.Registries.MENU.location();
     //#else
-    public static final ResourceLocation BLOCK_KEY = new ResourceLocation("minecraft:block");
-    public static final ResourceLocation ITEM_KEY = new ResourceLocation("minecraft:item");
-    public static final ResourceLocation BLOCK_ENTITY_TYPE_KEY = new ResourceLocation("minecraft:block_entity_type");
-    public static final ResourceLocation CREATIVE_MODE_TAB_KEY = new ResourceLocation("minecraft:creative_mode_tab");
-    public static final ResourceLocation MENU_KEY = new ResourceLocation("minecraft:menu");
+    //$$public static final ResourceLocation BLOCK_KEY = new ResourceLocation("minecraft:block");
+    //$$public static final ResourceLocation ITEM_KEY = new ResourceLocation("minecraft:item");
+    //$$public static final ResourceLocation BLOCK_ENTITY_TYPE_KEY = new ResourceLocation("minecraft:block_entity_type");
+    //$$public static final ResourceLocation CREATIVE_MODE_TAB_KEY = new ResourceLocation("minecraft:creative_mode_tab");
+    //$$public static final ResourceLocation MENU_KEY = new ResourceLocation("minecraft:menu");
     //#endif
 
     // ============ DeferredRegister 工厂 ============
 
     /**
-     * 创建 DeferredRegister，自动使用正确的注册表键格式。
+     * 创建 DeferredRegister。
+     * 统一使用 ResourceKey，在 1.18.2~1.20.1 均有效。
      */
     public static <T> DeferredRegister<T> createDeferredRegister(String modId, ResourceLocation registryKey) {
         ResourceKey<Registry<T>> resourceKey = ResourceKey.createRegistryKey(registryKey);
@@ -59,9 +60,11 @@ public class FangSuRegistries {
         return createDeferredRegister(modId, BLOCK_ENTITY_TYPE_KEY);
     }
 
+    //#if MC_VERSION >= 11903
     public static DeferredRegister<CreativeModeTab> createCreativeTabRegister(String modId) {
         return createDeferredRegister(modId, CREATIVE_MODE_TAB_KEY);
     }
+    //#endif
 
     public static DeferredRegister<MenuType<?>> createMenuRegister(String modId) {
         return createDeferredRegister(modId, MENU_KEY);

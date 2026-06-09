@@ -73,19 +73,19 @@ public class GraphicContext {
 
     /* ==================== drawCenteredString ==================== */
 
-    public int drawCenteredString(Font font, Component text, int x, int y, int color) {
+    public void drawCenteredString(Font font, Component text, int x, int y, int color) {
         //#if MC_VERSION >= 11904
-        return impl.drawCenteredString(font, text, x, y, color);
+        impl.drawCenteredString(font, text, x, y, color);
         //#else
-        //$$ return drawString(font, text.getString(), x - font.width(text) / 2, y, color, false);
+        //$$ drawString(font, text.getString(), x - font.width(text) / 2, y, color, false);
         //#endif
     }
 
-    public int drawCenteredString(Font font, String text, int x, int y, int color) {
+    public void drawCenteredString(Font font, String text, int x, int y, int color) {
         //#if MC_VERSION >= 11904
-        return impl.drawCenteredString(font, text, x, y, color);
+        impl.drawCenteredString(font, text, x, y, color);
         //#else
-        //$$ return drawString(font, text, x - font.width(text) / 2, y, color, false);
+        //$$ drawString(font, text, x - font.width(text) / 2, y, color, false);
         //#endif
     }
 
@@ -158,7 +158,7 @@ public class GraphicContext {
 
     public void renderTooltip(Font font, java.util.List<Component> components, int x, int y) {
         //#if MC_VERSION >= 11904
-        impl.renderTooltip(font, components, x, y);
+        impl.renderTooltip(font, components.stream().map(Component::getVisualOrderText).toList(), x, y);
         //#else
         //$$ // renderTooltip not directly available in 1.18.2 utility context
         //#endif
