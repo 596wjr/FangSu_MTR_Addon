@@ -46,7 +46,13 @@ public class BlockScreendoorCentralControl extends Block implements EntityBlock 
     }
 
     public BlockScreendoorCentralControl() {
-        this(BlockBehaviour.Properties.of().strength(2).noOcclusion());
+        this(BlockBehaviour.Properties.of(
+                //#if MC_VERSION >= 12000
+                )
+                //#else
+                //$$ net.minecraft.world.level.material.Material.METAL)
+                //#endif
+                .strength(2).noOcclusion());
     }
 
     @Override

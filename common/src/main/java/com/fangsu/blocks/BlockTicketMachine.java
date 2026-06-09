@@ -1,5 +1,6 @@
 package com.fangsu.blocks;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.client.ClientHooks;
 import com.fangsu.ui.ticketMachine.TicketMachineMainScreen;
 import net.minecraft.client.Minecraft;
@@ -36,7 +37,13 @@ public class BlockTicketMachine extends Block {
     private static final VoxelShape SHAPE = Shapes.block();
 
     public BlockTicketMachine() {
-        super(BlockBehaviour.Properties.of().strength(2).noOcclusion());
+        super(BlockBehaviour.Properties.of(
+                //#if MC_VERSION >= 12000
+                )
+                //#else
+                //$$ net.minecraft.world.level.material.Material.METAL)
+                //#endif
+                .strength(2).noOcclusion());
         registerDefaultState(this.defaultBlockState().setValue(FACING, Direction.NORTH).setValue(HALF, DoubleBlockHalf.LOWER));
     }
 
@@ -110,7 +117,7 @@ public class BlockTicketMachine extends Block {
     public InteractionResult use(BlockState blockState, Level level, BlockPos blockPos, Player player, InteractionHand interactionHand, BlockHitResult blockHitResult) {
         if (level.isClientSide()) {
 
-            ClientHooks.openTicketMachineScreen(Component.translatable("ui.fangsu.ticketmachine"), blockPos);
+            ClientHooks.openTicketMachineScreen(ComponentHelper.translatable("ui.fangsu.ticketmachine"), blockPos);
 
         }
         return InteractionResult.SUCCESS;

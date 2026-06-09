@@ -3,12 +3,7 @@ package com.fangsu.client;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.blockEntities.BlockEntityScreendoorCentralControl;
 import com.fangsu.drawing.sign.SignItem;
-import com.fangsu.ui.ObjBlockConfigScreen;
-import com.fangsu.ui.PlatformSelectionScreen;
-import com.fangsu.ui.RouteSelectionScreen;
-import com.fangsu.ui.ScreendoorCentralControlScreen;
-import com.fangsu.ui.StationSelectionScreen;
-import com.fangsu.ui.SignConfigUI;
+import com.fangsu.ui.*;
 import com.fangsu.ui.ticketMachine.TicketMachineMainScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -19,6 +14,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 public final class ClientHooksImpl {
+
     private ClientHooksImpl() {
     }
 
@@ -44,7 +40,7 @@ public final class ClientHooksImpl {
         });
     }
 
-    public static void openRouteSelectScreen(Component component, List<Long> defaultValue, Consumer<List<RouteSelectionScreen.RouteSelectInfo>> setter, BlockPos pos, int maxSelect) {
+    public static void openRouteSelectScreen(Component component, List<Long> defaultValue, Consumer<List<RouteSelectInfo>> setter, BlockPos pos, int maxSelect) {
         Minecraft.getInstance().execute(() -> {
             Minecraft.getInstance().setScreen(new RouteSelectionScreen(
                     component, defaultValue, setter, pos, maxSelect, Minecraft.getInstance().screen

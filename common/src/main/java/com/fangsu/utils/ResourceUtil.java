@@ -61,19 +61,18 @@ public class ResourceUtil {
         }
 
         ;
-        Optional<Resource> resource = resourceManager.getResource(location);
-
-        if (resource.isPresent()) {
-            try (InputStream is = resource.get().open();
+        try {
+            Resource res = getResource(resourceManager, location);
+            try (InputStream is = openStream(res);
                  BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     lines.add(line.trim());
                 }
             }
-        } else {
+        } catch (IOException e) {
             Main.LOGGER.warn("Resource not found: {}", location);
-            throw new IOException("Resource not found: " + location);
+            throw e;
         }
         register.put(GlobalRegisterKey, lines.toArray(new String[0]));
         return lines.toArray(new String[0]);
@@ -85,13 +84,13 @@ public class ResourceUtil {
             return null;
         }
 
-        Optional<Resource> resource = resourceManager.getResource(location);
-        if (resource.isEmpty()) {
+        try {
+            Resource res = getResource(resourceManager, location);
+            try (InputStream is = openStream(res)) {
+                return is.readAllBytes();
+            }
+        } catch (IOException e) {
             return null;
-        }
-
-        try (InputStream is = resource.get().open()) {
-            return is.readAllBytes();
         }
     }
 
@@ -111,19 +110,19 @@ public class ResourceUtil {
         if (register.containsKey(GlobalRegisterKey)) {
             return (String) register.get(GlobalRegisterKey);
         }
-        Optional<Resource> res = resourceManager.getResource(location);
-        if (res.isPresent()) {
-            Resource resource = res.get();
-            try (InputStream is = resource.open();) {
+        try {
+            Resource resource = getResource(resourceManager, location);
+            try (InputStream is = openStream(resource)) {
                 byte[] bytes = is.readAllBytes();
                 String s = new String(bytes, StandardCharsets.UTF_8);
                 register.put(GlobalRegisterKey, s);
                 return s;
             }
+        } catch (IOException e) {
+            String s = "";
+            register.put(GlobalRegisterKey, s);
+            return s;
         }
-        String s = "";
-        register.put(GlobalRegisterKey, s);
-        return s;
     }
 
     /**
@@ -152,18 +151,17 @@ public class ResourceUtil {
             throw new IOException("ResourceManager is null");
         }
         ;
-        Optional<Resource> resource = resourceManager.getResource(location);
-
-        if (resource.isPresent()) {
-            try (InputStream is = resource.get().open()) {
+        try {
+            Resource res = getResource(resourceManager, location);
+            try (InputStream is = openStream(res)) {
                 byte[] imageData = is.readAllBytes();
                 BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageData));
                 register.put(GlobalRegisterKey, image);
                 return image;
             }
-        } else {
+        } catch (IOException e) {
             Main.LOGGER.warn("Image resource not found: {}", location);
-            throw new IOException("Image resource not found: " + location);
+            throw e;
         }
     }
 
@@ -253,7 +251,11 @@ public class ResourceUtil {
      */
     public static boolean hasResources(ResourceLocation location) {
         try {
+            //#if MC_VERSION >= 11903
             return Minecraft.getInstance().getResourceManager().getResource(location).isPresent();
+            //#else
+            //$$ try { Minecraft.getInstance().getResourceManager().getResource(location); return true; } catch (Exception ex) { return false; }
+            //#endif
         } catch (Exception e) {
             return false;
         }
@@ -329,7 +331,11 @@ public class ResourceUtil {
 
         try {
             // 获取所有资源包中的该资源
+            //#if MC_VERSION >= 11903
             resources = resourceManager.getResourceStack(location);
+            //#else
+            //$$ resources = java.util.Collections.singletonList(resourceManager.getResource(location));
+            //#endif
         } catch (Exception e) {
             Main.LOGGER.warn("Failed to get resources for {}: {}", location, e.getMessage());
             return new JsonObject();
@@ -347,7 +353,7 @@ public class ResourceUtil {
 
         // 按资源包优先级从低到高处理（Minecraft返回的顺序是从低优先级到高优先级）
         for (Resource resource : resources) {
-            try (InputStream is = resource.open();
+            try (InputStream is = openStream(resource);
                  BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
 
                 JsonElement currentJson = gson.fromJson(reader, JsonElement.class);
@@ -370,6 +376,26 @@ public class ResourceUtil {
         }
         return new JsonObject();
     }
+
+    // ============ 版本兼容的 Resource 辅助方法 ============
+
+    //#if MC_VERSION >= 11903
+    private static Resource getResource(ResourceManager manager, ResourceLocation loc) throws IOException {
+        return manager.getResource(loc).orElseThrow(() -> new IOException("Resource not found: " + loc));
+    }
+
+    private static InputStream openStream(Resource res) throws IOException {
+        return res.open();
+    }
+    //#else
+    //$$private static Resource getResource(ResourceManager manager, ResourceLocation loc) throws IOException {
+    //$$    return manager.getResource(loc);
+    //$$}
+    //$$
+    //$$private static InputStream openStream(Resource res) throws IOException {
+    //$$    return res.getInputStream();
+    //$$}
+    //#endif
 
     /**
      * 合并两个JsonElement，遵循合并规则

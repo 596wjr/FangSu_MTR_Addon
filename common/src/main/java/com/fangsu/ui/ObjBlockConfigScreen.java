@@ -2,13 +2,17 @@ package com.fangsu.ui;
 
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.customItem.CustomItems;
+import com.fangsu.mappings.ComponentHelper;
+import com.fangsu.utils.GraphicContext;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
 import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.extraConfig.ConfigWidget;
 import com.fangsu.extraConfig.SliderWidget;
 import net.minecraft.client.Minecraft;
+//#if MC_VERSION >= 12000
 import net.minecraft.client.gui.GuiGraphics;
+//#endif
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
@@ -25,11 +29,11 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
     private float translateX, translateY, translateZ;
     private float rotateX, rotateY, rotateZ;
 
-    private final List<ConfigEntry<?>> configs;
+    private List<ConfigEntry<?>> configs;
     private boolean useSliderInput = true;
 
     public ObjBlockConfigScreen(BaseObjBlockEntity be) {
-        super(Component.translatable("ui.fangsu.block.title"));
+        super(ComponentHelper.translatable("ui.fangsu.block.title"));
         this.be = be;
 
         if (be != null) {
@@ -52,16 +56,33 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
         int left = getPanelLeft();
         int btnWidth = getPanelWidth();
 
+        //#if MC_VERSION >= 12000
         Button toggleInputButton = Button.builder(getInputToggleLabel(), btn -> {
             useSliderInput = !useSliderInput;
             requestRebuild();
         }).bounds(left, 34, btnWidth, 20).build();
+        //#else
+        //$$ Button toggleInputButton = new Button(left, 34, btnWidth, 20, getInputToggleLabel(), btn -> { useSliderInput = !useSliderInput; requestRebuild(); });
+        //#endif
         addFixedWidget(toggleInputButton);
 
-        closeButton = addFixedWidget(Button.builder(Component.translatable("ui.fangsu.block.close_and_save"), btn -> {
+        //#if MC_VERSION >= 12000
+        closeButton = addFixedWidget(Button.builder(ComponentHelper.translatable("ui.fangsu.block.close_and_save"), btn -> {
             sendToServer();
             onClose();
         }).bounds(left, this.height - 30, btnWidth, 20).build());
+        //#else
+        //$$ closeButton = addFixedWidget(new Button(left, this.height - 30, btnWidth, 20, ComponentHelper.translatable("ui.fangsu.block.close_and_save"), btn -> { sendToServer(); onClose(); }));
+        //#endif
+    }
+
+    @Override
+    protected void init() {
+        // 姣忔鍒濆鍖栨椂閲嶆柊鑾峰彇閰嶇疆鍒楄〃锛堜緥濡備粠妯″瀷閫夋嫨鐣岄潰杩斿洖鍚庨厤缃」浼氬彉鍖栵級
+        if (be != null) {
+            configs = be.getConfigs();
+        }
+        super.init();
     }
 
     @Override
@@ -69,19 +90,23 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
         int y = layout.y;
         int panelCenterX = (getPanelLeft() + getPanelRight()) / 2;
         if (be == null) {
+            //#if MC_VERSION >= 12000
             addEntry(createTextLabel(panelCenterX, y, Component.literal("No block entity"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
+            //#else
+            //$$ addEntry(createTextLabel(panelCenterX, y, ComponentHelper.literal("No block entity"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
+            //#endif
             return;
         }
 
         int colLeft = getPanelLeft();
         int colWidth = getPanelWidth();
 
-        // ---- 模型选择 ----
-        addEntry(createTextLabel(panelCenterX, y, Component.translatable("ui.fangsu.block.modelSelect"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
+        // ---- 妯″瀷閫夋嫨 ----
+        addEntry(createTextLabel(panelCenterX, y, ComponentHelper.translatable("ui.fangsu.block.modelSelect"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
         y += 12;
-        addEntry(addButton(colLeft, y, colWidth, 24, Component.translatable("ui.fangsu.block.mainModelSelect"),
+        addEntry(addButton(colLeft, y, colWidth, 24, ComponentHelper.translatable("ui.fangsu.block.mainModelSelect"),
                 (b) -> Minecraft.getInstance().setScreen(new ModelSelectScreen(
-                        Component.translatable("ui.fangsu.block.mainModelSelect"),
+                        ComponentHelper.translatable("ui.fangsu.block.mainModelSelect"),
                         this.be,
                         CustomItems.items.get(this.be.getMainModelKey()),
                         (target) -> target.mainModel,
@@ -110,59 +135,59 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
             }
         }
 
-        // ---- 平移（紧凑两行布局） ----
-        addEntry(createTextLabel(panelCenterX, y, Component.translatable("ui.fangsu.block.translate"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
+        // ---- 骞崇Щ锛堢揣鍑戜袱琛屽竷灞€锟?----
+        addEntry(createTextLabel(panelCenterX, y, ComponentHelper.translatable("ui.fangsu.block.translate"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
         y += 10;
         if (useSliderInput) {
             y = addCompactTwoRow(colLeft, y, colWidth,
-                    Component.translatable("ui.fangsu.block.transX"), translateX, -1, 1, 0.0625f,
+                    ComponentHelper.translatable("ui.fangsu.block.transX"), translateX, -1, 1, 0.0625f,
                     v -> translateX = v, this::sendToServer, true);
             y = addCompactTwoRow(colLeft, y, colWidth,
-                    Component.translatable("ui.fangsu.block.transY"), translateY, -1, 1, 0.0625f,
+                    ComponentHelper.translatable("ui.fangsu.block.transY"), translateY, -1, 1, 0.0625f,
                     v -> translateY = v, this::sendToServer, true);
             y = addCompactTwoRow(colLeft, y, colWidth,
-                    Component.translatable("ui.fangsu.block.transZ"), translateZ, -1, 1, 0.0625f,
+                    ComponentHelper.translatable("ui.fangsu.block.transZ"), translateZ, -1, 1, 0.0625f,
                     v -> translateZ = v, this::sendToServer, true);
         } else {
             y = addAxisInputTwoRow(colLeft, y, colWidth,
-                    Component.translatable("ui.fangsu.block.transX"), translateX, -1, 1, 0.0625f,
+                    ComponentHelper.translatable("ui.fangsu.block.transX"), translateX, -1, 1, 0.0625f,
                     v -> translateX = v, this::sendToServer, true);
             y = addAxisInputTwoRow(colLeft, y, colWidth,
-                    Component.translatable("ui.fangsu.block.transY"), translateY, -1, 1, 0.0625f,
+                    ComponentHelper.translatable("ui.fangsu.block.transY"), translateY, -1, 1, 0.0625f,
                     v -> translateY = v, this::sendToServer, true);
             y = addAxisInputTwoRow(colLeft, y, colWidth,
-                    Component.translatable("ui.fangsu.block.transZ"), translateZ, -1, 1, 0.0625f,
+                    ComponentHelper.translatable("ui.fangsu.block.transZ"), translateZ, -1, 1, 0.0625f,
                     v -> translateZ = v, this::sendToServer, true);
         }
 
-        // ---- 旋转（紧凑两行布局） ----
-        addEntry(createTextLabel(panelCenterX, y, Component.translatable("ui.fangsu.block.rotate"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
+        // ---- 鏃嬭浆锛堢揣鍑戜袱琛屽竷灞€锟?----
+        addEntry(createTextLabel(panelCenterX, y, ComponentHelper.translatable("ui.fangsu.block.rotate"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
         y += 10;
         if (useSliderInput) {
             y = addCompactTwoRow(colLeft, y, colWidth,
-                    Component.translatable("ui.fangsu.block.rotX"), rotateX, -180, 180, 5,
+                    ComponentHelper.translatable("ui.fangsu.block.rotX"), rotateX, -180, 180, 5,
                     v -> rotateX = v, this::sendToServer, true);
             y = addCompactTwoRow(colLeft, y, colWidth,
-                    Component.translatable("ui.fangsu.block.rotY"), rotateY, -180, 180, 5,
+                    ComponentHelper.translatable("ui.fangsu.block.rotY"), rotateY, -180, 180, 5,
                     v -> rotateY = v, this::sendToServer, true);
             y = addCompactTwoRow(colLeft, y, colWidth,
-                    Component.translatable("ui.fangsu.block.rotZ"), rotateZ, -180, 180, 5,
+                    ComponentHelper.translatable("ui.fangsu.block.rotZ"), rotateZ, -180, 180, 5,
                     v -> rotateZ = v, this::sendToServer, true);
         } else {
             y = addAxisInputTwoRow(colLeft, y, colWidth,
-                    Component.translatable("ui.fangsu.block.rotX"), rotateX, -180, 180, 5,
+                    ComponentHelper.translatable("ui.fangsu.block.rotX"), rotateX, -180, 180, 5,
                     v -> rotateX = v, this::sendToServer, true);
             y = addAxisInputTwoRow(colLeft, y, colWidth,
-                    Component.translatable("ui.fangsu.block.rotY"), rotateY, -180, 180, 5,
+                    ComponentHelper.translatable("ui.fangsu.block.rotY"), rotateY, -180, 180, 5,
                     v -> rotateY = v, this::sendToServer, true);
             y = addAxisInputTwoRow(colLeft, y, colWidth,
-                    Component.translatable("ui.fangsu.block.rotZ"), rotateZ, -180, 180, 5,
+                    ComponentHelper.translatable("ui.fangsu.block.rotZ"), rotateZ, -180, 180, 5,
                     v -> rotateZ = v, this::sendToServer, true);
         }
 
-        // ---- 额外配置（标准两行布局，比平移旋转高一点） ----
+        // ---- 棰濆閰嶇疆 ----
         if (configs != null && !configs.isEmpty()) {
-            addEntry(createTextLabel(panelCenterX, y, Component.translatable("ui.fangsu.block.extras"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
+            addEntry(createTextLabel(panelCenterX, y, ComponentHelper.translatable("ui.fangsu.block.extras"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
             y += 10;
             for (ConfigEntry<?> c : configs) {
                 c.load(be);
@@ -176,11 +201,11 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
                 if (!c.isVisible()) {
                     continue;
                 }
-                // 第一行：名称，左对齐，矮高度
+                // 绗竴琛岋細鍚嶇О锛屽乏瀵归綈锛岀煯楂樺害
                 addEntry(createTextLabel(colLeft, y, c.title, TextLabel.Align.LEFT, 0xFFFFFF, false), y);
                 y += 10;
-                // 第二行：控件，正常高度
-                ConfigWidget w = c.createWidget(colLeft, y, (int)(colWidth * 0.35f), (int)(colWidth * 0.65f));
+                // 绗簩琛岋細鎺т欢锛屾甯搁珮搴︼紙labelWidth=0 鍘婚櫎宸︿晶鏂囨湰锛屽彧鐢ㄤ笂鏂瑰悕绉版爣绛撅級
+                ConfigWidget w = c.createWidget(colLeft, y, 0, colWidth);
                 addRenderableWidget(w);
                 addEntry(w, y);
                 y += w.getHeight() + 6;
@@ -210,12 +235,12 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
 
     @Override
     protected int getContentTop() {
-        return 58; // 标题+切换按钮之下
+        return 58; // 鏍囬+鍒囨崲鎸夐挳涔嬩笅
     }
 
     @Override
     protected int getContentBottom() {
-        return this.height - 42; // 保存按钮之上
+        return this.height - 42; // 淇濆瓨鎸夐挳涔嬩笂
     }
 
     @Override
@@ -229,24 +254,31 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
     }
 
     @Override
-    protected void renderPanelBackground(GuiGraphics graphics) {
-        // 屏幕左 1/5 填充纯黑背景（从最左侧开始）
+    protected void renderPanelBackground(GraphicContext g) {
+        // 灞忓箷锟?1/5 濉厖绾粦鑳屾櫙锛堜粠鏈€宸︿晶寮€濮嬶級
         int bgRight = this.width / 5;
-        graphics.fill(0, 0, bgRight, this.height, 0xFF000000);
+        g.fill(0, 0, bgRight, this.height, 0xFF000000);
     }
 
+    //#if MC_VERSION >= 12000
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // 标题 - 绘制在黑色背景上
+        GraphicContext g = GraphicContext.of(graphics);
+        //#else
+        //$$ @Override
+        //$$ public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        //$$     GraphicContext g = GraphicContext.of(poseStack);
+        //#endif
+        // 鏍囬 - 缁樺埗鍦ㄩ粦鑹茶儗鏅笂
         int titleX = (getPanelLeft() + getPanelRight()) / 2 - this.font.width(this.title.getString()) / 2;
         int titleY = 2;
-        graphics.drawString(this.font, this.title, titleX, titleY, 0xFFFFFF, false);
+        g.drawString(this.font, this.title, titleX, titleY, 0xFFFFFF, false);
 
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.render(g.asMinecraft(), mouseX, mouseY, partialTick);
     }
 
     private Component getInputToggleLabel() {
-        return Component.translatable(useSliderInput
+        return ComponentHelper.translatable(useSliderInput
                 ? "ui.fangsu.block.toggle_input"
                 : "ui.fangsu.block.toggle_slider");
     }
@@ -256,8 +288,9 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
     }
 
     /**
-     * 紧凑两行布局：上一行矮标签，下一行滑块
-     * @param compact 为 true 时行高更紧凑（平移/旋转用）
+     * 绱у噾涓よ甯冨眬锛氫笂涓€琛岀煯鏍囩锛屼笅涓€琛屾粦锟?
+     *
+     * @param compact 锟?true 鏃惰楂樻洿绱у噾锛堝钩锟?鏃嬭浆鐢級
      */
     private int addCompactTwoRow(int areaLeft, int y, int rowWidth,
                                  Component label, float value,
@@ -265,14 +298,18 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
                                  Consumer<Float> setter, Runnable onChanged,
                                  boolean compact) {
         int labelHeight = compact ? 8 : 10;
-        // 第一行：名称，左对齐，矮高度
+        // 绗竴琛岋細鍚嶇О锛屽乏瀵归綈锛岀煯楂樺害
         addEntry(createTextLabel(areaLeft, y, label, TextLabel.Align.LEFT, 0xFFFFFF, false), y);
         y += labelHeight;
-        // 第二行：滑块，正常高度
+        // 绗簩琛岋細婊戝潡锛屾甯搁珮锟?
         int sliderWidth = rowWidth;
         if (sliderWidth < 60) sliderWidth = 60;
         SliderWidget slider = new SliderWidget(areaLeft, y, sliderWidth, 20,
+                //#if MC_VERSION >= 12000
                 Component.empty(), value, min, max, step,
+                //#else
+                //$$ ComponentHelper.empty(), value, min, max, step,
+                //#endif
                 v -> {
                     setter.accept(v);
                     onChanged.run();
@@ -283,7 +320,7 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
     }
 
     /**
-     * 紧凑两行布局：上一行矮标签，下一行输入框
+     * 绱у噾涓よ甯冨眬锛氫笂涓€琛岀煯鏍囩锛屼笅涓€琛岃緭鍏ユ
      */
     private int addAxisInputTwoRow(int areaLeft, int y, int rowWidth,
                                    Component label, float value,
@@ -291,12 +328,16 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
                                    Consumer<Float> setter, Runnable onChanged,
                                    boolean compact) {
         int labelHeight = compact ? 8 : 10;
-        // 第一行：名称，左对齐，矮高度
+        // 绗竴琛岋細鍚嶇О锛屽乏瀵归綈锛岀煯楂樺害
         addEntry(createTextLabel(areaLeft, y, label, TextLabel.Align.LEFT, 0xFFFFFF, false), y);
         y += labelHeight;
-        // 第二行：输入框
+        // 绗簩琛岋細杈撳叆锟?
         int inputWidth = Math.min(rowWidth, 80);
+        //#if MC_VERSION >= 12000
         EditBox box = new EditBox(this.font, areaLeft, y, inputWidth, 20, Component.empty());
+        //#else
+        //$$ EditBox box = new EditBox(this.font, areaLeft, y, inputWidth, 20, ComponentHelper.empty());
+        //#endif
         box.setValue(formatValue(value));
         box.setResponder(text -> {
             Float v = parseFloat(text);

@@ -1,5 +1,6 @@
 package com.fangsu.customItem;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -33,8 +34,8 @@ public class CustomMtrLifts {
         JsonObject defaultLift = new JsonObject();
         defaultLift.addProperty("id", "default");
         defaultLift.addProperty("texture", "mtr:textures/entity/lift_1.png");
-        defaultLift.addProperty("name", Component.translatable("mtr.fangsu.lift.vanilla").toString());
-        defaultLift.addProperty("description", Component.translatable("mtr.fangsu.lift.vanilla.description").toString());
+        defaultLift.addProperty("name", ComponentHelper.translatable("mtr.fangsu.lift.vanilla").toString());
+        defaultLift.addProperty("description", ComponentHelper.translatable("mtr.fangsu.lift.vanilla.description").toString());
         defaultInfo = new TexturedLiftSelectInfo(defaultLift);
     }
 

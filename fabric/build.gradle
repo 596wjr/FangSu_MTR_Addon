@@ -79,9 +79,15 @@ sourceSets {
 
 processResources {
     inputs.property 'version', project.version
+    inputs.property 'minecraft_dependency', "~${project.minecraft_version}"
+    inputs.property 'fabric_loader_dependency', ">=${project.fabric_loader_version}"
+    inputs.property 'architectury_dependency', ">=${project.architectury_api_version}"
 
     filesMatching('fabric.mod.json') {
-        expand version: inputs.properties.version
+        expand version: inputs.properties.version,
+               minecraft_dependency: inputs.properties.minecraft_dependency,
+               fabric_loader_dependency: inputs.properties.fabric_loader_dependency,
+               architectury_dependency: inputs.properties.architectury_dependency
     }
 }
 

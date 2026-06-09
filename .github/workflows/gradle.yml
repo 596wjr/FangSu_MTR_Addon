@@ -1,155 +1,48 @@
 name: Build (Preview)
 
 on:
-  push:
-    branches: [ "**" ]
-  pull_request:
+    workflow_dispatch:
 
 jobs:
-  build-fabric:
-    runs-on: ubuntu-latest
+    build:
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                game_version: ["1.18.2", "1.19.2", "1.19.3", "1.19.4", "1.20.1"]
+                platform: ["fabric", "forge"]
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
+            - name: Set up JDK 21
+              uses: actions/setup-java@v4
+              with:
+                  distribution: temurin
+                  java-version: 21
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+            - name: Grant execute permission for gradlew
+              run: chmod +x gradlew
 
-      - name: Build Fabric
-        run: ./gradlew :fabric:build --no-daemon
+            - name: Build ${{ matrix.platform }} (${{ matrix.game_version }})
+              run: ./gradlew :${{ matrix.platform }}:build -Pgame_version=${{ matrix.game_version }} --no-daemon
 
-      # ===== Fabric artifacts =====
-      - name: Upload Fabric jars
-        uses: actions/upload-artifact@v4
-        with:
-          name: fabric-jar
-          path: |
-            fabric/build/libs/*.jar
-            !fabric/build/libs/*-dev-shadow.jar
-            !fabric/build/libs/*-sources.jar
+            # ===== Artifacts =====
+            - name: Upload jars (${{ matrix.game_version }} ${{ matrix.platform }})
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ matrix.platform }}-${{ matrix.game_version }}
+                  path: |
+                      ${{ matrix.platform }}/build/libs/*.jar
+                      !${{ matrix.platform }}/build/libs/*-dev-shadow.jar
+                      !${{ matrix.platform }}/build/libs/*-sources.jar
 
-      - name: Upload Fabric sources jars
-        uses: actions/upload-artifact@v4
-        with:
-          name: fabric-sources-jar
-          path: |
-            !fabric/build/libs/*.jar
-            !fabric/build/libs/*-dev-shadow.jar
-            fabric/build/libs/*-sources.jar
-  build-forge:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Build Forge
-        run: ./gradlew :forge:build --no-daemon
-      # ===== Forge artifacts =====
-      - name: Upload Forge jars
-        uses: actions/upload-artifact@v4
-        with:
-          name: forge-jar
-          path: |
-            forge/build/libs/*.jar
-            !forge/build/libs/*-dev-shadow.jar
-            !forge/build/libs/*-sources.jar
-
-      - name: Upload Forge sources jars
-        uses: actions/upload-artifact@v4
-        with:
-          name: forge-sources-jar
-          path: |
-            !forge/build/libs/*.jar
-            !forge/build/libs/*-dev-shadow.jar
-            forge/build/libs/*-sources.jar
-  build-fabric-ante:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Build Fabric For ANTE
-        run: ./gradlew :fabric:build --no-daemon -Pbuild_for_ante=true
-
-      # ===== Fabric artifacts =====
-      - name: Upload Fabric jars
-        uses: actions/upload-artifact@v4
-        with:
-          name: fabric-jar
-          path: |
-            fabric/build/libs/*.jar
-            !fabric/build/libs/*-dev-shadow.jar
-            !fabric/build/libs/*-sources.jar
-
-      - name: Upload Fabric sources jars
-        uses: actions/upload-artifact@v4
-        with:
-          name: fabric-sources-jar
-          path: |
-            !fabric/build/libs/*.jar
-            !fabric/build/libs/*-dev-shadow.jar
-            fabric/build/libs/*-sources.jar
-  build-forge-ante:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Build Forge For ANTE
-        run: ./gradlew :forge:build --no-daemon -Pbuild_for_ante=true
-
-      # ===== Forge artifacts =====
-      - name: Upload Forge jars
-        uses: actions/upload-artifact@v4
-        with:
-          name: forge-jar
-          path: |
-            forge/build/libs/*.jar
-            !forge/build/libs/*-dev-shadow.jar
-            !forge/build/libs/*-sources.jar
-
-      - name: Upload Forge sources jars
-        uses: actions/upload-artifact@v4
-        with:
-          name: forge-sources-jar
-          path: |
-            !forge/build/libs/*.jar
-            !forge/build/libs/*-dev-shadow.jar
-            forge/build/libs/*-sources.jar
+            - name: Upload sources jars (${{ matrix.game_version }} ${{ matrix.platform }})
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ matrix.platform }}-${{ matrix.game_version }}-sources
+                  path: |
+                      !${{ matrix.platform }}/build/libs/*.jar
+                      !${{ matrix.platform }}/build/libs/*-dev-shadow.jar
+                      ${{ matrix.platform }}/build/libs/*-sources.jar

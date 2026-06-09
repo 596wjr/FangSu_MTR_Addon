@@ -1,5 +1,6 @@
 package com.fangsu.ui;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.utils.MtrUtil;
 import mtr.data.Platform;
 import mtr.data.Station;
@@ -25,13 +26,13 @@ public class PlatformSelectionScreen extends BaseSelectionScreen {
         this.pos = pos;
         this.titles = new ArrayList<>();
         this.parent = parent;
-        titles.add(Component.translatable("ui.fangsu.common.selectPlat"));
-        titles.add(Component.translatable("ui.fangsu.common.selected"));
+        titles.add(ComponentHelper.translatable("ui.fangsu.common.selectPlat"));
+        titles.add(ComponentHelper.translatable("ui.fangsu.common.selected"));
     }
 
     @Override
     public void updateColumn() {
-        Station station = MtrUtil.getStationAt(pos.getCenter().toVector3f());
+        Station station = MtrUtil.getStationAt(MtrUtil.getCenterVector3f(pos));
         if (station != null) {
             if (this.items != null)
                 this.items.clear();

@@ -684,6 +684,29 @@ public class GifHelper {
         return hasGif(blockPosToId(pos));
     }
 
+    /**
+     * 获取指定 ID 绑定的 GIF 当前帧的 BufferedImage。
+     * 如果未绑定、尚未完成加载或没有帧数据，返回一个空的透明 BufferedImage。
+     *
+     * @param id 绑定 ID
+     * @return 当前帧 BufferedImage，未就绪时返回 1x1 透明图像
+     */
+    public BufferedImage getCurrentFrame(String id) {
+        ResourceLocation loc = bindingMap.get(id);
+        if (loc == null) {
+            return new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        }
+        GifInstance inst = gifCache.get(loc);
+        if (inst == null || !inst.loaded.get()) {
+            return new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        }
+        BufferedImage[] frames = inst.frames;
+        if (frames == null || frames.length == 0) {
+            return new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        }
+        return frames[inst.currentFrame.get() % frames.length];
+    }
+
     // ========== 播放控制 ==========
 
     /**

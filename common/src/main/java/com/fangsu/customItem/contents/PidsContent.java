@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -16,12 +17,17 @@ public class PidsContent extends BaseContent {
     private final List<Integer> texSize;
     private final List<List<List<Double>>> slots;
     private final List<List<Double>> shape;
+    private final List<JsonObject> extraConfigDefs;
+    private final JsonObject scriptSettings;
 
     private PidsContent(JsonObject json) {
         super(json);
         model = json.get("model").getAsString();
         flipV = json.has("flipV") && json.get("flipV").getAsBoolean();
         script = json.has("script") ? json.get("script").getAsString() : "";
+
+        scriptSettings = json.has("script_settings") && json.get("script_settings").isJsonObject()
+                ? json.getAsJsonObject("script_settings") : new JsonObject();
 
         texSize = new ArrayList<>();
         if (json.has("texSize") && json.get("texSize").isJsonArray()) {
@@ -70,6 +76,15 @@ public class PidsContent extends BaseContent {
                 }
             }
         }
+
+        extraConfigDefs = new ArrayList<>();
+        if (json.has("extraConfig") && json.get("extraConfig").isJsonArray()) {
+            for (JsonElement el : json.getAsJsonArray("extraConfig")) {
+                if (el != null && el.isJsonObject()) {
+                    extraConfigDefs.add(el.getAsJsonObject());
+                }
+            }
+        }
     }
 
     public String getModel() {
@@ -94,6 +109,14 @@ public class PidsContent extends BaseContent {
 
     public List<List<Double>> getShape() {
         return shape;
+    }
+
+    public List<JsonObject> getExtraConfigDefs() {
+        return Collections.unmodifiableList(extraConfigDefs);
+    }
+
+    public JsonObject getScriptSettings() {
+        return scriptSettings;
     }
 
     protected static class PidsLoader extends BaseLoader {

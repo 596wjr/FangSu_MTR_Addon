@@ -36,7 +36,12 @@ public abstract class BaseObjBlock extends HorizontalDirectionalBlock implements
     }
 
     public BaseObjBlock() {
-        super(BlockBehaviour.Properties.of()
+        super(BlockBehaviour.Properties.of(
+                //#if MC_VERSION >= 12000
+                )
+                //#else
+                //$$ net.minecraft.world.level.material.Material.METAL)
+                //#endif
                 .strength(2)
                 .noOcclusion()
                 .dynamicShape()

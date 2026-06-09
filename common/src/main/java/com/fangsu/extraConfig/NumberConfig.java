@@ -1,5 +1,6 @@
 package com.fangsu.extraConfig;
 
+import com.fangsu.mappings.ComponentHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -78,18 +79,11 @@ public class NumberConfig extends ConfigEntry<Float> {
 
         /* ---------- Toggle ---------- */
 
-        Button toggle = Button.builder(
-                Component.translatable("ui.fangsu.common.toggle_input"),
-                b -> {
-                    slider.visible = !slider.visible;
-                    input.visible = !input.visible;
-                }
-        ).bounds(
-                x + labelW + fieldAreaW + 4,
-                y,
-                toggleW,
-                20
-        ).build();
+        //#if MC_VERSION >= 12000
+        Button toggle = Button.builder(ComponentHelper.translatable("ui.fangsu.common.toggle_input"), b -> { slider.visible = !slider.visible; input.visible = !input.visible; }).bounds(x + labelW + fieldAreaW + 4, y, toggleW, 20).build();
+        //#else
+        //$$ Button toggle = new Button(x + labelW + fieldAreaW + 4, y, toggleW, 20, ComponentHelper.translatable("ui.fangsu.common.toggle_input"), b -> { slider.visible = !slider.visible; input.visible = !input.visible; });
+        //#endif
 
         slider.visible = true;
         input.visible = false;

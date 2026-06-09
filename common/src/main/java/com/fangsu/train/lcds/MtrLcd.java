@@ -35,11 +35,11 @@ public class MtrLcd extends LcdBase {
         g.setColor(Color.WHITE);
         g.fillRect(x, y, w, h);
 
-        int nextStationIndex = status.getThisRoutePlatformsNextIndex();
+        int nextStationIndex = status.getThisRoutePlatformsNextIndexGlobal();
         DrawableRoute route = status.drawableRoute;
         List<DrawableRoute.DrawableRouteStation> stations = route.getStations(nextStationIndex);
 
-        if (status.trainStatus == 3 || status.trainStatus == 2) {
+        if (status.trainStatus == 3 || status.trainStatus == 2 || status.trainStatus == 1) {
             boolean isLeft = side.contains("left");
             boolean isReverse = isLeft == status.isReverse;
 
@@ -61,7 +61,9 @@ public class MtrLcd extends LcdBase {
                 boolean rightOpen = status.doorRightOpen[0];
                 boolean isLeft = side.contains("left");
                 if (leftOpen || rightOpen) {
-                    drawDoorOpen(g, x, y, w, h, cjkFont, nonCjkFont, isLeft ? leftOpen : rightOpen, isLeft);
+                    boolean doorOnRight = (isLeft && rightOpen) || (!isLeft && leftOpen);
+                    boolean doorOnThisSide = (isLeft && leftOpen) || (!isLeft && rightOpen);
+                    drawDoorOpen(g, x, y, w, h, cjkFont, nonCjkFont, doorOnRight, doorOnThisSide);
                 }
             } else {
                 boolean isLeft = side.contains("left");
@@ -70,8 +72,8 @@ public class MtrLcd extends LcdBase {
                 drawRouteName(g, x, y, w, h, cjkFont, nonCjkFont, route.routeColor, route.routeName, isLeft);
             }
         } else {
-//            g.setColor(Color.BLACK);
-//            g.drawString("state: " + status.trainStatus, x + 20, y + 20);
+            g.setColor(Color.BLACK);
+            g.drawString("state: " + status.trainStatus, x + 20, y + 20);
             drawStationNameCenter(g, x, y, w, h, "方速MTR扩展", "FangSu MTR Addon", cjkFont, nonCjkFont);
             drawMindTheGap(g, x, y, w, h, cjkFont, nonCjkFont);
         }
@@ -89,7 +91,7 @@ public class MtrLcd extends LcdBase {
         Color blinkColor = Color.decode("0xffcd00");
         boolean blinkState = System.currentTimeMillis() / 1000 % 2 == 0;
 
-        int distant = (int) (w * 0.8 / (stations.size() - 1));
+        int distant = stations.size() <= 1 ? w : (int) (w * 0.8 / (stations.size() - 1));
         int centralY = y + h / 2;
         int lineSize = h / 11;
         int stationSize = h / 8;
@@ -196,7 +198,7 @@ public class MtrLcd extends LcdBase {
         currentX += routeNameColorWidth;
         currentX += routeNameBlank;
         g.setColor(Color.BLACK);
-        G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX, centralY - routeNameTextHeight / 2 - routeNameTextHeight, routeNameTextHeight, 0, routeName.split("\\|"));
+        G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX, centralY - routeNameTextHeight, routeNameTextHeight, 0, routeName.split("\\|"));
 
     }
 

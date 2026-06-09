@@ -1,5 +1,6 @@
 package com.fangsu.ui;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.extraConfig.ConfigWidget;
 import net.minecraft.client.Minecraft;
@@ -26,10 +27,11 @@ public class ConfigScreen extends BasicConfigScreen {
 
     @Override
     protected void buildFixedWidgets() {
-        closeButton = addFixedWidget(Button.builder(Component.translatable("ui.fangsu.block.close_and_save"), btn -> {
-            if (!REALTIME) saveAll();
-            onClose();
-        }).bounds(this.width / 2 - 50, this.height - 40, 100, 20).build());
+        //#if MC_VERSION >= 12000
+        closeButton = addFixedWidget(Button.builder(ComponentHelper.translatable("ui.fangsu.block.close_and_save"), btn -> { if (!REALTIME) saveAll(); onClose(); }).bounds(this.width / 2 - 50, this.height - 40, 100, 20).build());
+        //#else
+        //$$ closeButton = addFixedWidget(new Button(this.width / 2 - 50, this.height - 40, 100, 20, ComponentHelper.translatable("ui.fangsu.block.close_and_save"), btn -> { if (!REALTIME) saveAll(); onClose(); }));
+        //#endif
     }
 
     @Override

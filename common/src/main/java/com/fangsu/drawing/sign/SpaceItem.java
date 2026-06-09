@@ -1,5 +1,6 @@
 package com.fangsu.drawing.sign;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.extraConfig.ConfigSpec;
 import com.fangsu.extraConfig.NumberInputConfig;
@@ -49,7 +50,7 @@ public class SpaceItem extends SignItem {
     @Override
     public List<ConfigEntry<?>> getConfigs() {
         return List.of(new NumberInputConfig(
-                Component.translatable("ui.fangsu.common.length"),
+                ComponentHelper.translatable("ui.fangsu.common.length"),
                 new ConfigSpec("num").setParam("min", new com.google.gson.JsonPrimitive(0.1f)).setParam("max", new com.google.gson.JsonPrimitive(8f)),
                 () -> length,
                 v -> length = v

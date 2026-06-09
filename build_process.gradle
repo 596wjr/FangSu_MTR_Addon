@@ -1,44 +1,108 @@
+// ============================================================
+// 条件编译预处理引擎
+// 支持的条件格式：
+//   //#if FABRIC              — 平台检测（FABRIC / FORGE / NEOFORGE）
+//   //#if WITH_JS             — 自定义变量
+//   //#if MC_VERSION >= 12000 — MC 版本号比较（支持 >=, <=, ==, !=, <, >）
+//   //#elseif / //#else / //#endif
+//   //$$ 代码                  — "伪注释"代码，条件满足时取消注释
+// ============================================================
+
+/**
+ * 解析并求值一个条件表达式
+ * @param condStr   原始条件字符串（如 "MC_VERSION >= 12000" 或 "FABRIC"）
+ * @param platform  当前编译平台
+ * @param mcVerInt  MC_VERSION_INT 整数值
+ * @param vars      自定义变量映射
+ * @return boolean  条件是否满足
+ */
+def evaluateCondition(String condStr, String platform, int mcVerInt, Map vars) {
+    def upper = condStr.toUpperCase().trim()
+
+    // 1) MC_VERSION 比较：MC_VERSION >= 12000, MC_VERSION == 11900, etc.
+    def matcher = upper =~ /^MC_VERSION\s*(>=|<=|==|!=|<|>)\s*"?(\d+)"?$/
+    if (matcher.matches()) {
+        def op = matcher.group(1)
+        def target = matcher.group(2) as int
+        switch (op) {
+            case ">=": return mcVerInt >= target
+            case "<=": return mcVerInt <= target
+            case "==": return mcVerInt == target
+            case "!=": return mcVerInt != target
+            case ">" : return mcVerInt > target
+            case "<" : return mcVerInt < target
+        }
+    }
+
+    // 2) 自定义变量（WITH_JS / NO_JS 等）
+    if (vars.containsKey(upper)) {
+        return vars[upper]
+    }
+
+    // 3) 平台检测（FABRIC / FORGE / NEOFORGE）
+    return upper == platform
+}
+
+/**
+ * 条件编译处理函数
+ * @param inputFile   源文件
+ * @param outputFile  输出文件（预处理后）
+ * @return 输出文件
+ */
 def processAccessWidener(inputFile, outputFile) {
     outputFile.deleteOnExit()
 
-    // 当前平台：FABRIC / FORGE
-    def currentPlatform = project.findProperty("platform")?.toString()?.toUpperCase()
+    // ---------- 读取条件变量 ----------
+    // 从 rootProject 获取平台（由根 build.gradle 的 ext.platform 设置）
+    def currentPlatform = rootProject.findProperty("platform")?.toString()?.toUpperCase() ?: "UNKNOWN"
+
+    // MC_VERSION_INT（由 build_dep_ver.gradle 计算）
+    def mcVersionInt = (rootProject.ext.has("minecraft_version_int")
+            ? rootProject.ext.minecraft_version_int
+            : "12001") as int
 
     // 自定义条件
-    boolean withJs = project.hasProperty("no_js") && project.property("no_js") == "false"
+    boolean withJs = rootProject.hasProperty("no_js") && rootProject.property("no_js") == "false"
     def conditionVars = [
             "WITH_JS": withJs,
             "NO_JS"  : !withJs
     ]
 
     def outputLines = []
-
-    // 条件栈，支持嵌套
+    // 条件栈，支持嵌套。每个元素为 [taken, active]：
+    //   taken  — 当前 if 块中是否已有分支被满足
+    //   active — 当前分支是否应输出
     def conditionStack = []
 
-    // 当前是否应当输出
+    // 当前是否应当输出（所有嵌套级别的 active 均为 true）
     def isActive = { ->
-        !conditionStack.contains(false)
+        !conditionStack.find { entry -> !entry.active }
     }
 
     inputFile.eachLine { rawLine ->
         def line = rawLine.trim()
 
-        // //#if XXX
+        // //#if XXX — 开启新条件块
         if (line.startsWith("//#if ")) {
-            def cond = line.substring(6).trim().toUpperCase()
-            def value = conditionVars.containsKey(cond) ? conditionVars[cond] : (cond == currentPlatform)
-            conditionStack.add(value)
+            def condStr = line.substring(6).trim()
+            def value = evaluateCondition(condStr, currentPlatform, mcVersionInt, conditionVars)
+            conditionStack.add([taken: value, active: value])
             return
         }
 
         // //#elseif XXX
         if (line.startsWith("//#elseif ")) {
-            def cond = line.substring(10).trim().toUpperCase()
+            def condStr = line.substring(10).trim()
             if (!conditionStack.isEmpty()) {
-                def last = conditionStack.remove(conditionStack.size() - 1)
-                def value = conditionVars.containsKey(cond) ? conditionVars[cond] : (cond == currentPlatform)
-                conditionStack.add(!last && value)
+                def entry = conditionStack[-1]
+                if (entry.taken) {
+                    // 已有分支被满足，此 elseif 及其后的 else 均不输出
+                    entry.active = false
+                } else {
+                    def value = evaluateCondition(condStr, currentPlatform, mcVersionInt, conditionVars)
+                    entry.taken = value
+                    entry.active = value
+                }
             }
             return
         }
@@ -46,13 +110,18 @@ def processAccessWidener(inputFile, outputFile) {
         // //#else
         if (line.startsWith("//#else")) {
             if (!conditionStack.isEmpty()) {
-                def last = conditionStack.remove(conditionStack.size() - 1)
-                conditionStack.add(!last)
+                def entry = conditionStack[-1]
+                if (entry.taken) {
+                    entry.active = false
+                } else {
+                    entry.taken = true
+                    entry.active = true
+                }
             }
             return
         }
 
-        // //#endif
+        // //#endif — 关闭当前条件块
         if (line.startsWith("//#endif")) {
             if (!conditionStack.isEmpty()) {
                 conditionStack.remove(conditionStack.size() - 1)
@@ -60,10 +129,9 @@ def processAccessWidener(inputFile, outputFile) {
             return
         }
 
-        // //$$ 开头的“伪注释代码”
+        // //$$ 开头的"伪注释代码"
         if (rawLine =~ /^\s*\/\/\$\$/) {
             if (isActive()) {
-                // 保留原有缩进，只去掉 //$$
                 def uncommented = rawLine.replaceFirst(/^(\s*)\/\/\$\$\s?/, '$1')
                 outputLines.add(uncommented)
             }
@@ -83,31 +151,7 @@ def processAccessWidener(inputFile, outputFile) {
     return outputFile
 }
 
+// 暴露 processAccessWidener 到 rootProject 的 ext，供子项目 task 调用
 ext {
     processAccessWidener = this.&processAccessWidener
-}
-
-def generatedSrcDir = layout.buildDirectory.dir("generated/sources/conditional")
-
-tasks.register("processConditionalSources") {
-    inputs.dir("src/main/java")
-    outputs.dir(generatedSrcDir)
-
-    doLast {
-        def outDir = generatedSrcDir.get().asFile
-        outDir.deleteDir()
-        outDir.mkdirs()
-
-        fileTree("src/main/java").matching {
-            include "**/*.java"
-        }.each { File input ->
-            def relativePath = input.absolutePath
-                    .substring(file("src/main/java").absolutePath.length() + 1)
-
-            def output = new File(outDir, relativePath)
-            output.parentFile.mkdirs()
-
-            processAccessWidener(input, output)
-        }
-    }
 }

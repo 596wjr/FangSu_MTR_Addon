@@ -1,5 +1,6 @@
 package com.fangsu.drawing.sign;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.extraConfig.ConfigSpec;
 import com.fangsu.extraConfig.RunnableConfig;
@@ -68,13 +69,13 @@ public class TrainIconItem extends SignItem {
     public java.util.List<ConfigEntry<?>> getConfigs() {
         java.util.List<ConfigEntry<?>> list = new ArrayList<ConfigEntry<?>>();
         list.add(new RunnableConfig(
-                net.minecraft.network.chat.Component.translatable("ui.fangsu.common.selectRoute"),
+                ComponentHelper.translatable("ui.fangsu.common.selectRoute"),
                 new ConfigSpec("func"),
                 () -> {
                     Minecraft mc = Minecraft.getInstance();
                     if (mc.player != null) {
                         mc.setScreen(new RouteSelectionScreen(
-                                Component.translatable("ui.fangsu.common.selectRoute"),
+                                ComponentHelper.translatable("ui.fangsu.common.selectRoute"),
                                 List.of(),
                                 (v) -> {
                                     if (v != null && !v.isEmpty())

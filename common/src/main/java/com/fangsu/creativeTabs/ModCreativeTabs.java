@@ -1,5 +1,6 @@
 package com.fangsu.creativeTabs;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.blocks.ModBlocks;
 import com.fangsu.items.ModItems;
 import com.fangsu.utils.RegisterUtil;
@@ -10,7 +11,7 @@ import net.minecraft.world.item.CreativeModeTab;
 public class ModCreativeTabs {
     public static final RegistrySupplier<CreativeModeTab> FANGSU_MAIN = RegisterUtil.addCreativeTab(
             "main",
-            Component.translatable("tab.fangsu.main").getString(),
+            ComponentHelper.translatable("tab.fangsu.main").getString(),
             ModBlocks.ITEM_TICKET_BARRIER,
             ModItems.ITEM_WRENCH,
             ModBlocks.ITEM_TICKET_BARRIER,
@@ -23,6 +24,7 @@ public class ModCreativeTabs {
             ModBlocks.ITEM_DIAOBAN,
             ModBlocks.ITEM_TICKET_MACHINE,
             ModBlocks.ITEM_RIS,
+            ModBlocks.ITEM_SIS,
             ModBlocks.ITEM_ADV_BOARD,
             ModBlocks.ITEM_SCREENDOOR_CENTRAL_CONTROL,
             ModBlocks.ITEM_COLLISION_COMPENSATOR

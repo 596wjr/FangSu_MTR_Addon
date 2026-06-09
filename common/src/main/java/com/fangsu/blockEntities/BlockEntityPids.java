@@ -1,5 +1,7 @@
 package com.fangsu.blockEntities;
 
+import com.fangsu.mappings.ComponentHelper;
+import com.fangsu.mappings.GsonHelper;
 import com.fangsu.Main;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.client.ClientHooks;
@@ -13,8 +15,10 @@ import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
 import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.scripting.ModelHelper;
+import com.fangsu.extraConfig.*;
 import com.fangsu.utils.*;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.FriendlyByteBuf;
@@ -65,14 +69,14 @@ public class BlockEntityPids extends BaseObjBlockEntity {
         pidsDrawing = null;
         drawState.clear();
         lastRegisteredDrawInfoId = "";
-        List<JsonElement> rawPlats = Main.JSON_PARSER.parse(getExtraConfig("plats")).getAsJsonArray().asList();
+        List<JsonElement> rawPlats = GsonHelper.asList(Main.JSON_PARSER.parse(getExtraConfig("plats")).getAsJsonArray());
         plats = new ArrayList<>();
         for (JsonElement rawPlat : rawPlats) {
             plats.add(rawPlat.getAsLong());
         }
 
         try {
-            userExtraConfigs = Main.JSON_PARSER.parse(getExtraConfig("extraConfig", "{}")).getAsJsonObject().asMap();
+            userExtraConfigs = GsonHelper.asMap(Main.JSON_PARSER.parse(getExtraConfig("extraConfig", "{}")).getAsJsonObject());
         } catch (Throwable ignored) {
             userExtraConfigs = new HashMap<>();
         }
@@ -126,7 +130,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
 
 
     /**
-     * 上次注册绘制的标识，避免重复注册
+     * 涓婃娉ㄥ唽缁樺埗鐨勬爣璇嗭紝閬垮厤閲嶅娉ㄥ唽
      */
     private String lastRegisteredDrawInfoId = "";
 
@@ -137,18 +141,18 @@ public class BlockEntityPids extends BaseObjBlockEntity {
 
         final String scriptKey = drawScriptKey;
 
-        // 通过 PidsDrawManager 获取绘制实例（支持 Java 类和 JS 脚本）
+        // 閫氳繃 PidsDrawManager 鑾峰彇缁樺埗瀹炰緥锛堟敮锟?Java 绫诲拰 JS 鑴氭湰锟?
         if (pidsDrawing == null) {
             pidsDrawing = PidsDrawManager.createDrawing(scriptKey);
         }
         if (pidsDrawing == null) return;
 
-        // 去重：如果绘制标识未变化，说明数据未更新，无需重新注册
+        // 鍘婚噸锛氬鏋滅粯鍒舵爣璇嗘湭鍙樺寲锛岃鏄庢暟鎹湭鏇存柊锛屾棤闇€閲嶆柊娉ㄥ唽
         String drawInfoId = "PIDS_" + scriptKey + "_" + plats;
         if (drawInfoId.equals(lastRegisteredDrawInfoId)) return;
         lastRegisteredDrawInfoId = drawInfoId;
 
-        // 移除旧绘制再注册新绘制
+        // 绉婚櫎鏃х粯鍒跺啀娉ㄥ唽鏂扮粯锟?
         gtHelper.removeDrawGraphic(getBlockPos());
         gtHelper.addDrawGraphicWithGt(getBlockPos(),
                 new GraphicsTextureHelper.DrawInfo(
@@ -173,13 +177,13 @@ public class BlockEntityPids extends BaseObjBlockEntity {
 
     @Override
     public void whenRendering() {
-        // 确保绘制已注册（与RIS/SIS/Diaoban保持一致）
+        // 纭繚缁樺埗宸叉敞鍐岋紙涓嶳IS/SIS/Diaoban淇濇寔涓€鑷达級
         initDrawingAsync();
 
         ObjBlockScriptContext ctx = this.scriptContext;
         if (dmhMain != null) ctx.drawModel(dmhMain, null);
 
-        // 仅在贴图就绪后才绘制 display 模型（与RIS/SIS/Diaoban保持一致）
+        // 浠呭湪璐村浘灏辩华鍚庢墠缁樺埗 display 妯″瀷锛堜笌RIS/SIS/Diaoban淇濇寔涓€鑷达級
         if (dmhDisp != null && dmhDisp.getUploadedModel() != null
                 && GraphicsTextureHelper.getInstance().isTextureAvailable(getBlockPos())) {
             GraphicsTexture gt = GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos());
@@ -242,13 +246,13 @@ public class BlockEntityPids extends BaseObjBlockEntity {
 
         mainModel = buf.readUtf();
 
-        // 重要：清空旧数据
+        // 閲嶈锛氭竻绌烘棫鏁版嵁
         extraConfigs.clear();
 
         int size = buf.readInt();
         for (int i = 0; i < size; i++) {
             String key = buf.readUtf(64);
-            String value = buf.readUtf(16384); // 建议和 sign 保持一致
+            String value = buf.readUtf(16384); // 寤鸿锟?sign 淇濇寔涓€锟?
             extraConfigs.put(key, value);
         }
 
@@ -261,7 +265,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
         }
 
         // ==========================
-        // 下面是 PIDS 专属逻辑
+        // 涓嬮潰锟?PIDS 涓撳睘閫昏緫
         // ==========================
 
         try {
@@ -275,16 +279,15 @@ public class BlockEntityPids extends BaseObjBlockEntity {
         }
 
         try {
-            userExtraConfigs = Main.JSON_PARSER
+            userExtraConfigs = GsonHelper.asMap(Main.JSON_PARSER
                     .parse(extraConfigs.getOrDefault("extraConfig", "{}"))
-                    .getAsJsonObject()
-                    .asMap();
+                    .getAsJsonObject());
         } catch (Exception e) {
             userExtraConfigs = new HashMap<>();
         }
 
         GraphicsTextureHelper.getInstance().removeDrawGraphic(getBlockPos());
-        // 重置绘制标识，确保 whenLoading() 中的 initDrawingAsync() 会重新注册
+        // 閲嶇疆缁樺埗鏍囪瘑锛岀‘锟?whenLoading() 涓殑 initDrawingAsync() 浼氶噸鏂版敞锟?
         lastRegisteredDrawInfoId = "";
 
         whenLoading();
@@ -336,21 +339,72 @@ public class BlockEntityPids extends BaseObjBlockEntity {
     }
 
     @Override
+    public List<ConfigEntry<?>> getConfigs() {
+        List<ConfigEntry<?>> configs = new ArrayList<>();
+        // 锟?content 锟?extraConfig 瀹氫箟鍔ㄦ€佺敓鎴愰厤缃」
+        try {
+            // 姣忔閲嶆柊璇诲彇 subModel锛岄伩鍏嶅垏鎹富妯″瀷鍚庡瓧娈垫湭鍚屾
+            String currentSubModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
+            PidsContent content = ContentInfoUtil.getPidsContent(mainModel, currentSubModel);
+            if (content != null && !content.getExtraConfigDefs().isEmpty()) {
+                for (JsonObject def : content.getExtraConfigDefs()) {
+                    String savePos = def.has("savePos") ? def.get("savePos").getAsString() : null;
+                    JsonElement defaultVal = def.has("default") ? def.get("default") : null;
+
+                    ConfigEntry<?> entry = JsonConfigParser.parse(
+                            def,
+                            () -> {
+                                if (savePos != null && userExtraConfigs != null && userExtraConfigs.containsKey(savePos)) {
+                                    JsonElement el = userExtraConfigs.get(savePos);
+                                    return convertJsonToType(el, def);
+                                }
+                                if (defaultVal != null) {
+                                    return convertJsonToType(defaultVal, def);
+                                }
+                                return getTypeDefault(def);
+                            },
+                            v -> {
+                                if (savePos != null) {
+                                    if (userExtraConfigs == null) userExtraConfigs = new HashMap<>();
+                                    userExtraConfigs.put(savePos, new com.google.gson.JsonPrimitive(String.valueOf(v)));
+                                    extraConfigs.put("extraConfig", Main.GSON.toJson(userExtraConfigs));
+                                    sendUpdateC2S();
+                                }
+                            }
+                    );
+                    configs.add(entry);
+                }
+            }
+        } catch (Exception e) {
+            Main.LOGGER.warn("Failed to load pids extraConfig for {}: {}", mainModel, e.getMessage());
+        }
+        return configs;
+    }
+
+    @Override
     public List<SubModelDispInfo> getSubModelInfos() {
         List<SubModelDispInfo> infos = new ArrayList<>();
         infos.add(createSubModelSelectInfo("content", DEFAULT_SUB_MODEL));
         infos.add(new SubModelMethodInfo(
-                Component.translatable("ui.fangsu.common.selectPlat"),
+                ComponentHelper.translatable("ui.fangsu.common.selectPlat"),
                 () -> {
+                    int maxSelect = 16;
+                    try {
+                        String currentSubModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
+                        PidsContent pidsContent = ContentInfoUtil.getPidsContent(mainModel, currentSubModel);
+                        if (pidsContent != null && pidsContent.getScriptSettings().has("max_select")) {
+                            maxSelect = pidsContent.getScriptSettings().get("max_select").getAsInt();
+                        }
+                    } catch (Exception ignored) {}
                     ClientHooks.openPlatformSelectScreen(
-                            Component.translatable("ui.fangsu.common.selectPlat"),
+                            ComponentHelper.translatable("ui.fangsu.common.selectPlat"),
                             plats,
                             l -> {
                                 plats = l;
                                 extraConfigs.put("plats", Main.GSON.toJson(plats));
                                 sendUpdateC2S();
                             },
-                            getBlockPos(), 16
+                            getBlockPos(), maxSelect
                     );
                 }
         ));
@@ -361,11 +415,55 @@ public class BlockEntityPids extends BaseObjBlockEntity {
         return MtrUtil.getPidsArrivalInfoList(plats);
     }
 
+    /* ============ extraConfig 杈呭姪鏂规硶 ============ */
+
+    /**
+     * 锟?JsonElement 杞崲涓洪€傚悎浼犲叆 setter 鐨勭被鍨嬶紙鏍规嵁 extraConfig def 锟?type 鎺ㄦ柇锛夛拷?
+     */
+    @SuppressWarnings("unchecked")
+    static <T> T convertJsonToType(JsonElement el, JsonObject def) {
+        String type = def.get("type").getAsString();
+        return (T) switch (type) {
+            case "number", "number_input" -> {
+                if (def.has("param") && def.get("param").isJsonObject()
+                        && def.getAsJsonObject("param").get("isInt") != null
+                        && def.getAsJsonObject("param").get("isInt").getAsBoolean()) {
+                    yield (Number) el.getAsInt();
+                }
+                yield (Number) el.getAsFloat();
+            }
+            case "bool" -> (Boolean) el.getAsBoolean();
+            case "list" -> (Integer) el.getAsInt();
+            default -> (T) el.getAsString();
+        };
+    }
+
+    /**
+     * 鏍规嵁 extraConfig def 锟?type 杩斿洖璇ョ被鍨嬬殑 Java 榛樿鍊硷拷?
+     */
+    @SuppressWarnings("unchecked")
+    static <T> T getTypeDefault(JsonObject def) {
+        String type = def.get("type").getAsString();
+        return (T) switch (type) {
+            case "number", "number_input" -> {
+                boolean isInt = def.has("param") && def.get("param").isJsonObject()
+                        && def.getAsJsonObject("param").get("isInt") != null
+                        && def.getAsJsonObject("param").get("isInt").getAsBoolean();
+                yield (Number) (isInt ? 0 : 0f);
+            }
+            case "bool" -> (Boolean) false;
+            case "list" -> (Integer) 0;
+            default -> (String) "";
+        };
+    }
+
     public static final class DrawInfoPids {
         public final List<MtrUtil.PidsArrivalInfo> arrivalInfoList;
         public final int[] texArea;
         public final ObjBlockScriptContext ctx;
         public final BlockEntityPids entity;
+        /** 鐢ㄦ埛鑷畾涔夐厤缃紙鏉ヨ嚜 content JSON 锟?extraConfig锛夛紝閿负 savePos */
+        public final Map<String, Object> extraConfig;
 
         public DrawInfoPids(
                 List<MtrUtil.PidsArrivalInfo> arrivalInfoList,
@@ -377,6 +475,36 @@ public class BlockEntityPids extends BaseObjBlockEntity {
             this.texArea = texArea;
             this.ctx = ctx;
             this.entity = entity;
+            this.extraConfig = convertUserExtraConfigs(entity.userExtraConfigs);
+        }
+
+        /**
+         * 锟?{@code Map<String, JsonElement>} 杞崲锟?{@code Map<String, Object>} 锟?JS 浣跨敤锟?
+         */
+        private static Map<String, Object> convertUserExtraConfigs(Map<String, JsonElement> raw) {
+            if (raw == null) return new HashMap<>();
+            Map<String, Object> result = new HashMap<>();
+            for (Map.Entry<String, JsonElement> e : raw.entrySet()) {
+                JsonElement val = e.getValue();
+                if (val.isJsonPrimitive()) {
+                    var prim = val.getAsJsonPrimitive();
+                    if (prim.isNumber()) {
+                        double d = prim.getAsDouble();
+                        if (d == Math.floor(d) && !Double.isInfinite(d)) {
+                            result.put(e.getKey(), (int) d);
+                        } else {
+                            result.put(e.getKey(), d);
+                        }
+                    } else if (prim.isBoolean()) {
+                        result.put(e.getKey(), prim.getAsBoolean());
+                    } else {
+                        result.put(e.getKey(), prim.getAsString());
+                    }
+                } else {
+                    result.put(e.getKey(), val.getAsString());
+                }
+            }
+            return result;
         }
 
         public List<MtrUtil.PidsArrivalInfo> arrivalInfoList() {
@@ -403,12 +531,13 @@ public class BlockEntityPids extends BaseObjBlockEntity {
             return Objects.equals(this.arrivalInfoList, that.arrivalInfoList) &&
                     Objects.equals(this.texArea, that.texArea) &&
                     Objects.equals(this.ctx, that.ctx) &&
-                    Objects.equals(this.entity, that.entity);
+                    Objects.equals(this.entity, that.entity) &&
+                    Objects.equals(this.extraConfig, that.extraConfig);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(arrivalInfoList, texArea, ctx, entity);
+            return Objects.hash(arrivalInfoList, texArea, ctx, entity, extraConfig);
         }
 
         @Override
@@ -417,7 +546,8 @@ public class BlockEntityPids extends BaseObjBlockEntity {
                     "arrivalInfoList=" + arrivalInfoList + ", " +
                     "texArea=" + texArea + ", " +
                     "ctx=" + ctx + ", " +
-                    "entity=" + entity + ']';
+                    "entity=" + entity + ", " +
+                    "extraConfig=" + extraConfig + ']';
         }
 
     }

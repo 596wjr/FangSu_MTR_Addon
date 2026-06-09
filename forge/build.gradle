@@ -57,9 +57,19 @@ dependencies {
 
 processResources {
     inputs.property 'version', project.version
+    inputs.property 'minecraft_dependency', project.minecraft_supports_range
+    inputs.property 'forge_loader_dependency', project.forge_loader_version
+    inputs.property 'architectury_dependency', ">=${project.architectury_api_version}"
+    inputs.property 'pack_format', project.pack_format
 
     filesMatching('META-INF/mods.toml') {
-        expand version: inputs.properties.version
+        expand version: inputs.properties.version,
+               minecraft_dependency: inputs.properties.minecraft_dependency,
+               forge_loader_dependency: inputs.properties.forge_loader_dependency,
+               architectury_dependency: inputs.properties.architectury_dependency
+    }
+    filesMatching('pack.mcmeta') {
+        expand pack_format: inputs.properties.pack_format
     }
 }
 

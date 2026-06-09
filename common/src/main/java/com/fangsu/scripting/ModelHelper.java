@@ -97,13 +97,13 @@ public class ModelHelper {
     public static void addQuad(RawMeshBuilder builder, double[][] quad, boolean reverse) {
         // 契约校验
         if (quad == null || (quad.length < 4)) {
-            Main.LOGGER.error("1 {}", quad != null ? quad.length + Arrays.deepToString(quad) : "quad == null");
+            Main.LOGGER.error("Failed to add quad: {}", quad != null ? "quad.length < 4" + quad.length + Arrays.deepToString(quad) : "quad == null");
             return;
         }
         for (int i = 0; i < 4; i++) {
             double[] v = quad[i];
             if (v == null || v.length < 3) {
-                Main.LOGGER.error("2");
+                Main.LOGGER.error("Failed to add quad: vertex is null or length < 3");
                 return;
             }
         }
@@ -112,7 +112,7 @@ public class ModelHelper {
         if (hasUV) {
             uvArr = quad[4];
             if (uvArr == null || uvArr.length < 4) {
-                Main.LOGGER.error("3");
+                Main.LOGGER.error("Failed to add quad: uvArr is {}", uvArr == null ? "null" : "length < 4");
                 return;
             }
         }

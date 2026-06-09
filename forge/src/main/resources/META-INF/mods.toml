@@ -1,5 +1,5 @@
 modLoader = "javafml"
-loaderVersion = "[47,)"
+loaderVersion = "${forge_loader_dependency}"
 issueTrackerURL = "https://github.com/596wjr/FangSu_MTR_Addon/issues"
 license = "MIT"
 
@@ -16,21 +16,21 @@ logoFile = "icon.png"
 [[dependencies.fangsu]]
 modId = "forge"
 mandatory = true
-versionRange = "[47,)"
+versionRange = "${forge_loader_dependency}"
 ordering = "NONE"
 side = "BOTH"
 
 [[dependencies.fangsu]]
 modId = "minecraft"
 mandatory = true
-versionRange = "[1.20.1,1.20.2)"
+versionRange = "${minecraft_dependency}"
 ordering = "NONE"
 side = "BOTH"
 
 [[dependencies.fangsu]]
 modId = "architectury"
 mandatory = true
-versionRange = "[9.2.14,)"
+versionRange = "${architectury_dependency}"
 ordering = "AFTER"
 side = "BOTH"
 

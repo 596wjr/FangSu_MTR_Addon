@@ -13,10 +13,17 @@ public class DrawableRoute {
     public final LocalRoute.CircularState circularState;
 
     // 运行区间在最终列表中的索引范围（包含两端）
-    private final int beginIndexInclusive;
+    public final int beginIndexInclusive;
     private final int endIndexInclusive;
 
-    private static final Map<Long, DrawableRoute> cacheRequestLongestRoute = new HashMap<>();
+    private static final Map<Long, DrawableRoute> cacheRequestLongestRoute = Collections.synchronizedMap(new HashMap<>());
+
+    /**
+     * 清除缓存。在重进存档/世界重载时应调用此方法。
+     */
+    public static void clearCache() {
+        cacheRequestLongestRoute.clear();
+    }
 
     public DrawableRoute(String routeName, Color routeColor, List<DrawableRouteStationInfo> stations,
                          LocalRoute.CircularState circularState, int beginIndexInclusive, int endIndexInclusive) {
@@ -61,19 +68,23 @@ public class DrawableRoute {
     // ==================== 静态工厂方法 ====================
 
     public static DrawableRoute getDrawableRoute(LocalRoute route) {
-        return getDrawableRoute(route.asRouteDetail(), false, 0, route.platformIds.size() - 1);
+        int lastIdx = Math.max(0, route.platformIds.size() - 1);
+        return getDrawableRoute(route.asRouteDetail(), false, 0, lastIdx);
     }
 
     public static DrawableRoute getDrawableRoute(LocalRoute route, boolean isReversed) {
-        return getDrawableRoute(route.asRouteDetail(), isReversed, 0, route.platformIds.size() - 1);
+        int lastIdx = Math.max(0, route.platformIds.size() - 1);
+        return getDrawableRoute(route.asRouteDetail(), isReversed, 0, lastIdx);
     }
 
     public static DrawableRoute getDrawableRoute(LocalRouteDetail routeDetail) {
-        return getDrawableRoute(routeDetail, false, 0, routeDetail.stationDetails.size() - 1);
+        int lastIdx = Math.max(0, routeDetail.stationDetails.size() - 1);
+        return getDrawableRoute(routeDetail, false, 0, lastIdx);
     }
 
     public static DrawableRoute getDrawableRoute(LocalRouteDetail routeDetail, boolean isReversed) {
-        return getDrawableRoute(routeDetail, isReversed, 0, routeDetail.stationDetails.size() - 1);
+        int lastIdx = Math.max(0, routeDetail.stationDetails.size() - 1);
+        return getDrawableRoute(routeDetail, isReversed, 0, lastIdx);
     }
 
     /**

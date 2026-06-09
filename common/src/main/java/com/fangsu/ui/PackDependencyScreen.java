@@ -4,7 +4,9 @@ import com.fangsu.Main;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonElement;
 import net.minecraft.client.Minecraft;
+//#if MC_VERSION >= 11904
 import net.minecraft.client.gui.GuiGraphics;
+//#endif
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -33,17 +35,36 @@ public class PackDependencyScreen extends Screen {
         this.loadedPackVersions = new HashMap<>();
     }
 
+    //#if MC_VERSION >= 11904
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         renderBackground(g);
+        //#else
+        //$$@Override
+        //$$public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        //$$    renderBackground(poseStack);
+        //#endif
 
         ResourceManager manager = Minecraft.getInstance().getResourceManager();
         List<Resource> resources;
-        resources = manager.getResourceStack(PACK_META_DATA_LOCATION);
+        try {
+            //#if MC_VERSION >= 11903
+            resources = manager.getResourceStack(PACK_META_DATA_LOCATION);
+            //#else
+            //$$ resources = java.util.Collections.singletonList(manager.getResource(PACK_META_DATA_LOCATION));
+            //#endif
+        } catch (Exception e) {
+            Main.LOGGER.error("Failed to load pack meta data", e);
+            return;
+        }
 
         List<JsonElement> jsons = new ArrayList<>();
         for (Resource resource : resources) {
+            //#if MC_VERSION >= 11903
             try (InputStream stream = resource.open()) {
+                //#else
+                //$$ try (InputStream stream = resource.getInputStream()) {
+                //#endif
                 BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
                 jsons.add(Main.GSON.fromJson(reader, JsonElement.class));
             } catch (IOException e) {

@@ -1,5 +1,6 @@
 package com.fangsu.mtr;
 
+import com.fangsu.render.sowcer.math.Vector3f;
 import net.minecraft.core.BlockPos;
 
 public abstract class LocalAreaBase {
@@ -25,5 +26,9 @@ public abstract class LocalAreaBase {
 
     public BlockPos getCenter() {
         return new BlockPos((x1 + x2) / 2, 0, (z1 + z2) / 2);
+    }
+
+    public Vector3f getCenterVector() {
+        return new Vector3f((x1 + x2) / 2f, 0, (z1 + z2) / 2f);
     }
 }

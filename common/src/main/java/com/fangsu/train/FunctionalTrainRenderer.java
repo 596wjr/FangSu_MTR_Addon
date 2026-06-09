@@ -81,6 +81,7 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
                         lcdInfo.slotsInfo().getAsJsonArray("texSize").get(1).getAsInt(),
                         false, true),
                 (gt) -> {
+                    drawState.clear();
                     var slots = lcdInfo.slotsInfo().getAsJsonArray("slots");
                     trainStatus.updateRoute();
                     for (JsonElement slot : slots) {
@@ -103,9 +104,10 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
             baseRenderer.renderCar(carIndex, x, y, z, yaw, pitch, doorLeftOpen, doorRightOpen);
         }
 
-        boolean shouldRender = !RenderUtil.shouldSkipRenderTrain(train);
+//        if (RenderUtil.shouldSkipRenderTrain(train)) {
+//            return;
+//        }
 
-//        if (isTranslucentBatch) return;
         final BlockPos posAverage = applyAverageTransform(train.getViewOffset(), x, y, z);
 
         final boolean hasPitch = pitch < 0 ? train.transportMode.hasPitchAscending : train.transportMode.hasPitchDescending;
@@ -138,12 +140,15 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
         try {
             final int light = LightTexture.pack(world.getBrightness(LightLayer.BLOCK, posAverage), world.getBrightness(LightLayer.SKY, posAverage));
             Matrix4f drawPose = new Matrix4f(matrices.last().pose());
-            if (dh != null) {
+            if (dh != null && dh.model != null) {
                 GraphicsTexture texture = GraphicsTextureHelper.getInstance().getGraphics("train_" + (train.trainId));
-                var model = dh.model.getUploadedModel();
-                if (model != null && texture != null) {
-                    model.replaceAllTexture(texture.identifier);
-                    new AbstractDrawCalls.ClusterDrawCall(model, Matrix4f.IDENTITY).commit(MainClient.drawScheduler, drawPose, light);
+                if (texture != null) {
+                    dh.changeSharedGt(texture);
+                    var model = dh.model.getUploadedModel();
+                    if (model != null) {
+                        model.replaceAllTexture(texture.identifier);
+                        new AbstractDrawCalls.ClusterDrawCall(model, Matrix4f.IDENTITY).commit(MainClient.drawScheduler, drawPose, light);
+                    }
                 }
             }
         } catch (Exception e) {

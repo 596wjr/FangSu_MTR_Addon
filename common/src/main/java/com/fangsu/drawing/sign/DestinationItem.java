@@ -1,5 +1,6 @@
 package com.fangsu.drawing.sign;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.extraConfig.*;
 import com.fangsu.scripting.G2dTextHelper;
 import com.fangsu.scripting.TextUtil;
@@ -69,13 +70,13 @@ public class DestinationItem extends SignItem {
     public List<ConfigEntry<?>> getConfigs() {
         List<ConfigEntry<?>> list = new ArrayList<ConfigEntry<?>>();
         list.add(new RunnableConfig(
-                Component.translatable("ui.fangsu.common.selectPlat"),
+                ComponentHelper.translatable("ui.fangsu.common.selectPlat"),
                 new ConfigSpec("func"),
                 () -> {
                     Minecraft mc = Minecraft.getInstance();
                     if (mc.player != null) {
                         mc.setScreen(new PlatformSelectionScreen(
-                                Component.translatable("ui.fangsu.common.selectPlat"),
+                                ComponentHelper.translatable("ui.fangsu.common.selectPlat"),
                                 List.of(),
                                 (v) -> {
                                     if (v != null && !v.isEmpty())
@@ -86,12 +87,12 @@ public class DestinationItem extends SignItem {
                 }
         ));
         list.add(new EnumConfig(
-                Component.translatable("ui.fangsu.common.align"),
+                ComponentHelper.translatable("ui.fangsu.common.align"),
                 new ConfigSpec("list"),
                 List.of(
-                        Component.translatable("ui.fangsu.common.alignLeft"),
-                        Component.translatable("ui.fangsu.common.alignCenter"),
-                        Component.translatable("ui.fangsu.common.alignRight")
+                        ComponentHelper.translatable("ui.fangsu.common.alignLeft"),
+                        ComponentHelper.translatable("ui.fangsu.common.alignCenter"),
+                        ComponentHelper.translatable("ui.fangsu.common.alignRight")
                 ),
                 () -> this.align,
                 (v) -> this.align = v
@@ -100,11 +101,11 @@ public class DestinationItem extends SignItem {
     }
 
     private String getDest() {
-        if (plat == null) return "开往 未命名|To undefined";
+        if (plat == null) return "寮€寰€ 鏈懡鍚峾To undefined";
         if ((cachePlat != null && cachePlat.equals(plat)) && !cacheText.isEmpty()) return cacheText;
         cachePlat = plat;
         String rawDest = MtrUtil.getDestinationByPlatform(plat);
-        String dest = TextUtil.addPrefix(rawDest, "开往", "To", true);
+        String dest = TextUtil.addPrefix(rawDest, "寮€寰€", "To", true);
         cacheText = dest;
         return dest;
     }

@@ -1,5 +1,6 @@
 package com.fangsu.blockEntities;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.Main;
 import com.fangsu.client.ClientHooks;
 import com.fangsu.customItem.SubModelDispInfo;
@@ -156,9 +157,9 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
 
             if (gtFront != null && !gtFront.isClosed.get()) {
                 var g = gtFront.graphics;
-                g.setComposite(AlphaComposite.Clear); // 设置透明混合模式
-                g.fillRect(0, 0, gtFront.width, gtFront.height);   // 填充整个区域
-                g.setComposite(AlphaComposite.SrcOver); // 恢复默认混合模式
+                g.setComposite(AlphaComposite.Clear); // 璁剧疆閫忔槑娣峰悎妯″紡
+                g.fillRect(0, 0, gtFront.width, gtFront.height);   // 濉厖鏁翠釜鍖哄煙
+                g.setComposite(AlphaComposite.SrcOver); // 鎭㈠榛樿娣峰悎妯″紡
                 if (items != null) {
                     if (items.containsKey("left"))
                         drawLane(gtFront, items.get("left"), 0, gtFront.height * 0.1f, 0, gtFront.height * 0.8f);
@@ -219,7 +220,7 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
     public List<ConfigEntry<?>> getConfigs() {
         List<ConfigEntry<?>> configs = new ArrayList<>();
         configs.add(new NumberInputConfig(
-                Component.translatable("ui.fangsu.common.length"),
+                ComponentHelper.translatable("ui.fangsu.common.length"),
                 new ConfigSpec("num").setParam("isInt", new JsonPrimitive(true)).setParam("min", new JsonPrimitive(2)),
                 () -> (float) (this.length),
                 (v) -> {
@@ -252,7 +253,7 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
         double startX = -0.5 * unit * length / 16d;
         double n = length / (unit / 8d);
 
-        // 将局部X轴偏移按朝向旋转到世界坐标
+        // 灏嗗眬閮╔杞村亸绉绘寜鏈濆悜鏃嬭浆鍒颁笘鐣屽潗锟?
         java.util.function.Function<Double, Vec3> localToWorld = (localX) -> {
             Vec3 v = new Vec3(localX, 0, 0);
             return v.yRot((float) Math.toRadians(-facing.toYRot()));
@@ -272,7 +273,7 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
             }
         }
         if (shapeRight != null) {
-            // right在渲染中的位置: startX + n * unit/16
+            // right鍦ㄦ覆鏌撲腑鐨勪綅锟? startX + n * unit/16
             double rightLocalX = startX + n * unit / 16d;
             Vec3 offset = localToWorld.apply(rightLocalX);
             VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeRight, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
@@ -285,7 +286,7 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
     public List<SubModelDispInfo> getSubModelInfos() {
         List<SubModelDispInfo> infos = new ArrayList<>();
         infos.add(createSubModelSelectInfo("on_wall", DEFAULT_SUB_MODEL));
-        infos.add(new SubModelMethodInfo(Component.translatable("ui.fangsu.sign.editSign"), () -> {
+        infos.add(new SubModelMethodInfo(ComponentHelper.translatable("ui.fangsu.sign.editSign"), () -> {
             if (items == null) items = new HashMap<>();
             ClientHooks.openSignConfigScreen(1, List.of(items), saveItems -> {
                 items = saveItems.get(0);
@@ -393,7 +394,7 @@ public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncabl
     private void addQuad(RawMeshBuilder builder, List<List<Double>> quad, boolean reverse) {
         float[] normal = ModelHelper.calculateNormal(quad.get(0), quad.get(1), quad.get(2));
 
-        // 如果需要反转法向（比如背面）
+        // 濡傛灉闇€瑕佸弽杞硶鍚戯紙姣斿鑳岄潰锟?
         if (reverse) {
             normal[0] *= -1;
             normal[1] *= -1;

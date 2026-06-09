@@ -1,6 +1,9 @@
 package com.fangsu.extraConfig;
 
+import com.fangsu.mappings.ComponentHelper;
+//#if MC_VERSION >= 12000
 import net.minecraft.client.gui.GuiGraphics;
+//#endif
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
@@ -9,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 一行配置控件：左 label + 右侧子控件
+ * 一行配置控件：�?label + 右侧子控�?
  */
 public class ConfigWidget extends AbstractWidget {
 
@@ -82,6 +85,7 @@ public class ConfigWidget extends AbstractWidget {
 
     /* ================== 渲染 ================== */
 
+    //#if MC_VERSION >= 12000
     @Override
     protected void renderWidget(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
         var font = net.minecraft.client.Minecraft.getInstance().font;
@@ -102,7 +106,23 @@ public class ConfigWidget extends AbstractWidget {
             w.render(gui, mouseX, mouseY, partialTick);
         }
     }
+    //#else
+    @Override
+    public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        var font = net.minecraft.client.Minecraft.getInstance().font;
+        int maxWidth = Math.max(0, labelWidth - 4);
+        String label = maxWidth > 0
+                ? font.plainSubstrByWidth(getMessage().getString(), maxWidth)
+                : getMessage().getString();
+        int textY = y + (height - 8) / 2;
+        net.minecraft.client.Minecraft.getInstance().font.draw(poseStack, label, (float) x, (float) textY, 0x202020);
+        for (AbstractWidget w : children) {
+            w.render(poseStack, mouseX, mouseY, partialTick);
+        }
+    }
+    //#endif
 
+    //#if MC_VERSION >= 12000
     @Override
     public void setX(int x) {
         int delta = x - getX();
@@ -124,14 +144,20 @@ public class ConfigWidget extends AbstractWidget {
             }
         }
     }
+    //#endif
 
+    //#if MC_VERSION >= 12000
     @Override
     protected void updateWidgetNarration(NarrationElementOutput narration) {
-        // 暂不实现
     }
+    //#else
+    @Override
+    public void updateNarration(NarrationElementOutput narration) {
+    }
+    //#endif
 
     /**
-     * 统一处理子控件事件转发，减少重复代码。
+     * 统一处理子控件事件转发，减少重复代码�?
      */
     private boolean forwardToChildren(java.util.function.Predicate<AbstractWidget> handler) {
         for (AbstractWidget w : children) {
@@ -143,11 +169,15 @@ public class ConfigWidget extends AbstractWidget {
     }
 
     /**
-     * 控制同一行配置控件的焦点互斥。
+     * 控制同一行配置控件的焦点互斥�?
      */
     private void syncFocus(AbstractWidget focused) {
         for (AbstractWidget other : children) {
+            //#if MC_VERSION >= 12000
             other.setFocused(other == focused);
+            //#else
+            //$$ if (other == focused && other != null) { try { java.lang.reflect.Method m = AbstractWidget.class.getDeclaredMethod("setFocused", boolean.class); m.setAccessible(true); m.invoke(other, true); } catch (Exception ignored) {} }
+            //#endif
         }
     }
 }

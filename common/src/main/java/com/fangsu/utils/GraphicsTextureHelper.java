@@ -95,10 +95,6 @@ public class GraphicsTextureHelper {
                 info.gt.upload();
                 info.needsUpload = false;
                 info.flameCompleted = false;
-                // 非静态贴图上传完成后，重置 available，允许下一帧重绘
-                if (!info.isStatic && info.available) {
-                    info.available = false;
-                }
             }
         }
 
@@ -130,21 +126,25 @@ public class GraphicsTextureHelper {
                     continue;
                 }
 
-                info.retryCount++;
                 info.drawing = true;
                 info.flameCompleted = false;
+                // 非静态贴图开始新绘制前，标记为不可用，防止渲染旧内容
+                if (!info.isStatic) {
+                    info.available = false;
+                }
 
-                final int retry = info.retryCount;
                 CompletableFuture.runAsync(() -> {
                             info.drawFunction.draw(info.gt);
                             info.available = true;
                             info.needsUpload = true;
+                            info.retryCount = 0; // 成功绘制后重置重试计数
                         }, drawExecutor).orTimeout(200, TimeUnit.MILLISECONDS)
                         .exceptionally(t -> {
                             // 超时或报错：重置 flameCompleted 使下次 tick 可重试
                             info.flameCompleted = true;
+                            info.retryCount++;
                             Main.LOGGER.warn("Draw failed (attempt {}/{}) for {}: {}",
-                                    retry, GTInfo.MAX_RETRIES, info.ids, t.getMessage());
+                                    info.retryCount, GTInfo.MAX_RETRIES, info.ids, t.getMessage());
                             return null;
                         })
                         .thenRun(() -> info.drawing = false);
@@ -218,6 +218,21 @@ public class GraphicsTextureHelper {
     }
 
     /**
+     * 清除所有以指定前缀开头的绘制条目。用于世界重载时清理旧数据。
+     */
+    public synchronized void removeDrawGraphicsByPrefix(String idPrefix) {
+        List<String> toRemove = new ArrayList<>();
+        for (String id : idToDrawInfoId.keySet()) {
+            if (id.startsWith(idPrefix)) {
+                toRemove.add(id);
+            }
+        }
+        for (String id : toRemove) {
+            removeDrawGraphic(id);
+        }
+    }
+
+    /**
      * 获取抽象 ID 对应的 GraphicsTexture
      */
     public synchronized GraphicsTexture getGraphics(String id) {
@@ -225,10 +240,12 @@ public class GraphicsTextureHelper {
         if (drawInfoId == null) return null;
 
         GTInfo info = loadGts.get(drawInfoId);
-        if (info == null || !info.available) {
+        if (info == null) {
             return null;
         }
-        info.markFlameCompleted();
+        if (info.available) {
+            info.markFlameCompleted();
+        }
         return info.gt;
     }
 

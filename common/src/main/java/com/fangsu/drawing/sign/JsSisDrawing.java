@@ -1,6 +1,7 @@
 package com.fangsu.drawing.sign;
 
 import com.fangsu.blockEntities.BlockEntitySis;
+import com.fangsu.drawing.sis.BaseSisDrawing;
 import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.userScripts.PidsScriptHolder;
 import com.fangsu.userScripts.ScriptHolderBase;

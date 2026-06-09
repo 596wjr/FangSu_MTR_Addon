@@ -13,8 +13,12 @@ import net.minecraft.core.Vec3i;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
+//#if MC_VERSION >= 11903
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
+//#else
+import com.mojang.math.Vector3f;
+//#endif
 
 import java.util.*;
 
@@ -53,7 +57,11 @@ public class MtrUtil {
                     final BlockPos checkPos = pos.above(y).relative(facing.getClockWise(), x).relative(facing, z);
                     final BlockState checkState = world.getBlockState(checkPos);
                     if (checkState.getBlock() instanceof BlockNode) {
+                        //#if MC_VERSION >= 11903
                         return new Vector3f((Vector3fc) checkPos);
+                        //#else
+                        //$$ return new Vector3f((float) checkPos.getX(), (float) checkPos.getY(), (float) checkPos.getZ());
+                        //#endif
                     }
                 }
             }
@@ -126,7 +134,7 @@ public class MtrUtil {
      */
     public static Station getStationByPlatform(Platform platform) {
         try {
-            var posCentral = new Vector3f(platform.getMidPos().getCenter().toVector3f());
+            var posCentral = getCenterVector3f(platform.getMidPos());
             return getStationAt(posCentral);
         } catch (Exception ignored) {
             return null;
@@ -358,7 +366,22 @@ public class MtrUtil {
     /**
      * 坐标转换工具，统一向下取整。
      */
+    /**
+     * 获取 BlockPos 的中心点 Vector3f，兼容 1.18.2（无 getCenter()）。
+     */
+    public static Vector3f getCenterVector3f(BlockPos pos) {
+        //#if MC_VERSION >= 11900
+        return new Vector3f(pos.getCenter().toVector3f());
+        //#else
+        //$$ return new Vector3f(pos.getX() + 0.5f, pos.getY() + 0.5f, pos.getZ() + 0.5f);
+        //#endif
+    }
+
     private static BlockPos toBlockPos(Vector3f pos) {
+        //#if MC_VERSION >= 11903
         return new BlockPos(new Vec3i((int) pos.x, (int) pos.y, (int) pos.z));
+        //#else
+        //$$ return new BlockPos(new Vec3i((int) pos.x(), (int) pos.y(), (int) pos.z()));
+        //#endif
     }
 }

@@ -1,5 +1,6 @@
 package com.fangsu.ticketSystem;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.items.TicketItem;
 import mtr.data.Station;
 import net.minecraft.core.BlockPos;
@@ -84,11 +85,11 @@ public final class TicketBarrierHandler {
                     Score balance = MtrTicketSystem.getScore(level, player, MtrTicketSystem.BALANCE_OBJECTIVE);
                     int val = Integer.parseInt(extraConfigs.getOrDefault("fareVal", "10"));
                     if (balance.getScore() < val) {
-                        player.displayClientMessage(Component.translatable("gui.mtr.insufficient_balance", balance.getScore()), true);
+                        player.displayClientMessage(ComponentHelper.translatable("gui.mtr.insufficient_balance", balance.getScore()), true);
                         return false;
                     }
                     balance.add(-val);
-                    player.displayClientMessage(Component.translatable("msg.fangsu.ticketbarrier.fareOnce", val, balance.getScore()), true);
+                    player.displayClientMessage(ComponentHelper.translatable("msg.fangsu.ticketbarrier.fareOnce", val, balance.getScore()), true);
                     extraConfigs.put("isOpen", "true");
                     sendUpdateC2S.run();
                     return true;

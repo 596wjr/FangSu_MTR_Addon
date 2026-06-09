@@ -1,6 +1,9 @@
 package com.fangsu.ui;
 
+import com.fangsu.utils.GraphicContext;
+//#if MC_VERSION >= 11904
 import net.minecraft.client.gui.GuiGraphics;
+//#endif
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
@@ -61,8 +64,15 @@ public abstract class BaseSelectionScreen extends Screen {
 
     /* ===================== 渲染入口 ===================== */
 
+    //#if MC_VERSION >= 12000
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        GraphicContext g = GraphicContext.of(guiGraphics);
+        //#else
+        //$$ @Override
+        //$$ public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        //$$     GraphicContext g = GraphicContext.of(poseStack);
+        //#endif
         renderBackground(g);
         renderTitle(g);
 
@@ -95,18 +105,22 @@ public abstract class BaseSelectionScreen extends Screen {
 
     /* ===================== 渲染分解 ===================== */
 
-    public void renderBackground(GuiGraphics g) {
+    public void renderBackground(GraphicContext g) {
 //        g.fill(0, 0, width, height, 0xFF101010);
-        renderDirtBackground(g);
+        //#if MC_VERSION >= 12000
+        renderDirtBackground(g.asMinecraft());
+        //#else
+        //$$ // 1.18.2 renderDirtBackground takes int (color), not PoseStack
+        //#endif
     }
 
 
-    private void renderTitle(GuiGraphics g) {
+    private void renderTitle(GraphicContext g) {
         g.drawString(font, title, 10, 2, 0xFFFFFF, false);
     }
 
     private void renderColumn(
-            GuiGraphics g,
+            GraphicContext g,
             int index,
             int columnWidth,
             int columnGap,
@@ -147,7 +161,7 @@ public abstract class BaseSelectionScreen extends Screen {
     }
 
     private int renderItem(
-            GuiGraphics g,
+            GraphicContext g,
             SelectionItem item,
             int columnIndex,
             int x,
@@ -175,7 +189,7 @@ public abstract class BaseSelectionScreen extends Screen {
     /* ===================== Item 子逻辑 ===================== */
 
     private void renderItemBackground(
-            GuiGraphics g,
+            GraphicContext g,
             int x,
             int y,
             int width,
@@ -194,7 +208,7 @@ public abstract class BaseSelectionScreen extends Screen {
     }
 
     private void renderItemText(
-            GuiGraphics g,
+            GraphicContext g,
             SelectionItem item,
             List<FormattedCharSequence> lines,
             int x,
@@ -211,7 +225,7 @@ public abstract class BaseSelectionScreen extends Screen {
     }
 
     private void renderItemColorBar(
-            GuiGraphics g,
+            GraphicContext g,
             SelectionItem item,
             int x,
             int y,

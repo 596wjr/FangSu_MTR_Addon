@@ -1,5 +1,6 @@
 package com.fangsu.blockEntities;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.Main;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.customItem.ModelSelectInfo;
@@ -43,7 +44,7 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
     protected String mainModel;
     protected String subModelLeft, subModelRight;
 
-    // auto 解析后的实际结果
+    // auto 瑙ｆ瀽鍚庣殑瀹為檯缁撴灉
     private String actualSubModelLeft, actualSubModelRight;
 
     private Map<String, Map<String, Object>> loadedLeft, loadedRight;
@@ -52,7 +53,7 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
     DynamicModelHolder dhmLeft, dhmRight;
     CollisionBoxUtil.CollisionBox shapeLeft, shapeRight;
 
-    // auto 延迟 / 重算控制
+    // auto 寤惰繜 / 閲嶇畻鎺у埗
     private boolean pendingAuto = false;
 
     public BlockEntityScreendoorGlass(BlockPos blockPos, BlockState blockState) {
@@ -80,7 +81,7 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
                 return;
             }
 
-            // ★ 不在 loading 阶段直接算 auto
+            // 锟?涓嶅湪 loading 闃舵鐩存帴锟?auto
             pendingAuto = true;
 
         } catch (Exception e) {
@@ -92,7 +93,7 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
         }
     }
 
-    // ★ 抽出的 auto 重算逻辑
+    // 锟?鎶藉嚭锟?auto 閲嶇畻閫昏緫
     private void recomputeAuto() {
         subModelLeft = subModels.getOrDefault("subModelLeft", DEFAULT_SUB_MODEL_LEFT);
         subModelRight = subModels.getOrDefault("subModelRight", DEFAULT_SUB_MODEL_RIGHT);
@@ -164,7 +165,7 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
 
             reloadModelAndShape();
 
-            // ★ 结果变了才通知邻居
+            // 锟?缁撴灉鍙樹簡鎵嶉€氱煡閭诲眳
             boolean changed =
                     !Objects.equals(prevLeft, actualSubModelLeft) ||
                             !Objects.equals(prevRight, actualSubModelRight);
@@ -178,7 +179,7 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
         }
     }
 
-    // 模型 / 碰撞箱刷新
+    // 妯″瀷 / 纰版挒绠卞埛锟?
     private void reloadModelAndShape() throws Exception {
         ScreendoorGlassContent.MainModelInfo modelInfo = ScreendoorGlassContent.loadMainModelInfo(mainModel);
         if (modelInfo == null) return;
@@ -207,7 +208,7 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
         }
     }
 
-    // ★ 邻居通知（只左右）
+    // 锟?閭诲眳閫氱煡锛堝彧宸﹀彸锟?
     private void notifyNeighborsForAuto() {
         Level level = getLevel();
         if (level == null) return;
@@ -292,10 +293,10 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
         List<ModelSelectInfo> infoRight = new ArrayList<>();
         infoLeft.addAll(ScreendoorGlassContent.loadLeftModelSelectInfos(mainModel));
         infoRight.addAll(ScreendoorGlassContent.loadRightModelSelectInfos(mainModel));
-        infos.add(new SubModelDispInfo(Component.translatable("ui.fangsu.block.subModelLeftSelect"), infoLeft,
+        infos.add(new SubModelDispInfo(ComponentHelper.translatable("ui.fangsu.block.subModelLeftSelect"), infoLeft,
                 (be) -> this.subModels.getOrDefault("subModelLeft", DEFAULT_SUB_MODEL_LEFT),
                 (be, v) -> this.subModels.put("subModelLeft", v)));
-        infos.add(new SubModelDispInfo(Component.translatable("ui.fangsu.block.subModelRightSelect"), infoRight,
+        infos.add(new SubModelDispInfo(ComponentHelper.translatable("ui.fangsu.block.subModelRightSelect"), infoRight,
                 (be) -> this.subModels.getOrDefault("subModelRight", DEFAULT_SUB_MODEL_RIGHT),
                 (be, v) -> this.subModels.put("subModelRight", v)));
         return infos;
@@ -331,7 +332,7 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
     }
 
     // =========================================================
-    // BlockRelation（不使用 actual，auto 仍然是合法状态）
+    // BlockRelation锛堜笉浣跨敤 actual锛宎uto 浠嶇劧鏄悎娉曠姸鎬侊級
     // =========================================================
 
     private class BlockRelation {

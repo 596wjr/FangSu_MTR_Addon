@@ -1,5 +1,6 @@
 package com.fangsu.ui;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.utils.MtrUtil;
 import mtr.client.ClientData;
 import mtr.data.Station;
@@ -23,8 +24,8 @@ public class StationSelectionScreen extends BaseSelectionScreen {
         this.pos = pos;
         this.titles = new ArrayList<>();
         this.parent = parent;
-        titles.add(Component.translatable("ui.fangsu.common.selectStn"));
-        titles.add(Component.translatable("ui.fangsu.common.selected"));
+        titles.add(ComponentHelper.translatable("ui.fangsu.common.selectStn"));
+        titles.add(ComponentHelper.translatable("ui.fangsu.common.selected"));
     }
 
     @Override
@@ -35,7 +36,7 @@ public class StationSelectionScreen extends BaseSelectionScreen {
         else this.items = new ArrayList<>();
         List<SelectionItem> items = new ArrayList<>();
 
-        // 按距离从近到远排序
+        // 鎸夎窛绂讳粠杩戝埌杩滄帓锟?
         double px = pos.getX(), pz = pos.getZ();
         raw.sort(Comparator.comparingDouble(station -> {
             double sx = (station.corner1.getA() + station.corner2.getA()) / 2.0;

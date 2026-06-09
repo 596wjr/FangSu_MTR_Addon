@@ -1,5 +1,6 @@
 package com.fangsu.events;
 
+import com.fangsu.mappings.ComponentHelper;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.*;
 import net.minecraft.server.level.ServerPlayer;
@@ -9,8 +10,8 @@ public class JoinInMessage {
     private static final String FEEDBACK_URL = "https://github.com/596wjr/FangSu_MTR_Addon/issues";
 
     protected static void sendJoinMessage(ServerPlayer player) {
-        // 创建可点击的链接组件 - 使用 translatable
-        Component link = Component.translatable("msg.fangsu.join.link")
+        // 鍒涘缓鍙偣鍑荤殑閾炬帴缁勪欢 - 浣跨敤 translatable
+        Component link = ComponentHelper.translatable("msg.fangsu.join.link")
                 .withStyle(style -> style
                         .withColor(ChatFormatting.GREEN)
                         .withUnderlined(true)
@@ -20,25 +21,29 @@ public class JoinInMessage {
                         ))
                         .withHoverEvent(new HoverEvent(
                                 HoverEvent.Action.SHOW_TEXT,
-                                Component.translatable("msg.fangsu.join.link.hover")
+                                ComponentHelper.translatable("msg.fangsu.join.link.hover")
                                         .withStyle(ChatFormatting.YELLOW)
                         ))
                 );
 
-        // 构建完整消息 - 使用 translatable
-        Component message = Component.empty()
-                .append(Component.translatable("msg.fangsu.join.prefix")
+        // Build complete message
+        Component message = ComponentHelper.empty()
+                .append(ComponentHelper.translatable("msg.fangsu.join.prefix")
                         .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD))
-                .append(Component.translatable("msg.fangsu.join.warning")
+                .append(ComponentHelper.translatable("msg.fangsu.join.warning")
                         .withStyle(ChatFormatting.YELLOW))
-                .append(Component.literal("\n"))
-                .append(Component.translatable("msg.fangsu.join.feedback.prefix")
+                .append(ComponentHelper.literal("\n"))
+                .append(ComponentHelper.translatable("msg.fangsu.join.feedback.prefix")
                         .withStyle(ChatFormatting.GRAY))
                 .append(link)
-                .append(Component.translatable("msg.fangsu.join.feedback.suffix")
+                .append(ComponentHelper.translatable("msg.fangsu.join.feedback.suffix")
                         .withStyle(ChatFormatting.GRAY));
 
-        // 发送消息给玩家
+        // Send message to player
+        //#if MC_VERSION >= 11900
         player.sendSystemMessage(message);
+        //#else
+        //$$ player.displayClientMessage(message, false);
+        //#endif
     }
 }

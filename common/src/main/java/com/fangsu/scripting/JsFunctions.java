@@ -23,6 +23,15 @@ public class JsFunctions {
             return (new Font(path, Font.PLAIN, 12));
 
         }
+        if ("gif".equals(type)) {
+            ResourceLocation rl = new ResourceLocation(path);
+            String id = rl.toString();
+            GifHelper gifHelper = GifHelper.getInstance();
+            if (!gifHelper.hasGif(id)) {
+                gifHelper.bindGif(id, rl);
+            }
+            return gifHelper.getCurrentFrame(id);
+        }
         ResourceLocation rl = new ResourceLocation(path);
         return switch (type) {
             case "string", "str" -> ResourceUtil.loadString(rl);
@@ -45,7 +54,8 @@ public class JsFunctions {
     }
 
     public static void setDebugInfo(String msg) {
-        Main.LOGGER.info("JavaScript Debug Info: {}", msg);
+        if (Main.debug)
+            Main.LOGGER.info("JavaScript Debug Info: {}", msg);
     }
 
     public static void setWarnInfo(String msg) {

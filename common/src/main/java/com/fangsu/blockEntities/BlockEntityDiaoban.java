@@ -1,5 +1,6 @@
 package com.fangsu.blockEntities;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.Main;
 import com.fangsu.client.ClientHooks;
 import com.fangsu.customItem.ModelSelectInfo;
@@ -13,14 +14,16 @@ import com.fangsu.mtr.LocalRoute;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcer.math.Matrices;
+import com.fangsu.render.sowcerext.model.ModelCluster;
 import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
 import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.scripting.ModelHelper;
 import com.fangsu.shape.*;
-import com.fangsu.ui.RouteSelectionScreen;
+import com.fangsu.ui.RouteSelectInfo;
 import com.fangsu.utils.*;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -43,6 +46,7 @@ import java.util.List;
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_DIAOBAN;
 
 public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformDoor, RouteDrawer {
+
     private static final String DEFAULT_MAIN_MODEL = "fangsu:diaoban/mtr_diaoban.json";
     private static final String DEFAULT_SUB_MODEL = "mtr_diaoban_a";
     private static final String DEFAULT_DRAW_SCRIPT = "fangsu:diaoban/blank.js";
@@ -52,6 +56,8 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     protected String drawScript;
 
     private DynamicModelHolder dmhLeft, dmhCenter, dmhRight, dmhDlOn, dmhDlOff, dmhDisp = new DynamicModelHolder();
+    private ModelCluster modelLeft, modelCenter, modelRight;
+    private boolean leftLoaded, centerLoaded, rightLoaded;
     private ShapeCollection shapeLeft;
     private ShapeCollection shapeCenter;
     private ShapeCollection shapeRight;
@@ -74,9 +80,11 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     private boolean scriptInit = false;
     private boolean scriptDone = false;
 
-    private List<RouteSelectionScreen.RouteSelectInfo> routes;
+    private List<RouteSelectInfo> routes;
 
-    /** 上次注册绘制的标识，避免重复注册 */
+    /**
+     * 涓婃娉ㄥ唽缁樺埗鐨勬爣璇嗭紝閬垮厤閲嶅娉ㄥ唽
+     */
     private String lastRegisteredDrawInfoId = "";
 
     public BlockEntityDiaoban(BlockPos blockPos, BlockState blockState) {
@@ -108,28 +116,45 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
             Map<String, DynamicModelHolder> models = ResourceUtil.loadPartedDmh(new ResourceLocation(modelKey), flipV);
             String modelKeyLeft = "l", modelKeyCenter = "center", modelKeyRight = "r", modelKeyDlOn = "", modelKeyDlOff = "";
             Map<String, String> subModelMap = content.getSubModel();
-            if (subModelMap.containsKey("left")) modelKeyLeft = subModelMap.get("left");
-            if (subModelMap.containsKey("center")) modelKeyCenter = subModelMap.get("center");
-            if (subModelMap.containsKey("right")) modelKeyRight = subModelMap.get("right");
+            if (subModelMap.containsKey("left")) {
+                modelKeyLeft = subModelMap.get("left");
+            }
+            if (subModelMap.containsKey("center")) {
+                modelKeyCenter = subModelMap.get("center");
+            }
+            if (subModelMap.containsKey("right")) {
+                modelKeyRight = subModelMap.get("right");
+            }
 
             Map<String, String> doorlightMap = content.getDoorlight();
             if (!doorlightMap.isEmpty()) {
-                if (doorlightMap.get("on") != null) modelKeyDlOn = doorlightMap.get("on");
-                if (doorlightMap.get("off") != null) modelKeyDlOff = doorlightMap.get("off");
+                if (doorlightMap.get("on") != null) {
+                    modelKeyDlOn = doorlightMap.get("on");
+                }
+                if (doorlightMap.get("off") != null) {
+                    modelKeyDlOff = doorlightMap.get("off");
+                }
                 if (doorlightMap.get("type") != null) {
                     String rawType = doorlightMap.get("type");
                     doorLightType = switch (rawType) {
-                        case "common", "simple" -> 0;
-                        case "blink" -> 1;
-                        default -> -1;
+                        case "common", "simple" ->
+                            0;
+                        case "blink" ->
+                            1;
+                        default ->
+                            -1;
                     };
                 }
             }
             dmhLeft = models.get(modelKeyLeft);
             dmhCenter = models.get(modelKeyCenter);
             dmhRight = models.get(modelKeyRight);
-            if (!"".equals(modelKeyDlOn)) dmhDlOn = models.get(modelKeyDlOn);
-            if (!"".equals(modelKeyDlOff)) dmhDlOff = models.get(modelKeyDlOff);
+            if (!"".equals(modelKeyDlOn)) {
+                dmhDlOn = models.get(modelKeyDlOn);
+            }
+            if (!"".equals(modelKeyDlOff)) {
+                dmhDlOff = models.get(modelKeyDlOff);
+            }
 
             double leftSpace = content.getLeftSpace(), rightSpace = content.getRightSpace();
             double y1 = 0.75, z1 = 0.25, y2 = 0.25, z2 = 0.25;
@@ -168,14 +193,18 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
             texW = texSize * length + 1;
             texH = texSize;
 
-            // 构建 ShapeCollection，从像素坐标(0~16)转换为世界坐标(0~1)
+            // 鏋勫缓 ShapeCollection锛屼粠鍍忕礌鍧愭爣(0~16)杞崲涓轰笘鐣屽潗锟?0~1)
             Map<String, List<Double>> shapeMap = content.getShape();
             shapeLeft = buildShapeCollection(shapeMap.get("left"));
             shapeCenter = buildShapeCollection(shapeMap.get("center"));
             shapeRight = buildShapeCollection(shapeMap.get("right"));
 
-            // 构建完整形状
+            // 鏋勫缓瀹屾暣褰㈢姸
             fullShape = buildFullShape();
+
+            leftLoaded = false;
+            centerLoaded = false;
+            rightLoaded = false;
 
             firstInit = true;
 
@@ -190,13 +219,17 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
 
     @Override
     public VoxelShape setCollisionShape(BlockState state) {
-        if (markedError || fullShape == null || fullShape.isEmpty()) return Shapes.empty();
+        if (markedError || fullShape == null || fullShape.isEmpty()) {
+            return Shapes.empty();
+        }
         return setShape(state);
     }
 
     @Override
     public VoxelShape setShape(BlockState state) {
-        if (markedError || fullShape == null || fullShape.isEmpty()) return Shapes.block();
+        if (markedError || fullShape == null || fullShape.isEmpty()) {
+            return Shapes.block();
+        }
         Direction facing = state.getValue(BaseObjBlock.FACING);
         Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
         float rotX = this.rotateX;
@@ -213,11 +246,14 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     }
 
     /**
-     * 从 DiaobanContent 的 List&lt;Double&gt;（像素坐标 0~16）构建 ShapeCollection（世界坐标 0~1）
+     * 锟?DiaobanContent 锟?List&lt;Double&gt;锛堝儚绱犲潗锟?0~16锛夋瀯锟?ShapeCollection锛堜笘鐣屽潗锟?
+     * 0~1锟?
      */
     private static ShapeCollection buildShapeCollection(List<Double> shapeData) {
         ShapeCollection col = new ShapeCollection();
-        if (shapeData == null || shapeData.size() < 6) return col;
+        if (shapeData == null || shapeData.size() < 6) {
+            return col;
+        }
         double[] box = new double[6];
         for (int i = 0; i < 6; i++) {
             box[i] = shapeData.get(i) / 16.0;
@@ -227,22 +263,24 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     }
 
     /**
-     * 根据 length 拼接 left / center × (length-2) / right 得到完整形状
+     * 鏍规嵁 length 鎷兼帴 left / center 脳 (length-2) / right 寰楀埌瀹屾暣褰㈢姸
      */
     private ShapeCollection buildFullShape() {
-        if (length <= 0) return new ShapeCollection();
+        if (length <= 0) {
+            return new ShapeCollection();
+        }
         ShapeCollection result = new ShapeCollection();
-        // 起始 X 偏移（像素值），用于形状拼接
+        // 璧峰 X 鍋忕Щ锛堝儚绱犲€硷級锛岀敤浜庡舰鐘舵嫾锟?
         double startX = (-0.5 * unit * (length - 1)) / 16.0;
 
-        // 左
+        // 锟?
         if (shapeLeft != null) {
             ShapeCollection copy = shapeLeft.copy();
             copy.moveAll(startX, 0, 0);
             result.addAll(copy);
         }
 
-        // 中间（重复 length - 2 次）
+        // 涓棿锛堥噸锟?length - 2 娆★級
         if (shapeCenter != null) {
             for (int i = 0; i < length - 2; i++) {
                 ShapeCollection copy = shapeCenter.copy();
@@ -252,7 +290,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
             }
         }
 
-        // 右
+        // 锟?
         if (shapeRight != null) {
             ShapeCollection copy = shapeRight.copy();
             double rightX = startX + (length - 1) * unit / 16.0;
@@ -276,40 +314,55 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
             if (r1 != null) {
                 GraphicsTexture gt = ResourceUtil.createSolidColorGT(16, 16, new Color(r1.color));
                 if (gt.isValid()) {
-                    if (dmhLeft.getUploadedModel() != null)
-                        dmhLeft.getUploadedModel().replaceTexture("routecolor.png", gt.identifier);
-                    if (dmhCenter.getUploadedModel() != null)
-                        dmhCenter.getUploadedModel().replaceTexture("routecolor.png", gt.identifier);
-                    if (dmhRight.getUploadedModel() != null)
-                        dmhRight.getUploadedModel().replaceTexture("routecolor.png", gt.identifier);
+                    if (dmhLeft.getUploadedModel() != null && !leftLoaded) {
+                        modelLeft = dmhLeft.getUploadedModel().copyForMaterialChanges();
+                        modelLeft.replaceTexture("routecolor.png", gt.identifier);
+                        leftLoaded = true;
+                    }
+                    if (dmhCenter.getUploadedModel() != null && !centerLoaded) {
+                        modelCenter = dmhCenter.getUploadedModel().copyForMaterialChanges();
+                        modelCenter.replaceTexture("routecolor.png", gt.identifier);
+                        centerLoaded = true;
+                    }
+                    if (dmhRight.getUploadedModel() != null && !rightLoaded) {
+                        modelRight = dmhRight.getUploadedModel().copyForMaterialChanges();
+                        modelRight.replaceTexture("routecolor.png", gt.identifier);
+                        rightLoaded = true;
+                    }
                 }
             }
         }
 
-        // 计算初始偏移量，与 JS 版本对齐：(-0.5 * unit * (length - 1)) / 16
+        // 璁＄畻鍒濆鍋忕Щ閲忥紝锟?JS 鐗堟湰瀵归綈锟?-0.5 * unit * (length - 1)) / 16
         double startX = (-0.5 * unit * (length - 1)) / 16.0;
 
-        // 绘制左模型
+        // 缁樺埗宸︽ā锟?
         Matrices matLeft = new Matrices();
         matLeft.translate(startX, 0, 0);
-        ctx.drawModel(dmhLeft, matLeft);
+        if (leftLoaded) {
+            ctx.drawModel(modelLeft, matLeft);
+        }
 
-        // 绘制右模型
+        // 缁樺埗鍙虫ā锟?
         Matrices matRight = new Matrices();
         double rightX = startX + (unit * (length - 1)) / 16.0;
         matRight.translate(rightX, 0, 0);
-        ctx.drawModel(dmhRight, matRight);
-
-        // 绘制中心模型
-        Matrices matCenter = new Matrices();
-        for (int i = 0; i < length - 2; i++) {
-            double centerX = startX + (i + 1) * unit / 16.0;
-            matCenter.setIdentity();
-            matCenter.translate(centerX, 0, 0);
-            ctx.drawModel(dmhCenter, matCenter);
+        if (rightLoaded) {
+            ctx.drawModel(modelRight, matRight);
         }
 
-        // 仅在贴图就绪后才绘制 display 模型
+        // 缁樺埗涓績妯″瀷
+        Matrices matCenter = new Matrices();
+        if (centerLoaded) {
+            for (int i = 0; i < length - 2; i++) {
+                double centerX = startX + (i + 1) * unit / 16.0;
+                matCenter.setIdentity();
+                matCenter.translate(centerX, 0, 0);
+                ctx.drawModel(modelCenter, matCenter);
+            }
+        }
+
+        // 浠呭湪璐村浘灏辩华鍚庢墠缁樺埗 display 妯″瀷
         if (scriptDone && dmhDisp != null && dmhDisp.getUploadedModel() != null
                 && GraphicsTextureHelper.getInstance().isTextureAvailable(getBlockPos())) {
             GraphicsTexture tex = GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos());
@@ -322,13 +375,18 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
         if (doorLightType >= 0 && withDoorlight) {
             switch (doorLightType) {
                 case 0:
-                    if (doorValue > 0) ctx.drawModel(dmhDlOn, null);
-                    else ctx.drawModel(dmhDlOff, null);
+                    if (doorValue > 0) {
+                        ctx.drawModel(dmhDlOn, null); 
+                    }else {
+                        ctx.drawModel(dmhDlOff, null);
+                    }
                     break;
                 case 1:
-                    if ((doorValue >= 0.2 && doorValue <= 0.4) || (doorValue >= 0.6 && doorValue <= 0.8) || doorValue >= 1)
-                        ctx.drawModel(dmhDlOn, null);
-                    else ctx.drawModel(dmhDlOff, null);
+                    if ((doorValue >= 0.2 && doorValue <= 0.4) || (doorValue >= 0.6 && doorValue <= 0.8) || doorValue >= 1) {
+                        ctx.drawModel(dmhDlOn, null); 
+                    }else {
+                        ctx.drawModel(dmhDlOff, null);
+                    }
                     break;
             }
         }
@@ -337,7 +395,9 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     @Override
     public InteractionResult whenUseWithBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         arrowDirection += 1;
-        if (arrowDirection >= 3) arrowDirection = 0;
+        if (arrowDirection >= 3) {
+            arrowDirection = 0;
+        }
         extraConfigs.put("arrowDirection", String.valueOf(arrowDirection));
         sendUpdateC2S();
         return InteractionResult.SUCCESS;
@@ -354,26 +414,35 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
         List<ModelSelectInfo> drawFuncs = DiaobanDrawManager.getDrawOptions();
         infos.add(createSubModelSelectInfo("content", DEFAULT_SUB_MODEL));
         infos.add(new SubModelDispInfo(
-                Component.translatable("ui.fangsu.diaoban.selectDrawFunction"),
+                ComponentHelper.translatable("ui.fangsu.diaoban.selectDrawFunction"),
                 drawFuncs,
                 (be) -> this.subModels.getOrDefault("drawScript", DEFAULT_DRAW_SCRIPT),
                 (be, v) -> this.subModels.put("drawScript", v)));
         infos.add(new SubModelMethodInfo(
-                Component.translatable("ui.fangsu.common.selectRoute"),
+                ComponentHelper.translatable("ui.fangsu.common.selectRoute"),
                 () -> {
+                    int maxSelect = 1;
+                    try {
+                        String currentDrawKey = CustomItemHelper.checkSubModel(this, "drawScript", DEFAULT_DRAW_SCRIPT);
+                        JsonObject ss = DiaobanDrawManager.getScriptSettingsByDrawKey(currentDrawKey);
+                        if (ss.has("max_select")) {
+                            maxSelect = ss.get("max_select").getAsInt();
+                        }
+                    } catch (Exception ignored) {
+                    }
                     ClientHooks.openRouteSelectionScreen(
-                            Component.translatable("ui.fangsu.common.selectRoute"),
+                            ComponentHelper.translatable("ui.fangsu.common.selectRoute"),
                             null,
                             l -> {
                                 routes = l;
                                 List<List<Long>> saveRoutes = new ArrayList<>();
-                                for (RouteSelectionScreen.RouteSelectInfo info : routes) {
+                                for (RouteSelectInfo info : routes) {
                                     saveRoutes.add(List.of(info.route.id, info.plat.id));
                                 }
                                 extraConfigs.put("routes", Main.GSON.toJson(saveRoutes));
                                 sendUpdateC2S();
                             },
-                            getBlockPos(), 1
+                            getBlockPos(), maxSelect
                     );
                 }
         ));
@@ -384,7 +453,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     public List<ConfigEntry<?>> getConfigs() {
         List<ConfigEntry<?>> configs = new ArrayList<>();
         configs.add(new NumberInputConfig(
-                Component.translatable("ui.fangsu.common.length"),
+                ComponentHelper.translatable("ui.fangsu.common.length"),
                 new ConfigSpec("number_input")
                         .setParam("max", new JsonPrimitive(16))
                         .setParam("min", new JsonPrimitive(2))
@@ -397,12 +466,12 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
                 }
         ));
         configs.add(new EnumConfig(
-                Component.translatable("ui.fangsu.diaoban.arrowDirection"),
+                ComponentHelper.translatable("ui.fangsu.diaoban.arrowDirection"),
                 new ConfigSpec("list"),
                 List.of(
-                        Component.translatable("ui.fangsu.diaoban.arrowNone"),
-                        Component.translatable("ui.fangsu.diaoban.arrowLeft"),
-                        Component.translatable("ui.fangsu.diaoban.arrowRight")
+                        ComponentHelper.translatable("ui.fangsu.diaoban.arrowNone"),
+                        ComponentHelper.translatable("ui.fangsu.diaoban.arrowLeft"),
+                        ComponentHelper.translatable("ui.fangsu.diaoban.arrowRight")
                 ),
                 () -> arrowDirection,
                 (v) -> {
@@ -412,7 +481,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
                 }
         ));
         configs.add(new BoolConfig(
-                Component.translatable("ui.fangsu.diaoban.withDoorlight"),
+                ComponentHelper.translatable("ui.fangsu.diaoban.withDoorlight"),
                 new ConfigSpec("bool"),
                 () -> withDoorlight,
                 (v) -> {
@@ -425,11 +494,13 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     }
 
     private void initDrawingAsync() {
-        if (!firstInit) return;
+        if (!firstInit) {
+            return;
+        }
 
         final String drawKey = drawScript;
 
-        // 阶段1：同步获取 Drawing 实例
+        // 闃舵1锛氬悓姝ヨ幏锟?Drawing 瀹炰緥
         if (!scriptInit) {
             scriptInit = true;
             try {
@@ -437,7 +508,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
             } catch (Throwable e) {
                 Main.LOGGER.error("Failed to create diaoban drawing {}", drawKey, e);
             }
-            // 如果创建失败，直接标记完成（避免卡在第二阶段一直等待）
+            // 濡傛灉鍒涘缓澶辫触锛岀洿鎺ユ爣璁板畬鎴愶紙閬垮厤鍗″湪绗簩闃舵涓€鐩寸瓑寰咃級
             if (drawing == null) {
                 scriptDone = true;
                 return;
@@ -445,20 +516,22 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
             return;
         }
 
-        // Drawing 尚未就绪，等待（首次创建后的等待）
-        if (drawing == null) return;
+        // Drawing 灏氭湭灏辩华锛岀瓑寰咃紙棣栨鍒涘缓鍚庣殑绛夊緟锟?
+        if (drawing == null) {
+            return;
+        }
 
-        // 阶段2：Drawing 已就绪，注册绘制（仅一次）
+        // 闃舵2锛欴rawing 宸插氨缁紝娉ㄥ唽缁樺埗锛堜粎涓€娆★級
         if (!scriptDone) {
             GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
             routes = reloadRoute(getExtraConfig("routes", "[]"));
             String drawInfoId = "DIAOBAN_" + drawKey + "_" + routes + "_" + arrowDirection;
-            // 如果标识相同（数据未变化），直接标记完成
+            // 濡傛灉鏍囪瘑鐩稿悓锛堟暟鎹湭鍙樺寲锛夛紝鐩存帴鏍囪瀹屾垚
             if (drawInfoId.equals(lastRegisteredDrawInfoId)) {
                 scriptDone = true;
                 return;
             }
-            // 标识变化，先移除旧绘制再注册新绘制
+            // 鏍囪瘑鍙樺寲锛屽厛绉婚櫎鏃х粯鍒跺啀娉ㄥ唽鏂扮粯锟?
             gtHelper.removeDrawGraphic(getBlockPos());
             gtHelper.addDrawGraphicWithGt(getBlockPos(),
                     new GraphicsTextureHelper.DrawInfo(

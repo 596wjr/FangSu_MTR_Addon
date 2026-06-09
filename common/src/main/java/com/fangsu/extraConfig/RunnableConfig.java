@@ -1,5 +1,6 @@
 package com.fangsu.extraConfig;
 
+import com.fangsu.mappings.ComponentHelper;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 
@@ -36,18 +37,11 @@ public class RunnableConfig extends ConfigEntry<Void> {
         int height = 20;
         int totalWidth = labelWidth + fieldWidth;
 
-        Button button = Button.builder(
-                buttonText,
-                btn -> {
-                    action.run();
-                    notifyValueChanged();
-                }
-        ).bounds(
-                x + labelWidth,
-                y,
-                fieldWidth,
-                height
-        ).build();
+        //#if MC_VERSION >= 12000
+        Button button = Button.builder(buttonText, btn -> { action.run(); notifyValueChanged(); }).bounds(x + labelWidth, y, fieldWidth, height).build();
+        //#else
+        //$$ Button button = new Button(x + labelWidth, y, fieldWidth, height, buttonText, btn -> { action.run(); notifyValueChanged(); });
+        //#endif
 
         return new ConfigWidget(
                 x,

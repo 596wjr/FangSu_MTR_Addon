@@ -61,11 +61,19 @@ public abstract class TrainMixin {
             for (int y = -2; y <= 3; y++) {
                 for (double z = -halfSpacing; z <= halfSpacing; z++) {
 
+                    //#if MC_VERSION >= 12000
                     BlockPos pos = BlockPos.containing(
                             trainX + offsetVec.x * x + traverseVec.x * z,
                             trainY + y,
                             trainZ + offsetVec.z * x + traverseVec.z * z
                     );
+                    //#else
+                    //$$ BlockPos pos = new BlockPos(
+                    //$$     (int) Math.floor(trainX + offsetVec.x * x + traverseVec.x * z),
+                    //$$     (int) Math.floor(trainY + y),
+                    //$$     (int) Math.floor(trainZ + offsetVec.z * x + traverseVec.z * z)
+                    //$$ );
+                    //#endif
 
                     Block block = world.getBlockState(pos).getBlock();
                     if (block instanceof IBlockPlatform) {

@@ -17,31 +17,50 @@ import java.util.function.Supplier;
 
 public final class DiaobanDrawManager {
     private static final ResourceLocation SCRIPTS_LOCATION = new ResourceLocation("fangsu:diaoban/diaoban_scripts.json");
-    private static final List<ModelSelectInfo> drawOptions = new ArrayList<>();
-    private static final Map<String, Supplier<BaseDiaobanDrawing>> drawingSuppliers = new HashMap<>();
+    private static final Map<String, DiaobanDrawItem> drawOptions = new HashMap<>();
 
     private DiaobanDrawManager() {
     }
 
     public static void preload() {
         drawOptions.clear();
-        drawingSuppliers.clear();
+//        drawingSuppliers.clear();
 
-//        registerJavaDrawing("指示牌样式(Java)", JAVA_DRAW_ROUTE_LIKE, "内置 Java 绘制，无需 JS", RouteLikeDiaobanDrawing::new);
         injectScriptDrawers();
     }
 
     public static List<ModelSelectInfo> getDrawOptions() {
-        return Collections.unmodifiableList(drawOptions);
+        return Collections.unmodifiableList(new ArrayList<>(drawOptions.values()));
     }
 
+    /**
+     * 根据绘制脚本的 key（content 路径，如 "fangsu:diaoban/mtr_diaoban_route.js"）
+     * 在 drawOptions 中遍历查找对应的 DiaobanDrawItem，然后从其 settings 中读取 "script_settings"。
+     */
+    public static JsonObject getScriptSettingsByDrawKey(String drawScriptKey) {
+        for (DiaobanDrawItem item : drawOptions.values()) {
+            if (item.getContent().equals(drawScriptKey)) {
+                JsonObject settings = item.settings();
+                if (settings != null && settings.has("script_settings") && settings.get("script_settings").isJsonObject()) {
+                    return settings.getAsJsonObject("script_settings");
+                }
+                break;
+            }
+        }
+        return new JsonObject();
+    }
+
+    public DiaobanDrawItem getDrawItem(String key) {
+        return drawOptions.get(key);
+    }
+    
     public static void registerJavaDrawing(String text, String key, String contentText, Supplier<BaseDiaobanDrawing> factory) {
-        drawOptions.add(new ModelSelectInfo(text, key, contentText));
-        drawingSuppliers.put(key, factory);
+        drawOptions.put(key, new DiaobanDrawItem(text, key, contentText, new JsonObject(), factory));
+//        drawingSuppliers.put(key, factory);
     }
 
     public static BaseDiaobanDrawing createDrawing(String key) {
-        Supplier<BaseDiaobanDrawing> javaFactory = drawingSuppliers.get(key);
+        Supplier<BaseDiaobanDrawing> javaFactory = drawOptions.get(key).supplier();
         if (javaFactory != null) {
             return javaFactory.get();
         }
@@ -56,16 +75,39 @@ public final class DiaobanDrawManager {
             for (JsonElement element : array) {
                 if (!element.isJsonObject()) continue;
                 JsonObject item = element.getAsJsonObject();
+                String id = item.get("id").getAsString();
                 String text = item.get("text").getAsString();
                 String content = item.get("content").getAsString();
+
+                Supplier<BaseDiaobanDrawing> supplier = () -> new JsDiaobanDrawing(id);
+
                 if (item.has("contentText")) {
-                    drawOptions.add(new ModelSelectInfo(text, content, item.get("contentText").getAsString()));
+                    drawOptions.put(id, new DiaobanDrawItem(text, content, item.get("contentText").getAsString(), item, supplier));
                 } else {
-                    drawOptions.add(new ModelSelectInfo(text, content));
+                    drawOptions.put(id, new DiaobanDrawItem(text, content, "", item, supplier));
                 }
             }
         } catch (Exception e) {
             Main.LOGGER.error("Failed to preload diaoban draw scripts", e);
+        }
+    }
+
+    public static class DiaobanDrawItem extends ModelSelectInfo {
+        private final Supplier<BaseDiaobanDrawing> supplier;
+        private final JsonObject settings;
+
+        public DiaobanDrawItem(String text, String key, String contentText, JsonObject settings, Supplier<BaseDiaobanDrawing> supplier) {
+            super(text, key, contentText);
+            this.supplier = supplier;
+            this.settings = settings;
+        }
+
+        public Supplier<BaseDiaobanDrawing> supplier() {
+            return supplier;
+        }
+
+        public JsonObject settings() {
+            return settings;
         }
     }
 }

@@ -1,10 +1,14 @@
 package com.fangsu.ui;
 
 import com.fangsu.blockEntities.BaseObjBlockEntity;
+import com.fangsu.mappings.ComponentHelper;
+import com.fangsu.utils.GraphicContext;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.google.gson.JsonElement;
 import net.minecraft.client.Minecraft;
+//#if MC_VERSION >= 12000
 import net.minecraft.client.gui.GuiGraphics;
+//#endif
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -114,39 +118,33 @@ public class ModelSelectScreen extends Screen {
         int y = getContentTop();
         for (ModelSelectInfo info : options) {
             int baseY = y;
-            Button button = Button.builder(Component.translatable(info.getText()), btn -> setSelected(info))
-                    .bounds(getListLeft(), baseY, LIST_WIDTH, LIST_ITEM_HEIGHT)
-                    .build();
+            //#if MC_VERSION >= 12000
+            Button button = Button.builder(ComponentHelper.translatable(info.getText()), btn -> setSelected(info)).bounds(getListLeft(), baseY, LIST_WIDTH, LIST_ITEM_HEIGHT).build();
+            //#else
+            //$$ Button button = new Button(getListLeft(), baseY, LIST_WIDTH, LIST_ITEM_HEIGHT, ComponentHelper.translatable(info.getText()), btn -> setSelected(info));
+            //#endif
             addRenderableWidget(button);
             listButtons.add(button);
             listEntries.add(new ScrollEntry(button, baseY));
             y += LIST_ITEM_HEIGHT + 2;
         }
 
-        confirmButton = addRenderableWidget(
-                Button.builder(Component.translatable("ui.fangsu.block.confirm"), btn -> {
-                    if (selected != null && setter != null) {
-                        setter.accept(be, selected.getContent());
-                        if (be != null && selected.getDefault() != null) {
-                            for (Map.Entry<String, JsonElement> entry : selected.getDefault().entrySet()) {
-                                String key = entry.getKey();
-                                String value = entry.getValue().getAsString();
-                                be.subModels.put(key, value);
-                            }
-                        }
-                        if (afterSave != null) {
-                            afterSave.run();
-                        }
-//                        be.sendUpdateC2S();
+        //#if MC_VERSION >= 12000
+        confirmButton = addRenderableWidget(Button.builder(ComponentHelper.translatable("ui.fangsu.block.confirm"), btn -> {
+            if (selected != null && setter != null) {
+                setter.accept(be, selected.getContent());
+                if (be != null && selected.getDefault() != null) {
+                    for (Map.Entry<String, JsonElement> entry : selected.getDefault().entrySet()) {
+                        be.subModels.put(entry.getKey(), entry.getValue().getAsString());
                     }
-                    onClose();
-                }).bounds(
-                        getContentAreaLeft(),
-                        getPanelBottom() - BUTTON_HEIGHT - PADDING,
-                        getContentAreaRight() - getContentAreaLeft(),
-                        BUTTON_HEIGHT
-                ).build()
-        );
+                }
+                if (afterSave != null) afterSave.run();
+            }
+            onClose();
+        }).bounds(getContentAreaLeft(), getPanelBottom() - BUTTON_HEIGHT - PADDING, getContentAreaRight() - getContentAreaLeft(), BUTTON_HEIGHT).build());
+        //#else
+        //$$ confirmButton = addRenderableWidget(new Button(getContentAreaLeft(), getPanelBottom() - BUTTON_HEIGHT - PADDING, getContentAreaRight() - getContentAreaLeft(), BUTTON_HEIGHT, ComponentHelper.translatable("ui.fangsu.block.confirm"), btn -> { if (selected != null && setter != null) { setter.accept(be, selected.getContent()); if (be != null && selected.getDefault() != null) { for (Map.Entry<String, JsonElement> entry : selected.getDefault().entrySet()) { be.subModels.put(entry.getKey(), entry.getValue().getAsString()); } } if (afterSave != null) afterSave.run(); } onClose(); }));
+        //#endif
 
         updateConfirmState();
         updateButtonStyles();
@@ -175,20 +173,35 @@ public class ModelSelectScreen extends Screen {
             Button button = listButtons.get(i);
             ModelSelectInfo info = options.get(i);
             if (selected != null && Objects.equals(selected.getContent(), info.getContent())) {
-                button.setMessage(Component.literal(">" + Component.translatable(info.getText()).getString() + "<"));
+                //#if MC_VERSION >= 12000
+                button.setMessage(Component.literal(">" + ComponentHelper.translatable(info.getText()).getString() + "<"));
+                //#else
+                //$$ button.setMessage(ComponentHelper.literal(">" + ComponentHelper.translatable(info.getText()).getString() + "<"));
+                //#endif
             } else {
-                button.setMessage(Component.translatable(info.getText()));
+                button.setMessage(ComponentHelper.translatable(info.getText()));
             }
         }
     }
 
+    //#if MC_VERSION >= 12000
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        GraphicContext g = GraphicContext.of(graphics);
+        //#else
+        //$$ @Override
+        //$$ public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        //$$     GraphicContext g = GraphicContext.of(poseStack);
+        //#endif
+        //#if MC_VERSION >= 12000
         renderBackground(graphics);
+        //#else
+        //$$ renderBackground(poseStack);
+        //#endif
 
-        graphics.fill(getPanelLeft(), getPanelTop(), getPanelRight(), getPanelBottom(), 0xCCFFFFFF);
+        g.fill(getPanelLeft(), getPanelTop(), getPanelRight(), getPanelBottom(), 0xCCFFFFFF);
 
-        graphics.drawString(
+        g.drawString(
                 this.font,
                 this.title,
                 this.width / 2 - this.font.width(this.title) / 2,
@@ -201,18 +214,18 @@ public class ModelSelectScreen extends Screen {
             entry.applyScroll(listScrollOffset);
         }
 
-        graphics.enableScissor(getListLeft(), getContentTop(), getListRight(), getContentBottom());
+        g.enableScissor(getListLeft(), getContentTop(), getListRight(), getContentBottom());
         for (Button button : listButtons) {
-            button.render(graphics, mouseX, mouseY, partialTick);
+            button.render(g.asMinecraft(), mouseX, mouseY, partialTick);
         }
-        graphics.disableScissor();
+        g.disableScissor();
 
-        renderContentPanel(graphics);
-        confirmButton.render(graphics, mouseX, mouseY, partialTick);
+        renderContentPanel(g);
+        confirmButton.render(g.asMinecraft(), mouseX, mouseY, partialTick);
     }
 
-    private void renderContentPanel(GuiGraphics graphics) {
-        graphics.fill(
+    private void renderContentPanel(GraphicContext g) {
+        g.fill(
                 getContentAreaLeft(),
                 getContentTop(),
                 getContentAreaRight(),
@@ -233,7 +246,7 @@ public class ModelSelectScreen extends Screen {
                 0
         );
 
-        graphics.enableScissor(
+        g.enableScissor(
                 getContentAreaLeft(),
                 getContentTop(),
                 getContentAreaRight(),
@@ -242,16 +255,16 @@ public class ModelSelectScreen extends Screen {
 
         int y = getContentTop() + 6 + contentScrollOffset;
         for (Component line : lines) {
-            graphics.drawString(this.font, line, textLeft, y, 0x202020, false);
+            g.drawString(this.font, line, textLeft, y, 0x202020, false);
             y += lineHeight;
         }
 
-        graphics.disableScissor();
+        g.disableScissor();
     }
 
     private List<Component> getSelectedContentLines(int width) {
         String text = selected == null ? "" : selected.getContentText();
-        return this.font.split(Component.translatable(text), width).stream()
+        return this.font.split(ComponentHelper.translatable(text), width).stream()
                 .map(this::sequenceToComponent)
                 .toList();
     }
@@ -262,7 +275,11 @@ public class ModelSelectScreen extends Screen {
             builder.appendCodePoint(c);
             return true;
         });
+        //#if MC_VERSION >= 12000
         return Component.literal(builder.toString());
+        //#else
+        //$$ return ComponentHelper.literal(builder.toString());
+        //#endif
     }
 
     @Override
@@ -354,7 +371,11 @@ public class ModelSelectScreen extends Screen {
         }
 
         private void applyScroll(int offset) {
+            //#if MC_VERSION >= 12000
             widget.setY(baseY + offset);
+            //#else
+            //$$ widget.y = baseY + offset;
+            //#endif
         }
     }
 }

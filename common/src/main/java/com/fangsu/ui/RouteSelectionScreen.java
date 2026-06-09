@@ -1,5 +1,6 @@
 package com.fangsu.ui;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.mtr.LocalRoute;
 import com.fangsu.utils.ColorUtil;
 import com.fangsu.utils.MtrUtil;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 public class RouteSelectionScreen extends BaseSelectionScreen {
+
     private final Consumer<List<RouteSelectInfo>> setter;
     private final BlockPos pos;
     private final Screen parent;
@@ -28,22 +30,24 @@ public class RouteSelectionScreen extends BaseSelectionScreen {
         this.pos = pos;
         this.titles = new ArrayList<>();
         this.parent = parent;
-        titles.add(Component.translatable("ui.fangsu.common.selectPlat"));
-        titles.add(Component.translatable("ui.fangsu.common.selectRoute"));
-        titles.add(Component.translatable("ui.fangsu.common.selected"));
+        titles.add(ComponentHelper.translatable("ui.fangsu.common.selectPlat"));
+        titles.add(ComponentHelper.translatable("ui.fangsu.common.selectRoute"));
+        titles.add(ComponentHelper.translatable("ui.fangsu.common.selected"));
     }
 
     @Override
     public void updateColumn() {
-        Station station = MtrUtil.getStationAt(pos.getCenter().toVector3f());
+        Station station = MtrUtil.getStationAt(MtrUtil.getCenterVector3f(pos));
         if (station != null) {
-            if (this.items != null)
+            if (this.items != null) {
                 this.items.clear();
-            else this.items = new ArrayList<>();
+            } else {
+                this.items = new ArrayList<>();
+            }
             Set<SelectionItem> platItemSet = new HashSet<>();
             Set<SelectionItem> routeItemSet = new HashSet<>();
             List<Platform> platforms = MtrUtil.getPlatformByStation(station);
-            if (platforms != null)
+            if (platforms != null) {
                 for (Platform p : platforms) {
                     String dest = MtrUtil.getDestinationByPlatform(p);
                     platItemSet.add(new SelectionItem(
@@ -52,7 +56,8 @@ public class RouteSelectionScreen extends BaseSelectionScreen {
                             null
                     ));
                 }
-            if (selected.size() > 0 && selected.get(0) != null) {
+            }
+            if (!selected.isEmpty() && selected.get(0) != null) {
                 Long selectedPlat = Long.decode(selected.get(0));
                 if (selectedPlat != null) {
                     Platform p = MtrUtil.getPlatformById(selectedPlat);
@@ -88,37 +93,5 @@ public class RouteSelectionScreen extends BaseSelectionScreen {
         }
         this.setter.accept(v);
         Minecraft.getInstance().setScreen(parent);
-    }
-
-    public static final class RouteSelectInfo {
-        public final LocalRoute route;
-        public final Platform plat;
-
-        public RouteSelectInfo(LocalRoute route, Platform plat) {
-            this.route = route;
-            this.plat = plat;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (obj == this) return true;
-            if (obj == null || obj.getClass() != this.getClass()) return false;
-            var that = (RouteSelectInfo) obj;
-            return Objects.equals(this.route, that.route) &&
-                    Objects.equals(this.plat, that.plat);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(route, plat);
-        }
-
-        @Override
-        public String toString() {
-            return "RouteSelectInfo[" +
-                    "route=" + route + ", " +
-                    "plat=" + plat + ']';
-        }
-
     }
 }

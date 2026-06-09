@@ -1,5 +1,6 @@
 package com.fangsu.drawing.sign;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.extraConfig.*;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
@@ -49,7 +50,7 @@ public class DivingLineItem extends SignItem {
     public java.util.List<ConfigEntry<?>> getConfigs() {
         java.util.List<ConfigEntry<?>> configs = new ArrayList<>();
         configs.add(new NumberInputConfig(
-                net.minecraft.network.chat.Component.translatable("ui.fangsu.common.color"),
+                ComponentHelper.translatable("ui.fangsu.common.color"),
                 new ConfigSpec("num").setParam("isHex", new JsonPrimitive(true)).setParam("isInt", new JsonPrimitive(true)),
                 () -> (this.color.getRGB() & 0xFFFFFF) + 0f,
                 (v) -> this.color = new Color(v.intValue() | 0xFF000000)

@@ -5,6 +5,9 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 public class RouteInfoSignContent extends BaseContent {
@@ -15,6 +18,8 @@ public class RouteInfoSignContent extends BaseContent {
     private final float[][] shape;
     private final float[][][] slots;
     private final int[] texSize;
+    private final List<JsonObject> extraConfigDefs;
+    private final JsonObject scriptSettings;
 
     private RouteInfoSignContent(JsonObject json) {
         super(json);
@@ -22,6 +27,9 @@ public class RouteInfoSignContent extends BaseContent {
         this.model = json.get("model").getAsString();
         this.flipV = json.has("flipV") && json.get("flipV").getAsBoolean();
         this.script = json.get("script").getAsString();
+
+        scriptSettings = json.has("script_settings") && json.get("script_settings").isJsonObject()
+                ? json.getAsJsonObject("script_settings") : new JsonObject();
 
         if (json.has("shape") && json.get("shape").isJsonArray()) {
             JsonArray shapeArray1 = json.get("shape").getAsJsonArray();
@@ -65,6 +73,7 @@ public class RouteInfoSignContent extends BaseContent {
                                     slot[j] = slotPos;
                                 }
                             }
+                            continue;
                         }
                         JsonElement slotElement3 = slotArray2.get(j);
                         if (slotElement3.isJsonArray()) {
@@ -93,6 +102,15 @@ public class RouteInfoSignContent extends BaseContent {
         } else {
             this.texSize = new int[]{0, 0};
         }
+
+        extraConfigDefs = new ArrayList<>();
+        if (json.has("extraConfig") && json.get("extraConfig").isJsonArray()) {
+            for (JsonElement el : json.getAsJsonArray("extraConfig")) {
+                if (el != null && el.isJsonObject()) {
+                    extraConfigDefs.add(el.getAsJsonObject());
+                }
+            }
+        }
     }
 
     public String getModel() {
@@ -117,6 +135,14 @@ public class RouteInfoSignContent extends BaseContent {
 
     public int[] getTexSize() {
         return texSize;
+    }
+
+    public List<JsonObject> getExtraConfigDefs() {
+        return Collections.unmodifiableList(extraConfigDefs);
+    }
+
+    public JsonObject getScriptSettings() {
+        return scriptSettings;
     }
 
     protected static class RouteInfoSignLoader extends BaseLoader {

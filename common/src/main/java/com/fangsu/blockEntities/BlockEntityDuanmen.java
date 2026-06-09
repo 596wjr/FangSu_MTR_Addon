@@ -1,5 +1,6 @@
 package com.fangsu.blockEntities;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.Main;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.customItem.SubModelDispInfo;
@@ -180,7 +181,7 @@ public class BlockEntityDuanmen extends BaseObjBlockEntity {
                 sendUpdateC2S();
                 return InteractionResult.SUCCESS;
             } else {
-                player.displayClientMessage(Component.translatable("msg.fangsu.duanmen.requiresKey"), true);
+                player.displayClientMessage(ComponentHelper.translatable("msg.fangsu.duanmen.requiresKey"), true);
 //                player.displayClientMessage(Component.literal("direction = " + facing + " x = " + hitPos.x + " z = " + hitPos.z + " hitPoint = " + hitPoint), true);
                 return InteractionResult.PASS;
             }

@@ -5,7 +5,7 @@ import com.fangsu.blockEntities.BlockEntityScreendoorCentralControl;
 import com.fangsu.drawing.sign.SignItem;
 import com.fangsu.ui.ObjBlockConfigScreen;
 import com.fangsu.ui.PlatformSelectionScreen;
-import com.fangsu.ui.RouteSelectionScreen;
+import com.fangsu.ui.RouteSelectInfo;
 import com.fangsu.ui.ScreendoorCentralControlScreen;
 import com.fangsu.ui.StationSelectionScreen;
 import com.fangsu.ui.SignConfigUI;
@@ -20,6 +20,7 @@ import java.util.function.Consumer;
 
 //@Mod.EventBusSubscriber(value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class ClientHooksImpl {
+
     private ClientHooksImpl() {
     }
 
@@ -27,7 +28,6 @@ public final class ClientHooksImpl {
 //        ClientHooks.OPEN_OBJ_BLOCK_CONFIG_SCREEN = ClientHooksImpl::openObjBlockConfigScreen;
 //        ClientHooks.OPEN_OBJ_SIGN_SCREEN = ClientHooksImpl::openSignConfigScreen;
 //    }
-
     public static void openObjBlockConfigScreen(BaseObjBlockEntity blockEntity) {
         Minecraft.getInstance().setScreen(new ObjBlockConfigScreen(blockEntity));
     }
@@ -50,7 +50,7 @@ public final class ClientHooksImpl {
         });
     }
 
-    public static void openRouteSelectScreen(Component component, List<Long> defaultValue, Consumer<List<RouteSelectionScreen.RouteSelectInfo>> setter, BlockPos pos, int maxSelect) {
+    public static void openRouteSelectScreen(Component component, List<Long> defaultValue, Consumer<List<RouteSelectInfo>> setter, BlockPos pos, int maxSelect) {
         Minecraft.getInstance().execute(() -> {
             Minecraft.getInstance().setScreen(new RouteSelectionScreen(
                     component, defaultValue, setter, pos, maxSelect, Minecraft.getInstance().screen

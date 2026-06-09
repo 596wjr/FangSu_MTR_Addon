@@ -20,15 +20,19 @@ public final class Main {
     public static final JsonParser JSON_PARSER = new JsonParser();
     public static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
     public static Boolean isClient = null;
+    public static boolean debug = false;
 
     public static void init() {
         // Write common init code here.
         isClient = Platform.getEnv().name().equals("CLIENT");
 
-        //#if FABRIC
-        //$$ LOGGER.info("Fangsu is running on FABRIC");
-        //#elseif FORGE
-        //$$ LOGGER.info("Fangsu is running on FORGE");
+        //#if MC_VERSION >= 12000
+        // 游戏版本>=1.20.0
+        //$$ LOGGER.info("FangSu is running on Minecraft >= 1.20!");
+        //#elseif MC_VERSION >= 11900
+        //$$ LOGGER.info("FangSu is running on Minecraft between 1.19 and 1.20!");
+        //#else
+        //$$ LOGGER.info("FangSu is running on Minecraft under 1.19!");
         //#endif
 
         ModBlocks.init();
@@ -41,14 +45,14 @@ public final class Main {
     }
 
     public static void debug(String msg) {
-
-        LOGGER.info("[DEBUG] " + msg);
+        if (debug)
+            LOGGER.info("[DEBUG] " + msg);
 
     }
 
     public static void debug(String msg, Object... args) {
-
-        LOGGER.info("[DEBUG] " + msg, args);
+        if (debug)
+            LOGGER.info("[DEBUG] " + msg, args);
 
     }
 }

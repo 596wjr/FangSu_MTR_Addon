@@ -2,18 +2,22 @@ package com.fangsu.ui.ticketMachine;
 
 import com.fangsu.Main;
 import com.fangsu.items.ModItems;
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.network.ModNetwork;
 import com.fangsu.scripting.TextUtil;
 import com.fangsu.ticketSystem.MtrTicketSystem;
 import com.fangsu.utils.ColorUtil;
 import com.fangsu.utils.MtrUtil;
+import com.fangsu.utils.GraphicContext;
 import com.fangsu.utils.ScreenUtil;
 import dev.architectury.networking.NetworkManager;
 import io.netty.buffer.Unpooled;
 import mtr.client.ClientData;
 import mtr.data.Route;
 import mtr.data.Station;
+//#if MC_VERSION >= 12000
 import net.minecraft.client.gui.GuiGraphics;
+//#endif
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
@@ -51,10 +55,10 @@ public class TicketMachineMainScreen extends Screen {
     private static final int MAX_TICKET_PRICE = 32767;
     private static final int MAX_TICKET_PRICE_BUTTON = 6;
     private static final int ROUTES_PER_PAGE = 8;
-    // 数字键盘布局
+    // 鏁板瓧閿洏甯冨眬
     private static final int NUM_PAD_ROWS = 4;
     private static final int NUM_PAD_COLS = 3;
-    // 站点列表显示行数
+    // 绔欑偣鍒楄〃鏄剧ず琛屾暟
     private static final int STATION_LIST_VISIBLE_ROWS = 8;
 
     private final BlockPos pos;
@@ -64,8 +68,8 @@ public class TicketMachineMainScreen extends Screen {
     private int ticketCount = 1;
     private int ticketPrice = 0;
 
-    private int routePage = 0;          // 当前线路页
-    private int selectedStationScroll = 0; // 站点列表滚动（预留）
+    private int routePage = 0;          // 褰撳墠绾胯矾锟?
+    private int selectedStationScroll = 0; // 绔欑偣鍒楄〃婊氬姩锛堥鐣欙級
 
     private List<RouteFareInfo> routes;
     private RouteFareInfo selectedRoute = null;
@@ -73,16 +77,14 @@ public class TicketMachineMainScreen extends Screen {
     private boolean isConfirming = false;
     private StationFareInfo selectedStation = null;
 
-    // 当前输入金额的字符串，用于虚拟键盘编辑
     private String customPriceInput = "";
-    // 站点列表滚动位置
     private int stationScroll = 0;
 
     public TicketMachineMainScreen(Component title, BlockPos pos) {
         super(title);
         this.pos = pos;
 
-        this.station = MtrUtil.getStationAt(this.pos.getCenter().toVector3f());
+        this.station = MtrUtil.getStationAt(MtrUtil.getCenterVector3f(this.pos));
 
         int currentZone = this.station != null ? this.station.zone : 0;
         Map<String, RouteFareInfo> routeMap = new HashMap<>();
@@ -123,11 +125,19 @@ public class TicketMachineMainScreen extends Screen {
         super.onClose();
     }
 
+//#if MC_VERSION >= 11904
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+    public void render(GuiGraphics nativeGfx, int mouseX, int mouseY, float partialTick) {
+        super.render(nativeGfx, mouseX, mouseY, partialTick);
+        GraphicContext g = GraphicContext.of(nativeGfx);
+        //#else
+        //$$@Override
+        //$$public void render(com.mojang.blaze3d.vertex.PoseStack nativeGfx, int mouseX, int mouseY, float partialTick) {
+        //$$    super.render(nativeGfx, mouseX, mouseY, partialTick);
+        //$$    GraphicContext g = GraphicContext.of(nativeGfx);
+        //#endif
 
-        guiGraphics.blit(
+        g.blit(
                 BG_TEXTURE,
                 this.width / 2 - BG_TEXTURE_WIDTH / 2,
                 this.height / 2 - BG_TEXTURE_HEIGHT / 2,
@@ -137,8 +147,8 @@ public class TicketMachineMainScreen extends Screen {
                 BG_TEXTURE_WIDTH, BG_TEXTURE_HEIGHT
         );
 
-        guiGraphics.fill(texturePosX(0), texturePosY(0), texturePosX(BG_TEXTURE_DRAW_WIDTH), texturePosY(24), 0xff19304b);
-        guiGraphics.fill(texturePosX(0), texturePosY(24), texturePosX(37), texturePosY(BG_TEXTURE_DRAW_HEIGHT - 20), 0xffdadada);
+        g.fill(texturePosX(0), texturePosY(0), texturePosX(BG_TEXTURE_DRAW_WIDTH), texturePosY(24), 0xff19304b);
+        g.fill(texturePosX(0), texturePosY(24), texturePosX(37), texturePosY(BG_TEXTURE_DRAW_HEIGHT - 20), 0xffdadada);
         {
             int beginY = texturePosY(25);
             int endY = texturePosY(BG_TEXTURE_DRAW_HEIGHT - 21);
@@ -157,7 +167,7 @@ public class TicketMachineMainScreen extends Screen {
                         ? endY
                         : y0 + segmentHeight;
 
-                guiGraphics.fill(
+                g.fill(
                         texturePosX(0),
                         y0,
                         texturePosX(36),
@@ -167,7 +177,7 @@ public class TicketMachineMainScreen extends Screen {
             }
         }
         if (!isConfirming) {
-            guiGraphics.fill(texturePosX(BG_TEXTURE_DRAW_WIDTH - 37), texturePosY(24), texturePosX(BG_TEXTURE_DRAW_WIDTH), texturePosY(BG_TEXTURE_DRAW_HEIGHT - 20), 0xffdadada);
+            g.fill(texturePosX(BG_TEXTURE_DRAW_WIDTH - 37), texturePosY(24), texturePosX(BG_TEXTURE_DRAW_WIDTH), texturePosY(BG_TEXTURE_DRAW_HEIGHT - 20), 0xffdadada);
             {
                 int beginY = texturePosY(25);
                 int endY = texturePosY(BG_TEXTURE_DRAW_HEIGHT - 21);
@@ -186,7 +196,7 @@ public class TicketMachineMainScreen extends Screen {
                             ? endY
                             : y0 + segmentHeight;
 
-                    guiGraphics.fill(
+                    g.fill(
                             texturePosX(BG_TEXTURE_DRAW_WIDTH - 36),
                             y0,
                             texturePosX(BG_TEXTURE_DRAW_WIDTH),
@@ -195,32 +205,32 @@ public class TicketMachineMainScreen extends Screen {
                     );
                 }
             }
-            guiGraphics.fill(texturePosX(37), texturePosY(24), texturePosX(BG_TEXTURE_DRAW_WIDTH - 37), texturePosY(48), 0xff19304b);
+            g.fill(texturePosX(37), texturePosY(24), texturePosX(BG_TEXTURE_DRAW_WIDTH - 37), texturePosY(48), 0xff19304b);
         }
-        guiGraphics.fill(texturePosX(0), texturePosY(BG_TEXTURE_DRAW_HEIGHT - 20), texturePosX(BG_TEXTURE_DRAW_WIDTH), texturePosY(BG_TEXTURE_DRAW_HEIGHT), 0xff59afc3);
+        g.fill(texturePosX(0), texturePosY(BG_TEXTURE_DRAW_HEIGHT - 20), texturePosX(BG_TEXTURE_DRAW_WIDTH), texturePosY(BG_TEXTURE_DRAW_HEIGHT), 0xff59afc3);
 
         int currentX = texturePosX(4);
-        currentX = ScreenUtil.drawStringScale(guiGraphics, Component.translatable("ui.fangsu.common.title"), currentX, texturePosY(4), 0xffffffff, 1.5f, true);
+        currentX = ScreenUtil.drawStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.common.title"), currentX, texturePosY(4), 0xffffffff, 1.5f, true);
         if (station != null) {
             currentX += 4;
-            currentX = guiGraphics.drawString(font, Component.translatable("ui.fangsu.ticketmachine.current"), currentX, texturePosY(8), 0xffffffff, true);
+            currentX = g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.current"), currentX, texturePosY(8), 0xffffffff, true);
             int spareX = BG_TEXTURE_DRAW_WIDTH - currentX + texturePosX(0);
             String[] lines = station.name.split("\\|");
             if (lines.length == 1)
-                ScreenUtil.drawCenteredStringScale(guiGraphics, lines[0], currentX + spareX / 2, texturePosY(8), 0xffffffff, 1.2f, true);
+                ScreenUtil.drawCenteredStringScale(nativeGfx, lines[0], currentX + spareX / 2, texturePosY(8), 0xffffffff, 1.2f, true);
             else {
                 float baseScale = 1.25f / (lines.length + 2);
                 float gap = 2f / (lines.length - 1);
                 int currentY = texturePosY(4);
                 for (int i = 0; i < lines.length; i++) {
                     float scale = i == 0 ? baseScale * 3 : baseScale;
-                    ScreenUtil.drawCenteredStringScale(guiGraphics, lines[i], currentX + spareX / 2, currentY, 0xffffffff, scale, true);
+                    ScreenUtil.drawCenteredStringScale(nativeGfx, lines[i], currentX + spareX / 2, currentY, 0xffffffff, scale, true);
                     currentY += (int) (gap + 8 * scale);
                 }
             }
         }
 
-        ScreenUtil.drawCenteredStringScale(guiGraphics, Component.translatable("ui.fangsu.ticketmachine.selectCount"), texturePosX(18), texturePosY(28), 0xffffffff, 1f, true);
+        ScreenUtil.drawCenteredStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.ticketmachine.selectCount"), texturePosX(18), texturePosY(28), 0xffffffff, 1f, true);
         {
             int baseH = (BG_TEXTURE_DRAW_HEIGHT - 80) / MAX_TICKET_COUNT;
             int baseHPrice = (BG_TEXTURE_DRAW_HEIGHT - 80) / MAX_TICKET_PRICE_BUTTON;
@@ -231,14 +241,14 @@ public class TicketMachineMainScreen extends Screen {
                 boolean selected = i == ticketCount - 1;
                 boolean pointed = mouseX > texturePosX(3) && mouseX < texturePosX(33) && mouseY > currentY && mouseY < currentY + baseH;
                 ScreenUtil.drawNineSlice(
-                        guiGraphics,
+                        nativeGfx,
                         selected ?
                                 pointed ? BUTTON_ORANGE_SELECTED : BUTTON_ORANGE :
                                 pointed ? BUTTON_BLUE_SELECTED : BUTTON_BLUE,
                         texturePosX(3), currentY,
                         30, baseH
                 );
-                ScreenUtil.drawCenteredStringScale(guiGraphics, Component.translatable("ui.fangsu.ticketmachine.count", i + 1), texturePosX(18), currentY + 4, 0xffffffff, Math.min((baseH - 8) / 8f, 1.5f), true);
+                ScreenUtil.drawCenteredStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.ticketmachine.count", i + 1), texturePosX(18), currentY + 4, 0xffffffff, Math.min((baseH - 8) / 8f, 1.5f), true);
                 if (mouseClickInfo != null) {
                     if (mouseClickInfo.mouseX() > texturePosX(3) && mouseClickInfo.mouseX() < texturePosX(33) && mouseClickInfo.mouseY() > currentY && mouseClickInfo.mouseY() < currentY + baseH) {
                         ticketCount = i + 1;
@@ -255,14 +265,14 @@ public class TicketMachineMainScreen extends Screen {
                     if (i == MAX_TICKET_PRICE_BUTTON) {
                         boolean selected = isEditingCustomPrice;
                         ScreenUtil.drawNineSlice(
-                                guiGraphics,
+                                nativeGfx,
                                 selected ?
                                         pointed ? BUTTON_ORANGE_SELECTED : BUTTON_ORANGE :
                                         pointed ? BUTTON_BLUE_SELECTED : BUTTON_BLUE,
                                 texturePosX(BG_TEXTURE_DRAW_WIDTH - 33), currentY,
                                 30, baseHPrice
                         );
-                        ScreenUtil.drawCenteredStringScale(guiGraphics, Component.translatable("ui.fangsu.ticketmachine.otherPrice"), texturePosX(BG_TEXTURE_DRAW_WIDTH - 18), currentY + 4, 0xffffffff, Math.min((baseHPrice - 8) / 8f, 1.5f), true);
+                        ScreenUtil.drawCenteredStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.ticketmachine.otherPrice"), texturePosX(BG_TEXTURE_DRAW_WIDTH - 18), currentY + 4, 0xffffffff, Math.min((baseHPrice - 8) / 8f, 1.5f), true);
                         if (mouseClickInfo != null) {
                             if (mouseClickInfo.mouseX() > texturePosX(BG_TEXTURE_DRAW_WIDTH - 33) && mouseClickInfo.mouseX() < texturePosX(BG_TEXTURE_DRAW_WIDTH - 3) && mouseClickInfo.mouseY() > currentY && mouseClickInfo.mouseY() < currentY + baseHPrice) {
                                 selectedRoute = null;
@@ -273,14 +283,14 @@ public class TicketMachineMainScreen extends Screen {
                         boolean selected = val == ticketPrice;
 
                         ScreenUtil.drawNineSlice(
-                                guiGraphics,
+                                nativeGfx,
                                 selected ?
                                         pointed ? BUTTON_ORANGE_SELECTED : BUTTON_ORANGE :
                                         pointed ? BUTTON_BLUE_SELECTED : BUTTON_BLUE,
                                 texturePosX(BG_TEXTURE_DRAW_WIDTH - 33), currentY,
                                 30, baseHPrice
                         );
-                        ScreenUtil.drawCenteredStringScale(guiGraphics, Component.translatable("ui.fangsu.ticketmachine.price", val), texturePosX(BG_TEXTURE_DRAW_WIDTH - 18), currentY + 4, 0xffffffff, Math.min((baseHPrice - 8) / 8f, 1.5f), true);
+                        ScreenUtil.drawCenteredStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.ticketmachine.price", val), texturePosX(BG_TEXTURE_DRAW_WIDTH - 18), currentY + 4, 0xffffffff, Math.min((baseHPrice - 8) / 8f, 1.5f), true);
                         if (mouseClickInfo != null) {
                             if (mouseClickInfo.mouseX() > texturePosX(BG_TEXTURE_DRAW_WIDTH - 33) && mouseClickInfo.mouseX() < texturePosX(BG_TEXTURE_DRAW_WIDTH - 3) && mouseClickInfo.mouseY() > currentY && mouseClickInfo.mouseY() < currentY + baseHPrice) {
                                 ticketPrice = val;
@@ -316,23 +326,28 @@ public class TicketMachineMainScreen extends Screen {
                 boolean selected = route.equals(selectedRoute);
                 boolean pointed = mouseX > x && mouseX < x + cellW && mouseY > y && mouseY < y + cellH;
 
-                guiGraphics.fill(
+                g.fill(
                         x, y,
                         x + cellW - 2, y + cellH - 2, route.color()
                 );
                 if (selected)
-                    guiGraphics.fill(
+                    g.fill(
                             x, y,
                             x + cellW - 2, y + cellH - 2, 0x22000000
                     );
                 else if (pointed)
-                    guiGraphics.fill(
+                    g.fill(
                             x, y,
                             x + cellW - 2, y + cellH - 2, 0x22ffffff
                     );
 
+                //#if MC_VERSION >= 11900
+                Component labelText = Component.literal(route.name().replace("|", " "));
+                //#else
+                //$$ Component labelText = ComponentHelper.literal(route.name().replace("|", " "));
+                //#endif
                 ScreenUtil.drawScrollingText(
-                        guiGraphics, font, Component.literal(route.name().replace("|", " ")),
+                        nativeGfx, font, labelText,
                         x + 2,
                         y + 2,
                         cellW - 4, cellH - 4,
@@ -346,31 +361,31 @@ public class TicketMachineMainScreen extends Screen {
                 }
             }
         } else {
-            guiGraphics.fill(texturePosX(42), texturePosY(32), texturePosX(BG_TEXTURE_DRAW_WIDTH - 8), texturePosY(BG_TEXTURE_DRAW_HEIGHT - 28), 0xff000000);
-            guiGraphics.fill(texturePosX(42) + 1, texturePosY(32) + 1, texturePosX(BG_TEXTURE_DRAW_WIDTH - 8) - 1, texturePosY(BG_TEXTURE_DRAW_HEIGHT - 28) - 1, 0xffffffff);
+            g.fill(texturePosX(42), texturePosY(32), texturePosX(BG_TEXTURE_DRAW_WIDTH - 8), texturePosY(BG_TEXTURE_DRAW_HEIGHT - 28), 0xff000000);
+            g.fill(texturePosX(42) + 1, texturePosY(32) + 1, texturePosX(BG_TEXTURE_DRAW_WIDTH - 8) - 1, texturePosY(BG_TEXTURE_DRAW_HEIGHT - 28) - 1, 0xffffffff);
 
             int currentY = texturePosY(36);
-            guiGraphics.drawString(font, Component.translatable("ui.fangsu.ticketmachine.confirm1"), texturePosX(46), currentY, 0xffff4444);
+            g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm1"), texturePosX(46), currentY, 0xffff4444, false);
             currentY += 10;
-            guiGraphics.drawString(font, Component.translatable("ui.fangsu.ticketmachine.confirm2", Component.translatable("ui.fangsu.ticket.singleJourney")), texturePosX(54), currentY, 0xff000000, false);
+            g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm2", ComponentHelper.translatable("ui.fangsu.ticket.singleJourney")), texturePosX(54), currentY, 0xff000000, false);
             currentY += 10;
             if (station != null) {
-                guiGraphics.drawString(font, Component.translatable("ui.fangsu.ticketmachine.confirm3", station.name.replace("|", " ")), texturePosX(54), currentY, 0xff000000, false);
+                g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm3", station.name.replace("|", " ")), texturePosX(54), currentY, 0xff000000, false);
                 currentY += 10;
             }
             if (selectedStation != null) {
-                guiGraphics.drawString(font, Component.translatable("ui.fangsu.ticketmachine.confirm4", selectedStation.name), texturePosX(54), currentY, 0xff000000, false);
+                g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm4", selectedStation.name), texturePosX(54), currentY, 0xff000000, false);
                 currentY += 10;
             }
-            guiGraphics.drawString(font, Component.translatable("ui.fangsu.ticketmachine.confirm5", ticketPrice), texturePosX(54), currentY, 0xff000000, false);
+            g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm5", ticketPrice), texturePosX(54), currentY, 0xff000000, false);
             currentY += 10;
-            guiGraphics.drawString(font, Component.translatable("ui.fangsu.ticketmachine.confirm6", ticketCount), texturePosX(54), currentY, 0xff000000, false);
+            g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm6", ticketCount), texturePosX(54), currentY, 0xff000000, false);
             currentY += 10;
-            guiGraphics.drawString(font, Component.translatable("ui.fangsu.ticketmachine.confirm7", ticketPrice * ticketCount), texturePosX(54), currentY, 0xff000000, false);
+            g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm7", ticketPrice * ticketCount), texturePosX(54), currentY, 0xff000000, false);
         }
         if (!isConfirming) {
             if (isEditingCustomPrice) {
-                renderNumericPad(guiGraphics, mouseX, mouseY, texturePosX(BG_TEXTURE_DRAW_WIDTH / 2 - 40), texturePosY(60), 80, 100);
+                renderNumericPad(nativeGfx, mouseX, mouseY, texturePosX(BG_TEXTURE_DRAW_WIDTH / 2 - 40), texturePosY(60), 80, 100);
             } else if (selectedRoute != null) {
                 List<StationFareInfo> stations = new ArrayList<>(selectedRoute.stations());
                 stations.sort(Comparator.comparingInt(StationFareInfo::fare));
@@ -391,19 +406,24 @@ public class TicketMachineMainScreen extends Screen {
                     boolean selected = stn.equals(selectedStation);
                     boolean pointed = mouseX > listStartX && mouseX < listEndX && mouseY > listStartY + (i - scrollStart) * lineH && mouseY < listStartY + (i - scrollStart) * lineH + lineH;
                     ScreenUtil.drawNineSlice(
-                            guiGraphics,
+                            nativeGfx,
                             selected ? BUTTON_GRAY_PRESSED :
                                     pointed ? BUTTON_GRAY_SELECTED : BUTTON_GRAY,
                             listStartX, listStartY + (i - scrollStart) * lineH,
                             listEndX - listStartX, lineH
                     );
                     int currentY = listStartY + (i - scrollStart) * lineH;
-                    ScreenUtil.drawScrollingText(guiGraphics, font,
-                            Component.literal(stn.name()),
+                    //#if MC_VERSION >= 11900
+                    Component stnName = Component.literal(stn.name());
+                    //#else
+                    //$$ Component stnName = ComponentHelper.literal(stn.name());
+                    //#endif
+                    ScreenUtil.drawScrollingText(nativeGfx, font,
+                            stnName,
                             listStartX, currentY + 4,
                             listEndX - listStartX - 15, lineH - 6, 0xffffffff, true);
                     ScreenUtil.drawRightAlignedStringScale(
-                            guiGraphics, Component.translatable("ui.fangsu.ticketmachine.price", stn.fare()),
+                            nativeGfx, ComponentHelper.translatable("ui.fangsu.ticketmachine.price", stn.fare()),
                             listEndX, currentY + 4, 0xffffffff, 1f, true
                     );
 
@@ -423,21 +443,21 @@ public class TicketMachineMainScreen extends Screen {
                     mouseY > texturePosY(BG_TEXTURE_DRAW_HEIGHT - 18) && mouseY < texturePosY(BG_TEXTURE_DRAW_HEIGHT - 4);
             boolean cancelSelected = mouseX > texturePosX(BG_TEXTURE_DRAW_WIDTH - 68) && mouseX < texturePosX(BG_TEXTURE_DRAW_WIDTH - 40) &&
                     mouseY > texturePosY(BG_TEXTURE_DRAW_HEIGHT - 18) && mouseY < texturePosY(BG_TEXTURE_DRAW_HEIGHT - 4);
-            ScreenUtil.drawNineSlice(guiGraphics,
+            ScreenUtil.drawNineSlice(nativeGfx,
                     confirmAvailable ?
                             confirmSelected ? BUTTON_BLUE_SELECTED : BUTTON_BLUE : BUTTON_BLUE,
                     texturePosX(BG_TEXTURE_DRAW_WIDTH - 36), texturePosY(BG_TEXTURE_DRAW_HEIGHT - 18), 28, 14
             );
-            ScreenUtil.drawNineSlice(guiGraphics,
+            ScreenUtil.drawNineSlice(nativeGfx,
                     cancelAvailable ?
                             cancelSelected ? BUTTON_RED_SELECTED : BUTTON_RED : BUTTON_RED,
                     texturePosX(BG_TEXTURE_DRAW_WIDTH - 68), texturePosY(BG_TEXTURE_DRAW_HEIGHT - 18), 28, 14
             );
-            ScreenUtil.drawCenteredStringScale(guiGraphics, Component.translatable("ui.fangsu.block.confirm"),
+            ScreenUtil.drawCenteredStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.block.confirm"),
                     texturePosX(BG_TEXTURE_DRAW_WIDTH - 22),
                     texturePosY(BG_TEXTURE_DRAW_HEIGHT - 14),
                     confirmAvailable ? 0xffffffff : 0xff999999, 1.25f, true);
-            ScreenUtil.drawCenteredStringScale(guiGraphics, Component.translatable("ui.fangsu.block.cancel"),
+            ScreenUtil.drawCenteredStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.block.cancel"),
                     texturePosX(BG_TEXTURE_DRAW_WIDTH - 54),
                     texturePosY(BG_TEXTURE_DRAW_HEIGHT - 14),
                     cancelAvailable ? 0xffffffff : 0xff999999, 1.25f, true);
@@ -477,7 +497,7 @@ public class TicketMachineMainScreen extends Screen {
         if (selectedRoute != null) {
             List<StationFareInfo> stations = new ArrayList<>(selectedRoute.stations());
             int maxScroll = Math.max(0, stations.size() - STATION_LIST_VISIBLE_ROWS);
-            stationScroll -= delta; // 上滚为正
+            stationScroll -= delta; // 涓婃粴涓烘
             if (stationScroll < 0) stationScroll = 0;
             if (stationScroll > maxScroll) stationScroll = maxScroll;
             return true;
@@ -525,33 +545,42 @@ public class TicketMachineMainScreen extends Screen {
         return (int) (this.height / 2 - BG_TEXTURE_DRAW_HEIGHT / 2 + y);
     }
 
-    private void renderNumericPad(GuiGraphics guiGraphics, int mouseX, int mouseY,
+    //#if MC_VERSION >= 12000
+    private void renderNumericPad(GuiGraphics nativeGfx, int mouseX, int mouseY,
+                                  //#else
+                                  //$$private void renderNumericPad(com.mojang.blaze3d.vertex.PoseStack nativeGfx, int mouseX, int mouseY,
+                                  //#endif
                                   int panelX, int panelY, int panelWidth, int panelHeight) {
         final int padCols = NUM_PAD_COLS;
         final int padRows = NUM_PAD_ROWS;
-        final int gap = 2; // 按钮间距
+        final int gap = 2; // 鎸夐挳闂磋窛
 
-        // 计算按钮高度，显示框也与按钮同高
-        int buttonH = (panelHeight - (padRows + 1) * gap) / (padRows + 1); // +1 是显示框
+        // 璁＄畻鎸夐挳楂樺害锛屾樉绀烘涔熶笌鎸夐挳鍚岄珮
+        int buttonH = (panelHeight - (padRows + 1) * gap) / (padRows + 1); // +1 鏄樉绀烘
         int buttonW = (panelWidth - (padCols - 1) * gap) / padCols;
 
-        // 显示框位置（在面板上方）
+        // 鏄剧ず妗嗕綅缃紙鍦ㄩ潰鏉夸笂鏂癸級
         int displayX = panelX;
         int displayY = panelY;
         int displayWidth = panelWidth;
         int displayHeight = buttonH;
 
-        // 绘制显示框
-        ScreenUtil.drawNineSlice(guiGraphics, BUTTON_GRAY, displayX, displayY, displayWidth, displayHeight);
-        ScreenUtil.drawCenteredStringScale(guiGraphics,
-                Component.literal(customPriceInput.isEmpty() ? "0" : customPriceInput),
+        // 缁樺埗鏄剧ず锟?
+        ScreenUtil.drawNineSlice(nativeGfx, BUTTON_GRAY, displayX, displayY, displayWidth, displayHeight);
+        //#if MC_VERSION >= 11900
+        Component priceText = Component.literal(customPriceInput.isEmpty() ? "0" : customPriceInput);
+        //#else
+        //$$ Component priceText = ComponentHelper.literal(customPriceInput.isEmpty() ? "0" : customPriceInput);
+        //#endif
+        ScreenUtil.drawCenteredStringScale(nativeGfx,
+                priceText,
                 displayX + displayWidth / 2,
                 displayY + (displayHeight - 8) / 2,
                 0xffffff00,
                 1.25f,
                 true);
 
-        // 数字按钮起始位置（显示框下方）
+        // 鏁板瓧鎸夐挳璧峰浣嶇疆锛堟樉绀烘涓嬫柟锟?
         int padStartX = panelX;
         int padStartY = displayY + displayHeight + gap;
 
@@ -574,11 +603,16 @@ public class TicketMachineMainScreen extends Screen {
 
                 boolean pointed = mouseX >= x && mouseX <= x + buttonW && mouseY >= y && mouseY <= y + buttonH;
 
-                // 绘制按钮
-                ScreenUtil.drawNineSlice(guiGraphics, pointed ? BUTTON_GRAY_SELECTED : BUTTON_GRAY, x, y, buttonW, buttonH);
-                ScreenUtil.drawCenteredStringScale(guiGraphics, Component.literal(key), x + buttonW / 2, y + 4, 0xffffffff, 0.8f, true);
+                // 缁樺埗鎸夐挳
+                ScreenUtil.drawNineSlice(nativeGfx, pointed ? BUTTON_GRAY_SELECTED : BUTTON_GRAY, x, y, buttonW, buttonH);
+                //#if MC_VERSION >= 11900
+                Component keyText = Component.literal(key);
+                //#else
+                //$$ Component keyText = ComponentHelper.literal(key);
+                //#endif
+                ScreenUtil.drawCenteredStringScale(nativeGfx, keyText, x + buttonW / 2, y + 4, 0xffffffff, 0.8f, true);
 
-                // 点击处理
+                // 鐐瑰嚮澶勭悊
                 if (mouseClickInfo != null && pointed) {
                     if ("Del".equals(key) && !customPriceInput.isEmpty()) {
                         customPriceInput = customPriceInput.substring(0, customPriceInput.length() - 1);

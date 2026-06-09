@@ -21,6 +21,7 @@ public class DiaobanContent extends BaseContent {
     private final Map<String, String> subModel;
     private final Map<String, String> doorlight;
     private final Map<String, List<Double>> shape;
+    private final JsonObject scriptSettings;
 
     private DiaobanContent(JsonObject json) {
         super(json);
@@ -30,6 +31,9 @@ public class DiaobanContent extends BaseContent {
         leftSpace = json.has("left_space") ? json.get("left_space").getAsDouble() : 0;
         rightSpace = json.has("right_space") ? json.get("right_space").getAsDouble() : 0;
         texSize = json.has("texSize") ? json.get("texSize").getAsInt() : 64;
+
+        scriptSettings = json.has("script_settings") && json.get("script_settings").isJsonObject()
+                ? json.getAsJsonObject("script_settings") : new JsonObject();
 
         tex = new ArrayList<>();
         if (json.has("tex") && json.get("tex").isJsonArray()) {
@@ -126,6 +130,10 @@ public class DiaobanContent extends BaseContent {
 
     public Map<String, List<Double>> getShape() {
         return shape;
+    }
+
+    public JsonObject getScriptSettings() {
+        return scriptSettings;
     }
 
     protected static class DiaobanLoader extends BaseLoader {

@@ -5,7 +5,11 @@ import com.fangsu.blockEntities.BlockEntityScreendoorGlass;
 import com.fangsu.blockEntities.IPlatformDoor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+//#if MC_VERSION >= 11903
 import net.minecraft.util.RandomSource;
+//#else
+import java.util.Random;
+//#endif
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
@@ -30,7 +34,11 @@ public class BlockScreendoorGlass extends BaseObjBlock implements IBlockPlatform
             @NotNull BlockState state,
             @NotNull ServerLevel level,
             @NotNull BlockPos pos,
+            //#if MC_VERSION >= 11903
             @NotNull RandomSource random
+            //#else
+            //$$@NotNull Random random
+            //#endif
     ) {
         BlockEntity be = level.getBlockEntity(pos);
         if (be instanceof IPlatformDoor platform) {

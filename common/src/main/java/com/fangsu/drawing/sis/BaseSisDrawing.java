@@ -1,4 +1,4 @@
-package com.fangsu.drawing.sign;
+package com.fangsu.drawing.sis;
 
 import com.fangsu.blockEntities.BlockEntitySis;
 import com.fangsu.mtr.LocalRoute;
@@ -14,8 +14,8 @@ public abstract class BaseSisDrawing {
                               BlockEntitySis.SISDrawInfo drawInfo);
 
     protected BlockEntitySis.SISDrawInfo buildDrawInfo(int texW, int texH,
-                                                        LocalStation station, LocalRoute[] routes,
-                                                        BlockEntitySis.SISDrawInfo originalInfo) {
+                                                       LocalStation station, LocalRoute[] routes,
+                                                       BlockEntitySis.SISDrawInfo originalInfo) {
         return originalInfo;
     }
 }

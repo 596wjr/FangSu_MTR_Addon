@@ -1,5 +1,6 @@
 package com.fangsu.extraConfig;
 
+import com.fangsu.mappings.ComponentHelper;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 
@@ -22,20 +23,19 @@ public class BoolConfig extends ConfigEntry<Boolean> {
     @Override
     public ConfigWidget createWidget(int x, int y, int labelW, int fieldW) {
 
+        //#if MC_VERSION >= 12000
         Button btn = Button.builder(
-                label(),
-                b -> {
-                    value = !value;
-                    b.setMessage(label());
-                    notifyValueChanged();
-                }
+                label(), b -> { value = !value; b.setMessage(label()); notifyValueChanged(); }
         ).bounds(x + labelW, y, fieldW, 20).build();
+        //#else
+        //$$ Button btn = new Button(x + labelW, y, fieldW, 20, label(), b -> { value = !value; b.setMessage(label()); notifyValueChanged(); });
+        //#endif
 
         return new ConfigWidget(x, y, labelW + fieldW, 20, labelW, title, btn);
     }
 
     private Component label() {
-        return Component.translatable(value
+        return ComponentHelper.translatable(value
                 ? "ui.fangsu.common.on"
                 : "ui.fangsu.common.off");
     }

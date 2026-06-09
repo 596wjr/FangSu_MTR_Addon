@@ -1,5 +1,6 @@
 package com.fangsu.blockEntities;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.Main;
 import com.fangsu.client.ClientHooks;
 import com.fangsu.customItem.SubModelDispInfo;
@@ -211,9 +212,9 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                                         (itemsFront.containsKey("center") && itemsFront.get("center").isEmpty())
                                 );
                 if (defaultBgColor == -1 || frontIsEmpty) {
-                    g.setComposite(AlphaComposite.Clear); // 设置透明混合模式
-                    g.fillRect(0, 0, gtFront.width, gtFront.height);   // 填充整个区域
-                    g.setComposite(AlphaComposite.SrcOver); // 恢复默认混合模式
+                    g.setComposite(AlphaComposite.Clear); // 璁剧疆閫忔槑娣峰悎妯″紡
+                    g.fillRect(0, 0, gtFront.width, gtFront.height);   // 濉厖鏁翠釜鍖哄煙
+                    g.setComposite(AlphaComposite.SrcOver); // 鎭㈠榛樿娣峰悎妯″紡
                 } else {
                     g.setColor(new Color(defaultBgColor));
                     g.fillRect(0, 0, gtFront.width, gtFront.height);
@@ -245,9 +246,9 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                                         (itemsBack.containsKey("center") && itemsBack.get("center").isEmpty())
                                 );
                 if (defaultBgColor == -1 || backIsEmpty) {
-                    g.setComposite(AlphaComposite.Clear); // 设置透明混合模式
-                    g.fillRect(0, 0, gtFront.width, gtFront.height);   // 填充整个区域
-                    g.setComposite(AlphaComposite.SrcOver); // 恢复默认混合模式
+                    g.setComposite(AlphaComposite.Clear); // 璁剧疆閫忔槑娣峰悎妯″紡
+                    g.fillRect(0, 0, gtFront.width, gtFront.height);   // 濉厖鏁翠釜鍖哄煙
+                    g.setComposite(AlphaComposite.SrcOver); // 鎭㈠榛樿娣峰悎妯″紡
                 } else {
                     g.setColor(new Color(defaultBgColor));
                     g.fillRect(0, 0, gtFront.width, gtFront.height);
@@ -355,7 +356,7 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
     public List<ConfigEntry<?>> getConfigs() {
         List<ConfigEntry<?>> configs = new ArrayList<>();
         configs.add(new NumberInputConfig(
-                Component.translatable("ui.fangsu.common.length"),
+                ComponentHelper.translatable("ui.fangsu.common.length"),
                 new ConfigSpec("num").setParam("isInt", new JsonPrimitive(true)).setParam("min", new JsonPrimitive(2)),
                 () -> (float) (this.length),
                 (v) -> {
@@ -364,7 +365,7 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                 }
         ));
         configs.add(new BoolConfig(
-                Component.translatable("ui.fangsu.sign.dispLeftPole"),
+                ComponentHelper.translatable("ui.fangsu.sign.dispLeftPole"),
                 new ConfigSpec("bool"),
                 () -> this.showLeftPole,
                 (v) -> {
@@ -373,7 +374,7 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                 }
         ).setSaveOnChange(true));
         configs.add(new NumberInputConfig(
-                Component.translatable("ui.fangsu.sign.leftPolePos"),
+                ComponentHelper.translatable("ui.fangsu.sign.leftPolePos"),
                 new ConfigSpec("num").setParam("isInt", new JsonPrimitive(true)),
                 () -> this.leftPolePos + 0f,
                 (v) -> {
@@ -382,7 +383,7 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                 }
         ).setShowCondition((v) -> this.showLeftPole && (!isMtrTheme)));
         configs.add(new BoolConfig(
-                Component.translatable("ui.fangsu.sign.dispRightPole"),
+                ComponentHelper.translatable("ui.fangsu.sign.dispRightPole"),
                 new ConfigSpec("bool"),
                 () -> this.showRightPole,
                 (v) -> {
@@ -391,7 +392,7 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
                 }
         ).setSaveOnChange(true));
         configs.add(new NumberInputConfig(
-                Component.translatable("ui.fangsu.sign.rightPolePos"),
+                ComponentHelper.translatable("ui.fangsu.sign.rightPolePos"),
                 new ConfigSpec("num").setParam("isInt", new JsonPrimitive(true)),
                 () -> this.rightPolePos + 0f,
                 (v) -> {
@@ -424,7 +425,7 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
         double startX = -0.5 * unit * length / 16d;
         double n = length / (unit / 8d);
 
-        // 将局部X轴偏移按朝向旋转到世界坐标
+        // 灏嗗眬閮╔杞村亸绉绘寜鏈濆悜鏃嬭浆鍒颁笘鐣屽潗锟?
         java.util.function.Function<Double, Vec3> localToWorld = (localX) -> {
             Vec3 v = new Vec3(localX, 0, 0);
             return v.yRot((float) Math.toRadians(-facing.toYRot()));
@@ -444,7 +445,7 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
             }
         }
         if (shapeRight != null) {
-            // right在渲染中的位置: startX + n * unit/16
+            // right鍦ㄦ覆鏌撲腑鐨勪綅锟? startX + n * unit/16
             double rightLocalX = startX + n * unit / 16d;
             Vec3 offset = localToWorld.apply(rightLocalX);
             VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeRight, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
@@ -473,7 +474,7 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
     public List<SubModelDispInfo> getSubModelInfos() {
         List<SubModelDispInfo> infos = new ArrayList<>();
         infos.add(createSubModelSelectInfo("common", DEFAULT_SUB_MODEL));
-        infos.add(new SubModelMethodInfo(Component.translatable("ui.fangsu.sign.editSign"), () -> {
+        infos.add(new SubModelMethodInfo(ComponentHelper.translatable("ui.fangsu.sign.editSign"), () -> {
             if (itemsFront == null) itemsFront = new HashMap<>();
             if (itemsBack == null) itemsBack = new HashMap<>();
             ClientHooks.openSignConfigScreen(2, List.of(itemsFront, itemsBack), (saveItems) -> {
@@ -589,7 +590,7 @@ public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
     private void addQuad(RawMeshBuilder builder, List<List<Double>> quad, boolean reverse) {
         float[] normal = ModelHelper.calculateNormal(quad.get(0), quad.get(1), quad.get(2));
 
-        // 如果需要反转法向（比如背面）
+        // 濡傛灉闇€瑕佸弽杞硶鍚戯紙姣斿鑳岄潰锟?
         if (reverse) {
             normal[0] *= -1;
             normal[1] *= -1;

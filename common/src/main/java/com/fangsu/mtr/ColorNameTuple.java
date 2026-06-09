@@ -29,4 +29,11 @@ public class ColorNameTuple {
     public int hashCode() {
         return Objects.hash(color, name);
     }
+
+    @Override
+    public String toString() {
+        return "ColorNameTuple["
+                + "color=" + color + ","
+                + "name=" + name + "]";
+    }
 }

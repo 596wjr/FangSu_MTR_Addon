@@ -1,5 +1,6 @@
 package com.fangsu.drawing.sign;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.extraConfig.ConfigSpec;
 import com.fangsu.extraConfig.NumberInputConfig;
@@ -84,7 +85,7 @@ public class ImageItem extends SignItem {
     public List<ConfigEntry<?>> getConfigs() {
         List<ConfigEntry<?>> configs = new ArrayList<>();
         configs.add(new StringConfig(
-                Component.translatable("ui.fangsu.common.text"),
+                ComponentHelper.translatable("ui.fangsu.common.text"),
                 new ConfigSpec("str"),
                 () -> imageLocation == null ? "" : imageLocation.toString(),
                 (v) -> {
@@ -95,7 +96,7 @@ public class ImageItem extends SignItem {
                 }
         ));
         configs.add(new NumberInputConfig(
-                Component.translatable("ui.fangsu.common.scale"),
+                ComponentHelper.translatable("ui.fangsu.common.scale"),
                 new ConfigSpec("num").setParam("min", new com.google.gson.JsonPrimitive(0.1f)).setParam("max", new com.google.gson.JsonPrimitive(2f)),
                 () -> scale,
                 v -> scale = v

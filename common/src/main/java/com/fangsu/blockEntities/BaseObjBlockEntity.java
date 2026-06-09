@@ -1,5 +1,6 @@
 package com.fangsu.blockEntities;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.client.ClientHooks;
 import com.fangsu.customItem.CustomItems;
@@ -262,7 +263,11 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         }
 
         public void playSound(ResourceLocation sound, float volume, float pitch) {
+            //#if MC_VERSION >= 11900
             this.scriptResultWriting.addSound(SoundEvent.createVariableRangeEvent(sound), volume, pitch);
+            //#else
+            //$$ this.scriptResultWriting.addSound(new SoundEvent(sound), volume, pitch);
+            //#endif
         }
     }
 
@@ -294,7 +299,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
     }
 
     public final VoxelShape getShapeInternal(BlockState state) {
-        return setShape(state); // 你已有的逻辑
+        return setShape(state); // 浣犲凡鏈夌殑閫昏緫
     }
 
     public final VoxelShape getCollisionShapeInternal(BlockState state) {
@@ -351,7 +356,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
             subModels.put(key, value);
         }
 
-        // 重新加载配置到字段（确保 isolation/doorOpenOverride 等同步）
+        // 閲嶆柊鍔犺浇閰嶇疆鍒板瓧娈碉紙纭繚 isolation/doorOpenOverride 绛夊悓姝ワ級
         this.whenLoading();
         this.setChanged();
 
@@ -416,7 +421,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
     protected SubModelDispInfo createSubModelSelectInfo(String nestedKeyPath, String subModelKey, String defaultSubModel) {
         List<ModelSelectInfo> options = getModelSelectOptions(nestedKeyPath);
         return new SubModelDispInfo(
-                Component.translatable("ui.fangsu.block.subModelSelect"),
+                ComponentHelper.translatable("ui.fangsu.block.subModelSelect"),
                 options,
                 be -> this.subModels.getOrDefault(subModelKey, defaultSubModel),
                 (be, v) -> this.subModels.put(subModelKey, v)
@@ -455,26 +460,26 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         Direction facing = level.getBlockState(pos)
                 .getValue(BaseObjBlock.FACING);
 
-        // 1. 世界坐标 → 碰撞箱原点
+        // 1. 涓栫晫鍧愭爣 锟?纰版挒绠卞師锟?
         Vec3 v = worldPos.subtract(
                 pos.getX() + 0.5,
                 pos.getY(),
                 pos.getZ() + 0.5
         );
 
-        // 2. 反向高级平移
+        // 2. 鍙嶅悜楂樼骇骞崇Щ
         v = v.subtract(
                 this.translateX,
                 this.translateY,
                 this.translateZ
         );
 
-        // 3. 反向高级旋转（顺序必须和渲染相反）
+        // 3. 鍙嶅悜楂樼骇鏃嬭浆锛堥『搴忓繀椤诲拰娓叉煋鐩稿弽锟?
         v = rotateZ(v, -this.rotateZ);
         v = rotateY(v, -this.rotateY);
         v = rotateX(v, -this.rotateX);
 
-        // 4. 反向方块朝向
+        // 4. 鍙嶅悜鏂瑰潡鏈濆悜
         v = rotateY(v, (float) Math.toRadians(facing.toYRot()));
 
         return v;
@@ -539,7 +544,17 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
     }
 
     public static class BlockInfo {
+        private BaseObjBlockEntity entity;
 
+        public BlockInfo(BaseObjBlockEntity entity) {
+            this.entity = entity;
+        }
+
+        public Vector3f getWorldPosVector3f() {
+            return entity.getWorldPosVector3f();
+        }
+
+        
     }
 
 }

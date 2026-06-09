@@ -9,16 +9,15 @@ import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.Vertex;
 import com.fangsu.render.sowcerext.reuse.AtlasManager;
 import com.fangsu.render.sowcerext.util.ResourceUtil;
-import mtr.mappings.Utilities;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 
-import java.io.BufferedInputStream;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -26,7 +25,7 @@ import java.util.*;
 public class ObjModelLoader {
 
     public static RawModel loadModel(ResourceManager resourceManager, ResourceLocation objLocation, AtlasManager atlasManager) throws IOException {
-        Obj srcObj = ObjReader.read(Utilities.getInputStream(resourceManager.getResource(objLocation)));
+        Obj srcObj = ObjReader.read(getInputStream(getResource(resourceManager, objLocation)));
         Map<String, Mtl> materials = loadMaterials(resourceManager, srcObj, objLocation);
 
         RawModel model = loadModel(srcObj, objLocation, materials, atlasManager);
@@ -35,7 +34,7 @@ public class ObjModelLoader {
     }
 
     public static Map<String, RawModel> loadModels(ResourceManager resourceManager, ResourceLocation objLocation, AtlasManager atlasManager) throws IOException {
-        Obj srcObj = ObjReader.read(Utilities.getInputStream(resourceManager.getResource(objLocation)));
+        Obj srcObj = ObjReader.read(getInputStream(getResource(resourceManager, objLocation)));
         Map<String, Mtl> materials = loadMaterials(resourceManager, srcObj, objLocation);
 
         HashMap<String, RawModel> result = new HashMap<>();
@@ -136,7 +135,7 @@ public class ObjModelLoader {
     private static Map<String, Mtl> loadMaterials(ResourceManager resourceManager, Obj srcObj, ResourceLocation objLocation) throws IOException {
         Map<String, Mtl> materials = new HashMap<>();
         for (String mtlFileName : srcObj.getMtlFileNames()) {
-            List<Mtl> srcMtls = MtlReader.read(Utilities.getInputStream(resourceManager.getResource(ResourceUtil.resolveRelativePath(objLocation, mtlFileName, ".mtl"))));
+            List<Mtl> srcMtls = MtlReader.read(getInputStream(getResource(resourceManager, ResourceUtil.resolveRelativePath(objLocation, mtlFileName, ".mtl"))));
             for (Mtl mtl : srcMtls) {
                 materials.put(mtl.getName(), mtl);
             }
@@ -268,6 +267,22 @@ public class ObjModelLoader {
         public int getDimensions() {
             return dimensions;
         }
+    }
+
+    static InputStream getInputStream(Resource resource) throws IOException {
+        //#if MC_VERSION >= 11903
+        return resource.open();
+        //#else
+        //$$ return resource.getInputStream();
+        //#endif
+    }
+
+    private static Resource getResource(ResourceManager manager, ResourceLocation location) throws IOException {
+        //#if MC_VERSION >= 11903
+        return manager.getResource(location).orElseThrow(() -> new IOException("Resource not found: " + location));
+        //#else
+        //$$ return manager.getResource(location);
+        //#endif
     }
 
 }

@@ -1,9 +1,11 @@
 package com.fangsu.utils;
 
 import com.fangsu.Main;
+import com.fangsu.mappings.ComponentHelper;
+import com.fangsu.mappings.FangSuRegistries;
+import com.fangsu.mappings.RegistryObject;
 import dev.architectury.registry.registries.DeferredRegister;
 import dev.architectury.registry.registries.RegistrySupplier;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
@@ -18,15 +20,15 @@ import java.util.function.Supplier;
 
 public class RegisterUtil {
     public static final DeferredRegister<Block> BLOCKS =
-            DeferredRegister.create(Main.MOD_ID, Registries.BLOCK);
+            FangSuRegistries.createBlockRegister(Main.MOD_ID);
     public static final DeferredRegister<Item> ITEMS =
-            DeferredRegister.create(Main.MOD_ID, Registries.ITEM);
+            FangSuRegistries.createItemRegister(Main.MOD_ID);
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
-            DeferredRegister.create(Main.MOD_ID, Registries.BLOCK_ENTITY_TYPE);
+            FangSuRegistries.createBlockEntityRegister(Main.MOD_ID);
     public static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
-            DeferredRegister.create(Main.MOD_ID, Registries.CREATIVE_MODE_TAB);
+            FangSuRegistries.createCreativeTabRegister(Main.MOD_ID);
     public static final DeferredRegister<MenuType<?>> MENUS =
-            DeferredRegister.create(Main.MOD_ID, Registries.MENU);
+            FangSuRegistries.createMenuRegister(Main.MOD_ID);
 
     public static RegistrySupplier<Block> addBlock(String id, Supplier<? extends Block> block) {
         return BLOCKS.register(id, block);
@@ -58,16 +60,22 @@ public class RegisterUtil {
     public static RegistrySupplier<CreativeModeTab> addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
         return CREATIVE_TABS.register(
                 id,
-                () -> CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0)
-                        .title(Component.translatable(name))
-                        .icon(() -> new ItemStack(icon.get()))
-                        .displayItems((parameters, output) -> {
-                            // 添加物品（顺序很重要）
-                            for (RegistrySupplier<Item> item : items) {
-                                output.accept(item.get());
-                            }
-                        })
-                        .build()
+                () -> {
+                    //#if MC_VERSION >= 11900
+                    CreativeModeTab.Builder builder = CreativeModeTab.builder();
+                    return builder
+                            .title(ComponentHelper.translatable(name))
+                            .icon(() -> new ItemStack(icon.get()))
+                            .displayItems((parameters, output) -> {
+                                for (RegistrySupplier<Item> item : items) {
+                                    output.accept(item.get());
+                                }
+                            })
+                            .build();
+                    //#else
+                    //$$ return new CreativeTab(CreativeModeTab.TABS.length, "fangsu." + id, () -> new ItemStack(icon.get()));
+                    //#endif
+                }
         );
     }
 
@@ -89,5 +97,17 @@ public class RegisterUtil {
         MENUS.register();
     }
 
-
+    // 1.18.2 辅助类：CreativeModeTab 构造函数为 protected，需子类才能调用
+    //#if MC_VERSION < 11900
+    //$$private static class CreativeTab extends CreativeModeTab {
+    //$$    private final java.util.function.Supplier<ItemStack> icon;
+    //$$
+    //$$    CreativeTab(int index, String id, java.util.function.Supplier<ItemStack> icon) {
+    //$$        super(index, id);
+    //$$        this.icon = icon;
+    //$$    }
+    //$$
+    //$$    public ItemStack makeIcon() { return icon.get(); }
+    //$$}
+    //#endif
 }

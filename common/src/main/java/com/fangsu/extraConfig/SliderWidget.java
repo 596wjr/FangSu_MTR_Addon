@@ -1,8 +1,11 @@
 package com.fangsu.extraConfig;
 
+import com.fangsu.mappings.ComponentHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+//#if MC_VERSION >= 12000
 import net.minecraft.client.gui.GuiGraphics;
+//#endif
 import net.minecraft.client.gui.components.*;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
@@ -45,11 +48,11 @@ public class SliderWidget extends AbstractWidget {
     }
 
     /* ====================================================== */
-    /* =================== 对外 API ========================= */
+    /* =================== 瀵瑰 API ========================= */
     /* ====================================================== */
 
     /**
-     * 供 NumberConfig / 输入框调用
+     * 锟?NumberConfig / 杈撳叆妗嗚皟锟?
      */
     public void setExternal(float v) {
         v = snap(v);
@@ -61,19 +64,28 @@ public class SliderWidget extends AbstractWidget {
         return value;
     }
 
+    //#if MC_VERSION >= 12000
     @Override
     public void setY(int y) {
         super.setY(y);
         slider.setY(y);
     }
+    //#endif
 
 
     /* ====================================================== */
 
+    //#if MC_VERSION >= 12000
     @Override
     public void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partial) {
         slider.render(g, mouseX, mouseY, partial);
     }
+    //#else
+    @Override
+    public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
+        slider.render(poseStack, mouseX, mouseY, partial);
+    }
+    //#endif
 
     @Override
     public boolean mouseClicked(double x, double y, int btn) {
@@ -85,9 +97,15 @@ public class SliderWidget extends AbstractWidget {
         return slider.mouseDragged(x, y, btn, dx, dy);
     }
 
+    //#if MC_VERSION >= 12000
     @Override
     protected void updateWidgetNarration(NarrationElementOutput narration) {
     }
+    //#else
+    @Override
+    public void updateNarration(NarrationElementOutput narration) {
+    }
+    //#endif
 
     /* ====================================================== */
     /* =================== Inner Slider ===================== */
@@ -107,7 +125,7 @@ public class SliderWidget extends AbstractWidget {
         @Override
         protected void updateMessage() {
             setMessage(
-                    Component.translatable(
+                    ComponentHelper.translatable(
                             "ui.fangsu.common.value",
                             format(denormalize(value))
                     )
@@ -123,7 +141,7 @@ public class SliderWidget extends AbstractWidget {
         }
 
         /**
-         * 覆盖 onClick，使点击滑块时也吸附到 step 的整数倍位置。
+         * 瑕嗙洊 onClick锛屼娇鐐瑰嚮婊戝潡鏃朵篃鍚搁檮锟?step 鐨勬暣鏁板€嶄綅缃拷?
          */
         @Override
         public void onClick(double mouseX, double mouseY) {
@@ -131,10 +149,14 @@ public class SliderWidget extends AbstractWidget {
         }
 
         /**
-         * 覆盖 setValueFromMouse，使鼠标点击计算值时直接使用吸附后的值。
+         * 瑕嗙洊 setValueFromMouse锛屼娇榧犳爣鐐瑰嚮璁＄畻鍊兼椂鐩存帴浣跨敤鍚搁檮鍚庣殑鍊硷拷?
          */
         private void setValueFromMouse(double mouseX) {
+            //#if MC_VERSION >= 12000
             double raw = (mouseX - (double) (this.getX() + 4)) / (double) (this.width - 8);
+            //#else
+            //$$ double raw = (mouseX - (double) (this.x + 4)) / (double) (this.width - 8);
+            //#endif
             raw = Mth.clamp(raw, 0.0D, 1.0D);
             float snapped = snap(denormalize(raw));
             this.value = normalize(snapped);
@@ -142,25 +164,31 @@ public class SliderWidget extends AbstractWidget {
         }
 
         /**
-         * 覆盖鼠标拖动：当光标在滑块区域内且鼠标按下时，直接根据鼠标位置吸附并更新值。
-         * 不依赖 isFocused() 判断，因为外部 SliderWidget 才是 Screen 中的焦点组件。
+         * 瑕嗙洊榧犳爣鎷栧姩锛氬綋鍏夋爣鍦ㄦ粦鍧楀尯鍩熷唴涓旈紶鏍囨寜涓嬫椂锛岀洿鎺ユ牴鎹紶鏍囦綅缃惛闄勫苟鏇存柊鍊硷拷?
+         * 涓嶄緷锟?isFocused() 鍒ゆ柇锛屽洜涓哄锟?SliderWidget 鎵嶆槸 Screen 涓殑鐒︾偣缁勪欢锟?
          */
         @Override
         public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
             if (!this.visible || button != 0) {
                 return false;
             }
-            // 检查鼠标是否在滑块范围内
+            //#if MC_VERSION >= 12000
             if (mouseX < this.getX() || mouseX > this.getX() + this.width
                     || mouseY < this.getY() || mouseY > this.getY() + this.height) {
                 return false;
             }
+            //#else
+            //$$ if (mouseX < this.x || mouseX > this.x + this.width
+            //$$         || mouseY < this.y || mouseY > this.y + this.height) {
+            //$$     return false;
+            //$$ }
+            //#endif
             setValueFromMouse(mouseX);
             return true;
         }
 
         /**
-         * 唯一允许写 AbstractSliderButton.value 的地方
+         * 鍞竴鍏佽锟?AbstractSliderButton.value 鐨勫湴锟?
          */
         void setFromExternal(float v) {
             this.value = normalize(v);

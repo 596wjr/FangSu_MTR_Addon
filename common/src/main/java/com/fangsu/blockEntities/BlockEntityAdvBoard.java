@@ -1,5 +1,6 @@
 package com.fangsu.blockEntities;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.Main;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.customItem.SubModelDispInfo;
@@ -65,7 +66,7 @@ public class BlockEntityAdvBoard extends BaseObjBlockEntity {
         int width = getExtraConfigInt("width", 2);
         int height = getExtraConfigInt("height", 2);
 
-        // 解绑旧 GIF（防止 whenLoading 被重复调用时泄漏）
+        // 瑙ｇ粦锟?GIF锛堥槻锟?whenLoading 琚噸澶嶈皟鐢ㄦ椂娉勬紡锟?
         if (currentTextures != null) {
             for (String k : currentTextures.keySet()) {
                 GifHelper.getInstance().unbindGif(getBlockPos() + "_" + k);
@@ -96,8 +97,8 @@ public class BlockEntityAdvBoard extends BaseObjBlockEntity {
             );
             dmhMain.uploadLater(spiltModel);
 
-            double x1 = -0.5 * content.getWidthUnit() * width + content.getBars().get(AdvBoardContent.BAR_KEYS[0]); // 左x
-            double x2 = 0.5 * content.getWidthUnit() * width - content.getBars().get(AdvBoardContent.BAR_KEYS[2]); // 右x
+            double x1 = -0.5 * content.getWidthUnit() * width + content.getBars().get(AdvBoardContent.BAR_KEYS[0]); // 宸
+            double x2 = 0.5 * content.getWidthUnit() * width - content.getBars().get(AdvBoardContent.BAR_KEYS[2]); // 鍙硏
             double y1 = content.getHeightUnit() * height - content.getBars().get(AdvBoardContent.BAR_KEYS[2]);
             double y2 = content.getBars().get(AdvBoardContent.BAR_KEYS[3]);
             for (Map.Entry<String, Double> side : content.getFaces().entrySet()) {
@@ -190,7 +191,7 @@ public class BlockEntityAdvBoard extends BaseObjBlockEntity {
     @Override
     public VoxelShape setCollisionShape(BlockState state) {
         if (markedError || shape == null || shape.isEmpty()) return Shapes.empty();
-        // 与形状一致
+        // 涓庡舰鐘朵竴锟?
         return setShape(state);
     }
 
@@ -206,7 +207,7 @@ public class BlockEntityAdvBoard extends BaseObjBlockEntity {
         RotatableShapeHelper helper = RotatableShapeHelper.getInstance();
         VoxelShape rotated = helper.getShapeForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
         if (rotated == null) {
-            // 首次调用时缓存尚未初始化，直接基于原始形状构建
+            // 棣栨璋冪敤鏃剁紦瀛樺皻鏈垵濮嬪寲锛岀洿鎺ュ熀浜庡師濮嬪舰鐘舵瀯锟?
             helper.initForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ, this.shape);
             rotated = helper.getShapeForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
         }
@@ -216,7 +217,7 @@ public class BlockEntityAdvBoard extends BaseObjBlockEntity {
     @Override
     public void whenDisposing() {
         RotatableShapeHelper.getInstance().removeCache(getWorldPos());
-        // 解绑所有 GIF
+        // 瑙ｇ粦鎵€锟?GIF
         JsonObject images = Main.JSON_PARSER.parse(getExtraConfig("images", "{}")).getAsJsonObject();
         for (String k : images.keySet()) {
             GifHelper.getInstance().unbindGif(getBlockPos() + "_" + k);
@@ -230,7 +231,7 @@ public class BlockEntityAdvBoard extends BaseObjBlockEntity {
             String key = entry.getKey();
             ResourceLocation location = currentTextures.get(key);
 
-            // 对于 GIF，从 GifHelper 获取最新的纹理位置
+            // 瀵逛簬 GIF锛屼粠 GifHelper 鑾峰彇鏈€鏂扮殑绾圭悊浣嶇疆
             if (location == null) {
                 location = GifHelper.getInstance().getGifTextureLocation(getBlockPos() + "_" + key);
                 if (location != null) {
@@ -250,7 +251,7 @@ public class BlockEntityAdvBoard extends BaseObjBlockEntity {
     public List<ConfigEntry<?>> getConfigs() {
         List<ConfigEntry<?>> configs = new ArrayList<>();
         configs.add(new NumberInputConfig(
-                Component.translatable("ui.fangsu.common.width"),
+                ComponentHelper.translatable("ui.fangsu.common.width"),
                 new ConfigSpec("int").setParam("isInt", new JsonPrimitive(true)),
                 () -> (float) getExtraConfigInt("width", 2),
                 (f) -> {
@@ -259,7 +260,7 @@ public class BlockEntityAdvBoard extends BaseObjBlockEntity {
                 }
         ));
         configs.add(new NumberInputConfig(
-                Component.translatable("ui.fangsu.common.height"),
+                ComponentHelper.translatable("ui.fangsu.common.height"),
                 new ConfigSpec("int").setParam("isInt", new JsonPrimitive(true)),
                 () -> (float) getExtraConfigInt("height", 2),
                 (f) -> {
@@ -283,9 +284,9 @@ public class BlockEntityAdvBoard extends BaseObjBlockEntity {
                 };
 
                 configs.add(new EnumConfig(
-                        Component.translatable("ui.fangsu.adv.type_for", k),
+                        ComponentHelper.translatable("ui.fangsu.adv.type_for", k),
                         new ConfigSpec("list"),
-                        List.of(Component.translatable("ui.fangsu.adv.type_locale")),
+                        List.of(ComponentHelper.translatable("ui.fangsu.adv.type_locale")),
                         () -> typeIndex,
                         (newVal) -> {
                             String newType = switch (newVal) {
@@ -296,7 +297,7 @@ public class BlockEntityAdvBoard extends BaseObjBlockEntity {
                         }
                 ));
                 configs.add(new StringConfig(
-                        Component.translatable("ui.fangsu.adv.path_for", k),
+                        ComponentHelper.translatable("ui.fangsu.adv.path_for", k),
                         new ConfigSpec("str").setParam("multiline", new JsonPrimitive(true)).setParam("lines", new JsonPrimitive(3)),
                         () -> path,
                         (newPath) -> {

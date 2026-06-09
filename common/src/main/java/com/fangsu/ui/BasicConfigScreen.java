@@ -1,8 +1,12 @@
 package com.fangsu.ui;
 
 import com.fangsu.extraConfig.SliderWidget;
+import com.fangsu.mappings.ComponentHelper;
+import com.fangsu.utils.GraphicContext;
 import net.minecraft.client.Minecraft;
+//#if MC_VERSION >= 12000
 import net.minecraft.client.gui.GuiGraphics;
+//#endif
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -41,8 +45,11 @@ public abstract class BasicConfigScreen extends Screen {
     protected abstract void buildScrollableContent(ContentLayout layout);
 
     protected void buildFixedWidgets() {
-        closeButton = addFixedWidget(Button.builder(Component.translatable("ui.fangsu.block.close_and_save"), btn -> onClose())
-                .bounds(this.width / 2 - 50, this.height - 40, 100, 20).build());
+        //#if MC_VERSION >= 12000
+        closeButton = addFixedWidget(Button.builder(ComponentHelper.translatable("ui.fangsu.block.close_and_save"), btn -> onClose()).bounds(this.width / 2 - 50, this.height - 40, 100, 20).build());
+        //#else
+        //$$ closeButton = addFixedWidget(new Button(this.width / 2 - 50, this.height - 40, 100, 20, ComponentHelper.translatable("ui.fangsu.block.close_and_save"), btn -> onClose()));
+        //#endif
     }
 
     protected void requestRebuild() {
@@ -106,7 +113,11 @@ public abstract class BasicConfigScreen extends Screen {
         int height = 20;
         int labelY = baseY - 10;
         addEntry(createTextLabel(x, labelY, label, TextLabel.Align.CENTER, 0xFFFFFF, false), labelY);
+        //#if MC_VERSION >= 12000
         EditBox box = new EditBox(this.font, x - width / 2, baseY, width, height, Component.empty());
+        //#else
+        //$$ EditBox box = new EditBox(this.font, x - width / 2, baseY, width, height, ComponentHelper.empty());
+        //#endif
         box.setValue(formatValue(initialValue));
         box.setResponder(text -> {
             Float value = parseFloat(text);
@@ -122,7 +133,11 @@ public abstract class BasicConfigScreen extends Screen {
     }
 
     protected SliderWidget createSlider(int cx, int baseY, float initialValue, Consumer<Float> setter, float min, float max, float step) {
+        //#if MC_VERSION >= 12000
         SliderWidget slider = new SliderWidget(cx - 30, baseY, 60, 20, Component.empty(), initialValue, min, max, step, setter);
+        //#else
+        //$$ SliderWidget slider = new SliderWidget(cx - 30, baseY, 60, 20, ComponentHelper.empty(), initialValue, min, max, step, setter);
+        //#endif
         this.addRenderableWidget(slider);
         return slider;
     }
@@ -138,7 +153,11 @@ public abstract class BasicConfigScreen extends Screen {
     }
 
     protected Button addButton(int x, int y, int width, int height, Component label, Button.OnPress onPress) {
+        //#if MC_VERSION >= 12000
         Button button = Button.builder(label, onPress).bounds(x, y, width, height).build();
+        //#else
+        //$$ Button button = new Button(x, y, width, height, label, onPress);
+        //#endif
         addRenderableWidget(button);
         return button;
     }
@@ -149,30 +168,41 @@ public abstract class BasicConfigScreen extends Screen {
         return button;
     }
 
+    //#if MC_VERSION >= 12000
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        GraphicContext g = GraphicContext.of(graphics);
+        //#else
+        //$$ @Override
+        //$$ public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        //$$     GraphicContext g = GraphicContext.of(poseStack);
+        //#endif
         if (pendingRebuild) {
             pendingRebuild = false;
             clearWidgets();
             init();
         }
+        //#if MC_VERSION >= 12000
         renderBackground(graphics);
+        //#else
+        //$$ renderBackground(poseStack);
+        //#endif
 
-        renderPanelBackground(graphics);
+        renderPanelBackground(g);
 
         for (ScrollEntry e : entries) {
             e.applyScroll(scrollOffset);
         }
 
         for (AbstractWidget fixedWidget : fixedWidgets) {
-            fixedWidget.render(graphics, mouseX, mouseY, partialTick);
+            fixedWidget.render(g.asMinecraft(), mouseX, mouseY, partialTick);
         }
 
-        graphics.enableScissor(getContentLeft(), getContentTop(), getContentRight(), getContentBottom());
+        g.enableScissor(getContentLeft(), getContentTop(), getContentRight(), getContentBottom());
         for (ScrollEntry e : entries) {
-            e.widget.render(graphics, mouseX, mouseY, partialTick);
+            e.widget.render(g.asMinecraft(), mouseX, mouseY, partialTick);
         }
-        graphics.disableScissor();
+        g.disableScissor();
     }
 
     @Override
@@ -198,14 +228,14 @@ public abstract class BasicConfigScreen extends Screen {
     }
 
     /**
-     * 子类可重写此方法绘制面板背景
+     * 瀛愮被鍙噸鍐欐鏂规硶缁樺埗闈㈡澘鑳屾櫙
      */
-    protected void renderPanelBackground(GuiGraphics graphics) {
+    protected void renderPanelBackground(GraphicContext g) {
         int areaLeft = getPanelLeft();
         int areaTop = getPanelTop();
         int areaRight = getPanelRight();
         int areaBottom = getPanelBottom();
-        graphics.fill(areaLeft, areaTop, areaRight, areaBottom, 0xCCFFFFFF);
+        g.fill(areaLeft, areaTop, areaRight, areaBottom, 0xCCFFFFFF);
     }
 
     protected int getPanelLeft() {
@@ -307,15 +337,21 @@ public abstract class BasicConfigScreen extends Screen {
         private final Align align;
 
         public TextLabel(int x, int y, Component text, Align align, int color, boolean bold) {
+            //#if MC_VERSION >= 12000
             super(x, y, 0, 0, Component.empty());
+            //#else
+            //$$ super(x, y, 0, 0, ComponentHelper.empty());
+            //#endif
             this.text = text;
             this.align = align;
             this.color = color;
             this.bold = bold;
         }
 
+        //#if MC_VERSION >= 12000
         @Override
         public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            var g = GraphicContext.of(graphics);
             var font = Minecraft.getInstance().font;
             int drawX = this.getX();
             int textWidth = font.width(text.getString());
@@ -324,17 +360,41 @@ public abstract class BasicConfigScreen extends Screen {
                 case RIGHT -> drawX = this.getX() - textWidth;
                 case LEFT -> drawX = this.getX();
             }
-
             if (bold) {
-                graphics.drawString(font, text.copy().withStyle(style -> style.withBold(true)), drawX, this.getY(), color, false);
+                g.drawString(font, text.copy().withStyle(style -> style.withBold(true)), drawX, this.getY(), color, false);
             } else {
-                graphics.drawString(font, text, drawX, this.getY(), color, false);
+                g.drawString(font, text, drawX, this.getY(), color, false);
             }
         }
+        //#else
+        //$$ @Override
+        //$$ public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        //$$     var g = GraphicContext.of(poseStack);
+        //$$     var font = Minecraft.getInstance().font;
+        //$$     int drawX = this.x;
+        //$$     int textWidth = font.width(text.getString());
+        //$$     switch (align) {
+        //$$         case CENTER -> drawX = this.x - textWidth / 2;
+        //$$         case RIGHT -> drawX = this.x - textWidth;
+        //$$         case LEFT -> drawX = this.x;
+        //$$     }
+        //$$     if (bold) {
+        //$$         g.drawString(font, text.copy().withStyle(style -> style.withBold(true)), drawX, this.y, color, false);
+        //$$     } else {
+        //$$         g.drawString(font, text, drawX, this.y, color, false);
+        //$$     }
+        //$$ }
+        //#endif
 
+        //#if MC_VERSION >= 12000
         @Override
         protected void updateWidgetNarration(@NotNull NarrationElementOutput narrationElementOutput) {
         }
+        //#else
+        //$$ @Override
+        //$$ public void updateNarration(@NotNull NarrationElementOutput narrationElementOutput) {
+        //$$ }
+        //#endif
     }
 
     protected static class ScrollEntry {
@@ -347,7 +407,11 @@ public abstract class BasicConfigScreen extends Screen {
         }
 
         void applyScroll(int offset) {
+            //#if MC_VERSION >= 12000
             widget.setY(baseY + offset);
+            //#else
+            //$$ widget.y = baseY + offset;
+            //#endif
         }
     }
 }

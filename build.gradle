@@ -6,6 +6,11 @@ plugins {
     id "de.undercouch.download" version "4.1.2"
 }
 
+// ===== 版本依赖管理（必须在 architectury 块之前加载） =====
+// 支持 -Pgame_version=1.19.2 切换 MC 版本，默认 1.20.1
+// 设置 minecraft_version / minecraft_version_int 等属性到 allprojects
+apply from: "build_dep_ver.gradle"
+
 architectury {
     minecraft = project.minecraft_version
 }
@@ -13,6 +18,12 @@ architectury {
 allprojects {
     group = rootProject.maven_group
     version = rootProject.mod_version
+
+    gradle.projectsEvaluated {
+        tasks.withType(JavaCompile) {
+            options.compilerArgs << "-Xmaxerrs" << "400"
+        }
+    }
 }
 
 /*

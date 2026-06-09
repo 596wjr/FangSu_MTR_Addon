@@ -1,5 +1,6 @@
 package com.fangsu;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.blocks.ModBlocks;
 import com.fangsu.customItem.CustomItems;
 import com.fangsu.customItem.CustomMtrLifts;
@@ -11,8 +12,8 @@ import com.fangsu.render.sowcerext.reuse.ModelManager;
 import com.fangsu.drawing.sign.SignItemFactory;
 import com.fangsu.drawing.diaoban.DiaobanDrawManager;
 import com.fangsu.drawing.pids.PidsDrawManager;
-import com.fangsu.drawing.sign.RisDrawManager;
-import com.fangsu.drawing.sign.SisDrawManager;
+import com.fangsu.drawing.ris.RisDrawManager;
+import com.fangsu.drawing.sis.SisDrawManager;
 import com.fangsu.train.FunctionalCustomTrains;
 import com.fangsu.train.LcdManager;
 import com.fangsu.train.lcds.MtrLcd;
@@ -59,7 +60,7 @@ public class MainClient {
         } catch (ClassNotFoundException ignored) {
         }
 
-        if (is_nte_loaded) Main.LOGGER.info("[FangSu] 正在渲染兼容模式下运行!");
+        if (is_nte_loaded) Main.LOGGER.info("[FangSu] 姝ｅ湪娓叉煋鍏煎妯″紡涓嬭繍锟?");
     }
 
     public static void initResources(ResourceManager resourceManager) {
@@ -82,13 +83,13 @@ public class MainClient {
             JsonObject defaultLift = new JsonObject();
             defaultLift.addProperty("id", "default");
             defaultLift.addProperty("texture", "mtr:textures/entity/lift_1.png");
-            defaultLift.addProperty("name", Component.translatable("mtr.fangsu.lift.vanilla").getString());
-            defaultLift.addProperty("description", Component.translatable("mtr.fangsu.lift.vanilla.description").getString());
+            defaultLift.addProperty("name", ComponentHelper.translatable("mtr.fangsu.lift.vanilla").getString());
+            defaultLift.addProperty("description", ComponentHelper.translatable("mtr.fangsu.lift.vanilla.description").getString());
             JsonObject nonTransparent = new JsonObject();
             nonTransparent.addProperty("id", "non_transparent");
             nonTransparent.addProperty("texture", "fangsu:textures/entity/non_transparent.png");
-            nonTransparent.addProperty("name", Component.translatable("fangsu:textures/entity/non_transparent.png").getString());
-            nonTransparent.addProperty("description", Component.translatable("mtr.fangsu.lift.non_transparent.description").getString());
+            nonTransparent.addProperty("name", ComponentHelper.translatable("fangsu:textures/entity/non_transparent.png").getString());
+            nonTransparent.addProperty("description", ComponentHelper.translatable("mtr.fangsu.lift.non_transparent.description").getString());
             customMtrLifts.injectBuiltInTexturedLifts(defaultLift);
             customMtrLifts.injectBuiltInTexturedLifts(nonTransparent);
         }

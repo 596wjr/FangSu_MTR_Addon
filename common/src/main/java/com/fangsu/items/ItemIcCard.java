@@ -1,5 +1,6 @@
 package com.fangsu.items;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.ticketSystem.FareInfo;
 import com.fangsu.ticketSystem.FareType;
 import net.minecraft.nbt.CompoundTag;
@@ -27,15 +28,15 @@ public class ItemIcCard extends Item implements TicketItem {
         CompoundTag tag = stack.getOrCreateTag();
         if (!tag.contains(BALANCE)) tag.putInt(BALANCE, 100);
         if (tag.getBoolean(ENTERED)) {
-            player.displayClientMessage(Component.translatable("gui.mtr.already_entered"), true);
+            player.displayClientMessage(ComponentHelper.translatable("gui.mtr.already_entered"), true);
             return false;
         }
 
         tag.putBoolean(ENTERED, true);
         tag.putInt(ENTRY_ZONE, info.value());
-        String name = info.displayName() == null || info.displayName().isEmpty() ? Component.translatable("block.fangsu.ticket_barrier").getString() : info.displayName();
+        String name = info.displayName() == null || info.displayName().isEmpty() ? ComponentHelper.translatable("block.fangsu.ticket_barrier").getString() : info.displayName();
         int balance = tag.getInt(BALANCE);
-        player.displayClientMessage(Component.translatable("msg.fangsu.ticket.enter", name, balance), true);
+        player.displayClientMessage(ComponentHelper.translatable("msg.fangsu.ticket.enter", name, balance), true);
         return true;
     }
 
@@ -43,7 +44,7 @@ public class ItemIcCard extends Item implements TicketItem {
     public boolean exit(Level world, Player player, ItemStack stack, FareInfo info) {
         CompoundTag tag = stack.getOrCreateTag();
         if (!tag.getBoolean(ENTERED)) {
-            player.displayClientMessage(Component.translatable("msg.fangsu.ticket.notEntered"), true);
+            player.displayClientMessage(ComponentHelper.translatable("msg.fangsu.ticket.notEntered"), true);
             return false;
         }
 
@@ -51,15 +52,15 @@ public class ItemIcCard extends Item implements TicketItem {
         int balance = tag.getInt(BALANCE);
         int fare = computeFare(tag.getInt(ENTRY_ZONE), info);
         if (balance < fare) {
-            player.displayClientMessage(Component.translatable("gui.mtr.insufficient_balance", balance), true);
+            player.displayClientMessage(ComponentHelper.translatable("gui.mtr.insufficient_balance", balance), true);
             return false;
         }
 
         tag.putInt(BALANCE, balance - fare);
         tag.putBoolean(ENTERED, false);
         tag.putInt(ENTRY_ZONE, 0);
-        String name = info.displayName() == null || info.displayName().isEmpty() ? Component.translatable("block.fangsu.ticket_barrier").getString() : info.displayName();
-        player.displayClientMessage(Component.translatable("msg.fangsu.ticket.exit", name, fare, balance - fare), true);
+        String name = info.displayName() == null || info.displayName().isEmpty() ? ComponentHelper.translatable("block.fangsu.ticket_barrier").getString() : info.displayName();
+        player.displayClientMessage(ComponentHelper.translatable("msg.fangsu.ticket.exit", name, fare, balance - fare), true);
         return true;
     }
 

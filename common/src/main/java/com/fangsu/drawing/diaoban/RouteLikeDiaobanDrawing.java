@@ -2,15 +2,16 @@ package com.fangsu.drawing.diaoban;
 
 import com.fangsu.blockEntities.RouteDrawer;
 import com.fangsu.scripting.GraphicsTexture;
-import com.fangsu.ui.RouteSelectionScreen;
+import com.fangsu.ui.RouteSelectInfo;
 
 import java.awt.*;
 import java.util.List;
 import java.util.Map;
 
 public class RouteLikeDiaobanDrawing extends BaseDiaobanDrawing {
+
     @Override
-    public void draw(GraphicsTexture gt, List<RouteSelectionScreen.RouteSelectInfo> routes, Map<String, Object> drawState, int arrowDirection, int texW, int texH) {
+    public void draw(GraphicsTexture gt, List<RouteSelectInfo> routes, Map<String, Object> drawState, int arrowDirection, int texW, int texH) {
         Graphics2D g = gt.graphics;
         RouteDrawer.RouteDrawInfo drawInfo = buildDrawInfo(routes, arrowDirection, texW, texH);
         g.setComposite(AlphaComposite.Clear);

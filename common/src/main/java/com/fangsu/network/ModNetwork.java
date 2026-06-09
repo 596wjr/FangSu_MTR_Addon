@@ -7,8 +7,10 @@ import com.fangsu.blockEntities.Syncable;
 import com.fangsu.items.TicketItem;
 import dev.architectury.networking.NetworkManager;
 import net.minecraft.core.BlockPos;
+//#if MC_VERSION >= 12000
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+//#endif
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -60,7 +62,11 @@ public class ModNetwork {
             ServerPlayer player = (ServerPlayer) ctx.getPlayer();
             if (player == null) return;
 
+            //#if MC_VERSION >= 12000
             Level level = player.level();
+            //#else
+            //$$ Level level = player.level;
+            //#endif
             BlockEntity be = level.getBlockEntity(pos);
 
             if (be instanceof Syncable syncable) {
@@ -96,7 +102,11 @@ public class ModNetwork {
             // -------- 基础校验 --------
             if (price <= 0 || count <= 0 || count > 64) return;
             Main.LOGGER.info(itemLocation.toString());
+            //#if MC_VERSION >= 12000
             Item item = BuiltInRegistries.ITEM.get(itemLocation);
+            //#else
+            //$$ Item item = net.minecraft.core.Registry.ITEM.get(itemLocation);
+            //#endif
             if (!(item instanceof TicketItem ticketItem)) return;
             Main.LOGGER.info("2");
 
@@ -177,7 +187,11 @@ public class ModNetwork {
             ServerPlayer player = (ServerPlayer) ctx.getPlayer();
             if (player == null) return;
 
+            //#if MC_VERSION >= 12000
             Level level = player.level();
+            //#else
+            //$$ Level level = player.level;
+            //#endif
             BlockEntity be = level.getBlockEntity(pos);
 
             if (be instanceof BlockEntityScreendoorCentralControl ctrl) {

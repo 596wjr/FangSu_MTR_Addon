@@ -126,7 +126,12 @@ public class MinecraftClientUtil {
     }
 
     public static Vector3f getCameraPos() {
+        //#if MC_VERSION >= 11903
         return new Vector3f(Minecraft.getInstance().gameRenderer.getMainCamera().getPosition().toVector3f());
+        //#else
+        //$$ net.minecraft.world.phys.Vec3 pos = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        //$$ return new Vector3f((float) pos.x, (float) pos.y, (float) pos.z);
+        //#endif
     }
 
     public static float getCameraDistance(Vector3f from) {

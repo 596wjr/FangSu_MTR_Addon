@@ -1,5 +1,6 @@
 package com.fangsu.customItem;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.google.gson.JsonObject;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
@@ -15,12 +16,12 @@ public class ModelSelectInfo {
     public ModelSelectInfo(@Nullable String text, @Nullable String content, @Nullable String contentText, @Nullable JsonObject defaultItem) {
         this.text = text == null ? "[MISSING TEXT]" : text;
         this.content = content == null ? "Unknown" : content;
-        this.contentText = contentText == null ? Component.translatable("ui.fangsu.block.no_detail").getString() : contentText;
+        this.contentText = contentText == null ? ComponentHelper.translatable("ui.fangsu.block.no_detail").getString() : contentText;
         this.defaultItem = defaultItem;
     }
 
     public ModelSelectInfo(String text, String content) {
-        this(text, content, Component.translatable("ui.fangsu.block.no_detail").getString(), null);
+        this(text, content, ComponentHelper.translatable("ui.fangsu.block.no_detail").getString(), null);
     }
 
     public ModelSelectInfo(String text, String content, String contentText) {

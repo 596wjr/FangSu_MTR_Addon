@@ -25,6 +25,8 @@ public class JsPidsDrawing extends BasePidsDrawing {
                      BlockEntityPids.DrawInfoPids drawInfo) {
         if (scriptHolder == null) return;
         // 使用同步调用确保 GraphicsTextureHelper 能正确感知绘制完成状态
-        ScriptManager.getInstance().requestRunFunctionSync(scriptHolder, gt::upload, "draw", gt.graphics, drawState, drawInfo);
+        // 将 extraConfig 作为第4个参数传递给 JS 脚本（北京包脚本签名: draw(g, state, drawInfo, extraConfig)）
+        ScriptManager.getInstance().requestRunFunctionSync(scriptHolder, gt::upload, "draw",
+                gt.graphics, drawState, drawInfo, drawInfo.extraConfig);
     }
 }

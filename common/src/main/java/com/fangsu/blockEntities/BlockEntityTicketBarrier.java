@@ -1,5 +1,6 @@
 package com.fangsu.blockEntities;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcer.math.Matrices;
 
@@ -189,7 +190,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                 return InteractionResult.SUCCESS;
             } else return InteractionResult.PASS;
         } else {
-            player.displayClientMessage(Component.translatable("mst.fangsu.ticketbarrier.wrongDirection"), true);
+            player.displayClientMessage(ComponentHelper.translatable("mst.fangsu.ticketbarrier.wrongDirection"), true);
             return InteractionResult.PASS;
         }
     }
@@ -281,17 +282,17 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
         List<ConfigEntry<?>> configs = new ArrayList<>();
         Map<String, String> extra = this.extraConfigs;
         configs.add(new EnumConfig(
-                Component.translatable("ui.fangsu.ticketbarrier.mode"),
+                ComponentHelper.translatable("ui.fangsu.ticketbarrier.mode"),
                 new ConfigSpec("list"),
                 List.of(
-                        Component.translatable("ui.fangsu.ticketbarrier.modeMtr"),
-                        Component.translatable("ui.fangsu.ticketbarrier.modeFareOnce")
+                        ComponentHelper.translatable("ui.fangsu.ticketbarrier.modeMtr"),
+                        ComponentHelper.translatable("ui.fangsu.ticketbarrier.modeFareOnce")
                 ),
                 () -> getExtraConfigInt("fareType", 0),
                 (v) -> extra.put("fareType", v.toString())
         ).setSaveOnChange(true));
         configs.add(new BoolConfig(
-                Component.translatable("ui.fangsu.ticketbarrier.isExit"),
+                ComponentHelper.translatable("ui.fangsu.ticketbarrier.isExit"),
                 new ConfigSpec("bool"),
                 () -> getExtraConfigBool("isExit", false),
                 (v) -> extra.put("isExit", v.toString())
@@ -300,13 +301,13 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
             return fareType == 0;
         }));
         configs.add(new BoolConfig(
-                Component.translatable("ui.fangsu.ticketbarrier.useCustomZone"),
+                ComponentHelper.translatable("ui.fangsu.ticketbarrier.useCustomZone"),
                 new ConfigSpec("bool"),
                 () -> getExtraConfigBool("useCustomZone", false),
                 (v) -> extra.put("useCustomZone", v.toString())
         ).setSaveOnChange(true).setShowCondition(v -> 0 == getExtraConfigInt("fareType", 0)));
         configs.add(new NumberInputConfig(
-                Component.translatable("ui.fangsu.ticketbarrier.fareVal"),
+                ComponentHelper.translatable("ui.fangsu.ticketbarrier.fareVal"),
                 new ConfigSpec("number_input")
                         .setParam("max", new JsonPrimitive(32767))
                         .setParam("min", new JsonPrimitive(0))
@@ -315,7 +316,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                 (v) -> extra.put("fareVal", String.valueOf(v.intValue()))
         ).setShowCondition(v -> 1 == getExtraConfigInt("fareType", 0)));
         configs.add(new NumberInputConfig(
-                Component.translatable("ui.fangsu.ticketbarrier.customZone"),
+                ComponentHelper.translatable("ui.fangsu.ticketbarrier.customZone"),
                 new ConfigSpec("number_input")
                         .setParam("max", new JsonPrimitive(32767))
                         .setParam("min", new JsonPrimitive(-32768))
@@ -324,7 +325,7 @@ public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
                 (v) -> extra.put("customZone", String.valueOf(v.intValue()))
         ).setShowCondition(v -> 0 == getExtraConfigInt("fareType", 0) && getExtraConfigBool("useCustomZone", false)));
         configs.add(new StringConfig(
-                Component.translatable("ui.fangsu.ticketbarrier.customDisplayName"),
+                ComponentHelper.translatable("ui.fangsu.ticketbarrier.customDisplayName"),
                 new ConfigSpec("string"),
                 () -> extra.getOrDefault("customDisplayName", ""),
                 (v) -> extra.put("customDisplayName", v)

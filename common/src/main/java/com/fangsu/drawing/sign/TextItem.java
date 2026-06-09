@@ -1,5 +1,6 @@
 package com.fangsu.drawing.sign;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.extraConfig.*;
 import com.fangsu.scripting.G2dTextHelper;
 import com.fangsu.scripting.TextUtil;
@@ -25,7 +26,7 @@ public class TextItem extends SignItem {
         } else color = Color.WHITE;
         if (json.has("text") && json.get("text").isJsonPrimitive()) {
             text = json.get("text").getAsString();
-        } else text = "文本|text";
+        } else text = "鏂囨湰|text";
         if (json.has("font") && json.get("font").isJsonPrimitive()) {
             fontLocation = new ResourceLocation(json.get("font").getAsString());
         } else fontLocation = new ResourceLocation("fangsu:fonts/source-han-sans.otf");
@@ -78,30 +79,30 @@ public class TextItem extends SignItem {
     public List<ConfigEntry<?>> getConfigs() {
         List<ConfigEntry<?>> configs = new ArrayList<>();
         configs.add(new StringConfig(
-                Component.translatable("ui.fangsu.common.text"),
+                ComponentHelper.translatable("ui.fangsu.common.text"),
                 new ConfigSpec("str"),
                 () -> this.text,
                 (v) -> this.text = v
         ));
         configs.add(new NumberInputConfig(
-                Component.translatable("ui.fangsu.common.color"),
+                ComponentHelper.translatable("ui.fangsu.common.color"),
                 new ConfigSpec("num").setParam("isHex", new JsonPrimitive(true)).setParam("isInt", new JsonPrimitive(true)),
                 () -> (this.color.getRGB() & 0xFFFFFF) + 0f,
                 (v) -> this.color = new Color(v.intValue() | 0xFF000000)
         ));
         configs.add(new EnumConfig(
-                Component.translatable("ui.fangsu.common.align"),
+                ComponentHelper.translatable("ui.fangsu.common.align"),
                 new ConfigSpec("list"),
                 List.of(
-                        Component.translatable("ui.fangsu.common.alignLeft"),
-                        Component.translatable("ui.fangsu.common.alignCenter"),
-                        Component.translatable("ui.fangsu.common.alignRight")
+                        ComponentHelper.translatable("ui.fangsu.common.alignLeft"),
+                        ComponentHelper.translatable("ui.fangsu.common.alignCenter"),
+                        ComponentHelper.translatable("ui.fangsu.common.alignRight")
                 ),
                 () -> this.align,
                 (v) -> this.align = v
         ));
         configs.add(new StringConfig(
-                Component.translatable("ui.fangsu.common.fontLocation"),
+                ComponentHelper.translatable("ui.fangsu.common.fontLocation"),
                 new ConfigSpec("str"),
                 () -> this.fontLocation.toString(),
                 (v) -> this.fontLocation = new ResourceLocation(v)

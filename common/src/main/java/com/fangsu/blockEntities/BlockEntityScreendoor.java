@@ -1,5 +1,6 @@
 package com.fangsu.blockEntities;
 
+import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.Main;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.customItem.ModelSelectInfo;
@@ -46,12 +47,12 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
     private boolean doorTarget;
     private float doorValue;
 
-    // ====== 集控 / 隔离相关 ======
-    /** 是否受集控锁定（集控控制中） */
+    // ====== 闆嗘帶 / 闅旂鐩稿叧 ======
+    /** 鏄惁鍙楅泦鎺ч攣瀹氾紙闆嗘帶鎺у埗涓級 */
     private boolean centralLocked = false;
-    /** 门隔离状态（仅非集控时可用） */
+    /** 闂ㄩ殧绂荤姸鎬侊紙浠呴潪闆嗘帶鏃跺彲鐢級 */
     private boolean isolation = false;
-    /** 门开启状态（仅在隔离打开时有效） */
+    /** 闂ㄥ紑鍚姸鎬侊紙浠呭湪闅旂鎵撳紑鏃舵湁鏁堬級 */
     private boolean doorOpenOverride = false;
 
     /**
@@ -64,7 +65,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
 
     public boolean isAutoDoorSide = true;
 
-    // ★ 延迟自动计算
+    // 锟?寤惰繜鑷姩璁＄畻
     protected boolean pendingAutoDoorSide = false;
 
     private List<DoorRenderInfo> infos;
@@ -92,7 +93,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
         isolation = extraConfigs.getOrDefault("isolation", "false").equals("true");
         doorOpenOverride = extraConfigs.getOrDefault("doorOpenOverride", "false").equals("true");
 
-        // 不在 loading 阶段直接算
+        // 涓嶅湪 loading 闃舵鐩存帴锟?
         pendingAutoDoorSide = true;
 
         dispDoorValue = (getDoorValue() >= 0.4f && getDoorTarget()) ? 1.0 : 0.0;
@@ -100,7 +101,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
         mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
     }
 
-    // ★ 自动门方向重算（可重复调用）
+    // 锟?鑷姩闂ㄦ柟鍚戦噸绠楋紙鍙噸澶嶈皟鐢級
     protected void recomputeAutoDoorSide() {
         pendingAutoDoorSide = false;
 
@@ -130,7 +131,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
     @Override
     public void whenRendering() {
 
-        // ★ 自动门方向在 render 阶段算
+        // 锟?鑷姩闂ㄦ柟鍚戝湪 render 闃舵锟?
         if (pendingAutoDoorSide) {
             recomputeAutoDoorSide();
             reloadModels();
@@ -146,11 +147,11 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
             dispDoorValue = Math.max(0.0, dispDoorValue - delta / 1000.0 * 0.6);
         }
 
-        // ★ 修正后的开门方向判定
+        // 锟?淇鍚庣殑寮€闂ㄦ柟鍚戝垽锟?
         int dir =
                 dispDoorSide == 0 ? 1 :       // left
                         dispDoorSide == 1 ? -1 :      // right
-                                1;                            // flex（由模型控制）
+                                1;                            // flex锛堢敱妯″瀷鎺у埗锟?
 
         ObjBlockScriptContext ctx = this.scriptContext;
         if (infos != null) {
@@ -169,7 +170,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
         }
     }
 
-    // 抽出来，方便 auto 重算后调用
+    // 鎶藉嚭鏉ワ紝鏂逛究 auto 閲嶇畻鍚庤皟锟?
     private void reloadModels() {
         try {
             subModel =
@@ -211,7 +212,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
 
     @Override
     public boolean getDoorTarget() {
-        // 隔离且开门时强制返回 true
+        // 闅旂涓斿紑闂ㄦ椂寮哄埗杩斿洖 true
         if (isolation && doorOpenOverride) {
             return true;
         }
@@ -220,7 +221,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
 
     @Override
     public void setDoorTarget(boolean target) {
-        // 隔离状态下不接受外部设置
+        // 闅旂鐘舵€佷笅涓嶆帴鍙楀閮ㄨ锟?
         if (!isolation) {
             this.doorTarget = target;
         }
@@ -228,7 +229,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
 
     @Override
     public float getDoorValue() {
-        // 隔离且开门时强制为 1.0
+        // 闅旂涓斿紑闂ㄦ椂寮哄埗锟?1.0
         if (isolation && doorOpenOverride) {
             return 1.0f;
         }
@@ -272,8 +273,8 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
     }
 
     /**
-     * 解除隔离时重置门的 transient 目标状态。
-     * 保留 dispDoorValue 让渲染动画自然过渡到关闭。
+     * 瑙ｉ櫎闅旂鏃堕噸缃棬锟?transient 鐩爣鐘舵€侊拷?
+     * 淇濈暀 dispDoorValue 璁╂覆鏌撳姩鐢昏嚜鐒惰繃娓″埌鍏抽棴锟?
      */
     public void resetDoorState() {
         this.doorTarget = false;
@@ -298,7 +299,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
         List<SubModelDispInfo> infos = new ArrayList<>();
         List<ModelSelectInfo> thisInfo = new ArrayList<>();
         thisInfo.addAll(getModelSelectOptions(ContentInfoUtil.getScreendoorContentPath(dispDoorSide)));
-        infos.add(new SubModelDispInfo(Component.translatable("ui.fangsu.block.subModelSelect"), thisInfo,
+        infos.add(new SubModelDispInfo(ComponentHelper.translatable("ui.fangsu.block.subModelSelect"), thisInfo,
                 (be) -> this.subModels.getOrDefault("subModel",
                         dispDoorValue == 0 ? DEFAULT_SUB_MODEL_LEFT :
                                 dispDoorValue == 1 ? DEFAULT_SUB_MODEL_RIGHT :
@@ -312,26 +313,26 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
         List<ConfigEntry<?>> configs = new ArrayList<>();
         Map<String, String> extra = this.extraConfigs;
         configs.add(new BoolConfig(
-                Component.translatable("ui.fangsu.screendoor.isAuto"),
+                ComponentHelper.translatable("ui.fangsu.screendoor.isAuto"),
                 new ConfigSpec("bool"),
                 () -> extra.getOrDefault("isAuto", "true").equals("true"),
                 (v) -> extra.put("isAuto", v ? "true" : "false")
         ).setSaveOnChange(true));
         configs.add(new EnumConfig(
-                Component.translatable("ui.fangsu.screendoor.doorSide"),
+                ComponentHelper.translatable("ui.fangsu.screendoor.doorSide"),
                 new ConfigSpec("list"),
                 List.of(
-                        Component.translatable("ui.fangsu.screendoor.doorSideLeft"),
-                        Component.translatable("ui.fangsu.screendoor.doorSideRight"),
-                        Component.translatable("ui.fangsu.screendoor.doorSideFlex")
+                        ComponentHelper.translatable("ui.fangsu.screendoor.doorSideLeft"),
+                        ComponentHelper.translatable("ui.fangsu.screendoor.doorSideRight"),
+                        ComponentHelper.translatable("ui.fangsu.screendoor.doorSideFlex")
                 ),
                 () -> getExtraConfigInt("doorSide", 0),
                 (v) -> extra.put("doorSide", v.toString())
         ).setSaveOnChange(true).setShowCondition(v -> extra.getOrDefault("isAuto", "true").equals("false")));
 
-        // ====== 隔离控制（非集控时可用） ======
+        // ====== 闅旂鎺у埗锛堥潪闆嗘帶鏃跺彲鐢級 ======
         configs.add(new BoolConfig(
-                Component.translatable("ui.fangsu.screendoor.isolation"),
+                ComponentHelper.translatable("ui.fangsu.screendoor.isolation"),
                 new ConfigSpec("bool"),
                 () -> extra.getOrDefault("isolation", "false").equals("true"),
                 (v) -> {
@@ -340,7 +341,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
                 }
         ).setSaveOnChange(true));
         configs.add(new BoolConfig(
-                Component.translatable("ui.fangsu.screendoor.doorOpenOverride"),
+                ComponentHelper.translatable("ui.fangsu.screendoor.doorOpenOverride"),
                 new ConfigSpec("bool"),
                 () -> extra.getOrDefault("doorOpenOverride", "false").equals("true"),
                 (v) -> {
