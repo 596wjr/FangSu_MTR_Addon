@@ -62,7 +62,7 @@ subprojects {
     }
 
     repositories {
-        // ======= Central（CI 环境下阿里云镜像不稳定，优先用官方 Central） =======
+        // ======= Central =======
         mavenCentral()
         // 本地构建可用阿里云镜像加速（若可用）
         maven { url = "https://maven.aliyun.com/repository/central" }
