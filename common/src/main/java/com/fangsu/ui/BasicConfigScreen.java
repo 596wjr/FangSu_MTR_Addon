@@ -1,5 +1,7 @@
 package com.fangsu.ui;
 
+import com.fangsu.extraConfig.ConfigRow;
+import com.fangsu.extraConfig.ConfigWidget;
 import com.fangsu.extraConfig.SliderWidget;
 import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.utils.GraphicContext;
@@ -410,7 +412,10 @@ public abstract class BasicConfigScreen extends Screen {
             //#if MC_VERSION >= 12000
             widget.setY(baseY + offset);
             //#else
-            //$$ widget.y = baseY + offset;
+            //$$ if (widget instanceof ConfigWidget) { ((ConfigWidget) widget).setY(baseY + offset); }
+            //$$ else if (widget instanceof ConfigRow) { ((ConfigRow) widget).setY(baseY + offset); }
+            //$$ else if (widget instanceof SliderWidget) { ((SliderWidget) widget).setY(baseY + offset); }
+            //$$ else { widget.y = baseY + offset; }
             //#endif
         }
     }

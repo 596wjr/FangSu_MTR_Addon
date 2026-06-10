@@ -46,7 +46,7 @@ public class ConfigRow extends AbstractWidget {
         return field.mouseClicked(x, y, btn);
     }
 
-    //#if MC_VERSION >= 11900
+    //#if MC_VERSION >= 12000
     @Override
     public void setX(int x) {
         int delta = x - getX();

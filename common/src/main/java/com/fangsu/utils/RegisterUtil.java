@@ -40,9 +40,44 @@ public class RegisterUtil {
         return ITEMS.register(id, item);
     }
 
-    public static RegistrySupplier<Item> addBlockItem(String id, RegistrySupplier<Block> block) {
-        return ITEMS.register(id, () -> new BlockItem(block.get(), new Item.Properties()));
+    // 1.18.2 物品需手动添加到创造标签页；1.19+ 通过 buildCreativeTab 的 displayItems 自动添加
+    //#if MC_VERSION < 11900
+    //$$public static Item.Properties tabProps(Item.Properties props) {
+    //$$    return props.tab(com.fangsu.creativeTabs.ModCreativeTabs.FANGSU_MAIN);
+    //$$}
+    //#else
+    public static Item.Properties tabProps(Item.Properties props) {
+        return props;
     }
+    //#endif
+
+    public static RegistrySupplier<Item> addBlockItem(String id, RegistrySupplier<Block> block) {
+        return ITEMS.register(id, () -> new BlockItem(block.get(), tabProps(new Item.Properties())));
+    }
+
+    //#if MC_VERSION >= 11903
+    public static RegistrySupplier<CreativeModeTab> addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
+        return CREATIVE_TABS.register(
+                id,
+                () -> {
+                    //#if MC_VERSION >= 12000
+                    CreativeModeTab.Builder builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0);
+                    //#else
+                    //$$ CreativeModeTab.Builder builder = CreativeModeTab.builder();
+                    //#endif
+                    return builder
+                            .title(ComponentHelper.translatable(name))
+                            .icon(() -> new ItemStack(icon.get()))
+                            .displayItems((parameters, output) -> {
+                                for (RegistrySupplier<Item> item : items) {
+                                    output.accept(item.get());
+                                }
+                            })
+                            .build();
+                }
+        );
+    }
+    //#endif
 
     public static RegistrySupplier<MenuType<?>> addMenu(String id, Supplier<? extends MenuType<?>> menu) {
         return MENUS.register(id, menu);
@@ -58,44 +93,6 @@ public class RegisterUtil {
         );
     }
 
-    @SafeVarargs
-    public static RegistrySupplier<CreativeModeTab> addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
-        //#if MC_VERSION >= 12000
-        return CREATIVE_TABS.register(
-                id,
-                () -> {
-                    CreativeModeTab.Builder builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0);
-                    return builder
-                            .title(ComponentHelper.translatable(name))
-                            .icon(() -> new ItemStack(icon.get()))
-                            .displayItems((parameters, output) -> {
-                                for (RegistrySupplier<Item> item : items) {
-                                    output.accept(item.get());
-                                }
-                            })
-                            .build();
-                }
-        );
-        //#elseif MC_VERSION >= 11903
-        //$$return CREATIVE_TABS.register(
-        //$$        id,
-        //$$        () -> {
-        //$$            CreativeModeTab.Builder builder = CreativeModeTab.builder();
-        //$$            return builder
-        //$$                    .title(ComponentHelper.translatable(name))
-        //$$                    .icon(() -> new ItemStack(icon.get()))
-        //$$                    .displayItems((parameters, output) -> {
-        //$$                        for (RegistrySupplier<Item> item : items) {
-        //$$                            output.accept(item.get());
-        //$$                        }
-        //$$                    })
-        //$$                    .build();
-        //$$        }
-        //$$);
-        //#else
-        //$$return null;
-        //#endif
-    }
 
 //    public static <T extends BlockEntity> void addBlockEntityRenderer(
 //            RegistrySupplier<BlockEntityType<T>> blockEntityTypeSupplier,

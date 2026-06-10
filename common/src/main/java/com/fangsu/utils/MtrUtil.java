@@ -17,7 +17,7 @@ import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
 //#else
-import com.mojang.math.Vector3f;
+//$$import com.mojang.math.Vector3f;
 //#endif
 
 import java.util.*;
@@ -116,7 +116,7 @@ public class MtrUtil {
         }
         return null;
     }
-    
+
     public static List<LocalRoute> getRouteByName(String routeName) {
         String compareName = TextUtil.getNonExtraParts(routeName);
         List<LocalRoute> routes = new ArrayList<>();
@@ -370,8 +370,11 @@ public class MtrUtil {
      * 获取 BlockPos 的中心点 Vector3f，兼容 1.18.2（无 getCenter()）。
      */
     public static Vector3f getCenterVector3f(BlockPos pos) {
-        //#if MC_VERSION >= 11900
+        //#if MC_VERSION >= 11903
         return new Vector3f(pos.getCenter().toVector3f());
+        //#elseif MC_VERSION >= 11900
+        //$$ net.minecraft.world.phys.Vec3 center = pos.getCenter();
+        //$$ return new Vector3f((float) center.x, (float) center.y, (float) center.z);
         //#else
         //$$ return new Vector3f(pos.getX() + 0.5f, pos.getY() + 0.5f, pos.getZ() + 0.5f);
         //#endif

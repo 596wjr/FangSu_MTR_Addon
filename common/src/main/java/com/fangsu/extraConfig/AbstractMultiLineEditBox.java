@@ -63,11 +63,11 @@ public abstract class AbstractMultiLineEditBox extends AbstractWidget {
         graphics.drawString(font, value, getX() + 4, getY() + (height - 8) / 2, 0xFFFFFF, false);
     }
     //#else
-    @Override
-    public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
-        net.minecraft.client.gui.Gui.fill(poseStack, x, y, x + width, y + height, 0xFF000000);
-        font.draw(poseStack, value, x + 4, y + (height - 8) / 2, 0xFFFFFF);
-    }
+    //$$ @Override
+    //$$ public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+    //$$     net.minecraft.client.gui.Gui.fill(poseStack, x, y, x + width, y + height, 0xFF000000);
+    //$$     font.draw(poseStack, value, x + 4, y + (height - 8) / 2, 0xFFFFFF);
+    //$$ }
     //#endif
 
     //#if MC_VERSION >= 12000
@@ -75,8 +75,8 @@ public abstract class AbstractMultiLineEditBox extends AbstractWidget {
     protected void updateWidgetNarration(NarrationElementOutput narration) {
     }
     //#else
-    @Override
-    public void updateNarration(NarrationElementOutput narration) {
-    }
+    //$$ @Override
+    //$$ public void updateNarration(NarrationElementOutput narration) {
+    //$$ }
     //#endif
 }

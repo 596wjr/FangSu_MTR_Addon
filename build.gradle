@@ -179,6 +179,9 @@ subprojects {
         if (inputDir.exists()) {
             inputs.dir(inputDir)
         }
+        // 版本号变化时也必须重新生成
+        inputs.property("minecraft_version_int", rootProject.ext.has("minecraft_version_int")
+                ? rootProject.ext.minecraft_version_int : "12001")
         outputs.dir(generatedSrcDir)
 
         doLast {

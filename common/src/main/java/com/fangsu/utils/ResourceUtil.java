@@ -251,7 +251,7 @@ public class ResourceUtil {
      */
     public static boolean hasResources(ResourceLocation location) {
         try {
-            //#if MC_VERSION >= 11903
+            //#if MC_VERSION >= 11900
             return Minecraft.getInstance().getResourceManager().getResource(location).isPresent();
             //#else
             //$$ try { Minecraft.getInstance().getResourceManager().getResource(location); return true; } catch (Exception ex) { return false; }
@@ -331,7 +331,7 @@ public class ResourceUtil {
 
         try {
             // 获取所有资源包中的该资源
-            //#if MC_VERSION >= 11903
+            //#if MC_VERSION >= 11900
             resources = resourceManager.getResourceStack(location);
             //#else
             //$$ resources = java.util.Collections.singletonList(resourceManager.getResource(location));
@@ -379,7 +379,7 @@ public class ResourceUtil {
 
     // ============ 版本兼容的 Resource 辅助方法 ============
 
-    //#if MC_VERSION >= 11903
+    //#if MC_VERSION >= 11900
     private static Resource getResource(ResourceManager manager, ResourceLocation loc) throws IOException {
         return manager.getResource(loc).orElseThrow(() -> new IOException("Resource not found: " + loc));
     }

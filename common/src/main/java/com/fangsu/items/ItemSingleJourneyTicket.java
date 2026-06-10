@@ -16,7 +16,7 @@ import java.util.List;
 
 public class ItemSingleJourneyTicket extends Item implements TicketItem {
     public ItemSingleJourneyTicket() {
-        super(new Item.Properties().stacksTo(1));
+        super(com.fangsu.utils.RegisterUtil.tabProps(new Item.Properties().stacksTo(1)));
     }
 
     @Override

@@ -62,8 +62,12 @@ public class ScreendoorCentralControlScreen extends Screen {
 
         // ===== 闂ㄩ殧锟?=====
         y += 10;
-        //#if MC_VERSION >= 11900
-        isolationBtn = Button.builder(getIsolationLabel(), btn -> { isolation = !isolation; btn.setMessage(getIsolationLabel()); updateDoorOpenButton(); }).bounds(panelLeft, y, PANEL_WIDTH, 20).build();
+        //#if MC_VERSION >= 12000
+        isolationBtn = Button.builder(getIsolationLabel(), btn -> {
+            isolation = !isolation;
+            btn.setMessage(getIsolationLabel());
+            updateDoorOpenButton();
+        }).bounds(panelLeft, y, PANEL_WIDTH, 20).build();
         //#else
         //$$ isolationBtn = new Button(panelLeft, y, PANEL_WIDTH, 20, getIsolationLabel(), btn -> { isolation = !isolation; btn.setMessage(getIsolationLabel()); updateDoorOpenButton(); });
         //#endif
@@ -71,8 +75,11 @@ public class ScreendoorCentralControlScreen extends Screen {
 
         // ===== 闂ㄥ紑鍚紙浠呭湪闅旂鎵撳紑鏃跺彲鐢級 =====
         y += 25;
-        //#if MC_VERSION >= 11900
-        doorOpenBtn = Button.builder(getDoorOpenLabel(), btn -> { doorOpen = !doorOpen; btn.setMessage(getDoorOpenLabel()); }).bounds(panelLeft, y, PANEL_WIDTH, 20).build();
+        //#if MC_VERSION >= 12000
+        doorOpenBtn = Button.builder(getDoorOpenLabel(), btn -> {
+            doorOpen = !doorOpen;
+            btn.setMessage(getDoorOpenLabel());
+        }).bounds(panelLeft, y, PANEL_WIDTH, 20).build();
         //#else
         //$$ doorOpenBtn = new Button(panelLeft, y, PANEL_WIDTH, 20, getDoorOpenLabel(), btn -> { doorOpen = !doorOpen; btn.setMessage(getDoorOpenLabel()); });
         //#endif
@@ -92,16 +99,25 @@ public class ScreendoorCentralControlScreen extends Screen {
         }
 
         // ===== 娣诲姞鍧愭爣鎸夐挳 =====
-        //#if MC_VERSION >= 11900
-        addPosBtn = Button.builder(ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.addPos"), btn -> { startPositions.add(BlockPos.ZERO); /*#if MC_VERSION >= 11900*/ rebuildWidgets(); /*#endif*/ }).bounds(panelLeft, y, PANEL_WIDTH / 2 - GAP / 2, 20).build();
+        //#if MC_VERSION >= 12000
+        addPosBtn = Button.builder(ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.addPos"), btn -> {
+            startPositions.add(BlockPos.ZERO); /*#if MC_VERSION >= 11900*/
+            rebuildWidgets(); /*#endif*/
+        }).bounds(panelLeft, y, PANEL_WIDTH / 2 - GAP / 2, 20).build();
         //#else
         //$$ addPosBtn = new Button(panelLeft, y, PANEL_WIDTH / 2 - GAP / 2, 20, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.addPos"), btn -> { startPositions.add(BlockPos.ZERO); });
         //#endif
         addRenderableWidget(addPosBtn);
 
         // ===== 閲嶆柊鎵弿鎸夐挳 =====
-        //#if MC_VERSION >= 11900
-        scanBtn = Button.builder(ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.scan"), btn -> { syncPositionsFromRows(); ctrl.getStartPositions().clear(); ctrl.getStartPositions().addAll(startPositions); ctrl.scanDoors(); ctrl.syncPositionsToServer(); }).bounds(panelLeft + PANEL_WIDTH / 2 + GAP / 2, y, PANEL_WIDTH / 2 - GAP / 2, 20).build();
+        //#if MC_VERSION >= 12000
+        scanBtn = Button.builder(ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.scan"), btn -> {
+            syncPositionsFromRows();
+            ctrl.getStartPositions().clear();
+            ctrl.getStartPositions().addAll(startPositions);
+            ctrl.scanDoors();
+            ctrl.syncPositionsToServer();
+        }).bounds(panelLeft + PANEL_WIDTH / 2 + GAP / 2, y, PANEL_WIDTH / 2 - GAP / 2, 20).build();
         //#else
         //$$ scanBtn = new Button(panelLeft + PANEL_WIDTH / 2 + GAP / 2, y, PANEL_WIDTH / 2 - GAP / 2, 20, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.scan"), btn -> { syncPositionsFromRows(); ctrl.getStartPositions().clear(); ctrl.getStartPositions().addAll(startPositions); ctrl.scanDoors(); ctrl.syncPositionsToServer(); });
         //#endif
@@ -109,8 +125,10 @@ public class ScreendoorCentralControlScreen extends Screen {
 
         // ===== 淇濆瓨骞堕€€锟?=====
         y += 30;
-        //#if MC_VERSION >= 11900
-        saveBtn = Button.builder(ComponentHelper.translatable("ui.fangsu.block.close_and_save"), btn -> { saveAndClose(); }).bounds(panelLeft, y, PANEL_WIDTH, 20).build();
+        //#if MC_VERSION >= 12000
+        saveBtn = Button.builder(ComponentHelper.translatable("ui.fangsu.block.close_and_save"), btn -> {
+            saveAndClose();
+        }).bounds(panelLeft, y, PANEL_WIDTH, 20).build();
         //#else
         //$$ saveBtn = new Button(panelLeft, y, PANEL_WIDTH, 20, ComponentHelper.translatable("ui.fangsu.block.close_and_save"), btn -> { saveAndClose(); });
         //#endif
@@ -137,24 +155,24 @@ public class ScreendoorCentralControlScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
     }
     //#else
-    @Override
-    public void render(@NotNull com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
-        renderBackground(poseStack);
-        int centerX = this.width / 2;
-        this.font.draw(poseStack, this.title, centerX - this.font.width(this.title) / 2f, 10, 0xFFFFFF);
-        this.font.draw(poseStack, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.startPositions"),
-                centerX - this.font.width(ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.startPositions")) / 2f,
-                startPositionsLabelY, 0xFFFFFF);
-        String isolationStatus = isolation
-                ? ComponentHelper.translatable("ui.fangsu.common.on").getString()
-                : ComponentHelper.translatable("ui.fangsu.common.off").getString();
-        this.font.draw(poseStack, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.isolationStatus", isolationStatus),
-                centerX - PANEL_WIDTH / 2f, 55, 0xAAAAAA);
-        int doorCount = ctrl.getDoorPositions().size();
-        this.font.draw(poseStack, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.doorCount", doorCount),
-                centerX - PANEL_WIDTH / 2f, this.height - 70, 0xAAAAAA);
-        super.render(poseStack, mouseX, mouseY, partialTick);
-    }
+    //$$ @Override
+    //$$ public void render(@NotNull com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+    //$$     renderBackground(poseStack);
+    //$$     int centerX = this.width / 2;
+    //$$     this.font.draw(poseStack, this.title, centerX - this.font.width(this.title) / 2f, 10, 0xFFFFFF);
+    //$$     this.font.draw(poseStack, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.startPositions"),
+    //$$             centerX - this.font.width(ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.startPositions")) / 2f,
+    //$$             startPositionsLabelY, 0xFFFFFF);
+    //$$     String isolationStatus = isolation
+    //$$             ? ComponentHelper.translatable("ui.fangsu.common.on").getString()
+    //$$             : ComponentHelper.translatable("ui.fangsu.common.off").getString();
+    //$$     this.font.draw(poseStack, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.isolationStatus", isolationStatus),
+    //$$             centerX - PANEL_WIDTH / 2f, 55, 0xAAAAAA);
+    //$$     int doorCount = ctrl.getDoorPositions().size();
+    //$$     this.font.draw(poseStack, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.doorCount", doorCount),
+    //$$             centerX - PANEL_WIDTH / 2f, this.height - 70, 0xAAAAAA);
+    //$$     super.render(poseStack, mouseX, mouseY, partialTick);
+    //$$ }
     //#endif
 
     private void updateDoorOpenButton() {
@@ -239,11 +257,17 @@ public class ScreendoorCentralControlScreen extends Screen {
             zBox.setValue(String.valueOf(pos.getZ()));
             addRenderableWidget(zBox);
 
-        //#if MC_VERSION >= 11900
-        removeBtn = Button.builder(Component.literal("X"), btn -> { startPositions.remove(pos); /*#if MC_VERSION >= 11900*/ rebuildWidgets(); /*#endif*/ }).bounds(rowLeft + (fieldWidth + spacing) * 3, y, 20, 18).build();
-        //#else
-        //$$ removeBtn = new Button(rowLeft + (fieldWidth + spacing) * 3, y, 20, 18, ComponentHelper.literal("X"), btn -> { startPositions.remove(pos); });
-        //#endif
+            //#if MC_VERSION >= 11900
+            //#if MC_VERSION >= 12000
+            removeBtn = Button.builder(Component.literal("X"), btn -> {
+                startPositions.remove(pos);
+                //#if MC_VERSION >= 11900
+                //$$ rebuildWidgets();
+                //#endif
+            }).bounds(rowLeft + (fieldWidth + spacing) * 3, y, 20, 18).build();
+            //#else
+            //$$ removeBtn = new Button(rowLeft + (fieldWidth + spacing) * 3, y, 20, 18, ComponentHelper.literal("X"), btn -> { startPositions.remove(pos); });
+            //#endif
             addRenderableWidget(removeBtn);
         }
 

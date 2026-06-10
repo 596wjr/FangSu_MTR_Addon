@@ -48,7 +48,7 @@ public class PackDependencyScreen extends Screen {
         ResourceManager manager = Minecraft.getInstance().getResourceManager();
         List<Resource> resources;
         try {
-            //#if MC_VERSION >= 11903
+            //#if MC_VERSION >= 11900
             resources = manager.getResourceStack(PACK_META_DATA_LOCATION);
             //#else
             //$$ resources = java.util.Collections.singletonList(manager.getResource(PACK_META_DATA_LOCATION));
@@ -60,7 +60,7 @@ public class PackDependencyScreen extends Screen {
 
         List<JsonElement> jsons = new ArrayList<>();
         for (Resource resource : resources) {
-            //#if MC_VERSION >= 11903
+            //#if MC_VERSION >= 11900
             try (InputStream stream = resource.open()) {
                 //#else
                 //$$ try (InputStream stream = resource.getInputStream()) {

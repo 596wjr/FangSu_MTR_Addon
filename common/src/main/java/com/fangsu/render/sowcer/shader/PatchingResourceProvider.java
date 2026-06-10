@@ -11,6 +11,9 @@ import net.minecraft.server.packs.resources.ResourceProvider;
 //#if MC_VERSION < 11900
 //$$import net.minecraft.server.packs.resources.SimpleResource;
 //#endif
+//#if MC_VERSION >= 11900
+import java.util.Optional;
+//#endif
 import org.apache.commons.io.IOUtils;
 
 import java.io.ByteArrayInputStream;
@@ -77,8 +80,9 @@ public class PatchingResourceProvider implements ResourceProvider {
             }
 
             final InputStream newContentStream = new ByteArrayInputStream(returningContent.getBytes(StandardCharsets.UTF_8));
-            //#if MC_VERSION >= 11903
+            //#if MC_VERSION >= 11900
             return Optional.of(new Resource(srcResource.get().source(), () -> newContentStream));
+            //#elseif MC_VERSION >= 11900 // This case shouldn't happen for 1.19.0-1.19.2 but kept for safety
             //#elseif MC_VERSION >= 11900
             //$$return Optional.of(new Resource(srcResource.get().sourcePackId(), () -> newContentStream));
             //#else

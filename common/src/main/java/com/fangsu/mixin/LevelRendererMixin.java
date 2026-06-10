@@ -12,7 +12,7 @@ import net.minecraft.client.renderer.RenderBuffers;
 //#if MC_VERSION >= 11903
 import org.joml.Matrix4f;
 //#else
-import com.mojang.math.Matrix4f;
+//$$import com.mojang.math.Matrix4f;
 //#endif
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;

@@ -3,12 +3,7 @@ package com.fangsu.client;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.blockEntities.BlockEntityScreendoorCentralControl;
 import com.fangsu.drawing.sign.SignItem;
-import com.fangsu.ui.ObjBlockConfigScreen;
-import com.fangsu.ui.PlatformSelectionScreen;
-import com.fangsu.ui.RouteSelectInfo;
-import com.fangsu.ui.ScreendoorCentralControlScreen;
-import com.fangsu.ui.StationSelectionScreen;
-import com.fangsu.ui.SignConfigUI;
+import com.fangsu.ui.*;
 import com.fangsu.ui.ticketMachine.TicketMachineMainScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -24,7 +19,7 @@ public final class ClientHooksImpl {
     private ClientHooksImpl() {
     }
 
-//    static {
+    //    static {
 //        ClientHooks.OPEN_OBJ_BLOCK_CONFIG_SCREEN = ClientHooksImpl::openObjBlockConfigScreen;
 //        ClientHooks.OPEN_OBJ_SIGN_SCREEN = ClientHooksImpl::openSignConfigScreen;
 //    }

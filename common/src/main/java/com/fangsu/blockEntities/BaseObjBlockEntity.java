@@ -263,7 +263,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         }
 
         public void playSound(ResourceLocation sound, float volume, float pitch) {
-            //#if MC_VERSION >= 11900
+            //#if MC_VERSION >= 11903
             this.scriptResultWriting.addSound(SoundEvent.createVariableRangeEvent(sound), volume, pitch);
             //#else
             //$$ this.scriptResultWriting.addSound(new SoundEvent(sound), volume, pitch);

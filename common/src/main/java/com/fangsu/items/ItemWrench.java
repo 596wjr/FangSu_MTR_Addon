@@ -4,6 +4,6 @@ import net.minecraft.world.item.Item;
 
 public class ItemWrench extends Item {
     public ItemWrench() {
-        super(new Item.Properties().stacksTo(1));
+        super(com.fangsu.utils.RegisterUtil.tabProps(new Item.Properties().stacksTo(1)));
     }
 }

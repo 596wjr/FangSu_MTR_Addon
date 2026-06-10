@@ -64,7 +64,7 @@ public class SliderWidget extends AbstractWidget {
         return value;
     }
 
-    //#if MC_VERSION >= 11900
+    //#if MC_VERSION >= 12000
     @Override
     public void setY(int y) {
         super.setY(y);

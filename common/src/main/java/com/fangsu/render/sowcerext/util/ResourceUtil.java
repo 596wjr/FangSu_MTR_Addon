@@ -44,7 +44,7 @@ public class ResourceUtil {
     }
 
     private static List<Resource> getResources(ResourceManager resourceManager, ResourceLocation resourceLocation) throws IOException {
-        //#if MC_VERSION >= 11903
+        //#if MC_VERSION >= 11900
         return resourceManager.getResourceStack(resourceLocation);
         //#else
         //$$ return java.util.Collections.singletonList(resourceManager.getResource(resourceLocation));
@@ -52,7 +52,7 @@ public class ResourceUtil {
     }
 
     private static InputStream getInputStream(Resource resource) throws IOException {
-        //#if MC_VERSION >= 11903
+        //#if MC_VERSION >= 11900
         return resource.open();
         //#else
         //$$ return resource.getInputStream();

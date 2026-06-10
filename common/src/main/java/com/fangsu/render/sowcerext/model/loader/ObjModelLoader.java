@@ -270,7 +270,7 @@ public class ObjModelLoader {
     }
 
     static InputStream getInputStream(Resource resource) throws IOException {
-        //#if MC_VERSION >= 11903
+        //#if MC_VERSION >= 11900
         return resource.open();
         //#else
         //$$ return resource.getInputStream();
@@ -278,7 +278,7 @@ public class ObjModelLoader {
     }
 
     private static Resource getResource(ResourceManager manager, ResourceLocation location) throws IOException {
-        //#if MC_VERSION >= 11903
+        //#if MC_VERSION >= 11900
         return manager.getResource(location).orElseThrow(() -> new IOException("Resource not found: " + location));
         //#else
         //$$ return manager.getResource(location);
