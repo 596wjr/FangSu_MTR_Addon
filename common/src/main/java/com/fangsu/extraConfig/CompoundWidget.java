@@ -1,4 +1,4 @@
-package com.fangsu.extraConfig;
+﻿package com.fangsu.extraConfig;
 
 import com.fangsu.mappings.ComponentHelper;
 //#if MC_VERSION >= 12000
@@ -16,7 +16,7 @@ public class CompoundWidget extends AbstractWidget {
     private final List<AbstractWidget> children;
 
     public CompoundWidget(AbstractWidget... widgets) {
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         super(widgets[0].getX(), widgets[0].getY(), calcWidth(widgets), widgets[0].getHeight(), Component.empty());
         //#else
         //$$ super(widgets[0].x, widgets[0].y, calcWidth(widgets), widgets[0].getHeight(), ComponentHelper.empty());
@@ -33,15 +33,24 @@ public class CompoundWidget extends AbstractWidget {
             }
         }
     }
+    //#elseif MC_VERSION >= 11903
+    //$$@Override
+    //$$public void renderWidget(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
+    //$$    for (AbstractWidget w : children) {
+    //$$        if (w.visible) {
+    //$$            w.render(poseStack, mouseX, mouseY, partial);
+    //$$        }
+    //$$    }
+    //$$}
     //#else
-    @Override
-    public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
-        for (AbstractWidget w : children) {
-            if (w.visible) {
-                w.render(poseStack, mouseX, mouseY, partial);
-            }
-        }
-    }
+    //$$@Override
+    //$$public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
+    //$$    for (AbstractWidget w : children) {
+    //$$        if (w.visible) {
+    //$$            w.render(poseStack, mouseX, mouseY, partial);
+    //$$        }
+    //$$    }
+    //$$}
     //#endif
 
     @Override
@@ -74,21 +83,21 @@ public class CompoundWidget extends AbstractWidget {
         return false;
     }
 
-    //#if MC_VERSION >= 12000
+    //#if MC_VERSION >= 11903
     @Override
     protected void updateWidgetNarration(NarrationElementOutput narration) {
     }
     //#else
-    @Override
-    public void updateNarration(NarrationElementOutput narration) {
-    }
+    //$$ @Override
+    //$$ public void updateNarration(NarrationElementOutput narration) {
+    //$$ }
     //#endif
 
     private static int calcWidth(AbstractWidget[] ws) {
         int minX = Integer.MAX_VALUE;
         int maxX = Integer.MIN_VALUE;
         for (AbstractWidget w : ws) {
-            //#if MC_VERSION >= 12000
+            //#if MC_VERSION >= 11903
             minX = Math.min(minX, w.getX());
             maxX = Math.max(maxX, w.getX() + w.getWidth());
             //#else
@@ -99,3 +108,4 @@ public class CompoundWidget extends AbstractWidget {
         return maxX - minX;
     }
 }
+

@@ -1,4 +1,4 @@
-package com.fangsu.extraConfig;
+﻿package com.fangsu.extraConfig;
 
 import com.fangsu.mappings.ComponentHelper;
 import net.minecraft.client.gui.components.Button;
@@ -23,7 +23,7 @@ public class BoolConfig extends ConfigEntry<Boolean> {
     @Override
     public ConfigWidget createWidget(int x, int y, int labelW, int fieldW) {
 
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         Button btn = Button.builder(
                 label(), b -> { value = !value; b.setMessage(label()); notifyValueChanged(); }
         ).bounds(x + labelW, y, fieldW, 20).build();
@@ -40,3 +40,4 @@ public class BoolConfig extends ConfigEntry<Boolean> {
                 : "ui.fangsu.common.off");
     }
 }
+

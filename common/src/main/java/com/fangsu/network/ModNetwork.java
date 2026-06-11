@@ -102,7 +102,7 @@ public class ModNetwork {
             // -------- 基础校验 --------
             if (price <= 0 || count <= 0 || count > 64) return;
             Main.LOGGER.info(itemLocation.toString());
-            //#if MC_VERSION >= 12000
+            //#if MC_VERSION >= 11903
             Item item = BuiltInRegistries.ITEM.get(itemLocation);
             //#else
             //$$ Item item = net.minecraft.core.Registry.ITEM.get(itemLocation);

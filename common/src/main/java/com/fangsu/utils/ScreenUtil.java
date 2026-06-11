@@ -1,10 +1,10 @@
-package com.fangsu.utils;
+﻿package com.fangsu.utils;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-//#if MC_VERSION >= 11904
+//#if MC_VERSION >= 12000
 import net.minecraft.client.gui.GuiGraphics;
 //#endif
 import net.minecraft.network.chat.Component;
@@ -12,7 +12,7 @@ import net.minecraft.resources.ResourceLocation;
 
 public class ScreenUtil {
 
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     public static int drawStringScale(GuiGraphics graphics,
                                       //#else
                                       //$$public static int drawStringScale(PoseStack poseStack,
@@ -22,7 +22,7 @@ public class ScreenUtil {
                                       int color,
                                       float scale,
                                       boolean shadow) {
-        //#if MC_VERSION >= 11904
+        //#if MC_VERSION >= 12000
         Font font = Minecraft.getInstance().font;
         PoseStack poseStack = graphics.pose();
         poseStack.pushPose();
@@ -42,12 +42,12 @@ public class ScreenUtil {
         //#endif
     }
 
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     public static int drawStringScale(GuiGraphics graphics, Component component, int x, int y, int color, float scale, boolean shadow) {
         //#else
         //$$ public static int drawStringScale(PoseStack poseStack, Component component, int x, int y, int color, float scale, boolean shadow) {
         //#endif
-        //#if MC_VERSION >= 11904
+        //#if MC_VERSION >= 12000
         Font font = Minecraft.getInstance().font;
         PoseStack poseStack = graphics.pose();
         poseStack.pushPose();
@@ -67,7 +67,7 @@ public class ScreenUtil {
         //#endif
     }
 
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     public static int drawCenteredStringScale(GuiGraphics graphics,
                                               //#else
                                               //$$ public static int drawCenteredStringScale(PoseStack poseStack,
@@ -78,7 +78,7 @@ public class ScreenUtil {
                                               int color,
                                               float scale,
                                               boolean shadow) {
-        //#if MC_VERSION >= 11904
+        //#if MC_VERSION >= 12000
         Font font = Minecraft.getInstance().font;
         PoseStack poseStack = graphics.pose();
         poseStack.pushPose();
@@ -102,7 +102,7 @@ public class ScreenUtil {
         //#endif
     }
 
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     public static int drawCenteredStringScale(GuiGraphics graphics,
                                               //#else
                                               //$$ public static int drawCenteredStringScale(PoseStack poseStack,
@@ -113,7 +113,7 @@ public class ScreenUtil {
                                               int color,
                                               float scale,
                                               boolean shadow) {
-        //#if MC_VERSION >= 11904
+        //#if MC_VERSION >= 12000
         Font font = Minecraft.getInstance().font;
         PoseStack poseStack = graphics.pose();
         poseStack.pushPose();
@@ -137,7 +137,7 @@ public class ScreenUtil {
         //#endif
     }
 
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     public static void drawScrollingText(
             GuiGraphics g,
             Font font,
@@ -202,7 +202,7 @@ public class ScreenUtil {
      * 使用九宫格（9-slice）方式绘制可拉伸的按�?面板背景�?
      * 使用默认大小 (30x30)
      */
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     public static void drawNineSlice(
             GuiGraphics g,
             ResourceLocation texture,
@@ -273,7 +273,7 @@ public class ScreenUtil {
 //$$    }
 //#endif
 
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     public static int drawRightAlignedStringScale(GuiGraphics graphics,
                                                   //#else
                                                   //$$ public static int drawRightAlignedStringScale(PoseStack poseStack,
@@ -284,7 +284,7 @@ public class ScreenUtil {
                                                   int color,
                                                   float scale,
                                                   boolean shadow) {
-        //#if MC_VERSION >= 11904
+        //#if MC_VERSION >= 12000
         Font font = Minecraft.getInstance().font;
         PoseStack poseStack = graphics.pose();
         poseStack.pushPose();
@@ -308,7 +308,7 @@ public class ScreenUtil {
         //#endif
     }
 
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     public static int drawRightAlignedStringScale(GuiGraphics graphics,
                                                   //#else
                                                   //$$ public static int drawRightAlignedStringScale(PoseStack poseStack,
@@ -319,7 +319,7 @@ public class ScreenUtil {
                                                   int color,
                                                   float scale,
                                                   boolean shadow) {
-        //#if MC_VERSION >= 11904
+        //#if MC_VERSION >= 12000
         Font font = Minecraft.getInstance().font;
         PoseStack poseStack = graphics.pose();
         poseStack.pushPose();
@@ -343,12 +343,12 @@ public class ScreenUtil {
         //#endif
     }
 
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     public static void drawString(GuiGraphics graphics, String str, int x, int y, int color, int height, boolean shadow) {
         //#else
         //$$ public static void drawString(PoseStack poseStack, String str, int x, int y, int color, int height, boolean shadow) {
         //#endif
-        //#if MC_VERSION >= 11904
+        //#if MC_VERSION >= 12000
         Font font = Minecraft.getInstance().font;
         int fontHeight = font.lineHeight;
         float scale = (float) height / fontHeight;
@@ -361,3 +361,4 @@ public class ScreenUtil {
         //#endif
     }
 }
+

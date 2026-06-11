@@ -1,4 +1,4 @@
-package com.fangsu.ui;
+﻿package com.fangsu.ui;
 
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.customItem.CustomItems;
@@ -66,7 +66,7 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
         //#endif
         addFixedWidget(toggleInputButton);
 
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         closeButton = addFixedWidget(Button.builder(ComponentHelper.translatable("ui.fangsu.block.close_and_save"), btn -> {
             sendToServer();
             onClose();
@@ -78,7 +78,7 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
 
     @Override
     protected void init() {
-        // 姣忔鍒濆鍖栨椂閲嶆柊鑾峰彇閰嶇疆鍒楄〃锛堜緥濡備粠妯″瀷閫夋嫨鐣岄潰杩斿洖鍚庨厤缃」浼氬彉鍖栵級
+        // 濮ｅ繑顐奸崚婵嗩潗閸栨牗妞傞柌宥嗘煀閼惧嘲褰囬柊宥囩枂閸掓銆冮敍鍫滅伐婵″倷绮犲Ο鈥崇€烽柅澶嬪閻ｅ矂娼版潻鏂挎礀閸氬酣鍘ょ純顕€銆嶆导姘綁閸栨牭绱?
         if (be != null) {
             configs = be.getConfigs();
         }
@@ -101,7 +101,7 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
         int colLeft = getPanelLeft();
         int colWidth = getPanelWidth();
 
-        // ---- 妯″瀷閫夋嫨 ----
+        // ---- 濡€崇€烽柅澶嬪 ----
         addEntry(createTextLabel(panelCenterX, y, ComponentHelper.translatable("ui.fangsu.block.modelSelect"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
         y += 12;
         addEntry(addButton(colLeft, y, colWidth, 24, ComponentHelper.translatable("ui.fangsu.block.mainModelSelect"),
@@ -135,7 +135,7 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
             }
         }
 
-        // ---- 骞崇Щ锛堢揣鍑戜袱琛屽竷灞€锟?----
+        // ---- 楠炲磭些閿涘牏鎻ｉ崙鎴滆⒈鐞涘苯绔风仦鈧敓?----
         addEntry(createTextLabel(panelCenterX, y, ComponentHelper.translatable("ui.fangsu.block.translate"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
         y += 10;
         if (useSliderInput) {
@@ -160,7 +160,7 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
                     v -> translateZ = v, this::sendToServer, true);
         }
 
-        // ---- 鏃嬭浆锛堢揣鍑戜袱琛屽竷灞€锟?----
+        // ---- 閺冨娴嗛敍鍫㈡彛閸戞垳琚辩悰灞界鐏炩偓閿?----
         addEntry(createTextLabel(panelCenterX, y, ComponentHelper.translatable("ui.fangsu.block.rotate"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
         y += 10;
         if (useSliderInput) {
@@ -185,7 +185,7 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
                     v -> rotateZ = v, this::sendToServer, true);
         }
 
-        // ---- 棰濆閰嶇疆 ----
+        // ---- 妫版繂顦婚柊宥囩枂 ----
         if (configs != null && !configs.isEmpty()) {
             addEntry(createTextLabel(panelCenterX, y, ComponentHelper.translatable("ui.fangsu.block.extras"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
             y += 10;
@@ -201,10 +201,10 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
                 if (!c.isVisible()) {
                     continue;
                 }
-                // 绗竴琛岋細鍚嶇О锛屽乏瀵归綈锛岀煯楂樺害
+                // 缁楊兛绔寸悰宀嬬窗閸氬秶袨閿涘苯涔忕€靛綊缍堥敍宀€鐓妯哄
                 addEntry(createTextLabel(colLeft, y, c.title, TextLabel.Align.LEFT, 0xFFFFFF, false), y);
                 y += 10;
-                // 绗簩琛岋細鎺т欢锛屾甯搁珮搴︼紙labelWidth=0 鍘婚櫎宸︿晶鏂囨湰锛屽彧鐢ㄤ笂鏂瑰悕绉版爣绛撅級
+                // 缁楊兛绨╃悰宀嬬窗閹貉傛閿涘本顒滅敮鎼佺彯鎼达讣绱檒abelWidth=0 閸樺娅庡锔挎櫠閺傚洦婀伴敍灞藉涧閻劋绗傞弬鐟版倳缁夌増鐖ｇ粵鎾呯礆
                 ConfigWidget w = c.createWidget(colLeft, y, 0, colWidth);
                 addRenderableWidget(w);
                 addEntry(w, y);
@@ -235,12 +235,12 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
 
     @Override
     protected int getContentTop() {
-        return 58; // 鏍囬+鍒囨崲鎸夐挳涔嬩笅
+        return 58; // 閺嶅洭顣?閸掑洦宕查幐澶愭尦娑斿绗?
     }
 
     @Override
     protected int getContentBottom() {
-        return this.height - 42; // 淇濆瓨鎸夐挳涔嬩笂
+        return this.height - 42; // 娣囨繂鐡ㄩ幐澶愭尦娑斿绗?
     }
 
     @Override
@@ -255,7 +255,7 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
 
     @Override
     protected void renderPanelBackground(GraphicContext g) {
-        // 灞忓箷锟?1/5 濉厖绾粦鑳屾櫙锛堜粠鏈€宸︿晶寮€濮嬶級
+        // 鐏炲繐绠烽敓?1/5 婵夘偄鍘栫痪顖炵拨閼冲本娅欓敍鍫滅矤閺堚偓瀹革缚鏅跺鈧慨瀣剁礆
         int bgRight = this.width / 5;
         g.fill(0, 0, bgRight, this.height, 0xFF000000);
     }
@@ -269,7 +269,7 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
         //$$ public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
         //$$     GraphicContext g = GraphicContext.of(poseStack);
         //#endif
-        // 鏍囬 - 缁樺埗鍦ㄩ粦鑹茶儗鏅笂
+        // 閺嶅洭顣?- 缂佹ê鍩楅崷銊╃拨閼硅尪鍎楅弲顖欑瑐
         int titleX = (getPanelLeft() + getPanelRight()) / 2 - this.font.width(this.title.getString()) / 2;
         int titleY = 2;
         g.drawString(this.font, this.title, titleX, titleY, 0xFFFFFF, false);
@@ -288,9 +288,9 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
     }
 
     /**
-     * 绱у噾涓よ甯冨眬锛氫笂涓€琛岀煯鏍囩锛屼笅涓€琛屾粦锟?
+     * 缁毖冨櫨娑撱倛顢戠敮鍐ㄧ湰閿涙矮绗傛稉鈧悰宀€鐓弽鍥╊劮閿涘奔绗呮稉鈧悰灞剧拨閿?
      *
-     * @param compact 锟?true 鏃惰楂樻洿绱у噾锛堝钩锟?鏃嬭浆鐢級
+     * @param compact 閿?true 閺冩儼顢戞妯绘纯缁毖冨櫨閿涘牆閽╅敓?閺冨娴嗛悽顭掔礆
      */
     private int addCompactTwoRow(int areaLeft, int y, int rowWidth,
                                  Component label, float value,
@@ -298,10 +298,10 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
                                  Consumer<Float> setter, Runnable onChanged,
                                  boolean compact) {
         int labelHeight = compact ? 8 : 10;
-        // 绗竴琛岋細鍚嶇О锛屽乏瀵归綈锛岀煯楂樺害
+        // 缁楊兛绔寸悰宀嬬窗閸氬秶袨閿涘苯涔忕€靛綊缍堥敍宀€鐓妯哄
         addEntry(createTextLabel(areaLeft, y, label, TextLabel.Align.LEFT, 0xFFFFFF, false), y);
         y += labelHeight;
-        // 绗簩琛岋細婊戝潡锛屾甯搁珮锟?
+        // 缁楊兛绨╃悰宀嬬窗濠婃垵娼￠敍灞绢劀鐢悂鐝敓?
         int sliderWidth = rowWidth;
         if (sliderWidth < 60) sliderWidth = 60;
         SliderWidget slider = new SliderWidget(areaLeft, y, sliderWidth, 20,
@@ -320,7 +320,7 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
     }
 
     /**
-     * 绱у噾涓よ甯冨眬锛氫笂涓€琛岀煯鏍囩锛屼笅涓€琛岃緭鍏ユ
+     * 缁毖冨櫨娑撱倛顢戠敮鍐ㄧ湰閿涙矮绗傛稉鈧悰宀€鐓弽鍥╊劮閿涘奔绗呮稉鈧悰宀冪翻閸忋儲顢?
      */
     private int addAxisInputTwoRow(int areaLeft, int y, int rowWidth,
                                    Component label, float value,
@@ -328,10 +328,10 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
                                    Consumer<Float> setter, Runnable onChanged,
                                    boolean compact) {
         int labelHeight = compact ? 8 : 10;
-        // 绗竴琛岋細鍚嶇О锛屽乏瀵归綈锛岀煯楂樺害
+        // 缁楊兛绔寸悰宀嬬窗閸氬秶袨閿涘苯涔忕€靛綊缍堥敍宀€鐓妯哄
         addEntry(createTextLabel(areaLeft, y, label, TextLabel.Align.LEFT, 0xFFFFFF, false), y);
         y += labelHeight;
-        // 绗簩琛岋細杈撳叆锟?
+        // 缁楊兛绨╃悰宀嬬窗鏉堟挸鍙嗛敓?
         int inputWidth = Math.min(rowWidth, 80);
         //#if MC_VERSION >= 12000
         EditBox box = new EditBox(this.font, areaLeft, y, inputWidth, 20, Component.empty());
@@ -375,3 +375,4 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
         super.onClose();
     }
 }
+

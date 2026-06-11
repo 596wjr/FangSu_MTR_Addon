@@ -1,4 +1,4 @@
-package com.fangsu.extraConfig;
+﻿package com.fangsu.extraConfig;
 
 import com.fangsu.mappings.ComponentHelper;
 import net.minecraft.client.Minecraft;
@@ -64,7 +64,7 @@ public class SliderWidget extends AbstractWidget {
         return value;
     }
 
-    //#if MC_VERSION >= 12000
+    //#if MC_VERSION >= 11903
     @Override
     public void setY(int y) {
         super.setY(y);
@@ -80,11 +80,16 @@ public class SliderWidget extends AbstractWidget {
 
     /* ====================================================== */
 
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     @Override
     public void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partial) {
         slider.render(g, mouseX, mouseY, partial);
     }
+    //#elseif MC_VERSION >= 11903
+    //$$@Override
+    //$$public void renderWidget(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
+    //$$    slider.render(poseStack, mouseX, mouseY, partial);
+    //$$}
     //#else
     //$$@Override
     //$$public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
@@ -157,7 +162,7 @@ public class SliderWidget extends AbstractWidget {
          * 瑕嗙洊 setValueFromMouse锛屼娇榧犳爣鐐瑰嚮璁＄畻鍊兼椂鐩存帴浣跨敤鍚搁檮鍚庣殑鍊硷拷?
          */
         private void setValueFromMouse(double mouseX) {
-            //#if MC_VERSION >= 12000
+            //#if MC_VERSION >= 11903
             double raw = (mouseX - (double) (this.getX() + 4)) / (double) (this.width - 8);
             //#else
             //$$ double raw = (mouseX - (double) (this.x + 4)) / (double) (this.width - 8);

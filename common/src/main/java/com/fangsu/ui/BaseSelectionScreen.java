@@ -1,7 +1,7 @@
 package com.fangsu.ui;
 
 import com.fangsu.utils.GraphicContext;
-//#if MC_VERSION >= 11904
+//#if MC_VERSION >= 12000
 import net.minecraft.client.gui.GuiGraphics;
 //#endif
 import net.minecraft.client.gui.screens.Screen;

@@ -1,4 +1,4 @@
-package com.fangsu.ui;
+﻿package com.fangsu.ui;
 
 import com.fangsu.drawing.sign.*;
 import com.fangsu.mappings.ComponentHelper;
@@ -8,7 +8,7 @@ import com.fangsu.utils.ScreenUtil;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
-//#if MC_VERSION >= 11904
+//#if MC_VERSION >= 12000
 import net.minecraft.client.gui.GuiGraphics;
 //#endif
 import net.minecraft.client.gui.screens.Screen;
@@ -59,7 +59,7 @@ public class SignConfigUI extends Screen {
         recreateG2dLayer();
     }
 
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         GraphicContext g = GraphicContext.of(graphics);
@@ -86,7 +86,7 @@ public class SignConfigUI extends Screen {
 
         g.drawString(font, this.title, 10, 2, 0xFFFFFF, false);
         g2dLayer.upload();
-        //#if MC_VERSION >= 11904
+        //#if MC_VERSION >= 12000
         g.blit(g2dLayer.identifier, 0, 0, 0, 0, width, height, width, height);
         //#else
         //$$ com.mojang.blaze3d.systems.RenderSystem.setShaderTexture(0, g2dLayer.identifier);

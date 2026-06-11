@@ -1,4 +1,4 @@
-package com.fangsu.ui;
+﻿package com.fangsu.ui;
 
 import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.extraConfig.ConfigEntry;
@@ -27,7 +27,7 @@ public class ConfigScreen extends BasicConfigScreen {
 
     @Override
     protected void buildFixedWidgets() {
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         closeButton = addFixedWidget(Button.builder(ComponentHelper.translatable("ui.fangsu.block.close_and_save"), btn -> { if (!REALTIME) saveAll(); onClose(); }).bounds(this.width / 2 - 50, this.height - 40, 100, 20).build());
         //#else
         //$$ closeButton = addFixedWidget(new Button(this.width / 2 - 50, this.height - 40, 100, 20, ComponentHelper.translatable("ui.fangsu.block.close_and_save"), btn -> { if (!REALTIME) saveAll(); onClose(); }));
@@ -70,3 +70,4 @@ public class ConfigScreen extends BasicConfigScreen {
         }
     }
 }
+

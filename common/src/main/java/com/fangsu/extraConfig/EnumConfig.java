@@ -1,4 +1,4 @@
-package com.fangsu.extraConfig;
+﻿package com.fangsu.extraConfig;
 
 import com.fangsu.mappings.ComponentHelper;
 import net.minecraft.client.gui.components.Button;
@@ -28,7 +28,7 @@ public class EnumConfig extends ConfigEntry<Integer> {
     @Override
     public ConfigWidget createWidget(int x, int y, int labelW, int fieldW) {
 
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         Button btn = Button.builder(entries.get(value), b -> { value = (value + 1) % entries.size(); b.setMessage(entries.get(value)); notifyValueChanged(); }).bounds(x + labelW, y, fieldW, 20).build();
         //#else
         //$$ Button btn = new Button(x + labelW, y, fieldW, 20, entries.get(value), b -> { value = (value + 1) % entries.size(); b.setMessage(entries.get(value)); notifyValueChanged(); });
@@ -44,3 +44,4 @@ public class EnumConfig extends ConfigEntry<Integer> {
         );
     }
 }
+

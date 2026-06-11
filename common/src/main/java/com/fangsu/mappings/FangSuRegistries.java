@@ -25,13 +25,11 @@ public class FangSuRegistries {
     public static final ResourceLocation BLOCK_KEY = net.minecraft.core.registries.Registries.BLOCK.location();
     public static final ResourceLocation ITEM_KEY = net.minecraft.core.registries.Registries.ITEM.location();
     public static final ResourceLocation BLOCK_ENTITY_TYPE_KEY = net.minecraft.core.registries.Registries.BLOCK_ENTITY_TYPE.location();
-    public static final ResourceLocation CREATIVE_MODE_TAB_KEY = net.minecraft.core.registries.Registries.CREATIVE_MODE_TAB.location();
     public static final ResourceLocation MENU_KEY = net.minecraft.core.registries.Registries.MENU.location();
     //#else
     //$$public static final ResourceLocation BLOCK_KEY = new ResourceLocation("minecraft:block");
     //$$public static final ResourceLocation ITEM_KEY = new ResourceLocation("minecraft:item");
     //$$public static final ResourceLocation BLOCK_ENTITY_TYPE_KEY = new ResourceLocation("minecraft:block_entity_type");
-    //$$public static final ResourceLocation CREATIVE_MODE_TAB_KEY = new ResourceLocation("minecraft:creative_mode_tab");
     //$$public static final ResourceLocation MENU_KEY = new ResourceLocation("minecraft:menu");
     //#endif
 
@@ -59,12 +57,6 @@ public class FangSuRegistries {
     public static DeferredRegister<BlockEntityType<?>> createBlockEntityRegister(String modId) {
         return createDeferredRegister(modId, BLOCK_ENTITY_TYPE_KEY);
     }
-
-    //#if MC_VERSION >= 11903
-    public static DeferredRegister<CreativeModeTab> createCreativeTabRegister(String modId) {
-        return createDeferredRegister(modId, CREATIVE_MODE_TAB_KEY);
-    }
-    //#endif
 
     public static DeferredRegister<MenuType<?>> createMenuRegister(String modId) {
         return createDeferredRegister(modId, MENU_KEY);

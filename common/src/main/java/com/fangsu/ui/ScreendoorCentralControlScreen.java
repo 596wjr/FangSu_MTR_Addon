@@ -1,9 +1,9 @@
-package com.fangsu.ui;
+﻿package com.fangsu.ui;
 
 import com.fangsu.blockEntities.BlockEntityScreendoorCentralControl;
 import com.fangsu.mappings.ComponentHelper;
 import net.minecraft.client.Minecraft;
-//#if MC_VERSION >= 11904
+//#if MC_VERSION >= 12000
 import net.minecraft.client.gui.GuiGraphics;
 //#endif
 import net.minecraft.client.gui.components.Button;
@@ -135,7 +135,7 @@ public class ScreendoorCentralControlScreen extends Screen {
         addRenderableWidget(saveBtn);
     }
 
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     @Override
     public void render(@NotNull GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(graphics);
@@ -257,13 +257,10 @@ public class ScreendoorCentralControlScreen extends Screen {
             zBox.setValue(String.valueOf(pos.getZ()));
             addRenderableWidget(zBox);
 
-            //#if MC_VERSION >= 11900
             //#if MC_VERSION >= 12000
             removeBtn = Button.builder(Component.literal("X"), btn -> {
                 startPositions.remove(pos);
-                //#if MC_VERSION >= 11900
-                //$$ rebuildWidgets();
-                //#endif
+                /*#if MC_VERSION >= 11900*/ rebuildWidgets(); /*#endif*/
             }).bounds(rowLeft + (fieldWidth + spacing) * 3, y, 20, 18).build();
             //#else
             //$$ removeBtn = new Button(rowLeft + (fieldWidth + spacing) * 3, y, 20, 18, ComponentHelper.literal("X"), btn -> { startPositions.remove(pos); });

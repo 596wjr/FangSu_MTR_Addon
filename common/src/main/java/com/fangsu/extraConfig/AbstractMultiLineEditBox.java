@@ -1,4 +1,4 @@
-package com.fangsu.extraConfig;
+﻿package com.fangsu.extraConfig;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -7,8 +7,8 @@ import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
 
 /**
- * 多行文本编辑框包装类，兼�?1.18.2（无 MultiLineEditBox）�?
- * 1.20+ 直接使用 Minecraft 原版�?MultiLineEditBox�?.18.2 使用简易的单行输入框替代�?
+ * 澶氳鏂囨湰缂栬緫妗嗗寘瑁呯被锛屽吋锟?1.18.2锛堟棤 MultiLineEditBox锛夛拷?
+ * 1.20+ 鐩存帴浣跨敤 Minecraft 鍘熺増锟?MultiLineEditBox锟?.18.2 浣跨敤绠€鏄撶殑鍗曡杈撳叆妗嗘浛浠ｏ拷?
  */
 public abstract class AbstractMultiLineEditBox extends AbstractWidget {
 
@@ -57,20 +57,24 @@ public abstract class AbstractMultiLineEditBox extends AbstractWidget {
     //#if MC_VERSION >= 12000
     @Override
     public void renderWidget(net.minecraft.client.gui.GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // 绘制背景�?
         graphics.fill(getX(), getY(), getX() + width, getY() + height, 0xFF000000);
-        // 绘制文本
         graphics.drawString(font, value, getX() + 4, getY() + (height - 8) / 2, 0xFFFFFF, false);
     }
+    //#elseif MC_VERSION >= 11903
+    //$$@Override
+    //$$public void renderWidget(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+    //$$    net.minecraft.client.gui.Gui.fill(poseStack, getX(), getY(), getX() + width, getY() + height, 0xFF000000);
+    //$$    font.draw(poseStack, value, getX() + 4, getY() + (height - 8) / 2, 0xFFFFFF);
+    //$$}
     //#else
-    //$$ @Override
-    //$$ public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
-    //$$     net.minecraft.client.gui.Gui.fill(poseStack, x, y, x + width, y + height, 0xFF000000);
-    //$$     font.draw(poseStack, value, x + 4, y + (height - 8) / 2, 0xFFFFFF);
-    //$$ }
+    //$$@Override
+    //$$public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+    //$$    net.minecraft.client.gui.Gui.fill(poseStack, getX(), getY(), getX() + width, getY() + height, 0xFF000000);
+    //$$    font.draw(poseStack, value, getX() + 4, getY() + (height - 8) / 2, 0xFFFFFF);
+    //$$}
     //#endif
 
-    //#if MC_VERSION >= 12000
+    //#if MC_VERSION >= 11903
     @Override
     protected void updateWidgetNarration(NarrationElementOutput narration) {
     }
@@ -80,3 +84,4 @@ public abstract class AbstractMultiLineEditBox extends AbstractWidget {
     //$$ }
     //#endif
 }
+

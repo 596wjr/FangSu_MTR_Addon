@@ -1,4 +1,4 @@
-package com.fangsu.extraConfig;
+﻿package com.fangsu.extraConfig;
 
 import com.fangsu.mappings.ComponentHelper;
 import net.minecraft.client.gui.components.Button;
@@ -37,7 +37,7 @@ public class RunnableConfig extends ConfigEntry<Void> {
         int height = 20;
         int totalWidth = labelWidth + fieldWidth;
 
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         Button button = Button.builder(buttonText, btn -> { action.run(); notifyValueChanged(); }).bounds(x + labelWidth, y, fieldWidth, height).build();
         //#else
         //$$ Button button = new Button(x + labelWidth, y, fieldWidth, height, buttonText, btn -> { action.run(); notifyValueChanged(); });
@@ -62,3 +62,4 @@ public class RunnableConfig extends ConfigEntry<Void> {
     public void save(Object be) {
     }
 }
+

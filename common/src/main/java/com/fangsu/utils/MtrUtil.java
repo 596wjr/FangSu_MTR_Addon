@@ -372,9 +372,6 @@ public class MtrUtil {
     public static Vector3f getCenterVector3f(BlockPos pos) {
         //#if MC_VERSION >= 11903
         return new Vector3f(pos.getCenter().toVector3f());
-        //#elseif MC_VERSION >= 11900
-        //$$ net.minecraft.world.phys.Vec3 center = pos.getCenter();
-        //$$ return new Vector3f((float) center.x, (float) center.y, (float) center.z);
         //#else
         //$$ return new Vector3f(pos.getX() + 0.5f, pos.getY() + 0.5f, pos.getZ() + 0.5f);
         //#endif

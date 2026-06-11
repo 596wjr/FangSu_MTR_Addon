@@ -1,4 +1,4 @@
-package com.fangsu.ui.ticketMachine;
+﻿package com.fangsu.ui.ticketMachine;
 
 import com.fangsu.Main;
 import com.fangsu.items.ModItems;
@@ -125,7 +125,7 @@ public class TicketMachineMainScreen extends Screen {
         super.onClose();
     }
 
-//#if MC_VERSION >= 11904
+//#if MC_VERSION >= 12000
     @Override
     public void render(GuiGraphics nativeGfx, int mouseX, int mouseY, float partialTick) {
         super.render(nativeGfx, mouseX, mouseY, partialTick);

@@ -1,7 +1,6 @@
-package com.fangsu.extraConfig;
+﻿package com.fangsu.extraConfig;
 
-//#if MC_VERSION >= 11904
-
+//#if MC_VERSION >= 12000
 import net.minecraft.client.gui.GuiGraphics;
 //#endif
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -21,22 +20,22 @@ public class ConfigRow extends AbstractWidget {
         this.field = field;
     }
 
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     @Override
     public void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partial) {
-        g.drawString(
-                net.minecraft.client.Minecraft.getInstance().font,
-                getMessage(),
-                getX(),
-                getY() + (height - 8) / 2,
-                0xFFFFFF
-        );
+        g.drawString(net.minecraft.client.Minecraft.getInstance().font, getMessage(), getX(), getY() + (height - 8) / 2, 0xFFFFFF);
         field.render(g, mouseX, mouseY, partial);
     }
+    //#elseif MC_VERSION >= 11903
+    //$$@Override
+    //$$public void renderWidget(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
+    //$$    net.minecraft.client.Minecraft.getInstance().font.draw(poseStack, getMessage(), (float) getX(), (float) (getY() + (height - 8) / 2), 0xFFFFFF);
+    //$$    field.render(poseStack, mouseX, mouseY, partial);
+    //$$}
     //#else
     //$$@Override
     //$$public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
-    //$$    net.minecraft.client.Minecraft.getInstance().font.draw(poseStack, getMessage(), (float) x, (float) (y + (height - 8) / 2), 0xFFFFFF);
+    //$$    net.minecraft.client.Minecraft.getInstance().font.draw(poseStack, getMessage(), (float) getX(), (float) (getY() + (height - 8) / 2), 0xFFFFFF);
     //$$    field.render(poseStack, mouseX, mouseY, partial);
     //$$}
     //#endif
@@ -46,7 +45,7 @@ public class ConfigRow extends AbstractWidget {
         return field.mouseClicked(x, y, btn);
     }
 
-    //#if MC_VERSION >= 12000
+    //#if MC_VERSION >= 11903
     @Override
     public void setX(int x) {
         int delta = x - getX();
@@ -74,7 +73,7 @@ public class ConfigRow extends AbstractWidget {
     //$$}
     //#endif
 
-    //#if MC_VERSION >= 12000
+    //#if MC_VERSION >= 11903
     @Override
     protected void updateWidgetNarration(NarrationElementOutput narration) {
     }

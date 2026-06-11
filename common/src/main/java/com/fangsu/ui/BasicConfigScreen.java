@@ -1,4 +1,4 @@
-package com.fangsu.ui;
+﻿package com.fangsu.ui;
 
 import com.fangsu.extraConfig.ConfigRow;
 import com.fangsu.extraConfig.ConfigWidget;
@@ -47,7 +47,7 @@ public abstract class BasicConfigScreen extends Screen {
     protected abstract void buildScrollableContent(ContentLayout layout);
 
     protected void buildFixedWidgets() {
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         closeButton = addFixedWidget(Button.builder(ComponentHelper.translatable("ui.fangsu.block.close_and_save"), btn -> onClose()).bounds(this.width / 2 - 50, this.height - 40, 100, 20).build());
         //#else
         //$$ closeButton = addFixedWidget(new Button(this.width / 2 - 50, this.height - 40, 100, 20, ComponentHelper.translatable("ui.fangsu.block.close_and_save"), btn -> onClose()));
@@ -155,7 +155,7 @@ public abstract class BasicConfigScreen extends Screen {
     }
 
     protected Button addButton(int x, int y, int width, int height, Component label, Button.OnPress onPress) {
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         Button button = Button.builder(label, onPress).bounds(x, y, width, height).build();
         //#else
         //$$ Button button = new Button(x, y, width, height, label, onPress);
@@ -230,7 +230,7 @@ public abstract class BasicConfigScreen extends Screen {
     }
 
     /**
-     * 瀛愮被鍙噸鍐欐鏂规硶缁樺埗闈㈡澘鑳屾櫙
+     * 鐎涙劗琚崣顖炲櫢閸愭瑦顒濋弬瑙勭《缂佹ê鍩楅棃銏℃緲閼冲本娅?
      */
     protected void renderPanelBackground(GraphicContext g) {
         int areaLeft = getPanelLeft();
@@ -373,22 +373,22 @@ public abstract class BasicConfigScreen extends Screen {
         //$$ public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
         //$$     var g = GraphicContext.of(poseStack);
         //$$     var font = Minecraft.getInstance().font;
-        //$$     int drawX = this.x;
+        //$$     int drawX = this.getX();
         //$$     int textWidth = font.width(text.getString());
         //$$     switch (align) {
-        //$$         case CENTER -> drawX = this.x - textWidth / 2;
-        //$$         case RIGHT -> drawX = this.x - textWidth;
-        //$$         case LEFT -> drawX = this.x;
+        //$$         case CENTER -> drawX = this.getX() - textWidth / 2;
+        //$$         case RIGHT -> drawX = this.getX() - textWidth;
+        //$$         case LEFT -> drawX = this.getX();
         //$$     }
         //$$     if (bold) {
-        //$$         g.drawString(font, text.copy().withStyle(style -> style.withBold(true)), drawX, this.y, color, false);
+        //$$         g.drawString(font, text.copy().withStyle(style -> style.withBold(true)), drawX, this.getY(), color, false);
         //$$     } else {
-        //$$         g.drawString(font, text, drawX, this.y, color, false);
+        //$$         g.drawString(font, text, drawX, this.getY(), color, false);
         //$$     }
         //$$ }
         //#endif
 
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         @Override
         protected void updateWidgetNarration(@NotNull NarrationElementOutput narrationElementOutput) {
         }
@@ -409,7 +409,7 @@ public abstract class BasicConfigScreen extends Screen {
         }
 
         void applyScroll(int offset) {
-            //#if MC_VERSION >= 12000
+            //#if MC_VERSION >= 11903
             widget.setY(baseY + offset);
             //#else
             //$$ if (widget instanceof ConfigWidget) { ((ConfigWidget) widget).setY(baseY + offset); }
@@ -420,3 +420,4 @@ public abstract class BasicConfigScreen extends Screen {
         }
     }
 }
+

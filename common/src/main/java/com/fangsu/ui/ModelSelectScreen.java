@@ -1,4 +1,4 @@
-package com.fangsu.ui;
+﻿package com.fangsu.ui;
 
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.mappings.ComponentHelper;
@@ -118,7 +118,7 @@ public class ModelSelectScreen extends Screen {
         int y = getContentTop();
         for (ModelSelectInfo info : options) {
             int baseY = y;
-            //#if MC_VERSION >= 12000
+            //#if MC_VERSION >= 11903
             Button button = Button.builder(ComponentHelper.translatable(info.getText()), btn -> setSelected(info)).bounds(getListLeft(), baseY, LIST_WIDTH, LIST_ITEM_HEIGHT).build();
             //#else
             //$$ Button button = new Button(getListLeft(), baseY, LIST_WIDTH, LIST_ITEM_HEIGHT, ComponentHelper.translatable(info.getText()), btn -> setSelected(info));
@@ -129,7 +129,7 @@ public class ModelSelectScreen extends Screen {
             y += LIST_ITEM_HEIGHT + 2;
         }
 
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         confirmButton = addRenderableWidget(Button.builder(ComponentHelper.translatable("ui.fangsu.block.confirm"), btn -> {
             if (selected != null && setter != null) {
                 setter.accept(be, selected.getContent());
@@ -371,7 +371,7 @@ public class ModelSelectScreen extends Screen {
         }
 
         private void applyScroll(int offset) {
-            //#if MC_VERSION >= 12000
+            //#if MC_VERSION >= 11903
             widget.setY(baseY + offset);
             //#else
             //$$ widget.y = baseY + offset;
@@ -379,3 +379,4 @@ public class ModelSelectScreen extends Screen {
         }
     }
 }
+

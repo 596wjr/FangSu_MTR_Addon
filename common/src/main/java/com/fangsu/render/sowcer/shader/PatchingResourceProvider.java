@@ -80,9 +80,8 @@ public class PatchingResourceProvider implements ResourceProvider {
             }
 
             final InputStream newContentStream = new ByteArrayInputStream(returningContent.getBytes(StandardCharsets.UTF_8));
-            //#if MC_VERSION >= 11900
+            //#if MC_VERSION >= 11903
             return Optional.of(new Resource(srcResource.get().source(), () -> newContentStream));
-            //#elseif MC_VERSION >= 11900 // This case shouldn't happen for 1.19.0-1.19.2 but kept for safety
             //#elseif MC_VERSION >= 11900
             //$$return Optional.of(new Resource(srcResource.get().sourcePackId(), () -> newContentStream));
             //#else

@@ -60,10 +60,8 @@ public class RegisterUtil {
         return CREATIVE_TABS.register(
                 id,
                 () -> {
-                    //#if MC_VERSION >= 12000
+                    //#if MC_VERSION >= 11903
                     CreativeModeTab.Builder builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0);
-                    //#else
-                    //$$ CreativeModeTab.Builder builder = CreativeModeTab.builder();
                     //#endif
                     return builder
                             .title(ComponentHelper.translatable(name))

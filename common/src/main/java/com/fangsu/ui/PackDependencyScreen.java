@@ -1,10 +1,10 @@
-package com.fangsu.ui;
+﻿package com.fangsu.ui;
 
 import com.fangsu.Main;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonElement;
 import net.minecraft.client.Minecraft;
-//#if MC_VERSION >= 11904
+//#if MC_VERSION >= 12000
 import net.minecraft.client.gui.GuiGraphics;
 //#endif
 import net.minecraft.client.gui.screens.Screen;
@@ -35,7 +35,7 @@ public class PackDependencyScreen extends Screen {
         this.loadedPackVersions = new HashMap<>();
     }
 
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         renderBackground(g);
