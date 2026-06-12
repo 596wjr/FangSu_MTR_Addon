@@ -1,4 +1,4 @@
-﻿package com.fangsu.ui;
+package com.fangsu.ui;
 
 import com.fangsu.extraConfig.ConfigRow;
 import com.fangsu.extraConfig.ConfigWidget;
@@ -353,40 +353,47 @@ public abstract class BasicConfigScreen extends Screen {
         //#if MC_VERSION >= 12000
         @Override
         public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            var g = GraphicContext.of(graphics);
-            var font = Minecraft.getInstance().font;
-            int drawX = this.getX();
-            int textWidth = font.width(text.getString());
-            switch (align) {
-                case CENTER -> drawX = this.getX() - textWidth / 2;
-                case RIGHT -> drawX = this.getX() - textWidth;
-                case LEFT -> drawX = this.getX();
-            }
-            if (bold) {
-                g.drawString(font, text.copy().withStyle(style -> style.withBold(true)), drawX, this.getY(), color, false);
-            } else {
-                g.drawString(font, text, drawX, this.getY(), color, false);
-            }
+            renderLabel(GraphicContext.of(graphics));
         }
+        //#elseif MC_VERSION >= 11904
+        //$$ @Override
+        //$$ public void renderWidget(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        //$$     renderLabel(GraphicContext.of(poseStack));
+        //$$ }
+        //#elseif MC_VERSION >= 11903
+        //$$ @Override
+        //$$ public void renderButton(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        //$$     renderLabel(GraphicContext.of(poseStack));
+        //$$ }
         //#else
         //$$ @Override
         //$$ public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
-        //$$     var g = GraphicContext.of(poseStack);
-        //$$     var font = Minecraft.getInstance().font;
-        //$$     int drawX = this.getX();
-        //$$     int textWidth = font.width(text.getString());
-        //$$     switch (align) {
-        //$$         case CENTER -> drawX = this.getX() - textWidth / 2;
-        //$$         case RIGHT -> drawX = this.getX() - textWidth;
-        //$$         case LEFT -> drawX = this.getX();
-        //$$     }
-        //$$     if (bold) {
-        //$$         g.drawString(font, text.copy().withStyle(style -> style.withBold(true)), drawX, this.getY(), color, false);
-        //$$     } else {
-        //$$         g.drawString(font, text, drawX, this.getY(), color, false);
-        //$$     }
+        //$$     renderLabel(GraphicContext.of(poseStack));
         //$$ }
         //#endif
+
+        private void renderLabel(GraphicContext g) {
+            var font = Minecraft.getInstance().font;
+            //#if MC_VERSION >= 11903
+            int x = this.getX();
+            int y = this.getY();
+            //#else
+            //$$ int x = this.x;
+            //$$ int y = this.y;
+            //#endif
+            int drawX = x;
+            int textWidth = font.width(text.getString());
+            switch (align) {
+                case CENTER -> drawX = x - textWidth / 2;
+                case RIGHT -> drawX = x - textWidth;
+                case LEFT -> drawX = x;
+            }
+            if (bold) {
+                g.drawString(font, text.copy().withStyle(style -> style.withBold(true)), drawX, y, color, false);
+            } else {
+                g.drawString(font, text, drawX, y, color, false);
+            }
+        }
 
         //#if MC_VERSION >= 11903
         @Override

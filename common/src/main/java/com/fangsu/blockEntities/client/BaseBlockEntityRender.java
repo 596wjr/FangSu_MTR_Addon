@@ -20,7 +20,7 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-//#if MC_VERSION >= 12000
+//#if MC_VERSION >= 11904
 import net.minecraft.world.item.ItemDisplayContext;
 //#endif
 import net.minecraft.world.item.ItemStack;
@@ -67,6 +67,8 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
             PoseStackUtil.rotY(matrices, (float) ((System.currentTimeMillis() % 1000) * (Math.PI * 2 / 1000)));
             //#if MC_VERSION >= 12000
             Minecraft.getInstance().getItemRenderer().renderStatic(BARRIER_ITEM_STACK.get(), ItemDisplayContext.GROUND, lightToUse, 0, matrices, multiBufferSource, world, 0);
+            //#elseif MC_VERSION >= 11904
+            //$$ Minecraft.getInstance().getItemRenderer().renderStatic(BARRIER_ITEM_STACK.get(), ItemDisplayContext.GROUND, lightToUse, 0, matrices, multiBufferSource, 0);
             //#else
             //$$ Minecraft.getInstance().getItemRenderer().renderStatic(BARRIER_ITEM_STACK.get(), net.minecraft.client.renderer.block.model.ItemTransforms.TransformType.GROUND, lightToUse, 0, matrices, multiBufferSource, 0);
             //#endif

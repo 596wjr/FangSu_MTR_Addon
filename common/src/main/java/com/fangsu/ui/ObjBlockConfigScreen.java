@@ -1,4 +1,4 @@
-﻿package com.fangsu.ui;
+package com.fangsu.ui;
 
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.customItem.CustomItems;
@@ -56,7 +56,7 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
         int left = getPanelLeft();
         int btnWidth = getPanelWidth();
 
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         Button toggleInputButton = Button.builder(getInputToggleLabel(), btn -> {
             useSliderInput = !useSliderInput;
             requestRebuild();

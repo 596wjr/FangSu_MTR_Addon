@@ -1,4 +1,4 @@
-﻿package com.fangsu.extraConfig;
+package com.fangsu.extraConfig;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -60,17 +60,23 @@ public abstract class AbstractMultiLineEditBox extends AbstractWidget {
         graphics.fill(getX(), getY(), getX() + width, getY() + height, 0xFF000000);
         graphics.drawString(font, value, getX() + 4, getY() + (height - 8) / 2, 0xFFFFFF, false);
     }
-    //#elseif MC_VERSION >= 11903
+    //#elseif MC_VERSION >= 11904
     //$$@Override
     //$$public void renderWidget(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+    //$$    net.minecraft.client.gui.Gui.fill(poseStack, getX(), getY(), getX() + width, getY() + height, 0xFF000000);
+    //$$    font.draw(poseStack, value, getX() + 4, getY() + (height - 8) / 2, 0xFFFFFF);
+    //$$}
+    //#elseif MC_VERSION >= 11903
+    //$$@Override
+    //$$public void renderButton(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
     //$$    net.minecraft.client.gui.Gui.fill(poseStack, getX(), getY(), getX() + width, getY() + height, 0xFF000000);
     //$$    font.draw(poseStack, value, getX() + 4, getY() + (height - 8) / 2, 0xFFFFFF);
     //$$}
     //#else
     //$$@Override
     //$$public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
-    //$$    net.minecraft.client.gui.Gui.fill(poseStack, getX(), getY(), getX() + width, getY() + height, 0xFF000000);
-    //$$    font.draw(poseStack, value, getX() + 4, getY() + (height - 8) / 2, 0xFFFFFF);
+    //$$    net.minecraft.client.gui.Gui.fill(poseStack, this.x, this.y, this.x + width, this.y + height, 0xFF000000);
+    //$$    font.draw(poseStack, value, this.x + 4, this.y + (height - 8) / 2, 0xFFFFFF);
     //$$}
     //#endif
 

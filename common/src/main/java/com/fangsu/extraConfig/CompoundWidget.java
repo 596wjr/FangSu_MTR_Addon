@@ -1,4 +1,4 @@
-﻿package com.fangsu.extraConfig;
+package com.fangsu.extraConfig;
 
 import com.fangsu.mappings.ComponentHelper;
 //#if MC_VERSION >= 12000
@@ -33,9 +33,18 @@ public class CompoundWidget extends AbstractWidget {
             }
         }
     }
-    //#elseif MC_VERSION >= 11903
+    //#elseif MC_VERSION >= 11904
     //$$@Override
     //$$public void renderWidget(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
+    //$$    for (AbstractWidget w : children) {
+    //$$        if (w.visible) {
+    //$$            w.render(poseStack, mouseX, mouseY, partial);
+    //$$        }
+    //$$    }
+    //$$}
+    //#elseif MC_VERSION >= 11903
+    //$$@Override
+    //$$public void renderButton(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
     //$$    for (AbstractWidget w : children) {
     //$$        if (w.visible) {
     //$$            w.render(poseStack, mouseX, mouseY, partial);

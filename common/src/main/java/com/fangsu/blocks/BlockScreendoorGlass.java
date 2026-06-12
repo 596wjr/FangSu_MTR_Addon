@@ -29,7 +29,6 @@ public class BlockScreendoorGlass extends BaseObjBlock implements IBlockPlatform
         return new BlockEntityScreendoorGlass(pos, state);
     }
 
-    @Override
     public void tick(
             @NotNull BlockState state,
             @NotNull ServerLevel level,

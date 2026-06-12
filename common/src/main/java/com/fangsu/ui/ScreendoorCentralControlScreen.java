@@ -1,4 +1,4 @@
-﻿package com.fangsu.ui;
+package com.fangsu.ui;
 
 import com.fangsu.blockEntities.BlockEntityScreendoorCentralControl;
 import com.fangsu.mappings.ComponentHelper;
@@ -62,7 +62,7 @@ public class ScreendoorCentralControlScreen extends Screen {
 
         // ===== 闂ㄩ殧锟?=====
         y += 10;
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         isolationBtn = Button.builder(getIsolationLabel(), btn -> {
             isolation = !isolation;
             btn.setMessage(getIsolationLabel());
@@ -75,7 +75,7 @@ public class ScreendoorCentralControlScreen extends Screen {
 
         // ===== 闂ㄥ紑鍚紙浠呭湪闅旂鎵撳紑鏃跺彲鐢級 =====
         y += 25;
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         doorOpenBtn = Button.builder(getDoorOpenLabel(), btn -> {
             doorOpen = !doorOpen;
             btn.setMessage(getDoorOpenLabel());
@@ -99,7 +99,7 @@ public class ScreendoorCentralControlScreen extends Screen {
         }
 
         // ===== 娣诲姞鍧愭爣鎸夐挳 =====
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         addPosBtn = Button.builder(ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.addPos"), btn -> {
             startPositions.add(BlockPos.ZERO); /*#if MC_VERSION >= 11900*/
             rebuildWidgets(); /*#endif*/
@@ -110,7 +110,7 @@ public class ScreendoorCentralControlScreen extends Screen {
         addRenderableWidget(addPosBtn);
 
         // ===== 閲嶆柊鎵弿鎸夐挳 =====
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         scanBtn = Button.builder(ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.scan"), btn -> {
             syncPositionsFromRows();
             ctrl.getStartPositions().clear();
@@ -125,7 +125,7 @@ public class ScreendoorCentralControlScreen extends Screen {
 
         // ===== 淇濆瓨骞堕€€锟?=====
         y += 30;
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         saveBtn = Button.builder(ComponentHelper.translatable("ui.fangsu.block.close_and_save"), btn -> {
             saveAndClose();
         }).bounds(panelLeft, y, PANEL_WIDTH, 20).build();
@@ -257,7 +257,7 @@ public class ScreendoorCentralControlScreen extends Screen {
             zBox.setValue(String.valueOf(pos.getZ()));
             addRenderableWidget(zBox);
 
-            //#if MC_VERSION >= 12000
+            //#if MC_VERSION >= 11903
             removeBtn = Button.builder(Component.literal("X"), btn -> {
                 startPositions.remove(pos);
                 /*#if MC_VERSION >= 11900*/ rebuildWidgets(); /*#endif*/

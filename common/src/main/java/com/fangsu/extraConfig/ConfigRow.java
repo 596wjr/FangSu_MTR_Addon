@@ -1,4 +1,4 @@
-﻿package com.fangsu.extraConfig;
+package com.fangsu.extraConfig;
 
 //#if MC_VERSION >= 12000
 import net.minecraft.client.gui.GuiGraphics;
@@ -26,16 +26,22 @@ public class ConfigRow extends AbstractWidget {
         g.drawString(net.minecraft.client.Minecraft.getInstance().font, getMessage(), getX(), getY() + (height - 8) / 2, 0xFFFFFF);
         field.render(g, mouseX, mouseY, partial);
     }
-    //#elseif MC_VERSION >= 11903
+    //#elseif MC_VERSION >= 11904
     //$$@Override
     //$$public void renderWidget(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
+    //$$    net.minecraft.client.Minecraft.getInstance().font.draw(poseStack, getMessage(), (float) getX(), (float) (getY() + (height - 8) / 2), 0xFFFFFF);
+    //$$    field.render(poseStack, mouseX, mouseY, partial);
+    //$$}
+    //#elseif MC_VERSION >= 11903
+    //$$@Override
+    //$$public void renderButton(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
     //$$    net.minecraft.client.Minecraft.getInstance().font.draw(poseStack, getMessage(), (float) getX(), (float) (getY() + (height - 8) / 2), 0xFFFFFF);
     //$$    field.render(poseStack, mouseX, mouseY, partial);
     //$$}
     //#else
     //$$@Override
     //$$public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
-    //$$    net.minecraft.client.Minecraft.getInstance().font.draw(poseStack, getMessage(), (float) getX(), (float) (getY() + (height - 8) / 2), 0xFFFFFF);
+    //$$    net.minecraft.client.Minecraft.getInstance().font.draw(poseStack, getMessage(), (float) this.x, (float) (this.y + (height - 8) / 2), 0xFFFFFF);
     //$$    field.render(poseStack, mouseX, mouseY, partial);
     //$$}
     //#endif
