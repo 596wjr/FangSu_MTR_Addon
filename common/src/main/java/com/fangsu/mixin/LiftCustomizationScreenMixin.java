@@ -42,7 +42,7 @@ public class LiftCustomizationScreenMixin {
 
     @Inject(method = "<init>", at = @At("TAIL"), remap = false)
     private void onInit(LiftClient lift, CallbackInfo ci) {
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         fangsu$buttonModel = Button.builder(
                 ComponentHelper.translatable("ui.fangsu.block.modelSelect"),
                 button -> {

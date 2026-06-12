@@ -81,7 +81,7 @@ public class ConfigWidget extends AbstractWidget {
 
     //#if MC_VERSION >= 12000
     @Override
-    protected void renderWidget(net.minecraft.client.gui.GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
+    public void renderWidget(net.minecraft.client.gui.GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
         var font = net.minecraft.client.Minecraft.getInstance().font;
         int maxWidth = Math.max(0, labelWidth - 4);
         String label = maxWidth > 0
@@ -93,9 +93,23 @@ public class ConfigWidget extends AbstractWidget {
             w.render(gui, mouseX, mouseY, partialTick);
         }
     }
+    //#elseif MC_VERSION >= 11904
+    //$$@Override
+    //$$public void renderWidget(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+    //$$    var font = net.minecraft.client.Minecraft.getInstance().font;
+    //$$    int maxWidth = Math.max(0, labelWidth - 4);
+    //$$    String label = maxWidth > 0
+    //$$            ? font.plainSubstrByWidth(getMessage().getString(), maxWidth)
+    //$$            : getMessage().getString();
+    //$$    int textY = getY() + (height - 8) / 2;
+    //$$    font.draw(poseStack, label, (float) getX(), (float) textY, 0x202020);
+    //$$    for (AbstractWidget w : children) {
+    //$$        w.render(poseStack, mouseX, mouseY, partialTick);
+    //$$    }
+    //$$}
     //#elseif MC_VERSION >= 11903
     //$$@Override
-    //$$protected void renderWidget(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+    //$$public void renderButton(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
     //$$    var font = net.minecraft.client.Minecraft.getInstance().font;
     //$$    int maxWidth = Math.max(0, labelWidth - 4);
     //$$    String label = maxWidth > 0
@@ -115,8 +129,8 @@ public class ConfigWidget extends AbstractWidget {
     //$$    String label = maxWidth > 0
     //$$            ? font.plainSubstrByWidth(getMessage().getString(), maxWidth)
     //$$            : getMessage().getString();
-    //$$    int textY = getY() + (height - 8) / 2;
-    //$$    font.draw(poseStack, label, (float) getX(), (float) textY, 0x202020);
+    //$$    int textY = this.y + (height - 8) / 2;
+    //$$    font.draw(poseStack, label, (float) this.x, (float) textY, 0x202020);
     //$$    for (AbstractWidget w : children) {
     //$$        w.render(poseStack, mouseX, mouseY, partialTick);
     //$$    }

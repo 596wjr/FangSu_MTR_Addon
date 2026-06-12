@@ -1,4 +1,4 @@
-﻿package com.fangsu.extraConfig;
+package com.fangsu.extraConfig;
 
 import com.fangsu.mappings.ComponentHelper;
 import net.minecraft.client.Minecraft;
@@ -85,9 +85,14 @@ public class SliderWidget extends AbstractWidget {
     public void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partial) {
         slider.render(g, mouseX, mouseY, partial);
     }
-    //#elseif MC_VERSION >= 11903
+    //#elseif MC_VERSION >= 11904
     //$$@Override
     //$$public void renderWidget(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
+    //$$    slider.render(poseStack, mouseX, mouseY, partial);
+    //$$}
+    //#elseif MC_VERSION >= 11903
+    //$$@Override
+    //$$public void renderButton(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partial) {
     //$$    slider.render(poseStack, mouseX, mouseY, partial);
     //$$}
     //#else
@@ -107,7 +112,7 @@ public class SliderWidget extends AbstractWidget {
         return slider.mouseDragged(x, y, btn, dx, dy);
     }
 
-    //#if MC_VERSION >= 12000
+    //#if MC_VERSION >= 11903
     @Override
     protected void updateWidgetNarration(NarrationElementOutput narration) {
     }
@@ -182,7 +187,7 @@ public class SliderWidget extends AbstractWidget {
             if (!this.visible || button != 0) {
                 return false;
             }
-            //#if MC_VERSION >= 12000
+            //#if MC_VERSION >= 11903
             if (mouseX < this.getX() || mouseX > this.getX() + this.width
                     || mouseY < this.getY() || mouseY > this.getY() + this.height) {
                 return false;

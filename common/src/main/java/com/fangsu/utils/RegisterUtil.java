@@ -66,11 +66,19 @@ public class RegisterUtil {
                     return builder
                             .title(ComponentHelper.translatable(name))
                             .icon(() -> new ItemStack(icon.get()))
+                            //#if MC_VERSION >= 11904
                             .displayItems((parameters, output) -> {
                                 for (RegistrySupplier<Item> item : items) {
                                     output.accept(item.get());
                                 }
                             })
+                            //#else
+                            //$$ .displayItems((enabledFeatures, output, hasPermissions) -> {
+                            //$$     for (RegistrySupplier<Item> item : items) {
+                            //$$         output.accept(item.get());
+                            //$$     }
+                            //$$ })
+                            //#endif
                             .build();
                 }
         );

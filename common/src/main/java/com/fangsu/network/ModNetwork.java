@@ -7,8 +7,10 @@ import com.fangsu.blockEntities.Syncable;
 import com.fangsu.items.TicketItem;
 import dev.architectury.networking.NetworkManager;
 import net.minecraft.core.BlockPos;
-//#if MC_VERSION >= 12000
+//#if MC_VERSION >= 11903
 import net.minecraft.core.registries.BuiltInRegistries;
+//#endif
+//#if MC_VERSION >= 12000
 import net.minecraft.core.registries.Registries;
 //#endif
 import net.minecraft.network.FriendlyByteBuf;
