@@ -134,9 +134,14 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
 //        }
 
 
-        matrices.translate(x, y, z);
-        PoseStackUtil.rotY(matrices, (float) Math.PI + yaw);
-        PoseStackUtil.rotX(matrices, hasPitch ? pitch : 0);
+        try {
+            matrices.translate(x, y, z);
+            PoseStackUtil.rotY(matrices, (float) Math.PI + yaw);
+            PoseStackUtil.rotX(matrices, hasPitch ? pitch : 0);
+        } catch (Exception e) {
+            Main.LOGGER.error("Failed to draw train: ", e);
+            return;
+        }
         try {
             final int light = LightTexture.pack(world.getBrightness(LightLayer.BLOCK, posAverage), world.getBrightness(LightLayer.SKY, posAverage));
             Matrix4f drawPose = new Matrix4f(matrices.last().pose());
