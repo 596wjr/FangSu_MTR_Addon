@@ -61,6 +61,10 @@ public class VertAttrState {
                     break;
                 case NORMAL:
                     if (normal == null) continue;
+//                    GL33.glDisableVertexAttribArray(attr.location);
+//                    GL33.glVertexAttrib3f(attr.location, normal.x(), normal.y(), normal.z());
+//                    System.out.println(this.normal);
+//                    break;
                     GL33.glVertexAttrib3f(attr.location, normal.x(), normal.y(), normal.z());
                     break;
                 case MATRIX_MODEL:
@@ -84,12 +88,9 @@ public class VertAttrState {
                     } else {
                         ShaderInstance shaderInstance = RenderSystem.getShader();
                         if (shaderInstance != null && shaderInstance.MODEL_VIEW_MATRIX != null) {
-                            shaderInstance.MODEL_VIEW_MATRIX.set(matrixModel.asMoj());
-                            if (ShadersModHandler.canUseCustomShader()) {
-                                shaderInstance.MODEL_VIEW_MATRIX.upload();
-                            } else {
-                                shaderInstance.apply();
-                            }
+                           shaderInstance.MODEL_VIEW_MATRIX.set(matrixModel.asMoj());
+                           // Use upload() to avoid apply() overwriting MODEL_VIEW_MATRIX from RenderSystem
+                           shaderInstance.MODEL_VIEW_MATRIX.upload();
                         }
                     }
                     break;

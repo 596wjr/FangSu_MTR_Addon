@@ -5,6 +5,7 @@ import com.fangsu.MainClient;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.blockEntities.Scriptable;
 import com.fangsu.blocks.BaseObjBlock;
+import com.fangsu.render.ShadersModHandler;
 import com.fangsu.render.sowcer.math.Matrix4f;
 import com.fangsu.render.sowcer.math.PoseStackUtil;
 import com.fangsu.render.sowcerext.reuse.DrawScheduler;
@@ -92,7 +93,11 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
             scriptable.renderScript();
         }
 
-        blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, lightToUse);
+        if (ShadersModHandler.canUseCustomShader()) {
+            blockEntity.scriptContext.scriptResult.commit(MainClient.drawScheduler, candyPose, lightToUse);
+        } else {
+            blockEntity.scriptContext.scriptResult.renderDirect(multiBufferSource, candyPose, lightToUse);
+        }
 
 //            }
 //            prop.script.tryCallRenderFunctionAsync(blockEntity.scriptContext);
