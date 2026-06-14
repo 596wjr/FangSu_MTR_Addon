@@ -5,6 +5,8 @@ import com.fangsu.render.sowcer.math.Matrix4f;
 import com.fangsu.render.sowcer.math.Vector3f;
 import com.fangsu.render.sowcerext.model.ModelCluster;
 import com.fangsu.render.sowcerext.reuse.DrawScheduler;
+import com.fangsu.MainClient;
+import com.fangsu.render.sowcerext.model.integration.BufferSourceProxy;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
@@ -36,6 +38,21 @@ public abstract class AbstractDrawCalls {
                     if (model != null) {
                         drawScheduler.enqueue(model, finalPose, light);
                     }
+                }
+            }
+        }
+
+        public void commitDirect(BufferSourceProxy proxy, Matrix4f basePose, int light) {
+            Matrix4f finalPose = basePose.copy();
+            finalPose.multiply(pose);
+            if (model != null) {
+                model.enqueueOpaqueBlaze(proxy, finalPose, light, MainClient.drawContext);
+                model.enqueueTranslucentBlaze(proxy, finalPose, light, MainClient.drawContext);
+            } else if (modelHolder != null) {
+                ModelCluster m = modelHolder.getUploadedModel();
+                if (m != null) {
+                    m.enqueueOpaqueBlaze(proxy, finalPose, light, MainClient.drawContext);
+                    m.enqueueTranslucentBlaze(proxy, finalPose, light, MainClient.drawContext);
                 }
             }
         }

@@ -121,10 +121,10 @@ public class ShaderManager {
 
         shaderInstance.apply();
 
-//        if (shaderInstance.programId != ShaderInstance.lastProgramId) {
-//            ProgramManager.glUseProgram(shaderInstance.programId);
-//            ShaderInstance.lastProgramId = shaderInstance.programId;
-//        }
+        // if (shaderInstance.programId != ShaderInstance.lastProgramId) {
+        //     ProgramManager.glUseProgram(shaderInstance.programId);
+        //     ShaderInstance.lastProgramId = shaderInstance.programId;
+        // }
     }
 
     public void cleanupShaderBatchState(MaterialProp materialProp, ShaderProp shaderProp) {

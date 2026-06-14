@@ -19,6 +19,21 @@ allprojects {
     group = rootProject.maven_group
     version = rootProject.mod_version
 
+    configurations.all {
+        resolutionStrategy {
+            // 强制所有 lwjgl 核心模块和平台相关模块使用 3.3.1
+            force 'org.lwjgl:lwjgl:3.3.1'
+            force 'org.lwjgl:lwjgl-glfw:3.3.1'
+            force 'org.lwjgl:lwjgl-jemalloc:3.3.1'
+            force 'org.lwjgl:lwjgl-openal:3.3.1'
+            force 'org.lwjgl:lwjgl-opengl:3.3.1'
+            force 'org.lwjgl:lwjgl-stb:3.3.1'
+            force 'org.lwjgl:lwjgl-tinyfd:3.3.1'
+            // 如果有需要，也可以强制 vulkan（但 1.20.1 通常不需要）
+            // force 'org.lwjgl:lwjgl-vulkan:3.3.1'
+        }
+    }
+
     gradle.projectsEvaluated {
         tasks.withType(JavaCompile) {
             options.compilerArgs << "-Xmaxerrs" << "400"
