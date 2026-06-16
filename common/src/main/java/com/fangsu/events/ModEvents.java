@@ -1,5 +1,6 @@
 package com.fangsu.events;
 
+import com.fangsu.Main;
 import com.fangsu.MainClient;
 import com.fangsu.mtr.DrawableRoute;
 import com.fangsu.utils.GraphicsTextureHelper;
@@ -11,6 +12,8 @@ public class ModEvents {
         PlayerEvent.PLAYER_JOIN.register(JoinInClearCache::clearCache);
 
         // 资源重载时清除缓存的绘制数据和路线缓存，防止跨世界数据错乱
-        MainClient.addResourceRunnable(JoinInClearCache::clearCache);
+        if (Main.isClient) {
+            MainClient.addResourceRunnable(JoinInClearCache::clearCache);
+        }
     }
 }
