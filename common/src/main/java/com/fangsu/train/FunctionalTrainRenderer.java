@@ -125,13 +125,13 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
 
         trainStatus.update(carIndex, doorLeftOpen, doorRightOpen, carPose.copy());
 
-//        if (posAverage == null) {
+        if (posAverage == null) {
 //            if (carIndex == train.trainCars - 1) {
 //                // So it's outside visible range, but still need to call render function
 //                GraphicsTextureHelper.getInstance().getGraphics("train_" + (train.trainId));
 //            }
-//            return;
-//        }
+            return;
+        }
 
 
         try {

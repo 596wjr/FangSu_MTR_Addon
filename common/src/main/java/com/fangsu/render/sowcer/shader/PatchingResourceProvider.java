@@ -36,9 +36,9 @@ public class PatchingResourceProvider implements ResourceProvider {
     @Override
     //#if MC_VERSION >= 11900
     public Optional<Resource> getResource(ResourceLocation resourceLocation) {
-    //#else
-    //$$public Resource getResource(ResourceLocation resourceLocation) throws IOException {
-    //#endif
+        //#else
+        //$$public Resource getResource(ResourceLocation resourceLocation) throws IOException {
+        //#endif
         try {
             if (resourceLocation.getPath().contains("_modelmat"))
                 resourceLocation = new ResourceLocation(resourceLocation.getNamespace(),
@@ -53,8 +53,8 @@ public class PatchingResourceProvider implements ResourceProvider {
                 srcInputStream = srcResource.get().open();
             }
             //#else
-            //$$Resource srcResource = source.getResource(resourceLocation);
-            //$$srcInputStream = srcResource.getInputStream();
+            //$$ Resource srcResource = source.getResource(resourceLocation);
+            //$$ srcInputStream = srcResource.getInputStream();
             //#endif
             String returningContent = "";
 
