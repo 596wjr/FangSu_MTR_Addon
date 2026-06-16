@@ -319,6 +319,22 @@ public class ResourceUtil {
         return gt;
     }
 
+    public static @NotNull JsonElement simpleLoadAsJson(ResourceLocation location) {
+        String GlobalRegisterKey = "Identifier" + location.toString() + "@SimpleJson";
+        if (register.containsKey(GlobalRegisterKey)) {
+            return (JsonElement) register.get(GlobalRegisterKey);
+        }
+        String loaded;
+        try {
+            loaded = loadString(location);
+        } catch (IOException e) {
+            loaded = "{}";
+        }
+        JsonElement json = Main.JSON_PARSER.parse(loaded);
+        register.put(GlobalRegisterKey, json);
+        return json;
+    }
+
     /**
      * 从所有资源包加载并合并JSON文件
      * 合并规则：第一层对象合并属性，第一层数组合并元素，更深层直接覆盖
@@ -327,6 +343,11 @@ public class ResourceUtil {
      * @return 合并后的JsonElement
      */
     public static @NotNull JsonElement loadAsJSON(ResourceLocation location) {
+        String GlobalRegisterKey = "Identifier" + location.toString() + "@Json";
+        if (register.containsKey(GlobalRegisterKey)) {
+            return (JsonElement) register.get(GlobalRegisterKey);
+        }
+
         List<Resource> resources;
 
         try {
@@ -372,9 +393,12 @@ public class ResourceUtil {
         }
 
         if (mergedResult != null) {
+            register.put(GlobalRegisterKey, mergedResult);
             return mergedResult;
         }
-        return new JsonObject();
+        JsonElement result = JsonNull.INSTANCE;
+        register.put(GlobalRegisterKey, result);
+        return result;
     }
 
     // ============ 版本兼容的 Resource 辅助方法 ============
