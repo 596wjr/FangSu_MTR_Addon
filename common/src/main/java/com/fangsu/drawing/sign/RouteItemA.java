@@ -112,7 +112,7 @@ public class RouteItemA extends SignItem {
     }
 
     private String getRouteName() {
-        if (route == null) return "鏈懡鍚峾Undefined";
+        if (route == null) return "未命名|Undefined";
         return route.name;
     }
 

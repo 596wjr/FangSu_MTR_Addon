@@ -1,4 +1,4 @@
-﻿package com.fangsu.utils;
+package com.fangsu.utils;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;

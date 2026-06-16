@@ -1,4 +1,4 @@
-﻿package com.fangsu.ui.ticketMachine;
+package com.fangsu.ui.ticketMachine;
 
 import com.fangsu.Main;
 import com.fangsu.items.ModItems;

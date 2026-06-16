@@ -80,7 +80,7 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
     private boolean scriptInit = false;
     private boolean scriptDone = false;
 
-    private List<RouteSelectInfo> routes;
+    private List<RouteSelectInfo> routes = new ArrayList<>();
 
     /**
      * 涓婃娉ㄥ唽缁樺埗鐨勬爣璇嗭紝閬垮厤閲嶅娉ㄥ唽
@@ -435,6 +435,10 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
                             null,
                             l -> {
                                 routes = l;
+                                // 璺嚎鏇存柊锛岄噸缃鑹叉浛鎹㈡爣蹇楋紝浠ヤ娇涓嬩竴娆＄粯鍒朵娇鐢ㄦ纭殑璺嚎棰滆壊
+                                leftLoaded = false;
+                                centerLoaded = false;
+                                rightLoaded = false;
                                 List<List<Long>> saveRoutes = new ArrayList<>();
                                 for (RouteSelectInfo info : routes) {
                                     saveRoutes.add(List.of(info.route.id, info.plat.id));
@@ -525,6 +529,10 @@ public class BlockEntityDiaoban extends BaseObjBlockEntity implements IPlatformD
         if (!scriptDone) {
             GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
             routes = reloadRoute(getExtraConfig("routes", "[]"));
+            // 璺嚎閲嶆柊鍔犺浇锛岄噸缃鑹叉浛鎹㈡爣蹇楋紝浠ヤ究浣跨敤姝ｇ‘鐨勮矾绾块鑹查噸鏂板～鍏厁outecolor
+            leftLoaded = false;
+            centerLoaded = false;
+            rightLoaded = false;
             String drawInfoId = "DIAOBAN_" + drawKey + "_" + routes + "_" + arrowDirection;
             // 濡傛灉鏍囪瘑鐩稿悓锛堟暟鎹湭鍙樺寲锛夛紝鐩存帴鏍囪瀹屾垚
             if (drawInfoId.equals(lastRegisteredDrawInfoId)) {

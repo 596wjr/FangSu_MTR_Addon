@@ -26,7 +26,7 @@ public class TextItem extends SignItem {
         } else color = Color.WHITE;
         if (json.has("text") && json.get("text").isJsonPrimitive()) {
             text = json.get("text").getAsString();
-        } else text = "鏂囨湰|text";
+        } else text = "文本|text";
         if (json.has("font") && json.get("font").isJsonPrimitive()) {
             fontLocation = new ResourceLocation(json.get("font").getAsString());
         } else fontLocation = new ResourceLocation("fangsu:fonts/source-han-sans.otf");

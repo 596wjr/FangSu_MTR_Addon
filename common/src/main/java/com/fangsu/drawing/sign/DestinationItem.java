@@ -101,11 +101,11 @@ public class DestinationItem extends SignItem {
     }
 
     private String getDest() {
-        if (plat == null) return "寮€寰€ 鏈懡鍚峾To undefined";
+        if (plat == null) return "开往 未命名|To undefined";
         if ((cachePlat != null && cachePlat.equals(plat)) && !cacheText.isEmpty()) return cacheText;
         cachePlat = plat;
         String rawDest = MtrUtil.getDestinationByPlatform(plat);
-        String dest = TextUtil.addPrefix(rawDest, "寮€寰€", "To", true);
+        String dest = TextUtil.addPrefix(rawDest, "开往", "To", true);
         cacheText = dest;
         return dest;
     }

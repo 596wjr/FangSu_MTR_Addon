@@ -429,6 +429,9 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
     }
 
     protected List<ModelSelectInfo> getModelSelectOptions(String nestedKeyPath) {
+        if (this.mainModel == null) {
+            return new ArrayList<>();
+        }
         return new ArrayList<>(CustomItems.getModelSelectInfos(this.mainModel, nestedKeyPath));
     }
 

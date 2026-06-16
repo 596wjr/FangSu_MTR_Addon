@@ -1,4 +1,4 @@
-﻿package com.fangsu.ui;
+package com.fangsu.ui;
 
 import com.fangsu.Main;
 import com.fangsu.utils.ResourceUtil;

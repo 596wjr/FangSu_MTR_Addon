@@ -1,4 +1,4 @@
-﻿package com.fangsu.extraConfig;
+package com.fangsu.extraConfig;
 
 import com.fangsu.mappings.ComponentHelper;
 import net.minecraft.client.gui.components.Button;

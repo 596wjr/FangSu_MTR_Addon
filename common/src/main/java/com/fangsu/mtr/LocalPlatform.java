@@ -8,7 +8,7 @@ public class LocalPlatform {
 
     public LocalPlatform(Platform raw) {
         this.raw = raw;
-        this.id = raw.id;
+        this.id = raw != null ? raw.id : 0L;
     }
 
     public LocalPlatform() {

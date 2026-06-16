@@ -56,7 +56,15 @@ public interface RouteDrawer {
                 continue;
             }
             JsonArray a = rawRoute.getAsJsonArray();
-            routes.add(new RouteSelectInfo(MtrUtil.getRouteById(a.get(0).getAsLong()), MtrUtil.getPlatformById(a.get(1).getAsLong())));
+            LocalRoute route = MtrUtil.getRouteById(a.get(0).getAsLong());
+            Platform plat = MtrUtil.getPlatformById(a.get(1).getAsLong());
+            if (route == null || plat == null) {
+                continue;
+            }
+            routes.add(new RouteSelectInfo(route, plat));
+        }
+        if (routes.isEmpty()) {
+            routes.add(new RouteSelectInfo(new LocalRoute(), null));
         }
 //        Main.LOGGER.info("Loaded {} routes", routes.size());
         Main.LOGGER.info(routes.toString());

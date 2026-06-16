@@ -1,4 +1,4 @@
-﻿package com.fangsu.ui;
+package com.fangsu.ui;
 
 import com.fangsu.drawing.sign.*;
 import com.fangsu.mappings.ComponentHelper;

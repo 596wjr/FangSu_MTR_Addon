@@ -60,7 +60,12 @@ public final class DiaobanDrawManager {
     }
 
     public static BaseDiaobanDrawing createDrawing(String key) {
-        Supplier<BaseDiaobanDrawing> javaFactory = drawOptions.get(key).supplier();
+        DiaobanDrawItem item = drawOptions.get(key);
+        if (item == null) {
+            Main.LOGGER.warn("Diaoban draw item not found for key: {}, falling back to JS drawing", key);
+            return new JsDiaobanDrawing(key);
+        }
+        Supplier<BaseDiaobanDrawing> javaFactory = item.supplier();
         if (javaFactory != null) {
             return javaFactory.get();
         }
