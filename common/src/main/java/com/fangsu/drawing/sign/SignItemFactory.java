@@ -50,7 +50,7 @@ public final class SignItemFactory {
     public static void init() {
         registerBuiltInSign();
         registerJsItems();
-        JsonElement builtInSign = ResourceUtil.simpleLoadAsJson(new ResourceLocation("fangsu:sign/builtinsign.json"));
+        JsonElement builtInSign = ResourceUtil.simpleLoadAsJson(new ResourceLocation("fangsu:sign/builtin_sign.json"));
         if (builtInSign.isJsonObject()) {
             JsonObject obj = builtInSign.getAsJsonObject();
             if (obj.has("signItems") && obj.get("signItems").isJsonArray()) {
