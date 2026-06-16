@@ -2,8 +2,6 @@ package com.fangsu.mixin;
 
 import com.fangsu.blockEntities.IPlatformDoor;
 import com.fangsu.blocks.IBlockPlatform;
-import mtr.block.BlockPSDAPGBase;
-import mtr.block.BlockPlatform;
 import mtr.data.Train;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
@@ -12,15 +10,11 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.HashSet;
-import java.util.Set;
-
-@Mixin(value = Train.class, remap = false, priority = 888)
+@Mixin(value = Train.class, remap = false, priority = 2222)
 public abstract class TrainMixin {
     /* ==========================================================
      *  Shadow：Train 原生字段 / 方法

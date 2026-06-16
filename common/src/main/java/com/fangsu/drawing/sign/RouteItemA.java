@@ -53,7 +53,7 @@ public class RouteItemA extends SignItem {
         if (isNumLine) {
             String name = RouteNameUtil.getCJKLineName(TextUtil.getCjkParts(routeName));
             width += G2dTextHelper.getUnifiedStringWidth(g, font, name, unit * 0.7f);
-            width += G2dTextHelper.getMultiLinesWidth(g, font, unit * 0.65f, "鍙风嚎", TextUtil.getNonCjkParts(routeName));
+            width += G2dTextHelper.getMultiLinesWidth(g, font, unit * 0.65f, "号线", TextUtil.getNonCjkParts(routeName));
         } else {
             width += G2dTextHelper.getMultiLinesWidth(g, font, unit * 0.7f, TextUtil.getNonExtraParts(routeName).split("\\|"));
         }
@@ -77,7 +77,7 @@ public class RouteItemA extends SignItem {
             int currentX = x + (int) (u * 0.1f);
             String name = RouteNameUtil.getCJKLineName(TextUtil.getCjkParts(routeName));
             currentX += G2dTextHelper.drawStrUnified(g, font, name, currentX, (int) (y + u * 0.7f), u * 0.75f, 0);
-            currentX += G2dTextHelper.drawStrMultiLines(g, font, currentX, y + (int) (u * 0.1f) - (int) (u * 0.65f), (int) (u * 0.65f), 0, "鍙风嚎", TextUtil.getNonCjkParts(routeName));
+            currentX += G2dTextHelper.drawStrMultiLines(g, font, currentX, y + (int) (u * 0.1f) - (int) (u * 0.65f), (int) (u * 0.65f), 0, "号线", TextUtil.getNonCjkParts(routeName));
         } else {
             G2dTextHelper.drawStrMultiLines(g, font, (int) (x + u * 0.1f), y + (int) (u * 0.075f) - (int) (u * 0.7f), (int) (u * 0.7f), 1, TextUtil.getNonExtraParts(routeName).split("\\|"));
         }

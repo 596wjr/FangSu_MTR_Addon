@@ -36,13 +36,12 @@ public abstract class SignItem {
 
     /**
      * 该 item 占用的“宽度比例”
-     * unit = 行高（等价于你 JS 里的 u）
+     * unit = 行高
      */
     public abstract float getWidth(Graphics2D g, float unit);
 
     /**
      * 实际绘制
-     * duiqi：0 左，1 中，2 右
      */
     public abstract void draw(SignDrawContext ctx);
 

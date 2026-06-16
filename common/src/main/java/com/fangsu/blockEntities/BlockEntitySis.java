@@ -151,8 +151,24 @@ public class BlockEntitySis extends BaseObjBlockEntity {
         // 娉ㄥ唽缁樺埗
         if (!scriptDone) {
             GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
+
+            // 鍦ㄦ敞鍐岀粯鍒跺墠灏辫喘寤鸿矾绾垮苟妫€鏌ユ暟鎹槸鍚﹀畬鏁达紝臩垮厤鍦▁ambda涓娇鐢ㄥ埌涓嶅畬鏁存暟鎹?
+            List<LocalRoute> routes = new ArrayList<>();
+            if (stn.getRaw() != null)
+                for (mtr.data.Platform plat : MtrUtil.getPlatformByStation(stn.getRaw())) {
+                    var platRoutes = MtrUtil.getRouteByPlatform(plat);
+                    routes.addAll(platRoutes);
+                }
+
+            // 濡傛灉杞﹁溅绔欏彴璺嚎鏁版嵁灏氭湭鍔犺浇瀹屾垚锛堣矾绾夸负绌猴級锛岃烦杩囨湰娆＄粯鍒舵敞鍐岋紝涓嬫害鏃舵椂閲嶈瘯
+            if (routes.isEmpty()) {
+                return;
+            }
+
+            LocalRoute[] routeArray = routes.toArray(new LocalRoute[routes.size()]);
+
             int arrowDirection = getExtraConfigInt("arrowDirection", 0);
-            String drawInfoId = "SIS_" + scriptPath + "_" + arrowDirection;
+            String drawInfoId = "SIS_" + scriptPath + "_" + stn.id + "_" + arrowDirection;
             if (drawInfoId.equals(lastRegisteredDrawInfoId)) {
                 scriptDone = true;
                 return;
@@ -167,15 +183,6 @@ public class BlockEntitySis extends BaseObjBlockEntity {
                     gt -> {
                         BaseSisDrawing drawer = sisDrawing;
                         if (drawer == null) return;
-
-                        // 鏋勫缓璺嚎鏁版嵁
-                        List<LocalRoute> routes = new ArrayList<>();
-                        if (stn.getRaw() != null)
-                            for (mtr.data.Platform plat : MtrUtil.getPlatformByStation(stn.getRaw())) {
-                                var platRoutes = MtrUtil.getRouteByPlatform(plat);
-                                routes.addAll(platRoutes);
-                            }
-                        LocalRoute[] routeArray = routes.toArray(new LocalRoute[routes.size()]);
 
                         BlockEntitySis.SISDrawInfo drawInfo = new BlockEntitySis.SISDrawInfo(
                                 new int[]{0, 0, texW, texH}, stn, routeArray, new BlockInfo(this), this);
@@ -290,6 +297,7 @@ public class BlockEntitySis extends BaseObjBlockEntity {
                                     userExtraConfigs.put(savePos, new com.google.gson.JsonPrimitive(String.valueOf(v)));
                                     extraConfigs.put("extraConfig", Main.GSON.toJson(userExtraConfigs));
                                     scriptDone = false;
+                                    lastRegisteredDrawInfoId = "";
                                     sendUpdateC2S();
                                 }
                             }
@@ -331,6 +339,7 @@ public class BlockEntitySis extends BaseObjBlockEntity {
                                     if (rawStn == null) stn = new LocalStation();
                                     else stn = new LocalStation(rawStn);
                                     scriptDone = false;
+                                    lastRegisteredDrawInfoId = "";
                                     sendUpdateC2S();
                                 }
                             },

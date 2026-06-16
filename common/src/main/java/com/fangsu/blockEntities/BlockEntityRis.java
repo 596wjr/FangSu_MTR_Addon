@@ -153,7 +153,12 @@ public class BlockEntityRis extends BaseObjBlockEntity implements RouteDrawer {
         // 娉ㄥ唽缁樺埗
         if (!scriptDone) {
             GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
-            routes = reloadRoute(getExtraConfig("routes", "[]"));
+            // 鏌ヨ矾绾挎暟鎹槸鍚﹀凡鍔犺浇瀹屾垚锛坕d==0琛ㄧずMTR鏁版嵁灏氭湭灏辩华锛夛紝阆垮厤鐢╢allback鏁版嵁缁樺埗
+            boolean hasRealRoutes = routes.stream().anyMatch(r -> r.route != null && r.route.id != 0L);
+            if (!hasRealRoutes) {
+                // MTR鏁版嵁鍙婃椂鏁版嵁灏氭湭灏辩华锛岃烦杩囨湰娆＄粯鍒舵敞鍐岋紝涓嬫害鏌舵椂閲嶈瘯
+                return;
+            }
             int arrowDirection = getExtraConfigInt("arrowDirection", 0);
             String drawInfoId = "RIS_" + scriptPath + "_" + routes + "_" + arrowDirection;
             if (drawInfoId.equals(lastRegisteredDrawInfoId)) {
@@ -182,6 +187,8 @@ public class BlockEntityRis extends BaseObjBlockEntity implements RouteDrawer {
     @Override
     public void whenRendering() {
         if (!scriptDone) {
+            // 每次渲染时重新加载路线数据，检测MTR数据是否已就绪
+            routes = reloadRoute(getExtraConfig("routes", "[]"));
             initDrawingAsync();
         }
 
@@ -269,6 +276,8 @@ public class BlockEntityRis extends BaseObjBlockEntity implements RouteDrawer {
                 () -> getExtraConfigInt("arrowDirection", 0),
                 (v) -> {
                     extraConfigs.put("arrowDirection", v.toString());
+                    scriptDone = false;
+                    lastRegisteredDrawInfoId = "";
                     sendUpdateC2S();
                 }
         ));
@@ -302,6 +311,8 @@ public class BlockEntityRis extends BaseObjBlockEntity implements RouteDrawer {
                                     }
                                     userExtraConfigs.put(savePos, new com.google.gson.JsonPrimitive(String.valueOf(v)));
                                     extraConfigs.put("extraConfig", Main.GSON.toJson(userExtraConfigs));
+                                    scriptDone = false;
+                                    lastRegisteredDrawInfoId = "";
                                     sendUpdateC2S();
                                 }
                             }
@@ -343,6 +354,8 @@ public class BlockEntityRis extends BaseObjBlockEntity implements RouteDrawer {
                                     saveRoutes.add(List.of(info.route.id, info.plat.id));
                                 }
                                 extraConfigs.put("routes", Main.GSON.toJson(saveRoutes));
+                                scriptDone = false;
+                                lastRegisteredDrawInfoId = "";
                                 sendUpdateC2S();
                             },
                             getBlockPos(), maxSelect
