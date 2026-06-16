@@ -178,8 +178,8 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
                             dispDoorSide == 1 ? CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL_RIGHT) :
                                     CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL_FLEX);
 
-            ScreendoorDoorContent.ScreendoorDoorDisplayInfo displayInfo = ContentInfoUtil.getScreendoorDisplayInfo(mainModel, subModel, dispDoorSide);
-            if (displayInfo == null) return;
+            ScreendoorDoorContent doorContent = ContentInfoUtil.getScreendoorDoorContent(mainModel, subModel, dispDoorSide);
+            if (doorContent == null) return;
 
             JsonObject mainJson = ResourceUtil.loadAsJSON(new ResourceLocation(mainModel)).getAsJsonObject();
             String modelKey = mainJson.get("model").getAsString();
@@ -187,7 +187,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
             Map<String, DynamicModelHolder> models = ResourceUtil.loadPartedDmh(new ResourceLocation(modelKey), flipV);
 
             infos = new ArrayList<>();
-            for (ScreendoorDoorContent.DoorInfo door : displayInfo.doors()) {
+            for (ScreendoorDoorContent.DoorInfo door : doorContent.getDoors()) {
                 infos.add(new DoorRenderInfo(door, models));
             }
         } catch (Exception e) {

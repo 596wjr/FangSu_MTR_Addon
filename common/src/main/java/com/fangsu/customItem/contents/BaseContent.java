@@ -12,6 +12,10 @@ public abstract class BaseContent {
         id = json.get("id").getAsString();
     }
 
+    protected BaseContent(String id) {
+        this.id = id;
+    }
+
     public String getId() {
         return id;
     }

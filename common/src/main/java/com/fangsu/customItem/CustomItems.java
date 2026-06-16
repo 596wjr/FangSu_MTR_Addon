@@ -3,6 +3,7 @@ package com.fangsu.customItem;
 import com.fangsu.Main;
 import com.fangsu.customItem.contents.ContentManager;
 import com.fangsu.customItem.contents.ContentResourceLoader;
+import com.fangsu.customItem.contents.ScreendoorGlassContent;
 import com.fangsu.utils.ContentInfoUtil;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonArray;
@@ -33,6 +34,7 @@ public class CustomItems {
     public void reset() {
         items.clear();
         ContentResourceLoader.reset();
+        ScreendoorGlassContent.reset();
         ContentManager cm = ContentManager.getInstance();
         cm.reset();
     }

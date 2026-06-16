@@ -34,6 +34,10 @@ public class ContentManager {
         registerContent("route_info_sign", RouteInfoSignContent.RouteInfoSignLoader::load);
         registerContent("adv_board", AdvBoardContent.AdvBoardLoader::load);
         registerContent("station_info_sign", StationInfoSignContent.StationInfoSignLoader::load);
+        registerContent("screendoor", (type, path, content) -> {
+            ScreendoorDoorContent.ScreendoorDoorLoader.load(type, path, content);
+            ScreendoorGlassContent.ScreendoorGlassLoader.load(type, path, content);
+        });
     }
 
     public void reset() {

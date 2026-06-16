@@ -55,7 +55,7 @@
       "doorPos": [
         0.4375,
         0,
-        0.4375
+        -0.4375
       ],
       "subModels": {
         "main": "main_left",

@@ -49,21 +49,21 @@ public final class ContentInfoUtil {
         return ContentManager.getInstance().getContentById("station_info_sign", mainModel, subModel, StationInfoSignContent.class);
     }
 
-    public static ScreendoorDoorContent.ScreendoorDoorDisplayInfo getScreendoorDisplayInfo(String mainModel, String subModel, int doorSide) {
-        Map<String, Object> current = CustomItems.getContentInfo(mainModel, getScreendoorContentPath(doorSide), subModel);
-        if (current == null) return null;
-        List<ScreendoorDoorContent.DoorInfo> doors = new ArrayList<>();
-        if (current.get("doors") instanceof List<?> list) {
-            for (Object o : list) {
-                if (o instanceof Map<?, ?> m) {
-                    ScreendoorDoorContent.DoorInfo info = ScreendoorDoorContent.DoorInfo.fromMap(m);
-                    if (info != null) doors.add(info);
-                }
-            }
-        }
-        return new ScreendoorDoorContent.ScreendoorDoorDisplayInfo(doors);
+    public static ScreendoorDoorContent getScreendoorDoorContent(String mainModel, String subModel, int doorSide) {
+        String side = switch (doorSide) {
+            case 0 -> "left";
+            case 1 -> "right";
+            default -> "flex";
+        };
+        return ContentManager.getInstance().getContentById("screendoor", mainModel, side + "." + subModel, ScreendoorDoorContent.class);
     }
 
+    public static ScreendoorGlassContent getScreendoorGlassContent(String mainModel, String side, String subModel) {
+        return ContentManager.getInstance().getContentById("screendoor", mainModel, side + "." + subModel, ScreendoorGlassContent.class);
+    }
+
+    /** @deprecated use {@link #getScreendoorDoorContent} instead */
+    @Deprecated
     public static String getScreendoorContentPath(int doorSide) {
         return switch (doorSide) {
             case 0 -> "door.left";
@@ -84,13 +84,6 @@ public final class ContentInfoUtil {
         switch (contentType) {
             case "ticketBarrier" -> ContentResourceLoader.loadMapByPath(location, "");
             case "pids", "diaoban" -> ContentResourceLoader.loadMapByPath(location, "content");
-            case "screendoor" -> {
-                ContentResourceLoader.loadMapByPath(location, "door.left");
-                ContentResourceLoader.loadMapByPath(location, "door.right");
-                ContentResourceLoader.loadMapByPath(location, "door.flex");
-                ContentResourceLoader.loadMapByPath(location, "glass.left");
-                ContentResourceLoader.loadMapByPath(location, "glass.right");
-            }
             case "sign" -> {
                 ContentResourceLoader.loadMapByPath(location, "common");
                 ContentResourceLoader.loadMapByPath(location, "on_wall");
