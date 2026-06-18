@@ -6,6 +6,7 @@ import com.fangsu.client.ClientHooks;
 import com.fangsu.client.ClientHooksImpl;
 import net.minecraft.server.packs.resources.PreparableReloadListener;
 import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -31,6 +32,7 @@ public class MainForgeClient {
         event.addListener(new PreparableReloadListener() {
             @Override
             public CompletableFuture<Void> reload(PreparableReloadListener.PreparationBarrier stage, ResourceManager resourceManager,
+                                                   ProfilerFiller preparationsProfiler, ProfilerFiller reloadProfiler,
                                                    Executor backgroundExecutor, Executor gameExecutor) {
                 return stage.wait(null).thenRunAsync(() -> {
                     try {
