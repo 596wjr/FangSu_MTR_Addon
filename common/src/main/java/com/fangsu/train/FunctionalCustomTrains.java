@@ -28,7 +28,7 @@ public class FunctionalCustomTrains implements IResourcePackCreatorProperties, I
                 jsonConfig.get(CUSTOM_TRAINS_KEY).getAsJsonObject().entrySet().forEach(entry -> {
                     try {
                         final JsonObject jsonObject = entry.getValue().getAsJsonObject();
-//                        if (!(jsonObject.has("lcd"))) return;
+                        if (!(jsonObject.has("lcd"))) return;
                         final String trainId = CUSTOM_TRAIN_ID_PREFIX + entry.getKey();
 
                         TrainProperties prevTrainProp = TrainClientRegistry.getTrainProperties(trainId);

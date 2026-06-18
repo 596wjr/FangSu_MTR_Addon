@@ -3,6 +3,8 @@ package com.fangsu.blocks;
 import com.fangsu.blockEntities.BlockEntityScreendoorCentralControl;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
@@ -125,6 +127,37 @@ public class BlockScreendoorCentralControl extends Block implements EntityBlock 
                 ctrl.scanDoors();
                 ctrl.setChanged();
             }
+        }
+    }
+
+    @Override
+    public void onRemove(
+            @NotNull BlockState state,
+            @NotNull Level level,
+            @NotNull BlockPos pos,
+            @NotNull BlockState newState,
+            boolean isMoving
+    ) {
+        if (!state.is(newState.getBlock())) {
+            // 方块被真正破坏（不是状态更新），清除所有受控门的集控状态
+            BlockEntity be = level.getBlockEntity(pos);
+            if (be instanceof BlockEntityScreendoorCentralControl ctrl) {
+                ctrl.clearAllDoors();
+            }
+        }
+        super.onRemove(state, level, pos, newState, isMoving);
+    }
+
+    @Override
+    public void tick(
+            @NotNull BlockState state,
+            @NotNull ServerLevel level,
+            @NotNull BlockPos pos,
+            @NotNull RandomSource random
+    ) {
+        BlockEntity be = level.getBlockEntity(pos);
+        if (be instanceof BlockEntityScreendoorCentralControl ctrl) {
+            ctrl.scanFromTick();
         }
     }
 

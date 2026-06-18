@@ -51,6 +51,48 @@
       }
     },
     {
+      "type": "img",
+      "icon": "fangsu:sign/alu.png",
+      "content": {
+        "img": "fangsu:sign/alu.png"
+      }
+    },
+    {
+      "type": "img",
+      "icon": "fangsu:sign/ald.png",
+      "content": {
+        "img": "fangsu:sign/ald.png"
+      }
+    },
+    {
+      "type": "img",
+      "icon": "fangsu:sign/aru.png",
+      "content": {
+        "img": "fangsu:sign/aru.png"
+      }
+    },
+    {
+      "type": "img",
+      "icon": "fangsu:sign/ard.png",
+      "content": {
+        "img": "fangsu:sign/ard.png"
+      }
+    },
+    {
+      "type": "img",
+      "icon": "fangsu:sign/atl.png",
+      "content": {
+        "img": "fangsu:sign/atl.png"
+      }
+    },
+    {
+      "type": "img",
+      "icon": "fangsu:sign/atr.png",
+      "content": {
+        "img": "fangsu:sign/atr.png"
+      }
+    },
+    {
       "type": "route",
       "icon": "fangsu:sign/routea.png",
       "content": {

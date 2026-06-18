@@ -201,6 +201,23 @@ public class MtrUtil {
         }
     }
 
+    public static boolean isAllDestination(Platform platform) {
+        if (platform == null) return true;
+        List<LocalRoute> routes = getRouteByPlatform(platform);
+        if (routes == null) return true;
+        boolean result = true;
+        for (LocalRoute route : routes) {
+            result &= isDestination(route, platform);
+        }
+        return result;
+    }
+
+    public static boolean isDestination(LocalRoute route, Platform platform) {
+        if (route == null) return false;
+        if (platform == null) return false;
+        return route.platformIds.get(route.platformIds.size() - 1).platformId == platform.id;
+    }
+
     /**
      * 根据站台获取所有终点站名称（去重且按字典序拼接）。
      */

@@ -110,7 +110,13 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
 
         try {
             if (leftIsAuto || rightIsAuto) {
-                String autoKey = (String) loadedLeft.get(subModelLeft).get("auto");
+                // 修正：当只有右侧是 auto 时，应从右侧获取 autoKey
+                String autoKey;
+                if (leftIsAuto) {
+                    autoKey = (String) loadedLeft.get(subModelLeft).get("auto");
+                } else {
+                    autoKey = (String) loadedRight.get(subModelRight).get("auto");
+                }
                 List<JsonObject> commands = ScreendoorGlassContent.loadAutoCommands(mainModel, autoKey);
 
                 blockRelation.refresh();

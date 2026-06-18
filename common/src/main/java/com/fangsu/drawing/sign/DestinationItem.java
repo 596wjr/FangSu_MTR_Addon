@@ -101,6 +101,8 @@ public class DestinationItem extends SignItem {
     }
 
     private String getDest() {
+        if (MtrUtil.isAllDestination(plat))
+            return "终点站|Terminals";
         if (plat == null) return "开往 未命名|To undefined";
         if ((cachePlat != null && cachePlat.equals(plat)) && !cacheText.isEmpty()) return cacheText;
         cachePlat = plat;

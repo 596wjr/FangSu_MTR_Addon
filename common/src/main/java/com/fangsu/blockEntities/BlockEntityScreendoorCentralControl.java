@@ -82,10 +82,10 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
         // 更新指示灯
         updateLightState();
 
-        // 重新扫描门并应用状态
-        scanDoors();
-        if (!level.isClientSide) {
-            applyToAllDoors();
+        // 不在 load 中立即扫描——此时邻居区块可能未加载，
+        // 改为通过 scheduleTick 延迟扫描，由 BlockScreendoorCentralControl.tick() 调用 scanFromTick()
+        if (level != null && !level.isClientSide && !startPositions.isEmpty()) {
+            level.scheduleTick(worldPosition, getBlockState().getBlock(), 5);
         }
     }
 
@@ -316,6 +316,24 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
         }
     }
 
+    /**
+     * 由 BlockScreendoorCentralControl.tick() 定时调用，
+     * 在 load 时邻居未加载完成时重试扫描
+     */
+    public void scanFromTick() {
+        if (level == null || level.isClientSide) return;
+        if (!doorPositions.isEmpty()) return; // 已经扫描完成
+        if (startPositions.isEmpty()) return;
+
+        scanDoors();
+        if (!doorPositions.isEmpty()) {
+            applyToAllDoors();
+        } else {
+            // 还是没加载到邻居，再等一会儿
+            level.scheduleTick(worldPosition, getBlockState().getBlock(), 20);
+        }
+    }
+
     // ======================== 灯状态 ========================
 
     /**
@@ -372,14 +390,21 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
 
     @Override
     public void setRemoved() {
-        // 方块被破坏时，解除所有门的集控状态
+        // setRemoved 在区块卸载和方块破坏时都会调用，
+        // 如果在此时清除门状态，重进世界时门的状态会丢失。
+        // 方块真正被破坏时的清理逻辑移至 BlockScreendoorCentralControl.onRemove()
+        super.setRemoved();
+    }
+
+    /**
+     * 方块被玩家破坏时调用——清除所有受控门的集控状态
+     */
+    public void clearAllDoors() {
         if (level != null && !level.isClientSide && !doorPositions.isEmpty()) {
-            boolean prevIsolation = isolation;
             isolation = false;
             doorOpen = false;
             applyToAllDoors();
-            isolation = prevIsolation;
+            doorPositions.clear();
         }
-        super.setRemoved();
     }
 }
