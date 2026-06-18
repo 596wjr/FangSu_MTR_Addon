@@ -7,7 +7,6 @@ import com.fangsu.render.sowcerext.model.loader.ObjModelLoader;
 import com.fangsu.scripting.GraphicsTexture;
 import com.google.gson.*;
 import com.google.gson.JsonElement;
-import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -250,11 +249,12 @@ public class ResourceUtil {
      * 检查资源是否存在
      */
     public static boolean hasResources(ResourceLocation location) {
+        if (resourceManager == null) return false;
         try {
             //#if MC_VERSION >= 11900
-            return Minecraft.getInstance().getResourceManager().getResource(location).isPresent();
+            return resourceManager.getResource(location).isPresent();
             //#else
-            //$$ try { Minecraft.getInstance().getResourceManager().getResource(location); return true; } catch (Exception ex) { return false; }
+            //$$ resourceManager.getResource(location); return true;
             //#endif
         } catch (Exception e) {
             return false;
