@@ -148,6 +148,22 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: mc_ver
+    attributes:
+      label: Game version - 游戏版本
+      description: |
+        Minecraft version you are using.
+        你正在使用的我的世界版本。
+      options:
+        - 1.20.1
+        - 1.19.4
+        - 1.19.3
+        - 1.19.2
+        - 1.18.2
+    validations:
+      required: true
+
   - type: input
     id: mtr_version
     attributes:
