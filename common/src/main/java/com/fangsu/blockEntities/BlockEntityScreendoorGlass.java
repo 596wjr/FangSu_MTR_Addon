@@ -110,7 +110,7 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
 
         try {
             if (leftIsAuto || rightIsAuto) {
-                // 修正：当只有右侧是 auto 时，应从右侧获取 autoKey
+                // 从实际 auto 的那一侧读取 autoKey，避免当只有一侧为 auto 时读取错误侧导致 NPE
                 String autoKey;
                 if (leftIsAuto) {
                     autoKey = (String) loadedLeft.get(subModelLeft).get("auto");
@@ -171,7 +171,7 @@ public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Sy
 
             reloadModelAndShape();
 
-            // 锟?缁撴灉鍙樹簡鎵嶉€氱煡閭诲眳
+            // 结果变了才通知邻居
             boolean changed =
                     !Objects.equals(prevLeft, actualSubModelLeft) ||
                             !Objects.equals(prevRight, actualSubModelRight);
