@@ -7,11 +7,19 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.util.*;
+import java.util.concurrent.*;
 
 // 弧度制
 public class RotatableShapeHelper {
     private static final RotatableShapeHelper instance = new RotatableShapeHelper();
     private static final double DEFAULT_STEP_SIZE = 0.1d;
+
+    // 异步计算线程池：单线程守护线程，不会阻止 JVM 退出
+    private static final ExecutorService COMPUTATION_THREAD = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "RotatedShape-Compute");
+        t.setDaemon(true);
+        return t;
+    });
 
     public static RotatableShapeHelper getInstance() {
         return instance;
@@ -29,17 +37,23 @@ public class RotatableShapeHelper {
     private static class ShapeCacheEntry {
         final PosInfo posInfo;
         final ShapeCollection shapeCollection;
-        final VoxelShape cachedShape;
+        final CompletableFuture<VoxelShape> futureShape; // 异步旋转计算结果
+        final VoxelShape originalShape;                  // 未旋转的原始碰撞箱，异步未完成时返回
 
-        ShapeCacheEntry(PosInfo posInfo, ShapeCollection shapeCollection, VoxelShape cachedShape) {
+        ShapeCacheEntry(PosInfo posInfo, ShapeCollection shapeCollection,
+                        CompletableFuture<VoxelShape> futureShape, VoxelShape originalShape) {
             this.posInfo = posInfo;
             this.shapeCollection = shapeCollection;
-            this.cachedShape = cachedShape;
+            this.futureShape = futureShape;
+            this.originalShape = originalShape;
         }
     }
 
+    private final Object cacheLock = new Object();
+
     /**
-     * 初始化指定方块位置的碰撞箱。
+     * 初始化指定方块位置的碰撞箱（异步计算）。
+     * 旋转后的碰撞箱在独立线程中计算，不会阻塞主线程。
      *
      * @param pos   方块位置
      * @param tx    平移 X（相对方块原点）
@@ -51,43 +65,86 @@ public class RotatableShapeHelper {
      * @param shape 形状集合
      */
     public void initForBlock(BlockPos pos, float tx, float ty, float tz, float rx, float ry, float rz, ShapeCollection shape) {
-        VoxelShape rotated = buildRotatedShape(shape, rx, ry, rz);
-        cache.put(pos, new ShapeCacheEntry(
-                new PosInfo(tx, ty, tz, rx, ry, rz),
-                shape,
-                rotated
-        ));
+        VoxelShape original = shape.asVoxelShape(); // 原始未旋转形状（立即返回）
+        CompletableFuture<VoxelShape> future = CompletableFuture.supplyAsync(
+                () -> buildRotatedShape(shape, rx, ry, rz),
+                COMPUTATION_THREAD
+        );
+
+        synchronized (cacheLock) {
+            cache.put(pos, new ShapeCacheEntry(
+                    new PosInfo(tx, ty, tz, rx, ry, rz),
+                    shape,
+                    future,
+                    original
+            ));
+        }
     }
 
 
     /**
      * 获取指定方块位置缓存的碰撞箱。
+     * 若异步旋转计算尚未完成，则返回未旋转的原始碰撞箱，防止阻塞主线程。
      */
     public VoxelShape getShapeForBlock(BlockPos pos, float tx, float ty, float tz, float rx, float ry, float rz) {
-        ShapeCacheEntry entry = cache.get(pos);
+        ShapeCacheEntry entry;
+        synchronized (cacheLock) {
+            entry = cache.get(pos);
+        }
         if (entry == null) return null;
 
         boolean changed = entry.posInfo.checkAndUpdate(tx, ty, tz, rx, ry, rz);
         if (changed) {
-            // 参数有变化，重新生成
-            VoxelShape rotated = buildRotatedShape(entry.shapeCollection, rx, ry, rz);
-            // 更新缓存
-            cache.put(pos, new ShapeCacheEntry(
-                    entry.posInfo,
-                    entry.shapeCollection,
-                    rotated
-            ));
-            return rotated;
+            // 参数有变化：先返回旧碰撞箱（旧异步已完成则返回旧旋转结果，否则返回旧原始形状）
+            VoxelShape previousShape;
+            if (entry.futureShape.isDone()) {
+                try {
+                    previousShape = entry.futureShape.get();
+                } catch (InterruptedException | ExecutionException e) {
+                    previousShape = entry.originalShape;
+                }
+            } else {
+                previousShape = entry.originalShape;
+            }
+
+            // 提交新的异步任务
+            VoxelShape original = entry.shapeCollection.asVoxelShape();
+            CompletableFuture<VoxelShape> future = CompletableFuture.supplyAsync(
+                    () -> buildRotatedShape(entry.shapeCollection, rx, ry, rz),
+                    COMPUTATION_THREAD
+            );
+            synchronized (cacheLock) {
+                cache.put(pos, new ShapeCacheEntry(
+                        entry.posInfo,
+                        entry.shapeCollection,
+                        future,
+                        original
+                ));
+            }
+            return previousShape;
         }
 
-        return entry.cachedShape;
+        // 参数未变化：检查异步计算是否已完成
+        if (entry.futureShape.isDone()) {
+            try {
+                return entry.futureShape.get(); // 立即返回，不会阻塞
+            } catch (InterruptedException | ExecutionException e) {
+                // 计算失败，降级返回原始形状
+                return entry.originalShape;
+            }
+        }
+
+        // 异步计算尚未完成，返回原始未旋转形状作为降级
+        return entry.originalShape;
     }
 
     /**
      * 清除指定方块位置的缓存。
      */
     public void removeCache(BlockPos pos) {
-        cache.remove(pos);
+        synchronized (cacheLock) {
+            cache.remove(pos);
+        }
     }
 
     // ======== 旋转算法（从 CollisionBoxUtil 移植并简化） ========
