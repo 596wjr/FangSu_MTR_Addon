@@ -40,6 +40,9 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
     /** 需要保存的起始坐标列表 */
     private final List<BlockPos> startPositions = new ArrayList<>();
 
+    /** 延迟重扫描标记（世界加载时区块未就绪，等第一次Tick时再扫描） */
+    private boolean needsRescan = false;
+
     public BlockEntityScreendoorCentralControl(BlockPos pos, BlockState state) {
         super(BLOCK_ENTITY_SCREENDOOR_CENTRAL_CONTROL.get(), pos, state);
     }
@@ -101,9 +104,9 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
         // 更新指示灯
         updateLightState();
 
-        // 延迟1tick重新扫描并应用状态，确保所有区块已加载
+        // 标记需要延迟重扫描——区块可能未完全加载，等第一次服务端Tick时执行
         if (level != null && !level.isClientSide) {
-            level.scheduleTick(worldPosition, getBlockState().getBlock(), 1);
+            needsRescan = true;
         }
     }
 
@@ -353,6 +356,22 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
         if (newState != state) {
             level.setBlock(worldPosition, newState, 3);
         }
+    }
+
+    // ======================== 客户端 ========================
+
+    // ======================== 延迟Tick ========================
+
+    /**
+     * 服务端Tick调用，执行延迟的重新扫描和状态应用
+     * 仅执行一次，由 {@link BlockScreendoorCentralControl#getTicker} 在服务端驱动
+     */
+    public void tickServer() {
+        if (!needsRescan) return;
+        needsRescan = false;
+        if (level == null || level.isClientSide) return;
+        scanDoors();
+        applyToAllDoors();
     }
 
     // ======================== 客户端 ========================
