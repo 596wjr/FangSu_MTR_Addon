@@ -1,9 +1,7 @@
 package com.fangsu.blockEntities;
 
 import com.fangsu.mappings.ComponentHelper;
-import com.fangsu.mappings.GsonHelper;
 import com.fangsu.Main;
-import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.client.ClientHooks;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
@@ -12,19 +10,16 @@ import com.fangsu.drawing.ris.BaseRisDrawing;
 import com.fangsu.drawing.ris.RisDrawManager;
 import com.fangsu.extraConfig.*;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
-import com.fangsu.render.sowcerext.model.RawModel;
-import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
 import com.fangsu.scripting.GraphicsTexture;
-import com.fangsu.scripting.ModelHelper;
-import com.fangsu.shape.RawShape;
-import com.fangsu.shape.RotatableShapeHelper;
-import com.fangsu.shape.ShapeCollection;
 import com.fangsu.ui.RouteSelectInfo;
-import com.fangsu.utils.*;
+import com.fangsu.utils.CustomItemHelper;
+import com.fangsu.utils.ContentInfoUtil;
+import com.fangsu.utils.GraphicsTextureHelper;
+import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
@@ -33,9 +28,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -44,7 +36,7 @@ import java.util.Map;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_RIS;
 
-public class BlockEntityRis extends BaseObjBlockEntity implements RouteDrawer {
+public class BlockEntityRis extends BaseDisplayBlockEntity implements RouteDrawer {
 
     private static final String MAIN_MODEL_KEY = "route_info_sign";
     private static final String DEFAULT_MAIN_MODEL = "fangsu:route_info_sign/mtr_route_info_sign.json";
@@ -55,22 +47,7 @@ public class BlockEntityRis extends BaseObjBlockEntity implements RouteDrawer {
     private volatile BaseRisDrawing risDrawing;
 
     private DynamicModelHolder dmhMain;
-    private DynamicModelHolder dmhDisp = new DynamicModelHolder();
-
-    private boolean firstInit = false;
-    private boolean scriptDone = false;
-
-    private int texW, texH;
-    private Map<String, Object> drawState = new HashMap<>();
     private List<RouteSelectInfo> routes;
-    Map<String, JsonElement> userExtraConfigs;
-
-    private ShapeCollection shape;
-
-    /**
-     * 涓婃娉ㄥ唽缁樺埗鐨勬爣璇嗭紝閬垮厤閲嶅娉ㄥ唽
-     */
-    private String lastRegisteredDrawInfoId = "";
 
     public BlockEntityRis(BlockPos blockPos, BlockState blockState) {
         super(BLOCK_ENTITY_RIS.get(), blockPos, blockState);
@@ -83,11 +60,7 @@ public class BlockEntityRis extends BaseObjBlockEntity implements RouteDrawer {
         String mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
         String subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
 
-        try {
-            userExtraConfigs = GsonHelper.asMap(Main.JSON_PARSER.parse(getExtraConfig("extraConfig", "{}")).getAsJsonObject());
-        } catch (Throwable ignored) {
-            userExtraConfigs = new HashMap<>();
-        }
+        parseUserExtraConfigs(getExtraConfig("extraConfig", "{}"));
 
         try {
             content = ContentInfoUtil.getRisContent(mainModel, subModel);
@@ -96,40 +69,16 @@ public class BlockEntityRis extends BaseObjBlockEntity implements RouteDrawer {
             }
 
             dmhMain = ResourceUtil.loadDmh(new ResourceLocation(content.getModel()), content.isFlipV());
-
-            RawMeshBuilder rawMeshBuilder = new RawMeshBuilder(4, "exterior", new ResourceLocation("fangsu:pids/black.png"));
-            for (float[][] slot : content.getSlots()) {
-                ModelHelper.addQuad(rawMeshBuilder, slot, false);
-            }
-            RawModel dispRawModel = new RawModel();
-            dispRawModel.append(rawMeshBuilder.getMesh());
-            dispRawModel.generateNormals();
-            dmhDisp.uploadLater(dispRawModel);
+            buildDisplayFromSlots(content.getSlots(), "fangsu:pids/black.png");
 
             texW = content.getTexSize()[0];
             texH = content.getTexSize()[1];
-
-            if (content.getShape() != null && content.getShape().length > 0) {
-                shape = new ShapeCollection();
-                for (float[] s : content.getShape()) {
-                    if (s == null || s.length < 6) {
-                        continue;
-                    }
-                    shape.add(new RawShape(
-                            s[0] / 16.0, s[1] / 16.0, s[2] / 16.0,
-                            s[3] / 16.0, s[4] / 16.0, s[5] / 16.0
-                    ));
-                }
-            } else {
-                shape = null;
-            }
+            shape = buildShapeFromArray(content.getShape());
 
             routes = reloadRoute(getExtraConfig("routes", "[]"));
 
             firstInit = true;
-
-            scriptDone = false;
-            lastRegisteredDrawInfoId = "";
+            resetDrawingState();
         } catch (Exception e) {
             Main.LOGGER.error("Route info sign content load error", e);
             markedError = true;
@@ -141,104 +90,49 @@ public class BlockEntityRis extends BaseObjBlockEntity implements RouteDrawer {
             return;
         }
 
-        // 閫氳繃 RisDrawManager 鑾峰彇缁樺埗瀹炰緥锛堟敮锟?Java 绫诲拰 JS 鑴氭湰锟?
         String scriptPath = content.getScript();
         BaseRisDrawing drawing = RisDrawManager.createDrawing(scriptPath);
         if (drawing == null) {
             return;
         }
 
+        // 检查路线数据是否已加载完成（id==0表示MTR数据尚未就绪），避免用fallback数据绘制
+        boolean hasRealRoutes = routes.stream().anyMatch(r -> r.route != null && r.route.id != 0L);
+        if (!hasRealRoutes) {
+            return;
+        }
+
         risDrawing = drawing;
 
-        // 娉ㄥ唽缁樺埗
-        if (!scriptDone) {
-            GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
-            // 鏌ヨ矾绾挎暟鎹槸鍚﹀凡鍔犺浇瀹屾垚锛坕d==0琛ㄧずMTR鏁版嵁灏氭湭灏辩华锛夛紝阆垮厤鐢╢allback鏁版嵁缁樺埗
-            boolean hasRealRoutes = routes.stream().anyMatch(r -> r.route != null && r.route.id != 0L);
-            if (!hasRealRoutes) {
-                // MTR鏁版嵁鍙婃椂鏁版嵁灏氭湭灏辩华锛岃烦杩囨湰娆＄粯鍒舵敞鍐岋紝涓嬫害鏌舵椂閲嶈瘯
-                return;
-            }
-            int arrowDirection = getExtraConfigInt("arrowDirection", 0);
-            String drawInfoId = "RIS_" + scriptPath + "_" + routes + "_" + arrowDirection;
-            if (drawInfoId.equals(lastRegisteredDrawInfoId)) {
-                scriptDone = true;
-                return;
-            }
-            gtHelper.removeDrawGraphic(getBlockPos());
-            gtHelper.addDrawGraphicWithGt(getBlockPos(),
-                    new GraphicsTextureHelper.DrawInfo(
-                            drawInfoId,
-                            texW, texH, true, false
-                    ),
-                    gt -> {
-                        BaseRisDrawing drawer = risDrawing;
-                        if (drawer == null) {
-                            return;
-                        }
+        int arrowDirection = getExtraConfigInt("arrowDirection", 0);
+        String drawInfoId = "RIS_" + scriptPath + "_" + routes + "_" + arrowDirection;
+
+        tryRegisterDrawing(drawInfoId, texW, texH,
+                gt -> {
+                    BaseRisDrawing drawer = risDrawing;
+                    if (drawer != null) {
                         drawer.draw(gt, routes, drawState, arrowDirection, texW, texH);
                     }
-            );
-            lastRegisteredDrawInfoId = drawInfoId;
-            scriptDone = true;
-        }
+                }
+        );
     }
 
     @Override
     public void whenRendering() {
         if (!scriptDone) {
-            // 每次渲染时重新加载路线数据，检测MTR数据是否已就绪
             routes = reloadRoute(getExtraConfig("routes", "[]"));
             initDrawingAsync();
         }
 
         ObjBlockScriptContext ctx = this.scriptContext;
         ctx.drawModel(dmhMain, null);
-
-        // 浠呭湪璐村浘灏辩华鍚庢墠缁樺埗 display 妯″瀷
-        if (scriptDone && dmhDisp.getUploadedModel() != null
-                && GraphicsTextureHelper.getInstance().isTextureAvailable(getBlockPos())) {
-            GraphicsTexture tex = GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos());
-            if (tex != null && tex.isValid()) {
-                dmhDisp.getUploadedModel().replaceAllTexture(tex.identifier);
-                ctx.drawModel(dmhDisp.getUploadedModel(), null);
-            }
-        }
+        renderDisplayModel(ctx);
     }
 
     @Override
     public void whenDisposing() {
         risDrawing = null;
-        RotatableShapeHelper.getInstance().removeCache(getWorldPos());
-        GraphicsTextureHelper.getInstance().removeDrawGraphic(getBlockPos());
-    }
-
-    @Override
-    public VoxelShape setCollisionShape(BlockState state) {
-        if (markedError || shape == null || shape.isEmpty()) {
-            return Shapes.empty();
-        }
-        return setShape(state);
-    }
-
-    @Override
-    public VoxelShape setShape(BlockState state) {
-        if (markedError || shape == null || shape.isEmpty()) {
-            return Shapes.block();
-        }
-        Direction facing = state.getValue(BaseObjBlock.FACING);
-        Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
-        float rotX = this.rotateX;
-        float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
-        float rotZ = this.rotateZ;
-
-        RotatableShapeHelper helper = RotatableShapeHelper.getInstance();
-        VoxelShape rotated = helper.getShapeForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
-        if (rotated == null) {
-            helper.initForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ, shape);
-            rotated = helper.getShapeForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
-        }
-        return rotated.move(trans.x, trans.y, trans.z).optimize();
+        super.whenDisposing();
     }
 
     @Override
@@ -276,8 +170,7 @@ public class BlockEntityRis extends BaseObjBlockEntity implements RouteDrawer {
                 () -> getExtraConfigInt("arrowDirection", 0),
                 (v) -> {
                     extraConfigs.put("arrowDirection", v.toString());
-                    scriptDone = false;
-                    lastRegisteredDrawInfoId = "";
+                    resetDrawingState();
                     sendUpdateC2S();
                 }
         ));
@@ -309,10 +202,9 @@ public class BlockEntityRis extends BaseObjBlockEntity implements RouteDrawer {
                                     if (userExtraConfigs == null) {
                                         userExtraConfigs = new HashMap<>();
                                     }
-                                    userExtraConfigs.put(savePos, new com.google.gson.JsonPrimitive(String.valueOf(v)));
+                                    userExtraConfigs.put(savePos, new JsonPrimitive(String.valueOf(v)));
                                     extraConfigs.put("extraConfig", Main.GSON.toJson(userExtraConfigs));
-                                    scriptDone = false;
-                                    lastRegisteredDrawInfoId = "";
+                                    resetDrawingState();
                                     sendUpdateC2S();
                                 }
                             }
@@ -354,8 +246,7 @@ public class BlockEntityRis extends BaseObjBlockEntity implements RouteDrawer {
                                     saveRoutes.add(List.of(info.route.id, info.plat.id));
                                 }
                                 extraConfigs.put("routes", Main.GSON.toJson(saveRoutes));
-                                scriptDone = false;
-                                lastRegisteredDrawInfoId = "";
+                                resetDrawingState();
                                 sendUpdateC2S();
                             },
                             getBlockPos(), maxSelect

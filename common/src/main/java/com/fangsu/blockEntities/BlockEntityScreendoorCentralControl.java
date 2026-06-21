@@ -61,6 +61,15 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
             tag.putInt("startY_" + i, p.getY());
             tag.putInt("startZ_" + i, p.getZ());
         }
+
+        // 保存已扫描到的门坐标（重进世界时区块可能未加载，需从NBT恢复）
+        tag.putInt("doorPosCount", doorPositions.size());
+        for (int i = 0; i < doorPositions.size(); i++) {
+            BlockPos p = doorPositions.get(i);
+            tag.putInt("doorX_" + i, p.getX());
+            tag.putInt("doorY_" + i, p.getY());
+            tag.putInt("doorZ_" + i, p.getZ());
+        }
     }
 
     @Override
@@ -79,13 +88,22 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
             startPositions.add(new BlockPos(x, y, z));
         }
 
+        // 从NBT恢复上次扫描到的门坐标（区块可能未加载，先恢复列表以备GUI显示等用途）
+        doorPositions.clear();
+        int doorCount = tag.getInt("doorPosCount");
+        for (int i = 0; i < doorCount; i++) {
+            int x = tag.getInt("doorX_" + i);
+            int y = tag.getInt("doorY_" + i);
+            int z = tag.getInt("doorZ_" + i);
+            doorPositions.add(new BlockPos(x, y, z));
+        }
+
         // 更新指示灯
         updateLightState();
 
-        // 重新扫描门并应用状态
-        scanDoors();
-        if (!level.isClientSide) {
-            applyToAllDoors();
+        // 延迟1tick重新扫描并应用状态，确保所有区块已加载
+        if (level != null && !level.isClientSide) {
+            level.scheduleTick(worldPosition, getBlockState().getBlock(), 1);
         }
     }
 

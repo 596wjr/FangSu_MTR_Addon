@@ -1,9 +1,7 @@
 package com.fangsu.blockEntities;
 
 import com.fangsu.mappings.ComponentHelper;
-import com.fangsu.mappings.GsonHelper;
 import com.fangsu.Main;
-import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.client.ClientHooks;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
@@ -14,31 +12,25 @@ import com.fangsu.extraConfig.*;
 import com.fangsu.mtr.LocalRoute;
 import com.fangsu.mtr.LocalStation;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
-import com.fangsu.render.sowcerext.model.RawModel;
-import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
 import com.fangsu.scripting.GraphicsTexture;
-import com.fangsu.scripting.ModelHelper;
-import com.fangsu.shape.RawShape;
-import com.fangsu.shape.RotatableShapeHelper;
-import com.fangsu.shape.ShapeCollection;
-import com.fangsu.utils.*;
+import com.fangsu.utils.CustomItemHelper;
+import com.fangsu.utils.ContentInfoUtil;
+import com.fangsu.utils.GraphicsTextureHelper;
+import com.fangsu.utils.ResourceUtil;
+import com.fangsu.utils.MtrUtil;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.util.*;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_SIS;
 
-import com.google.gson.JsonObject;
-
-public class BlockEntitySis extends BaseObjBlockEntity {
+public class BlockEntitySis extends BaseDisplayBlockEntity {
     private static final String MAIN_MODEL_KEY = "station_info_sign";
     private static final String DEFAULT_MAIN_MODEL = "fangsu:sis/mtr_sis.json";
     private static final String DEFAULT_SUB_MODEL = "mtr_sis_1";
@@ -48,21 +40,6 @@ public class BlockEntitySis extends BaseObjBlockEntity {
     private volatile BaseSisDrawing sisDrawing;
 
     private DynamicModelHolder dmhMain;
-    private DynamicModelHolder dmhDisp = new DynamicModelHolder();
-
-    private boolean firstInit = false;
-    private boolean scriptDone = false;
-
-    private int texW, texH;
-
-    private ShapeCollection shape;
-    private Map<String, Object> drawState = new HashMap<>();
-    Map<String, JsonElement> userExtraConfigs;
-
-    /**
-     * 涓婃娉ㄥ唽缁樺埗鐨勬爣璇嗭紝閬垮厤閲嶅娉ㄥ唽
-     */
-    private String lastRegisteredDrawInfoId = "";
 
     private LocalStation stn;
 
@@ -78,11 +55,7 @@ public class BlockEntitySis extends BaseObjBlockEntity {
         String mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
         String subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
 
-        try {
-            userExtraConfigs = GsonHelper.asMap(Main.JSON_PARSER.parse(getExtraConfig("extraConfig", "{}")).getAsJsonObject());
-        } catch (Throwable ignored) {
-            userExtraConfigs = new HashMap<>();
-        }
+        parseUserExtraConfigs(getExtraConfig("extraConfig", "{}"));
 
         try {
             content = ContentInfoUtil.getSisContent(mainModel, subModel);
@@ -91,40 +64,17 @@ public class BlockEntitySis extends BaseObjBlockEntity {
             }
 
             dmhMain = ResourceUtil.loadDmh(new ResourceLocation(content.getModel()), content.isFlipV());
-
-            RawMeshBuilder rawMeshBuilder = new RawMeshBuilder(4, "exterior", new ResourceLocation("fangsu:pids/black.png"));
-            for (float[][] slot : content.getSlots()) {
-                ModelHelper.addQuad(rawMeshBuilder, slot, false);
-            }
-            RawModel dispRawModel = new RawModel();
-            dispRawModel.append(rawMeshBuilder.getMesh());
-            dispRawModel.generateNormals();
-            dmhDisp.uploadLater(dispRawModel);
+            buildDisplayFromSlots(content.getSlots(), "fangsu:pids/black.png");
 
             texW = content.getTexSize()[0];
             texH = content.getTexSize()[1];
-
-            if (content.getShape() != null && content.getShape().length > 0) {
-                shape = new ShapeCollection();
-                for (float[] s : content.getShape()) {
-                    if (s == null || s.length < 6) continue;
-                    shape.add(new RawShape(
-                            s[0] / 16.0, s[1] / 16.0, s[2] / 16.0,
-                            s[3] / 16.0, s[4] / 16.0, s[5] / 16.0
-                    ));
-                }
-            } else shape = null;
+            shape = buildShapeFromArray(content.getShape());
 
             var rawStn = MtrUtil.getStationById(Long.parseLong(getExtraConfig("station", "0")));
-            if (rawStn == null) stn = new LocalStation();
-            else stn = new LocalStation(rawStn);
+            stn = (rawStn == null) ? new LocalStation() : new LocalStation(rawStn);
 
             firstInit = true;
-
-            scriptDone = false;
-            lastRegisteredDrawInfoId = "";
-
-
+            resetDrawingState();
         } catch (Exception e) {
             Main.LOGGER.error("Station info sign content load error", e);
             markedError = true;
@@ -134,76 +84,53 @@ public class BlockEntitySis extends BaseObjBlockEntity {
     private void initDrawingAsync() {
         if (!firstInit) return;
 
-        // 濡傛灉杞︾珯鏁版嵁杩樻湭鍔犺浇瀹屾垚锛坮awStn == null 鎴栧悕锟??"锛夛紝璺宠繃鏈缁樺埗娉ㄥ唽
-        // 涓嬫 whenRendering 鏃朵細鍐嶆灏濊瘯锛岀洿鍒拌溅绔欐暟鎹氨锟?
+        // 如果车站数据还未加载完成（rawStn == null 或名称为"?"），跳过本次绘制注册
         if (stn.getRaw() == null || "?".equals(stn.name)) {
             return;
         }
 
         String scriptPath = content.getScript();
-
-        // 閫氳繃 SisDrawManager 鑾峰彇缁樺埗瀹炰緥锛堟敮锟?Java 绫诲拰 JS 鑴氭湰锟?
         BaseSisDrawing drawing = SisDrawManager.createDrawing(scriptPath);
         if (drawing == null) return;
 
+        // 在注册绘制前构建路线并检查数据是否完整，避免在lambda中使用到不完整数据
+        List<LocalRoute> routes = new ArrayList<>();
+        if (stn.getRaw() != null) {
+            for (mtr.data.Platform plat : MtrUtil.getPlatformByStation(stn.getRaw())) {
+                routes.addAll(MtrUtil.getRouteByPlatform(plat));
+            }
+        }
+        if (routes.isEmpty()) {
+            return;
+        }
+
         sisDrawing = drawing;
 
-        // 娉ㄥ唽缁樺埗
-        if (!scriptDone) {
-            GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
+        LocalRoute[] routeArray = routes.toArray(new LocalRoute[0]);
+        int arrowDirection = getExtraConfigInt("arrowDirection", 0);
+        String drawInfoId = "SIS_" + scriptPath + "_" + stn.id + "_" + arrowDirection;
 
-            // 鍦ㄦ敞鍐岀粯鍒跺墠灏辫喘寤鸿矾绾垮苟妫€鏌ユ暟鎹槸鍚﹀畬鏁达紝臩垮厤鍦▁ambda涓娇鐢ㄥ埌涓嶅畬鏁存暟鎹?
-            List<LocalRoute> routes = new ArrayList<>();
-            if (stn.getRaw() != null)
-                for (mtr.data.Platform plat : MtrUtil.getPlatformByStation(stn.getRaw())) {
-                    var platRoutes = MtrUtil.getRouteByPlatform(plat);
-                    routes.addAll(platRoutes);
+        tryRegisterDrawing(drawInfoId, texW, texH,
+                gt -> {
+                    BaseSisDrawing drawer = sisDrawing;
+                    if (drawer == null) return;
+
+                    SISDrawInfo drawInfo = new SISDrawInfo(
+                            new int[]{0, 0, texW, texH}, stn, routeArray, new BlockInfo(this), this);
+
+                    drawer.draw(gt, drawState, arrowDirection, texW, texH, drawInfo);
                 }
-
-            // 濡傛灉杞﹁溅绔欏彴璺嚎鏁版嵁灏氭湭鍔犺浇瀹屾垚锛堣矾绾夸负绌猴級锛岃烦杩囨湰娆＄粯鍒舵敞鍐岋紝涓嬫害鏃舵椂閲嶈瘯
-            if (routes.isEmpty()) {
-                return;
-            }
-
-            LocalRoute[] routeArray = routes.toArray(new LocalRoute[routes.size()]);
-
-            int arrowDirection = getExtraConfigInt("arrowDirection", 0);
-            String drawInfoId = "SIS_" + scriptPath + "_" + stn.id + "_" + arrowDirection;
-            if (drawInfoId.equals(lastRegisteredDrawInfoId)) {
-                scriptDone = true;
-                return;
-            }
-            // 濡傛灉涔嬪墠娉ㄥ唽杩囦笉鍚屾爣璇嗙殑缁樺埗锛屽厛绉婚櫎
-            gtHelper.removeDrawGraphic(getBlockPos());
-            gtHelper.addDrawGraphicWithGt(getBlockPos(),
-                    new GraphicsTextureHelper.DrawInfo(
-                            drawInfoId,
-                            texW, texH, true, false
-                    ),
-                    gt -> {
-                        BaseSisDrawing drawer = sisDrawing;
-                        if (drawer == null) return;
-
-                        BlockEntitySis.SISDrawInfo drawInfo = new BlockEntitySis.SISDrawInfo(
-                                new int[]{0, 0, texW, texH}, stn, routeArray, new BlockInfo(this), this);
-
-                        drawer.draw(gt, drawState, arrowDirection, texW, texH, drawInfo);
-                    }
-            );
-            lastRegisteredDrawInfoId = drawInfoId;
-            scriptDone = true;
-        }
+        );
     }
 
     @Override
     public void whenRendering() {
-        // 濡傛灉杞︾珯鏁版嵁灏氭湭鍔犺浇瀹屾垚锛坮awStn == null锛夛紝姣忔娓叉煋鏃跺皾璇曢噸鏂拌幏锟?
+        // 如果车站数据还未加载完成（rawStn == null），每次渲染时尝试重新获取
         if (stn != null && stn.getRaw() == null && firstInit) {
             var rawStn = MtrUtil.getStationById(Long.parseLong(getExtraConfig("station", "0")));
             if (rawStn != null) {
                 stn = new LocalStation(rawStn);
-                scriptDone = false;
-                lastRegisteredDrawInfoId = "";
+                resetDrawingState();
             }
         }
 
@@ -213,47 +140,13 @@ public class BlockEntitySis extends BaseObjBlockEntity {
 
         ObjBlockScriptContext ctx = this.scriptContext;
         ctx.drawModel(dmhMain, null);
-
-        // 浠呭湪璐村浘灏辩华鍚庢墠缁樺埗 display 妯″瀷
-        if (scriptDone && dmhDisp.getUploadedModel() != null
-                && GraphicsTextureHelper.getInstance().isTextureAvailable(getBlockPos())) {
-            GraphicsTexture tex = GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos());
-            if (tex != null && tex.isValid()) {
-                dmhDisp.getUploadedModel().replaceAllTexture(tex.identifier);
-                ctx.drawModel(dmhDisp.getUploadedModel(), null);
-            }
-        }
+        renderDisplayModel(ctx);
     }
 
     @Override
     public void whenDisposing() {
         sisDrawing = null;
-        RotatableShapeHelper.getInstance().removeCache(getWorldPos());
-        GraphicsTextureHelper.getInstance().removeDrawGraphic(getBlockPos());
-    }
-
-    @Override
-    public VoxelShape setCollisionShape(BlockState state) {
-        if (markedError || shape == null || shape.isEmpty()) return Shapes.empty();
-        return setShape(state);
-    }
-
-    @Override
-    public VoxelShape setShape(BlockState state) {
-        if (markedError || shape == null || shape.isEmpty()) return Shapes.block();
-        Direction facing = state.getValue(BaseObjBlock.FACING);
-        Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
-        float rotX = this.rotateX;
-        float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
-        float rotZ = this.rotateZ;
-
-        RotatableShapeHelper helper = RotatableShapeHelper.getInstance();
-        VoxelShape rotated = helper.getShapeForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
-        if (rotated == null) {
-            helper.initForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ, shape);
-            rotated = helper.getShapeForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
-        }
-        return rotated.move(trans.x, trans.y, trans.z).optimize();
+        super.whenDisposing();
     }
 
     @Override
@@ -269,8 +162,7 @@ public class BlockEntitySis extends BaseObjBlockEntity {
     public List<ConfigEntry<?>> getConfigs() {
         List<ConfigEntry<?>> configs = new ArrayList<>();
 
-        // 锟?content 锟?extraConfig 瀹氫箟鍔ㄦ€佺敓鎴愰厤缃」
-        // 姣忔閲嶆柊鑾峰彇 content锛岄伩鍏嶅垏鎹富妯″瀷鍚庡瓧娈垫湭鍚屾
+        // 根据 content 的 extraConfig 定义动态生成配置项
         try {
             String currentSubModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
             String mM = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
@@ -294,10 +186,9 @@ public class BlockEntitySis extends BaseObjBlockEntity {
                             v -> {
                                 if (savePos != null) {
                                     if (userExtraConfigs == null) userExtraConfigs = new HashMap<>();
-                                    userExtraConfigs.put(savePos, new com.google.gson.JsonPrimitive(String.valueOf(v)));
+                                    userExtraConfigs.put(savePos, new JsonPrimitive(String.valueOf(v)));
                                     extraConfigs.put("extraConfig", Main.GSON.toJson(userExtraConfigs));
-                                    scriptDone = false;
-                                    lastRegisteredDrawInfoId = "";
+                                    resetDrawingState();
                                     sendUpdateC2S();
                                 }
                             }
@@ -338,8 +229,7 @@ public class BlockEntitySis extends BaseObjBlockEntity {
                                     var rawStn = MtrUtil.getStationById(stationId);
                                     if (rawStn == null) stn = new LocalStation();
                                     else stn = new LocalStation(rawStn);
-                                    scriptDone = false;
-                                    lastRegisteredDrawInfoId = "";
+                                    resetDrawingState();
                                     sendUpdateC2S();
                                 }
                             },

@@ -3,6 +3,12 @@ package com.fangsu.blocks;
 import com.fangsu.blockEntities.BlockEntityScreendoorCentralControl;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+//#if MC_VERSION >= 11903
+import net.minecraft.util.RandomSource;
+//#else
+//$$import java.util.Random;
+//#endif
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
@@ -144,5 +150,23 @@ public class BlockScreendoorCentralControl extends Block implements EntityBlock 
             }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
+    }
+
+    @Override
+    public void tick(
+            @NotNull BlockState state,
+            @NotNull ServerLevel level,
+            @NotNull BlockPos pos,
+            //#if MC_VERSION >= 11903
+            @NotNull RandomSource random
+            //#else
+            //$$@NotNull Random random
+            //#endif
+    ) {
+        BlockEntity be = level.getBlockEntity(pos);
+        if (be instanceof BlockEntityScreendoorCentralControl ctrl) {
+            ctrl.scanDoors();
+            ctrl.applyToAllDoors();
+        }
     }
 }
