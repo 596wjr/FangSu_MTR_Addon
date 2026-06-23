@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(value = Train.class, remap = false, priority = 596)
+@Mixin(value = Train.class, remap = false, priority = 5966)
 public abstract class TrainMixin {
     /* ==========================================================
      *  Shadow：Train 原生字段 / 方法
@@ -33,18 +33,18 @@ public abstract class TrainMixin {
             Level world, Block block, BlockPos pos, int dwellTicks
     );
 
-    @Inject(
-            method = "scanDoors",
-            at = @At("RETURN"),
-            cancellable = true,
-            remap = false
-    )
-//    @Inject(
+    //    @Inject(
 //            method = "scanDoors",
-//            at = @At("HEAD"),
+//            at = @At("RETURN"),
 //            cancellable = true,
 //            remap = false
 //    )
+    @Inject(
+            method = "scanDoors",
+            at = @At("HEAD"),
+            cancellable = true,
+            remap = false
+    )
     private void scanCustomDoors(
             Level world,
             double trainX, double trainY, double trainZ,
@@ -79,7 +79,7 @@ public abstract class TrainMixin {
 
                     Block block = world.getBlockState(pos).getBlock();
                     if (block instanceof IBlockPlatform
-//                            || block instanceof BlockPlatform || block instanceof BlockPSDAPGBase
+                            || block instanceof BlockPlatform || block instanceof BlockPSDAPGBase
                     ) {
                         openDoors(world, block, pos, dwellTicks);
                         BlockEntity entity = world.getBlockEntity(pos);
