@@ -12,7 +12,7 @@ import com.fangsu.drawing.diaoban.BaseDiaobanDrawing;
 import com.fangsu.extraConfig.*;
 import com.fangsu.mtr.LocalRoute;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
-import com.fangsu.render.sowcer.math.Matrices;
+import com.fangsu.render.sowcer.math.Matrix4f;
 import com.fangsu.render.sowcerext.model.ModelCluster;
 import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
@@ -53,9 +53,13 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
     protected String subModel;
     protected String drawScript;
 
-    private DynamicModelHolder dmhLeft, dmhCenter, dmhRight, dmhDlOn, dmhDlOff;
-    private ModelCluster modelLeft, modelCenter, modelRight;
-    private boolean leftLoaded, centerLoaded, rightLoaded;
+    /** 加载时预拼接好的完整分段模型（left + center×N + right） */
+    private DynamicModelHolder dmhStitched = new DynamicModelHolder();
+    /** 首次渲染时拷贝的拼接模型（用于路线颜色替换） */
+    private ModelCluster modelStitched;
+    /** 路线颜色纹理是否已替换完成 */
+    private boolean stitchedLoaded = false;
+    private DynamicModelHolder dmhDlOn, dmhDlOff;
     private ShapeCollection shapeLeft;
     private ShapeCollection shapeCenter;
     private ShapeCollection shapeRight;
@@ -100,60 +104,82 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
             }
             boolean flipV = content.isFlipV();
             String modelKey = content.getModel();
-            Map<String, DynamicModelHolder> models = ResourceUtil.loadPartedDmh(new ResourceLocation(modelKey), flipV);
-            String modelKeyLeft = "l", modelKeyCenter = "center", modelKeyRight = "r", modelKeyDlOn = "", modelKeyDlOff = "";
+            // 直接获取 RawModel 数据，用于加载时预拼接
+            Map<String, RawModel> rawModels = ResourceUtil.loadPartedModel(
+                    new ResourceLocation(modelKey), flipV);
             Map<String, String> subModelMap = content.getSubModel();
-            if (subModelMap.containsKey("left")) {
-                modelKeyLeft = subModelMap.get("left");
-            }
-            if (subModelMap.containsKey("center")) {
-                modelKeyCenter = subModelMap.get("center");
-            }
-            if (subModelMap.containsKey("right")) {
-                modelKeyRight = subModelMap.get("right");
-            }
+            String modelKeyLeft = subModelMap.getOrDefault("left", "l");
+            String modelKeyCenter = subModelMap.getOrDefault("center", "center");
+            String modelKeyRight = subModelMap.getOrDefault("right", "r");
 
+            RawModel leftRaw = rawModels.get(modelKeyLeft);
+            RawModel centerRaw = rawModels.get(modelKeyCenter);
+            RawModel rightRaw = rawModels.get(modelKeyRight);
+
+            // 加载时预拼接：将 left + center×(length-2) + right 合并为一个模型，
+            // 每个分段施加正确的平移变换，避免渲染时每帧计算矩阵
+            unit = content.getUnit();
+            double startX = (-0.5 * unit * (length - 1)) / 16.0;
+            RawModel stitched = new RawModel();
+            if (leftRaw != null) {
+                Matrix4f mat = new Matrix4f();
+                mat.translate((float) startX, 0, 0);
+                stitched.appendTransformed(leftRaw, mat, -1, -1);
+            }
+            if (centerRaw != null) {
+                for (int i = 0; i < length - 2; i++) {
+                    Matrix4f mat = new Matrix4f();
+                    mat.translate((float) (startX + (i + 1) * unit / 16.0), 0, 0);
+                    stitched.appendTransformed(centerRaw, mat, -1, -1);
+                }
+            }
+            if (rightRaw != null) {
+                Matrix4f mat = new Matrix4f();
+                mat.translate((float) (startX + (length - 1) * unit / 16.0), 0, 0);
+                stitched.appendTransformed(rightRaw, mat, -1, -1);
+            }
+            stitched.generateNormals();
+            dmhStitched.uploadLater(stitched);
+
+            // 门灯模型
             Map<String, String> doorlightMap = content.getDoorlight();
             if (!doorlightMap.isEmpty()) {
                 if (doorlightMap.get("on") != null) {
-                    modelKeyDlOn = doorlightMap.get("on");
+                    String dk = doorlightMap.get("on");
+                    if (rawModels.containsKey(dk)) {
+                        DynamicModelHolder dh = new DynamicModelHolder();
+                        dh.uploadLater(rawModels.get(dk));
+                        dmhDlOn = dh;
+                    }
                 }
                 if (doorlightMap.get("off") != null) {
-                    modelKeyDlOff = doorlightMap.get("off");
+                    String dk = doorlightMap.get("off");
+                    if (rawModels.containsKey(dk)) {
+                        DynamicModelHolder dh = new DynamicModelHolder();
+                        dh.uploadLater(rawModels.get(dk));
+                        dmhDlOff = dh;
+                    }
                 }
                 if (doorlightMap.get("type") != null) {
-                    String rawType = doorlightMap.get("type");
-                    doorLightType = switch (rawType) {
+                    doorLightType = switch (doorlightMap.get("type")) {
                         case "common", "simple" -> 0;
                         case "blink" -> 1;
                         default -> -1;
                     };
                 }
             }
-            dmhLeft = models.get(modelKeyLeft);
-            dmhCenter = models.get(modelKeyCenter);
-            dmhRight = models.get(modelKeyRight);
-            if (!"".equals(modelKeyDlOn)) {
-                dmhDlOn = models.get(modelKeyDlOn);
-            }
-            if (!"".equals(modelKeyDlOff)) {
-                dmhDlOff = models.get(modelKeyDlOff);
-            }
 
             double leftSpace = content.getLeftSpace(), rightSpace = content.getRightSpace();
             double y1 = 0.75, z1 = 0.25, y2 = 0.25, z2 = 0.25;
-            unit = content.getUnit();
             List<List<Double>> tex = content.getTex();
-            if (!tex.isEmpty()) {
-                if (tex.size() == 2) {
-                    if (tex.get(0).size() == 2) {
-                        y1 = tex.get(0).get(0);
-                        z1 = tex.get(0).get(1);
-                    }
-                    if (tex.get(1).size() == 2) {
-                        y2 = tex.get(1).get(0);
-                        z2 = tex.get(1).get(1);
-                    }
+            if (!tex.isEmpty() && tex.size() == 2) {
+                if (tex.get(0).size() == 2) {
+                    y1 = tex.get(0).get(0);
+                    z1 = tex.get(0).get(1);
+                }
+                if (tex.get(1).size() == 2) {
+                    y2 = tex.get(1).get(0);
+                    z2 = tex.get(1).get(1);
                 }
             }
             RawMeshBuilder rawMeshBuilder = new RawMeshBuilder(4, "exterior", new ResourceLocation("fangsu:pids/black.png"));
@@ -173,20 +199,17 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
             texW = texSize * length + 1;
             texH = texSize;
 
-            // 构建形状：从像素坐标（0~16）转换为世界坐标（0~1）
+            // 构建形状
             Map<String, List<Double>> shapeMap = content.getShape();
             shapeLeft = buildShapeFromList(shapeMap.get("left"));
             shapeCenter = buildShapeFromList(shapeMap.get("center"));
             shapeRight = buildShapeFromList(shapeMap.get("right"));
             fullShape = buildFullShape();
-            shape = fullShape; // 让基类的 setShape/setCollisionShape 使用 fullShape
-
-            leftLoaded = false;
-            centerLoaded = false;
-            rightLoaded = false;
+            shape = fullShape;
 
             firstInit = true;
             scriptInit = false;
+            stitchedLoaded = false;
             resetDrawingState();
         } catch (Exception e) {
             Main.LOGGER.warn("Failed to load diaoban: {}", e.getMessage());
@@ -234,57 +257,30 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
 
     @Override
     public void whenRendering() {
+        if (markedError) return;
+
         if (!scriptDone) {
             initDrawingAsync();
         }
 
         ObjBlockScriptContext ctx = this.scriptContext;
 
-        // 路线颜色纹理替换（仅首次加载或路线变更时执行）
-        if (!routes.isEmpty()) {
+        // 首次获取到有效路线时，对预拼接模型进行一次颜色纹理替换
+        if (!stitchedLoaded && !routes.isEmpty()) {
             LocalRoute r1 = routes.get(0).route;
             if (r1 != null) {
                 GraphicsTexture gt = ResourceUtil.createSolidColorGT(16, 16, new Color(r1.color));
-                if (gt.isValid()) {
-                    if (dmhLeft.getUploadedModel() != null && !leftLoaded) {
-                        modelLeft = dmhLeft.getUploadedModel().copyForMaterialChanges();
-                        modelLeft.replaceTexture("routecolor.png", gt.identifier);
-                        leftLoaded = true;
-                    }
-                    if (dmhCenter.getUploadedModel() != null && !centerLoaded) {
-                        modelCenter = dmhCenter.getUploadedModel().copyForMaterialChanges();
-                        modelCenter.replaceTexture("routecolor.png", gt.identifier);
-                        centerLoaded = true;
-                    }
-                    if (dmhRight.getUploadedModel() != null && !rightLoaded) {
-                        modelRight = dmhRight.getUploadedModel().copyForMaterialChanges();
-                        modelRight.replaceTexture("routecolor.png", gt.identifier);
-                        rightLoaded = true;
-                    }
+                if (gt.isValid() && dmhStitched.getUploadedModel() != null) {
+                    modelStitched = dmhStitched.getUploadedModel().copyForMaterialChanges();
+                    modelStitched.replaceTexture("routecolor.png", gt.identifier);
+                    stitchedLoaded = true;
                 }
             }
         }
 
-        // 绘制分段模型（左 / 中×N / 右）
-        double startX = (-0.5 * unit * (length - 1)) / 16.0;
-        if (leftLoaded) {
-            Matrices matLeft = new Matrices();
-            matLeft.translate(startX, 0, 0);
-            ctx.drawModel(modelLeft, matLeft);
-        }
-        if (rightLoaded) {
-            Matrices matRight = new Matrices();
-            matRight.translate(startX + (unit * (length - 1)) / 16.0, 0, 0);
-            ctx.drawModel(modelRight, matRight);
-        }
-        if (centerLoaded) {
-            Matrices matCenter = new Matrices();
-            for (int i = 0; i < length - 2; i++) {
-                double centerX = startX + (i + 1) * unit / 16.0;
-                matCenter.setIdentity();
-                matCenter.translate(centerX, 0, 0);
-                ctx.drawModel(modelCenter, matCenter);
-            }
+        // 绘制预拼接的完整模型 — 单次 drawModel 调用，无需矩阵变换
+        if (stitchedLoaded) {
+            ctx.drawModel(modelStitched, null);
         }
 
         // 绘制显示面纹理
@@ -350,9 +346,7 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
                             l -> {
                                 routes = l;
                                 // 璺嚎鏇存柊锛岄噸缃鑹叉浛鎹㈡爣蹇楋紝浠ヤ娇涓嬩竴娆＄粯鍒朵娇鐢ㄦ纭殑璺嚎棰滆壊
-                                leftLoaded = false;
-                                centerLoaded = false;
-                                rightLoaded = false;
+                                stitchedLoaded = false;
                                 List<List<Long>> saveRoutes = new ArrayList<>();
                                 for (RouteSelectInfo info : routes) {
                                     saveRoutes.add(List.of(info.route.id, info.plat.id));
@@ -442,9 +436,7 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
         // 阶段2：Drawing 已就绪，注册绘制
         routes = reloadRoute(getExtraConfig("routes", "[]"));
         // 路线重新加载，重置颜色替换标记，以便使用正确的路线颜色重新填充 routecolor
-        leftLoaded = false;
-        centerLoaded = false;
-        rightLoaded = false;
+        stitchedLoaded = false;
 
         String drawInfoId = "DIAOBAN_" + drawKey + "_" + routes + "_" + arrowDirection;
 

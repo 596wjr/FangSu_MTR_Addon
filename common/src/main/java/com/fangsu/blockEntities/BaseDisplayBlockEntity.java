@@ -61,6 +61,34 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
      */
     protected Map<String, JsonElement> userExtraConfigs = new HashMap<>();
 
+    // ==================== 重试节流 ====================
+
+    /** 重试间隔（毫秒），避免数据未就绪时每帧都重试 */
+    private static final long RETRY_INTERVAL_MS = 200;
+
+    /** 上次重试初始化的时间戳 */
+    private long lastRetryTime = 0;
+
+    /**
+     * 检查是否应该重试初始化（受 RETRY_INTERVAL 节流）。
+     * 避免数据未就绪时每帧都执行昂贵的重试操作。
+     */
+    protected boolean shouldRetryInit() {
+        long now = System.currentTimeMillis();
+        if (now - lastRetryTime >= RETRY_INTERVAL_MS) {
+            lastRetryTime = now;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 重置重试计时器（在配置变更等明确需要立即重试时调用）。
+     */
+    protected void resetRetryTimer() {
+        lastRetryTime = 0;
+    }
+
     // ==================== 显示纹理 ====================
 
     /**
@@ -210,8 +238,10 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
      * @param ctx 脚本上下文
      */
     protected void renderDisplayModel(ObjBlockScriptContext ctx) {
-        if (scriptDone && dmhDisp.getUploadedModel() != null
-                && GraphicsTextureHelper.getInstance().isTextureAvailable(getBlockPos())) {
+        if (markedError || !scriptDone || dmhDisp.getUploadedModel() == null) {
+            return;
+        }
+        if (GraphicsTextureHelper.getInstance().isTextureAvailable(getBlockPos())) {
             GraphicsTexture tex = GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos());
             if (tex != null && tex.isValid()) {
                 dmhDisp.getUploadedModel().replaceAllTexture(tex.identifier);
@@ -237,6 +267,7 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
     protected void resetDrawingState() {
         scriptDone = false;
         lastRegisteredDrawInfoId = "";
+        resetRetryTimer();
     }
 
     // ================================================================

@@ -119,9 +119,14 @@ public class BlockEntityRis extends BaseDisplayBlockEntity implements RouteDrawe
 
     @Override
     public void whenRendering() {
+        if (markedError) return;
+
         if (!scriptDone) {
-            routes = reloadRoute(getExtraConfig("routes", "[]"));
-            initDrawingAsync();
+            // 节流：仅在距上次重试足够长时间后才重新加载路线并尝试初始化绘制
+            if (shouldRetryInit()) {
+                routes = reloadRoute(getExtraConfig("routes", "[]"));
+                initDrawingAsync();
+            }
         }
 
         ObjBlockScriptContext ctx = this.scriptContext;

@@ -125,8 +125,10 @@ public class BlockEntitySis extends BaseDisplayBlockEntity {
 
     @Override
     public void whenRendering() {
-        // 如果车站数据还未加载完成（rawStn == null），每次渲染时尝试重新获取
-        if (stn != null && stn.getRaw() == null && firstInit) {
+        if (markedError) return;
+
+        // 如果车站数据还未加载完成，节流重试
+        if (stn != null && stn.getRaw() == null && firstInit && shouldRetryInit()) {
             var rawStn = MtrUtil.getStationById(Long.parseLong(getExtraConfig("station", "0")));
             if (rawStn != null) {
                 stn = new LocalStation(rawStn);
