@@ -130,7 +130,8 @@ public class SignConfigUI extends Screen {
                         16, rowY + rowHeight / 8, 0xffffffff, rowHeight / 8, false);
 
                 List<SignItem> lane = faceLanes.computeIfAbsent(partName(part), k -> new ArrayList<>());
-                drawLane(g2d, lane, rowScroll[i], rowY + rowHeight * 0.3f, part, u, false);
+                float laneStartX = part == 2 ? width + rowScroll[i] : rowScroll[i];
+                drawLane(g2d, lane, laneStartX, rowY + rowHeight * 0.3f, part, u, false);
 
                 if (mouseClickInfo != null && mouseClickInfo.button == 0 && mouseClickInfo.mouseY >= rowY && mouseClickInfo.mouseY <= rowBottom) {
                     modeFlag = 1;
@@ -182,9 +183,9 @@ public class SignConfigUI extends Screen {
         float headIndicatorX = x - u * 0.25f;
         if (lane.isEmpty() || sideEditing == -2) {
             if (blink) drawAddIndicator(ctx, headIndicatorX, y, u);
-            if (mouseClickInfo != null && mouseClickInfo.button == 0 && mouseClickInfo.mouseX >= headIndicatorX && mouseClickInfo.mouseX <= headIndicatorX + u * 0.5f && mouseClickInfo.mouseY >= y && mouseClickInfo.mouseY <= y + u) {
-                sideEditing = -2;
-            }
+        }
+        if (mouseClickInfo != null && mouseClickInfo.button == 0 && mouseClickInfo.mouseX >= headIndicatorX && mouseClickInfo.mouseX <= headIndicatorX + u * 0.5f && mouseClickInfo.mouseY >= y && mouseClickInfo.mouseY <= y + u) {
+            sideEditing = -2;
         }
 
         Graphics2D g = g2dLayer.graphics;

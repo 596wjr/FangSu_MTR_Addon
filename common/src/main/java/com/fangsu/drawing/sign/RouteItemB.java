@@ -23,12 +23,17 @@ import java.util.List;
 
 public class RouteItemB extends SignItem {
     private LocalRoute route;
+    private long routeId = -1; // 从JSON解析的原始路线ID，用于在route为null时保留数据
     private Font font;
 
     public RouteItemB(JsonObject json) {
         if (json.has("route") && json.get("route").isJsonPrimitive()) {
-            route = MtrUtil.getRouteById(json.getAsJsonPrimitive("route").getAsLong());
-        } else route = null;
+            routeId = json.getAsJsonPrimitive("route").getAsLong();
+            route = MtrUtil.getRouteById(routeId);
+        } else {
+            route = null;
+            routeId = -1;
+        }
         font = ResourceUtil.loadFont(new ResourceLocation("fangsu:fonts/source-han-sans-bold.otf"));
     }
 
@@ -37,6 +42,9 @@ public class RouteItemB extends SignItem {
         JsonObject json = new JsonObject();
         if (route != null) {
             json.addProperty("route", route.id);
+        } else if (routeId != -1) {
+            // 路线对象未加载成功时，保留原始ID
+            json.addProperty("route", routeId);
         }
         return json;
     }

@@ -1,5 +1,6 @@
 package com.fangsu.drawing.sign;
 
+import com.fangsu.Main;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -73,15 +74,24 @@ public final class SignItemFactory {
 
     private static @NotNull Map<String, SignItem> getMtrItems(JsonElement mtrJson) {
         Map<String, SignItem> mtrItems = new HashMap<>();
-        if (mtrJson != null && mtrJson.isJsonObject()) {
-            JsonObject obj = mtrJson.getAsJsonObject();
-            if (obj.has("custom_signs") && obj.get("custom_signs").isJsonArray()) {
-                JsonArray array = obj.get("custom_signs").getAsJsonArray();
-                for (JsonElement item : array) {
-                    if (!item.isJsonObject()) continue;
-                    JsonObject itemObject = item.getAsJsonObject();
+        if (mtrJson == null || !mtrJson.isJsonObject()) {
+            Main.LOGGER.warn("[FangSu] MTR custom_resources.json is not available or not a JSON object");
+            return mtrItems;
+        }
+        JsonObject obj = mtrJson.getAsJsonObject();
+        if (!obj.has("custom_signs")) {
+            Main.LOGGER.info("[FangSu] MTR custom_resources.json has no custom_signs section");
+            return mtrItems;
+        }
+        JsonElement customSigns = obj.get("custom_signs");
+        if (customSigns.isJsonObject()) {
+            for (Map.Entry<String, JsonElement> entry : customSigns.getAsJsonObject().entrySet()) {
+                try {
+                    if (!entry.getValue().isJsonObject()) continue;
+                    JsonObject itemObject = entry.getValue().getAsJsonObject();
+                    if (!itemObject.has("texture_id") || !itemObject.get("texture_id").isJsonPrimitive()) continue;
                     String texture_id = itemObject.getAsJsonPrimitive("texture_id").getAsString();
-                    String custom_text = itemObject.getAsJsonPrimitive("custom_text").getAsString();
+                    String custom_text = itemObject.has("custom_text") ? itemObject.getAsJsonPrimitive("custom_text").getAsString() : null;
                     if (mtrItems.containsKey(texture_id) && custom_text != null) {
                         SignItem current = mtrItems.get(texture_id);
                         current.setText(custom_text);
@@ -92,9 +102,36 @@ public final class SignItemFactory {
                         if (custom_text != null) current.setText(custom_text);
                         mtrItems.put(texture_id, current);
                     }
+                } catch (Exception e) {
+                    Main.LOGGER.warn("[FangSu] Failed to parse MTR custom sign entry: {}", entry.getKey(), e);
+                }
+            }
+        } else if (customSigns.isJsonArray()) {
+            JsonArray array = customSigns.getAsJsonArray();
+            for (int i = 0; i < array.size(); i++) {
+                try {
+                    JsonElement item = array.get(i);
+                    if (!item.isJsonObject()) continue;
+                    JsonObject itemObject = item.getAsJsonObject();
+                    if (!itemObject.has("texture_id") || !itemObject.get("texture_id").isJsonPrimitive()) continue;
+                    String texture_id = itemObject.getAsJsonPrimitive("texture_id").getAsString();
+                    String custom_text = itemObject.has("custom_text") ? itemObject.getAsJsonPrimitive("custom_text").getAsString() : null;
+                    if (mtrItems.containsKey(texture_id) && custom_text != null) {
+                        SignItem current = mtrItems.get(texture_id);
+                        current.setText(custom_text);
+                    } else {
+                        JsonObject json = new JsonObject();
+                        json.addProperty("image", texture_id);
+                        SignItem current = new ImageItem(json);
+                        if (custom_text != null) current.setText(custom_text);
+                        mtrItems.put(texture_id, current);
+                    }
+                } catch (Exception e) {
+                    Main.LOGGER.warn("[FangSu] Failed to parse MTR custom sign entry at index: {}", i, e);
                 }
             }
         }
+        Main.LOGGER.info("[FangSu] Loaded {} MTR custom sign icons", mtrItems.size());
         return mtrItems;
     }
 
