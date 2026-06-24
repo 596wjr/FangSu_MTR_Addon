@@ -107,7 +107,7 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
 
     @Override
     public boolean shouldRenderOffScreen(@NotNull T blockEntity) {
-        return true;
+        return false;
     }
 
     @Override

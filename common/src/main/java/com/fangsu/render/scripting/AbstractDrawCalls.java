@@ -28,8 +28,14 @@ public abstract class AbstractDrawCalls {
         }
 
         public void commit(DrawScheduler drawScheduler, Matrix4f basePose, int light) {
-            Matrix4f finalPose = basePose.copy();
-            finalPose.multiply(pose);
+            // pose 为 IDENTITY 时直接使用 basePose，避免每帧矩阵复制
+            final Matrix4f finalPose;
+            if (pose == Matrix4f.IDENTITY) {
+                finalPose = basePose;
+            } else {
+                finalPose = basePose.copy();
+                finalPose.multiply(pose);
+            }
             if (model != null) {
                 drawScheduler.enqueue(model, finalPose, light);
             } else {
@@ -43,8 +49,14 @@ public abstract class AbstractDrawCalls {
         }
 
         public void commitDirect(BufferSourceProxy proxy, Matrix4f basePose, int light) {
-            Matrix4f finalPose = basePose.copy();
-            finalPose.multiply(pose);
+            // pose 为 IDENTITY 时直接使用 basePose，避免每帧矩阵复制
+            final Matrix4f finalPose;
+            if (pose == Matrix4f.IDENTITY) {
+                finalPose = basePose;
+            } else {
+                finalPose = basePose.copy();
+                finalPose.multiply(pose);
+            }
             if (model != null) {
                 model.enqueueOpaqueBlaze(proxy, finalPose, light, MainClient.drawContext);
                 model.enqueueTranslucentBlaze(proxy, finalPose, light, MainClient.drawContext);

@@ -6,13 +6,15 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
+import net.minecraft.world.phys.shapes.BooleanOp;
 import java.util.*;
 import java.util.concurrent.*;
 
 // 弧度制
 public class RotatableShapeHelper {
     private static final RotatableShapeHelper instance = new RotatableShapeHelper();
-    private static final double DEFAULT_STEP_SIZE = 0.1d;
+    private static final double DEFAULT_STEP_SIZE = 0.25d;
+    private static final int MAX_SUB_BOXES = 4096;
 
     // 异步计算线程池：单线程守护线程，不会阻止 JVM 退出
     private static final ExecutorService COMPUTATION_THREAD = Executors.newSingleThreadExecutor(r -> {
@@ -52,13 +54,15 @@ public class RotatableShapeHelper {
     private final Object cacheLock = new Object();
 
     /**
-     * 初始化指定方块位置的碰撞箱（同步计算）。
-     * 旋转后的碰撞箱在当前线程直接计算，避免异步降级导致首次调用返回未旋转形状。
+     * 初始化指定方块位置的碰撞箱（异步计算）。
+     * 立即存入未旋转原始形状作为降级，旋转计算在后台线程执行，绝不阻塞调用线程。
      */
     public void initForBlock(BlockPos pos, float tx, float ty, float tz, float rx, float ry, float rz, ShapeCollection shape) {
         VoxelShape original = shape.asVoxelShape();
-        VoxelShape rotated = buildRotatedShape(shape, rx, ry, rz);
-        CompletableFuture<VoxelShape> future = CompletableFuture.completedFuture(rotated);
+        CompletableFuture<VoxelShape> future = CompletableFuture.supplyAsync(
+                () -> buildRotatedShape(shape, rx, ry, rz),
+                COMPUTATION_THREAD
+        );
         synchronized (cacheLock) {
             cache.put(pos, new ShapeCacheEntry(
                     new PosInfo(tx, ty, tz, rx, ry, rz),
@@ -153,7 +157,7 @@ public class RotatableShapeHelper {
                     box.maxX, box.maxY, box.maxZ
             );
             VoxelShape part = rotatedShape(normalizedBox, rx, ry, rz, DEFAULT_STEP_SIZE);
-            result = Shapes.or(result, part);
+            result = Shapes.joinUnoptimized(result, part, BooleanOp.OR);
         }
         return result.optimize();
     }
@@ -184,19 +188,25 @@ public class RotatableShapeHelper {
         boolean zRot = rz != 0f;
         int axes = (xRot ? 1 : 0) + (yRot ? 1 : 0) + (zRot ? 1 : 0);
 
-        VoxelShape shape = Shapes.empty();
+        // 收集所有旋转后的 AABB，避免在循环中反复调用昂贵的 Shapes.or()
+        List<AABB> worldBoxes = new ArrayList<>();
         if (axes == 1) {
             for (LocalBox part : split1D(workingLocal, stepSize, xRot, yRot, zRot)) {
-                AABB world = transformBox(part, pivotWorld, rx, ry, rz);
-                shape = Shapes.or(shape, Shapes.create(world));
+                worldBoxes.add(transformBox(part, pivotWorld, rx, ry, rz));
+                if (worldBoxes.size() >= MAX_SUB_BOXES) break;
             }
         } else {
             for (LocalBox part : split3D(workingLocal, stepSize)) {
-                AABB world = transformBox(part, pivotWorld, rx, ry, rz);
-                shape = Shapes.or(shape, Shapes.create(world));
+                worldBoxes.add(transformBox(part, pivotWorld, rx, ry, rz));
+                if (worldBoxes.size() >= MAX_SUB_BOXES) break;
             }
         }
 
+        // 用 joinUnoptimized 批量合并，最后只 optimize 一次
+        VoxelShape shape = Shapes.empty();
+        for (AABB world : worldBoxes) {
+            shape = Shapes.joinUnoptimized(shape, Shapes.create(world), BooleanOp.OR);
+        }
         return shape.optimize();
     }
 

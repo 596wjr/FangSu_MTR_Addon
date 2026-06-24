@@ -5,6 +5,7 @@ import com.fangsu.Main;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.mtr.LocalRoute;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
+import com.fangsu.render.sowcerext.model.ModelCluster;
 import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
 import com.fangsu.scripting.GraphicsTexture;
@@ -74,16 +75,24 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
 
     // ==================== 重试节流 ====================
 
-    /** 重试间隔（毫秒），避免数据未就绪时每帧都重试 */
+    /**
+     * 重试间隔（毫秒），避免数据未就绪时每帧都重试
+     */
     private static final long RETRY_INTERVAL_MS = 200;
 
-    /** 上次重试初始化的时间戳 */
+    /**
+     * 上次重试初始化的时间戳
+     */
     private long lastRetryTime = 0;
 
-    /** 外部 MTR 数据变更检测间隔（毫秒），比重试间隔长得多以减少不必要开销 */
+    /**
+     * 外部 MTR 数据变更检测间隔（毫秒），比重试间隔长得多以减少不必要开销
+     */
     private static final long DATA_CHECK_INTERVAL_MS = 2000;
 
-    /** 上次数据变更检测的时间戳 */
+    /**
+     * 上次数据变更检测的时间戳
+     */
     private long lastDataCheckTime = 0;
 
     /**
@@ -121,14 +130,18 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
 
     // ==================== 异步任务基础设施 ====================
 
-    /** 共享后台线程池，用于将 JSON 解析 + MTR 查找等操作从主线程移走 */
+    /**
+     * 共享后台线程池，用于将 JSON 解析 + MTR 查找等操作从主线程移走
+     */
     private static final ExecutorService ASYNC_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "fangsu-display-async");
         t.setDaemon(true);
         return t;
     });
 
-    /** 进行中的异步任务，用于去重 */
+    /**
+     * 进行中的异步任务，用于去重
+     */
     private CompletableFuture<Void> asyncTaskFuture;
 
     /**
@@ -145,17 +158,23 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
         asyncTaskFuture = CompletableFuture.runAsync(backgroundPhase, ASYNC_EXECUTOR);
     }
 
-    /** 检查异步任务是否已完成 */
+    /**
+     * 检查异步任务是否已完成
+     */
     protected final boolean isAsyncTaskDone() {
         return asyncTaskFuture != null && asyncTaskFuture.isDone();
     }
 
-    /** 消费（清除）已完成的异步任务标记 */
+    /**
+     * 消费（清除）已完成的异步任务标记
+     */
     protected final void consumeAsyncTask() {
         asyncTaskFuture = null;
     }
 
-    /** 取消所有待处理异步任务并丢弃结果 */
+    /**
+     * 取消所有待处理异步任务并丢弃结果
+     */
     private void cancelPendingAsyncTask() {
         asyncRoutesResult = null;
         asyncTaskFuture = null;
@@ -163,10 +182,14 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
 
     // ==================== 异步路线重载（RIS / Diaoban 统一） ====================
 
-    /** 异步路线重载的结果（后台线程写入，主线程读取） */
+    /**
+     * 异步路线重载的结果（后台线程写入，主线程读取）
+     */
     private volatile List<RouteSelectInfo> asyncRoutesResult;
 
-    /** 单调递增的任务代次号，用于丢弃过期后台任务的结果 */
+    /**
+     * 单调递增的任务代次号，用于丢弃过期后台任务的结果
+     */
     private int asyncTaskGen = 0;
 
     /**
@@ -262,8 +285,18 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
      * 显⽰⾯（屏幕）模型
      */
     protected DynamicModelHolder dmhDisp = new DynamicModelHolder();
-    /** 上一次替换的纹理标识，用于去重避免每帧 replaceAllTexture */
+    /**
+     * 上一次替换的纹理标识，用于去重避免每帧 replaceAllTexture
+     */
     private ResourceLocation lastDispTextureId = null;
+    /**
+     * 显示纹理是否已获取并可用，为 true 时跳过每帧的 synchronized 查询
+     */
+    private boolean dispTextureReady = false;
+    /**
+     * 缓存方块 ID 字符串，避免每帧 String 分配
+     */
+    private String cachedBlockId = null;
     /**
      * 显⽰纹理宽度
      */
@@ -407,19 +440,27 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
      * @param ctx 脚本上下文
      */
     protected void renderDisplayModel(ObjBlockScriptContext ctx) {
-        if (markedError || !scriptDone || dmhDisp == null || dmhDisp.getUploadedModel() == null) {
+        if (markedError || !scriptDone || dmhDisp == null) {
             return;
         }
-        if (GraphicsTextureHelper.getInstance().isTextureAvailable(getBlockPos())) {
-            GraphicsTexture tex = GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos());
-            if (tex != null && tex.isValid()) {
-                // 仅当纹理标识变化时才替换，避免每帧遍历所有 mesh 的昂贵操作
-                if (!tex.identifier.equals(lastDispTextureId)) {
-                    dmhDisp.getUploadedModel().replaceAllTexture(tex.identifier);
-                    lastDispTextureId = tex.identifier;
-                }
-                ctx.drawModel(dmhDisp.getUploadedModel(), null);
-            }
+        ModelCluster dispModel = dmhDisp.getUploadedModel();
+        if (dispModel == null) {
+            return;
+        }
+
+        // 纹理已就绪：直接绘制，跳过每帧的 synchronized 查询
+        if (dispTextureReady) {
+            ctx.drawModel(dispModel, null);
+            return;
+        }
+
+        // 首次获取纹理（合并 isTextureAvailable + getBlockGraphics 为一次 synchronized 调用）
+        GraphicsTexture tex = GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos());
+        if (tex != null && tex.isValid()) {
+            dispModel.replaceAllTexture(tex.identifier);
+            lastDispTextureId = tex.identifier;
+            dispTextureReady = true;
+            ctx.drawModel(dispModel, null);
         }
     }
 
@@ -441,6 +482,7 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
         scriptDone = false;
         lastRegisteredDrawInfoId = "";
         lastDispTextureId = null;
+        dispTextureReady = false;
         resetRetryTimer();
         // 清除待处理的异步任务结果，避免 UI 更新后过期数据覆盖正确路线
         cancelPendingAsyncTask();
