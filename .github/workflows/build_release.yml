@@ -1,0 +1,126 @@
+name: Build (Release)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  # ==================================================
+  # 阶段一：构建
+  # ==================================================
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        game_version: [ "1.18.2", "1.19.2", "1.19.3", "1.19.4", "1.20.1" ]
+        platform: [ "fabric", "forge" ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build ${{ matrix.platform }} for ${{ matrix.game_version }}
+        run: ./gradlew :${{ matrix.platform }}:build -Pgame_version=${{ matrix.game_version }} --no-daemon
+
+      - name: Upload jar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-${{ matrix.game_version }}
+          path: |
+            ${{ matrix.platform }}/build/libs/*.jar
+            !${{ matrix.platform }}/build/libs/*-dev-shadow.jar
+            !${{ matrix.platform }}/build/libs/*-sources.jar
+
+  # ==================================================
+  # 阶段二：所有构建成功后统一上传到 Modrinth
+  # ==================================================
+  upload-to-modrinth:
+    needs: build
+    if: always() && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      # 重新 checkout 源代码，以便读取 gradle.properties
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 从 gradle.properties 中提取 mod_version
+      - name: Read mod_version from gradle.properties
+        id: read_version
+        run: |
+          MOD_VERSION=$(grep '^mod_version=' gradle.properties | cut -d'=' -f2)
+          echo "MOD_VERSION=$MOD_VERSION" >> $GITHUB_ENV
+          echo "Read mod_version: $MOD_VERSION"
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: List downloaded artifacts
+        run: ls -R ./artifacts
+
+      - name: Upload each version to Modrinth
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          # 版本号从环境变量中获取，由上一步设置
+          BASE_VERSION: ${{ env.MOD_VERSION }}
+        run: |
+          # 更新日志留空
+          CHANGELOG_EMPTY=""
+
+          # 遍历所有 artifact 目录
+          for dir in $(find ./artifacts -mindepth 1 -maxdepth 1 -type d | sort -V -t'-' -k2); do
+            echo "Processing: $dir"
+
+            dir_name=$(basename "$dir")
+            platform=$(echo "$dir_name" | cut -d'-' -f1)
+            game_version=$(echo "$dir_name" | cut -d'-' -f2-)
+
+            jar_file=$(find "$dir" -name "*.jar" ! -name "*-sources.jar" ! -name "*-dev-shadow.jar" | head -n 1)
+
+            if [ -z "$jar_file" ]; then
+              echo "❌ No valid jar found in $dir, skipping..."
+              continue
+            fi
+
+            echo "✅ Found jar: $jar_file"
+
+            # 版本号：例如 0.8.0+forge.1.20.1
+            VERSION_NUMBER="${BASE_VERSION}+${platform}.${game_version}"
+            # 版本标题：MTR3-0.8.0-FORGE
+            VERSION_NAME="MTR3-${BASE_VERSION}-$(echo $platform | tr 'a-z' 'A-Z')"
+            LOADERS="[\"$platform\"]"
+            GAME_VERSIONS="[\"$game_version\"]"
+            DEPENDENCIES='[
+              {"project_id":"XKPAmI6u", "required":true},
+              {"project_id":"lhGA9TYQ", "required":true}
+            ]'
+
+            curl -X POST "https://api.modrinth.com/v2/version" \
+              -H "Authorization: $MODRINTH_TOKEN" \
+              -F "data={
+                \"project_id\": \"itupwyaA\",
+                \"version_number\": \"$VERSION_NUMBER\",
+                \"version_name\": \"$VERSION_NAME\",
+                \"version_type\": \"release\",
+                \"loaders\": $LOADERS,
+                \"game_versions\": $GAME_VERSIONS,
+                \"environment\": \"both\",
+                \"dependencies\": $DEPENDENCIES,
+                \"changelog\": \"\"
+              };type=application/json" \
+              -F "file=@$jar_file"
+
+            echo "✅ Uploaded $VERSION_NAME for $game_version"
+          done

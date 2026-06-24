@@ -40,8 +40,8 @@ public class RegisterUtil {
         return ITEMS.register(id, item);
     }
 
-    // 1.18.2 物品需手动添加到创造标签页；1.19+ 通过 buildCreativeTab 的 displayItems 自动添加
-    //#if MC_VERSION < 11900
+    // 1.19.2 及以下需手动添加到创造标签页；1.19.3+ 通过 buildCreativeTab 的 displayItems 自动添加
+    //#if MC_VERSION < 11903
     //$$public static Item.Properties tabProps(Item.Properties props) {
     //$$    return props.tab(com.fangsu.creativeTabs.ModCreativeTabs.FANGSU_MAIN);
     //$$}
