@@ -2,8 +2,6 @@ package com.fangsu.forge;
 
 import com.fangsu.MainClient;
 import dev.architectury.platform.forge.EventBuses;
-import net.minecraft.client.Minecraft;
-import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -29,15 +27,12 @@ public final class MainForge {
 
     private void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
-            // 客户端初始化
-            MainClient.initClient();
-
-            ResourceManager resourceManager = Minecraft.getInstance().getResourceManager();
-            initResources(resourceManager);
+            try {
+                // 客户端初始化（只运行一次，注册 BlockEntityRenderers 等）
+                MainClient.initClient();
+            } catch (Exception e) {
+                Main.LOGGER.error("[FangSu] Failed to initialize client", e);
+            }
         });
-    }
-
-    private void initResources(ResourceManager resourceManager) {
-        MainClient.initResources(resourceManager);
     }
 }

@@ -1,5 +1,6 @@
 package com.fangsu.scripting;
 
+import com.fangsu.Main;
 import com.fangsu.MainClient;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcer.math.Vector3f;
@@ -37,12 +38,20 @@ public class DisplayHelper {
         this.texture = null;
         this.ownsTexture = false;
 
+        if (!cfg.has("version")) {
+            Main.LOGGER.warn("DisplayHelper: JSON config missing 'version' field");
+            return;
+        }
         int version = cfg.get("version").getAsInt();
         if (version == 1) {
             String renderType = cfg.has("renderType") ? cfg.get("renderType").getAsString() : "interior";
             RawMeshBuilder meshBuilder = new RawMeshBuilder(4, renderType, new ResourceLocation("minecraft:textures/misc/white.png"));
             meshBuilder.color(255, 255, 255, 255);
 
+            if (!cfg.has("slots") || !cfg.has("texSize")) {
+                Main.LOGGER.warn("DisplayHelper: JSON config missing 'slots' or 'texSize' field");
+                return;
+            }
             JsonArray slots = cfg.getAsJsonArray("slots");
             JsonArray texSizeArr = cfg.getAsJsonArray("texSize");
             int texWidth = texSizeArr.get(0).getAsInt();
@@ -127,6 +136,10 @@ public class DisplayHelper {
         instance.cfg = this.cfg;
         instance.baseModel = this.baseModel;
 
+        if (cfg == null || !cfg.has("version")) {
+            Main.LOGGER.warn("DisplayHelper.create(): JSON config missing 'version' field");
+            return instance;
+        }
         int version = cfg.get("version").getAsInt();
         if (version == 1) {
             if (withinGt) {
@@ -135,6 +148,10 @@ public class DisplayHelper {
                 instance.texture = sharedTexture;
                 instance.ownsTexture = false;
             } else {
+                if (!cfg.has("texSize")) {
+                    Main.LOGGER.warn("DisplayHelper.create(): JSON config missing 'texSize' field");
+                    return instance;
+                }
                 JsonArray texSizeArr = cfg.getAsJsonArray("texSize");
                 instance.texture = new GraphicsTexture(texSizeArr.get(0).getAsInt(), texSizeArr.get(1).getAsInt());
                 instance.ownsTexture = true;
@@ -144,6 +161,10 @@ public class DisplayHelper {
             instance.emptyTransform = instance.graphics.getTransform();
             instance.slotTransforms = new HashMap<>();
 
+            if (!cfg.has("slots")) {
+                Main.LOGGER.warn("DisplayHelper.create(): JSON config missing 'slots' field");
+                return instance;
+            }
             JsonArray slots = cfg.getAsJsonArray("slots");
             for (JsonElement slotElem : slots) {
                 JsonObject slotCfg = slotElem.getAsJsonObject();

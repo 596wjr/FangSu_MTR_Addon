@@ -3,11 +3,12 @@
     "id": "fangsu",
     "version": "${version}",
     "name": "FangSu MTR Addon",
-    "description": "Added blocks such as OBJ-format ticket gates, and provided a set of interfaces to simplify the creation of MTR extensions.",
+    "description": "方速 MTR 扩展 / FangSu MTR Addon - A comprehensive MTR addon adding OBJ-format ticket barriers, platform screen doors, passenger information displays (PIDS), fare systems, custom trains and lifts, signs and boards, and a JavaScript scripting engine.",
     "authors": ["596wjr"],
     "contact": {
         "homepage": "https://mtr.fangsu.top/",
-        "sources": "https://github.com/596wjr/FangSu_MTR_Addon/"
+        "sources": "https://github.com/596wjr/FangSu_MTR_Addon/",
+        "issues": "https://github.com/596wjr/FangSu_MTR_Addon/issues"
     },
     "license": "MIT",
     "icon": "assets/fangsu/icon.png",

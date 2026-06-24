@@ -59,6 +59,10 @@ public class ContentManager {
             return;
         }
         JsonObject itemObject = itemElement.getAsJsonObject();
+        if (itemObject.keySet().isEmpty()) {
+            Main.LOGGER.warn("Failed to load content {}({}): JSON object has no keys (resource may not be available)", type, path);
+            return;
+        }
         ContentLoader loader;
         if (loaders.containsKey(type)) loader = loaders.get(type);
         else {

@@ -407,7 +407,7 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
      * @param ctx 脚本上下文
      */
     protected void renderDisplayModel(ObjBlockScriptContext ctx) {
-        if (markedError || !scriptDone || dmhDisp.getUploadedModel() == null) {
+        if (markedError || !scriptDone || dmhDisp == null || dmhDisp.getUploadedModel() == null) {
             return;
         }
         if (GraphicsTextureHelper.getInstance().isTextureAvailable(getBlockPos())) {

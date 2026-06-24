@@ -348,6 +348,11 @@ public class ResourceUtil {
             return (JsonElement) register.get(GlobalRegisterKey);
         }
 
+        if (resourceManager == null) {
+            Main.LOGGER.error("Cannot load {}: ResourceManager is not initialized yet!", location);
+            return new JsonObject();
+        }
+
         List<Resource> resources;
 
         try {
@@ -358,12 +363,12 @@ public class ResourceUtil {
             //$$ resources = java.util.Collections.singletonList(resourceManager.getResource(location));
             //#endif
         } catch (Exception e) {
-            Main.LOGGER.warn("Failed to get resources for {}: {}", location, e.getMessage());
+            Main.LOGGER.warn("Failed to get resources for {}: {} (returning empty object)", location, e.getMessage());
             return new JsonObject();
         }
 
         if (!hasResources(location)) {
-            Main.debug("No resources found for: {}", location);
+            Main.LOGGER.warn("No resources found for: {} (returning empty object)", location);
             return new JsonObject();
         }
 
@@ -514,6 +519,10 @@ public class ResourceUtil {
 
         // 5. 如果不足 12 位，左补 '0'
         return String.format("%12s", s).replace(' ', '0');
+    }
+
+    public static boolean isInitialized() {
+        return resourceManager != null;
     }
 
     public static void init(ResourceManager mgr) {

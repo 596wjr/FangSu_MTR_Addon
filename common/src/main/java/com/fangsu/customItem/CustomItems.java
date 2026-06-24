@@ -44,11 +44,15 @@ public class CustomItems {
 
         JsonElement root = ResourceUtil.loadAsJSON(new ResourceLocation(CONTENT_PATH));
         if (root == null || !root.isJsonObject()) {
-            Main.LOGGER.error("Failed to load contents: root JSON is null or empty!");
+            Main.LOGGER.error("Failed to load contents: root JSON is null or not an object!");
+            return;
+        }
+        JsonObject rootObj = root.getAsJsonObject();
+        if (rootObj.keySet().isEmpty()) {
+            Main.LOGGER.error("Failed to load contents: root JSON object is empty (resource '{}' may not be available)!", CONTENT_PATH);
             return;
         }
         long begin = System.currentTimeMillis();
-        JsonObject rootObj = root.getAsJsonObject();
         for (Map.Entry<String, JsonElement> entry : rootObj.entrySet()) {
             String key = entry.getKey();
             JsonElement value = entry.getValue();

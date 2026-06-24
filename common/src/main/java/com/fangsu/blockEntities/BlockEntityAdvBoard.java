@@ -183,7 +183,11 @@ public class BlockEntityAdvBoard extends BaseObjBlockEntity {
             Main.LOGGER.warn(e.getMessage());
             for (StackTraceElement stackTraceElement : e.getStackTrace())
                 Main.LOGGER.warn(stackTraceElement.toString());
-            Main.LOGGER.warn(content.toString());
+            if (content != null) {
+                Main.LOGGER.warn(content.toString());
+            } else {
+                Main.LOGGER.warn("content is null, cannot print details");
+            }
             markedError = true;
         }
     }

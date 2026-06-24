@@ -260,7 +260,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         }
 
         public void drawModel(DynamicModelHolder model, Matrices poseStack) {
-            if (model.getUploadedModel() == null || model.getUploadedModel().isClosed()) return;
+            if (model == null || model.getUploadedModel() == null || model.getUploadedModel().isClosed()) return;
             this.scriptResultWriting.addModel(model, poseStack == null ? Matrix4f.IDENTITY : poseStack.last().copy());
         }
 

@@ -21,12 +21,15 @@ import com.fangsu.ui.ModMenus;
 import com.fangsu.userScripts.ScriptManager;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonObject;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.packs.resources.ResourceManager;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Environment(EnvType.CLIENT)
 public class MainClient {
     public static DrawScheduler drawScheduler = new DrawScheduler();
     public static ModelManager modelManager = new ModelManager();
@@ -60,49 +63,92 @@ public class MainClient {
         } catch (ClassNotFoundException ignored) {
         }
 
-        if (is_nte_loaded) Main.LOGGER.info("[FangSu] 姝ｅ湪娓叉煋鍏煎妯″紡涓嬭繍锟?");
+        if (is_nte_loaded) Main.LOGGER.info("[FangSu] running with NTE, using compatible rendering");
     }
 
     public static void initResources(ResourceManager resourceManager) {
-        ResourceUtil.init(resourceManager);
-        CustomItems.getInstance().init();
-        SignItemFactory.init();
-        DiaobanDrawManager.preload();
-        PidsDrawManager.preload();
-        RisDrawManager.preload();
-        SisDrawManager.preload();
+        Main.LOGGER.info("[FangSu] initResources called, resourceManager={}", resourceManager);
+
+        if (resourceManager == null) {
+            Main.LOGGER.error("[FangSu] initResources: resourceManager is null! Skipping initialization.");
+            return;
+        }
+
         try {
-            MainClient.drawScheduler.reloadShaders(resourceManager);
-        } catch (Exception e) {
-            Main.LOGGER.error("Failed to reload FangSu shaders", e);
-        }
 
-        CustomMtrLifts customMtrLifts = CustomMtrLifts.getInstance();
-        customMtrLifts.load();
-        {
-            JsonObject defaultLift = new JsonObject();
-            defaultLift.addProperty("id", "default");
-            defaultLift.addProperty("texture", "mtr:textures/entity/lift_1.png");
-            defaultLift.addProperty("name", ComponentHelper.translatable("mtr.fangsu.lift.vanilla").getString());
-            defaultLift.addProperty("description", ComponentHelper.translatable("mtr.fangsu.lift.vanilla.description").getString());
-            JsonObject nonTransparent = new JsonObject();
-            nonTransparent.addProperty("id", "non_transparent");
-            nonTransparent.addProperty("texture", "fangsu:textures/entity/non_transparent.png");
-            nonTransparent.addProperty("name", ComponentHelper.translatable("fangsu:textures/entity/non_transparent.png").getString());
-            nonTransparent.addProperty("description", ComponentHelper.translatable("mtr.fangsu.lift.non_transparent.description").getString());
-            customMtrLifts.injectBuiltInTexturedLifts(defaultLift);
-            customMtrLifts.injectBuiltInTexturedLifts(nonTransparent);
-        }
-        LcdManager.getInstance().injectLcd("mtr", MtrLcd::new);
+            ResourceUtil.init(resourceManager);
+            Main.LOGGER.info("[FangSu] ResourceUtil initialized, starting CustomItems.init...");
 
-        FunctionalCustomTrains.init(resourceManager);
-
-        for (Runnable runnable : resourceInitRunnables) {
             try {
-                runnable.run();
+                CustomItems.getInstance().init();
             } catch (Exception e) {
-                Main.LOGGER.error("failed to run resource runnable", e);
+                Main.LOGGER.error("[FangSu] CustomItems.init failed", e);
             }
+            Main.LOGGER.info("[FangSu] CustomItems.init completed, starting SignItemFactory.init...");
+
+            try {
+                SignItemFactory.init();
+            } catch (Exception e) {
+                Main.LOGGER.error("[FangSu] SignItemFactory.init failed", e);
+            }
+            Main.LOGGER.info("[FangSu] SignItemFactory.init completed");
+            try {
+                DiaobanDrawManager.preload();
+                PidsDrawManager.preload();
+                RisDrawManager.preload();
+                SisDrawManager.preload();
+            } catch (Exception e) {
+                Main.LOGGER.error("[FangSu] DrawManager preload failed", e);
+            }
+            try {
+                MainClient.drawScheduler.reloadShaders(resourceManager);
+            } catch (Exception e) {
+                Main.LOGGER.error("Failed to reload FangSu shaders", e);
+            }
+
+            try {
+                CustomMtrLifts customMtrLifts = CustomMtrLifts.getInstance();
+                customMtrLifts.load();
+                {
+                    JsonObject defaultLift = new JsonObject();
+                    defaultLift.addProperty("id", "default");
+                    defaultLift.addProperty("texture", "mtr:textures/entity/lift_1.png");
+                    defaultLift.addProperty("name", ComponentHelper.translatable("mtr.fangsu.lift.vanilla").getString());
+                    defaultLift.addProperty("description", ComponentHelper.translatable("mtr.fangsu.lift.vanilla.description").getString());
+                    JsonObject nonTransparent = new JsonObject();
+                    nonTransparent.addProperty("id", "non_transparent");
+                    nonTransparent.addProperty("texture", "fangsu:textures/entity/non_transparent.png");
+                    nonTransparent.addProperty("name", ComponentHelper.translatable("fangsu:textures/entity/non_transparent.png").getString());
+                    nonTransparent.addProperty("description", ComponentHelper.translatable("mtr.fangsu.lift.non_transparent.description").getString());
+                    customMtrLifts.injectBuiltInTexturedLifts(defaultLift);
+                    customMtrLifts.injectBuiltInTexturedLifts(nonTransparent);
+                }
+            } catch (Exception e) {
+                Main.LOGGER.error("[FangSu] CustomMtrLifts init failed", e);
+            }
+            try {
+                LcdManager.getInstance().injectLcd("mtr", MtrLcd::new);
+            } catch (Exception e) {
+                Main.LOGGER.error("[FangSu] LcdManager init failed", e);
+            }
+
+            try {
+                FunctionalCustomTrains.init(resourceManager);
+            } catch (Exception e) {
+                Main.LOGGER.error("[FangSu] FunctionalCustomTrains.init failed", e);
+            }
+
+            for (Runnable runnable : resourceInitRunnables) {
+                try {
+                    runnable.run();
+                } catch (Exception e) {
+                    Main.LOGGER.error("failed to run resource runnable", e);
+                }
+            }
+
+            Main.LOGGER.info("[FangSu] initResources completed successfully");
+        } catch (Exception e) {
+            Main.LOGGER.error("[FangSu] initResources failed with unexpected exception", e);
         }
     }
 

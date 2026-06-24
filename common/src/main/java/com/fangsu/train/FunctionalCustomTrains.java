@@ -47,8 +47,13 @@ public class FunctionalCustomTrains implements IResourcePackCreatorProperties, I
                             String lcdId = lcd.get("id").getAsString();
                             String slotsPath = lcd.get("slots").getAsString();
                             ResourceLocation slotsLocation = new ResourceLocation(slotsPath);
-                            JsonObject slots = ResourceUtil.loadAsJSON(slotsLocation).getAsJsonObject();
-                            lcdInfo = new LcdInfo(lcdId, slots, lcd);
+                            JsonElement slotsElement = ResourceUtil.loadAsJSON(slotsLocation);
+                            if (slotsElement != null && slotsElement.isJsonObject() && slotsElement.getAsJsonObject().has("version")) {
+                                JsonObject slots = slotsElement.getAsJsonObject();
+                                lcdInfo = new LcdInfo(lcdId, slots, lcd);
+                            } else {
+                                Main.LOGGER.warn("Failed to load LCD slots for train {}: JSON missing or invalid at {}", entry.getKey(), slotsPath);
+                            }
                         }
 
 
