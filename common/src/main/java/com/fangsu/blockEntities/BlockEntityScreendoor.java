@@ -92,6 +92,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
         isAutoDoorSide = extraConfigs.getOrDefault("isAuto", "true").equals("true");
         isolation = extraConfigs.getOrDefault("isolation", "false").equals("true");
         doorOpenOverride = extraConfigs.getOrDefault("doorOpenOverride", "false").equals("true");
+        doorTarget = extraConfigs.getOrDefault("doorTarget", "false").equals("true");
 
         // 涓嶅湪 loading 闃舵鐩存帴锟?
         pendingAutoDoorSide = true;
@@ -284,7 +285,6 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
 
     @Override
     public VoxelShape setCollisionShape(BlockState state) {
-        doorTarget = this.extraConfigs.getOrDefault("doorTarget", "false").equals("true");
         if (getDoorTarget()) return Shapes.empty();
         return getFinalShape(state);
     }

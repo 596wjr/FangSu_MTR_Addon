@@ -100,9 +100,9 @@ public class GraphicsTextureHelper {
 
         for (GTInfo info : loadGts.values()) {
             try {
+                // 静态纹理已上传完成（needsUpload 已由第一个循环处理），无需每 tick 重复 upload
                 if (info.isStatic && info.available &&
                         info.gt.isValid()) {
-                    info.gt.upload();
                     continue;
                 }
                 if (info.isClosed) continue;
@@ -349,12 +349,12 @@ public class GraphicsTextureHelper {
 
         DrawFunctionGt drawFunction;
 
-        boolean available = false;
+        volatile boolean available = false;
         boolean isClosed = false;
         boolean isStatic = false;
         boolean waitUntilDraw = false;
 
-        boolean flameCompleted = true;
+        volatile boolean flameCompleted = true;
 
         volatile boolean drawing = false;
         volatile boolean needsUpload = false;
@@ -364,7 +364,7 @@ public class GraphicsTextureHelper {
         /**
          * 当前绘制失败/超时的重试次数
          */
-        int retryCount = 0;
+        volatile int retryCount = 0;
         /**
          * 最大重试次数
          */

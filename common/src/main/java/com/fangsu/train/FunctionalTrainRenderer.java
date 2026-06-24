@@ -74,6 +74,10 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
 
         GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
         // 绘制函数：路线数据未就绪时跳过绘制，保留纹理上一帧有效内容
+        // 空回调：绘制完成后由 GraphicsTextureHelper.tick() 通过 needsUpload 机制统一上传，
+        // 避免绘制线程和 tick 线程同时调用 gt.upload() 导致 NativeImage 数据竞争
+        Runnable noopCallback = () -> {};
+
         GraphicsTextureHelper.DrawFunctionGt drawFn = (gt) -> {
             drawState.clear();
             var slots = lcdInfo.slotsInfo().getAsJsonArray("slots");
@@ -85,11 +89,11 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
                     JsonArray texAreaJson = obj.get("texArea").getAsJsonArray();
                     int[] texArea = new int[]{texAreaJson.get(0).getAsInt(), texAreaJson.get(1).getAsInt(), texAreaJson.get(2).getAsInt(), texAreaJson.get(3).getAsInt()};
                     lcd.draw(gt.graphics, trainStatus, lcdInfo, drawState,
-                            name, texArea[0], texArea[1], texArea[2], texArea[3], gt::upload);
+                            name, texArea[0], texArea[1], texArea[2], texArea[3], noopCallback);
                 }
             } else {
                 // 路线数据未就绪（新 TrainClient 尚未同步），跳过绘制以保留纹理的上一帧有效内容
-                gt.upload();
+                // 无需 upload，tick 循环会通过 needsUpload 统一上传
             }
         };
         // TrainClient 重建后（trainId 复用）替换绘制函数以捕获新的 trainStatus/drawState，保留旧纹理内容
