@@ -73,24 +73,36 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
         }
 
         GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
-        gtHelper.addDrawGraphicWithGt("train_" + (trainClient.trainId),
-                new GraphicsTextureHelper.DrawInfo("train_lcd_" + trainClient.trainId,
-                        lcdInfo.slotsInfo().getAsJsonArray("texSize").get(0).getAsInt(),
-                        lcdInfo.slotsInfo().getAsJsonArray("texSize").get(1).getAsInt(),
-                        false, true),
-                (gt) -> {
-                    drawState.clear();
-                    var slots = lcdInfo.slotsInfo().getAsJsonArray("slots");
-                    trainStatus.updateRoute();
-                    for (JsonElement slot : slots) {
-                        JsonObject obj = slot.getAsJsonObject();
-                        String name = obj.get("name").getAsString();
-                        JsonArray texAreaJson = obj.get("texArea").getAsJsonArray();
-                        int[] texArea = new int[]{texAreaJson.get(0).getAsInt(), texAreaJson.get(1).getAsInt(), texAreaJson.get(2).getAsInt(), texAreaJson.get(3).getAsInt()};
-                        lcd.draw(gt.graphics, trainStatus, lcdInfo, drawState,
-                                name, texArea[0], texArea[1], texArea[2], texArea[3], gt::upload);
-                    }
-                });
+        // 绘制函数：路线数据未就绪时跳过绘制，保留纹理上一帧有效内容
+        GraphicsTextureHelper.DrawFunctionGt drawFn = (gt) -> {
+            drawState.clear();
+            var slots = lcdInfo.slotsInfo().getAsJsonArray("slots");
+            trainStatus.updateRoute();
+            if (trainStatus.currentRoute != null && trainStatus.drawableRoute != null) {
+                for (JsonElement slot : slots) {
+                    JsonObject obj = slot.getAsJsonObject();
+                    String name = obj.get("name").getAsString();
+                    JsonArray texAreaJson = obj.get("texArea").getAsJsonArray();
+                    int[] texArea = new int[]{texAreaJson.get(0).getAsInt(), texAreaJson.get(1).getAsInt(), texAreaJson.get(2).getAsInt(), texAreaJson.get(3).getAsInt()};
+                    lcd.draw(gt.graphics, trainStatus, lcdInfo, drawState,
+                            name, texArea[0], texArea[1], texArea[2], texArea[3], gt::upload);
+                }
+            } else {
+                // 路线数据未就绪（新 TrainClient 尚未同步），跳过绘制以保留纹理的上一帧有效内容
+                gt.upload();
+            }
+        };
+        // TrainClient 重建后（trainId 复用）替换绘制函数以捕获新的 trainStatus/drawState，保留旧纹理内容
+        if (gtHelper.hasDrawGraphic("train_" + (trainClient.trainId))) {
+            gtHelper.replaceDrawFunction("train_" + (trainClient.trainId), drawFn);
+        } else {
+            gtHelper.addDrawGraphicWithGt("train_" + (trainClient.trainId),
+                    new GraphicsTextureHelper.DrawInfo("train_lcd_" + trainClient.trainId,
+                            lcdInfo.slotsInfo().getAsJsonArray("texSize").get(0).getAsInt(),
+                            lcdInfo.slotsInfo().getAsJsonArray("texSize").get(1).getAsInt(),
+                            false, true),
+                    drawFn);
+        }
         var dh = dhBase.create(gtHelper.getGraphics("train_" + (trainClient.trainId)));
 
         return new FunctionalTrainRenderer(lcdInfo, instanceBaseRenderer, trainClient, lcd, dh, trainStatus);
@@ -124,10 +136,9 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
         trainStatus.update(carIndex, doorLeftOpen, doorRightOpen, carPose.copy());
 
         if (posAverage == null) {
-//            if (carIndex == train.trainCars - 1) {
-//                // So it's outside visible range, but still need to call render function
-//                GraphicsTextureHelper.getInstance().getGraphics("train_" + (train.trainId));
-//            }
+            // 列车在可视范围外，不触发 LCD 绘制。
+            // 若在此处调用 getGraphics 触发绘制，MTR 可能未维护完整的路线数据，
+            // 导致 updateRoute() 返回空路线，将"无线路信息"写入纹理覆盖掉正确内容。
             return;
         }
 

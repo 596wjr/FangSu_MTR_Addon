@@ -18,6 +18,7 @@ import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
 import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.scripting.ModelHelper;
+import com.fangsu.shape.RotatableShapeHelper;
 import com.fangsu.shape.ShapeCollection;
 import com.fangsu.ui.RouteSelectInfo;
 import com.fangsu.utils.ContentInfoUtil;
@@ -53,11 +54,17 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
     protected String subModel;
     protected String drawScript;
 
-    /** 加载时预拼接好的完整分段模型（left + center×N + right） */
+    /**
+     * 加载时预拼接好的完整分段模型（left + center×N + right）
+     */
     private DynamicModelHolder dmhStitched = new DynamicModelHolder();
-    /** 首次渲染时拷贝的拼接模型（用于路线颜色替换） */
+    /**
+     * 首次渲染时拷贝的拼接模型（用于路线颜色替换）
+     */
     private ModelCluster modelStitched;
-    /** 路线颜色纹理是否已替换完成 */
+    /**
+     * 路线颜色纹理是否已替换完成
+     */
     private boolean stitchedLoaded = false;
     private DynamicModelHolder dmhDlOn, dmhDlOff;
     private ShapeCollection shapeLeft;
@@ -84,6 +91,9 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
 
     @Override
     public void whenLoading() {
+        // whenLoading 可能改变 shape（长度/模型变化），清除形状缓存使 setShape 重新计算
+        RotatableShapeHelper.getInstance().removeCache(getWorldPos());
+
         ensureExtraConfig("extraConfig", "{}");
 
         mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
@@ -118,25 +128,24 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
 
             // 加载时预拼接：将 left + center×(length-2) + right 合并为一个模型，
             // 每个分段施加正确的平移变换，避免渲染时每帧计算矩阵
+            // 使用 Matrix4f.translation() 替代 new+translate 以减少矩阵乘法开销
             unit = content.getUnit();
             double startX = (-0.5 * unit * (length - 1)) / 16.0;
             RawModel stitched = new RawModel();
             if (leftRaw != null) {
-                Matrix4f mat = new Matrix4f();
-                mat.translate((float) startX, 0, 0);
-                stitched.appendTransformed(leftRaw, mat, -1, -1);
+                stitched.appendTransformed(leftRaw,
+                        Matrix4f.translation((float) startX, 0, 0), -1, -1);
             }
             if (centerRaw != null) {
+                float unitF = unit / 16.0f;
                 for (int i = 0; i < length - 2; i++) {
-                    Matrix4f mat = new Matrix4f();
-                    mat.translate((float) (startX + (i + 1) * unit / 16.0), 0, 0);
-                    stitched.appendTransformed(centerRaw, mat, -1, -1);
+                    stitched.appendTransformed(centerRaw,
+                            Matrix4f.translation((float) (startX + (i + 1) * unitF), 0, 0), -1, -1);
                 }
             }
             if (rightRaw != null) {
-                Matrix4f mat = new Matrix4f();
-                mat.translate((float) (startX + (length - 1) * unit / 16.0), 0, 0);
-                stitched.appendTransformed(rightRaw, mat, -1, -1);
+                stitched.appendTransformed(rightRaw,
+                        Matrix4f.translation((float) (startX + (length - 1) * unit / 16.0), 0, 0), -1, -1);
             }
             stitched.generateNormals();
             dmhStitched.uploadLater(stitched);
@@ -172,7 +181,7 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
             double leftSpace = content.getLeftSpace(), rightSpace = content.getRightSpace();
             double y1 = 0.75, z1 = 0.25, y2 = 0.25, z2 = 0.25;
             List<List<Double>> tex = content.getTex();
-            if (!tex.isEmpty() && tex.size() == 2) {
+            if (tex.size() == 2) {
                 if (tex.get(0).size() == 2) {
                     y1 = tex.get(0).get(0);
                     z1 = tex.get(0).get(1);
@@ -213,6 +222,7 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
             resetDrawingState();
         } catch (Exception e) {
             Main.LOGGER.warn("Failed to load diaoban: {}", e.getMessage());
+            
         }
     }
 
@@ -261,19 +271,34 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
 
         if (!scriptDone) {
             initDrawingAsync();
+        } else if (shouldCheckDataChange()) {
+            // 异步检测外部 MTR 数据变更（路线颜色等）
+            triggerAsyncRouteReload(getExtraConfig("routes", "[]"));
+        }
+
+        // 检查异步重载结果
+        List<RouteSelectInfo> newRoutes = pollAsyncRoutes();
+        if (newRoutes != null && !routesEqual(newRoutes, routes)) {
+            routes = newRoutes;
+            stitchedLoaded = false;
+            resetDrawingState();
+            return;
         }
 
         ObjBlockScriptContext ctx = this.scriptContext;
 
         // 首次获取到有效路线时，对预拼接模型进行一次颜色纹理替换
         if (!stitchedLoaded && !routes.isEmpty()) {
-            LocalRoute r1 = routes.get(0).route;
-            if (r1 != null) {
-                GraphicsTexture gt = ResourceUtil.createSolidColorGT(16, 16, new Color(r1.color));
-                if (gt.isValid() && dmhStitched.getUploadedModel() != null) {
-                    modelStitched = dmhStitched.getUploadedModel().copyForMaterialChanges();
-                    modelStitched.replaceTexture("routecolor.png", gt.identifier);
-                    stitchedLoaded = true;
+            ModelCluster currentStitched = dmhStitched.getUploadedModel();
+            if (currentStitched != null) {
+                LocalRoute r1 = routes.get(0).route;
+                if (r1 != null) {
+                    GraphicsTexture gt = ResourceUtil.createSolidColorGT(16, 16, new Color(r1.color));
+                    if (gt.isValid()) {
+                        modelStitched = currentStitched.copyForMaterialChanges();
+                        modelStitched.replaceTexture("routecolor.png", gt.identifier);
+                        stitchedLoaded = true;
+                    }
                 }
             }
         }

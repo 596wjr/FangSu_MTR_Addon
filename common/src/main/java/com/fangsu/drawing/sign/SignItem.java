@@ -2,6 +2,7 @@ package com.fangsu.drawing.sign;
 
 import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.utils.ResourceUtil;
+import com.google.common.base.Objects;
 import com.google.gson.JsonObject;
 import net.minecraft.resources.ResourceLocation;
 
@@ -66,5 +67,15 @@ public abstract class SignItem {
 
     public boolean isCompleted() {
         return true;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(getType(), toJson());
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return obj instanceof SignItem signItem && this.getType().equals(signItem.getType()) && Objects.equal(this.toJson(), signItem.toJson());
     }
 }

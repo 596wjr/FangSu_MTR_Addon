@@ -52,25 +52,13 @@ public class RotatableShapeHelper {
     private final Object cacheLock = new Object();
 
     /**
-     * 初始化指定方块位置的碰撞箱（异步计算）。
-     * 旋转后的碰撞箱在独立线程中计算，不会阻塞主线程。
-     *
-     * @param pos   方块位置
-     * @param tx    平移 X（相对方块原点）
-     * @param ty    平移 Y
-     * @param tz    平移 Z
-     * @param rx    绕 X 轴旋转（弧度）
-     * @param ry    绕 Y 轴旋转（弧度）
-     * @param rz    绕 Z 轴旋转（弧度）
-     * @param shape 形状集合
+     * 初始化指定方块位置的碰撞箱（同步计算）。
+     * 旋转后的碰撞箱在当前线程直接计算，避免异步降级导致首次调用返回未旋转形状。
      */
     public void initForBlock(BlockPos pos, float tx, float ty, float tz, float rx, float ry, float rz, ShapeCollection shape) {
-        VoxelShape original = shape.asVoxelShape(); // 原始未旋转形状（立即返回）
-        CompletableFuture<VoxelShape> future = CompletableFuture.supplyAsync(
-                () -> buildRotatedShape(shape, rx, ry, rz),
-                COMPUTATION_THREAD
-        );
-
+        VoxelShape original = shape.asVoxelShape();
+        VoxelShape rotated = buildRotatedShape(shape, rx, ry, rz);
+        CompletableFuture<VoxelShape> future = CompletableFuture.completedFuture(rotated);
         synchronized (cacheLock) {
             cache.put(pos, new ShapeCacheEntry(
                     new PosInfo(tx, ty, tz, rx, ry, rz),

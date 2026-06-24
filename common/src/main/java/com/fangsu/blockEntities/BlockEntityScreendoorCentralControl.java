@@ -42,9 +42,21 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
 
     /** 延迟重扫描标记（世界加载时区块未就绪，等第一次Tick时再扫描） */
     private boolean needsRescan = false;
+    /** 标记NBT已加载，setLevel时执行初始化 */
+    private boolean loadedFromNbt = false;
 
     public BlockEntityScreendoorCentralControl(BlockPos pos, BlockState state) {
         super(BLOCK_ENTITY_SCREENDOOR_CENTRAL_CONTROL.get(), pos, state);
+    }
+
+    @Override
+    public void setLevel(@NotNull Level level) {
+        super.setLevel(level);
+        // load() 调用时 level == null，needsRescan 无法设置
+        // 在这里设置标记，使得首个服务端 Tick 能执行重新扫描和状态应用
+        if (!level.isClientSide && loadedFromNbt) {
+            needsRescan = true;
+        }
     }
 
     // ======================== NBT ========================
@@ -104,10 +116,9 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
         // 更新指示灯
         updateLightState();
 
-        // 标记需要延迟重扫描——区块可能未完全加载，等第一次服务端Tick时执行
-        if (level != null && !level.isClientSide) {
-            needsRescan = true;
-        }
+        // 注意：load() 调用时 level 始终为 null（区块加载后才 setLevel）
+        // 初始化标记在 setLevel() 中触发
+        loadedFromNbt = true;
     }
 
     @Override
@@ -323,15 +334,15 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
                 BlockEntity be = level.getBlockEntity(checkPos);
                 if (be instanceof BlockEntityDiaoban diaoban) {
                     updated.add(checkPos);
-                    if (isolation && doorOpen) {
-                        diaoban.setDoorTarget(true);
-                        diaoban.setDoorValue(1.0f);
-                    } else {
-                        diaoban.setDoorTarget(false);
-                        diaoban.setDoorValue(0f);
+                    boolean newTarget = isolation && doorOpen;
+                    float newValue = newTarget ? 1.0f : 0f;
+                    // 仅当状态有变化时才发送更新，避免频繁触发客户端重绘导致ogl1282
+                    if (diaoban.getDoorTarget() != newTarget || diaoban.getDoorValue() != newValue) {
+                        diaoban.setDoorTarget(newTarget);
+                        diaoban.setDoorValue(newValue);
+                        diaoban.setChanged();
+                        level.sendBlockUpdated(checkPos, diaoban.getBlockState(), diaoban.getBlockState(), 3);
                     }
-                    diaoban.setChanged();
-                    level.sendBlockUpdated(checkPos, diaoban.getBlockState(), diaoban.getBlockState(), 3);
                 }
             }
         }
@@ -364,14 +375,27 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
 
     /**
      * 服务端Tick调用，执行延迟的重新扫描和状态应用
-     * 仅执行一次，由 {@link BlockScreendoorCentralControl#getTicker} 在服务端驱动
+     * 会持续重试直到扫描到门为止，由 {@link BlockScreendoorCentralControl#getTicker} 在服务端驱动
      */
     public void tickServer() {
         if (!needsRescan) return;
-        needsRescan = false;
         if (level == null || level.isClientSide) return;
+
+        // 保存重进世界时从NBT恢复的旧坐标列表
+        List<BlockPos> oldPositions = new ArrayList<>(doorPositions);
+
+        // 重新扫描
         scanDoors();
-        applyToAllDoors();
+
+        if (doorPositions.isEmpty() && !oldPositions.isEmpty()) {
+            // 扫描失败（区块未加载），恢复旧坐标并保留 needsRescan 下次重试
+            doorPositions.addAll(oldPositions);
+            // needsRescan 保持 true，下一个 tick 继续尝试
+        } else {
+            // 扫描成功，应用状态到新扫描到的门
+            needsRescan = false;
+            applyToAllDoors();
+        }
     }
 
     // ======================== 客户端 ========================
@@ -409,12 +433,28 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
 
     @Override
     public void setRemoved() {
-        // 方块被破坏时，解除所有门的集控状态
+        // 方块被破坏或世界卸载时，解除所有门的集控状态
+        // 注意：世界卸载时不可调用 applyToAllDoors()（会触发区块加载导致死锁）
         if (level != null && !level.isClientSide && !doorPositions.isEmpty()) {
             boolean prevIsolation = isolation;
             isolation = false;
             doorOpen = false;
-            applyToAllDoors();
+            // 仅对已加载区块中的门解除集控，避免世界卸载时触发区块加载导致死锁
+            for (BlockPos pos : doorPositions) {
+                if (!level.isLoaded(pos)) continue;
+                BlockEntity be = level.getBlockEntity(pos);
+                if (be instanceof BlockEntityScreendoor door) {
+                    door.setCentralLocked(false);
+                    door.setLocalIsolation(false);
+                    door.setLocalDoorOpenOverride(false);
+                    door.setExtraConfig("isolation", "false");
+                    door.setExtraConfig("doorOpenOverride", "false");
+                    door.setExtraConfig("doorTarget", "false");
+                    door.resetDoorState();
+                    door.setChanged();
+                    level.sendBlockUpdated(pos, door.getBlockState(), door.getBlockState(), 3);
+                }
+            }
             isolation = prevIsolation;
         }
         super.setRemoved();

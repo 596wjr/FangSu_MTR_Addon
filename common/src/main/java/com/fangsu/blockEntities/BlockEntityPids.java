@@ -35,6 +35,7 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_PIDS;
 
@@ -51,7 +52,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
 
     private volatile BasePidsDrawing pidsDrawing;
     private int texW, texH;
-    private Map<String, Object> drawState = new HashMap<>();
+    private Map<String, Object> drawState = new ConcurrentHashMap<>();
     private String drawScriptKey;
 
     private List<Long> plats;
@@ -68,7 +69,6 @@ public class BlockEntityPids extends BaseObjBlockEntity {
         subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
         pidsDrawing = null;
         drawState.clear();
-        lastRegisteredDrawInfoId = "";
         List<JsonElement> rawPlats = GsonHelper.asList(Main.JSON_PARSER.parse(getExtraConfig("plats")).getAsJsonArray());
         plats = new ArrayList<>();
         for (JsonElement rawPlat : rawPlats) {
@@ -78,7 +78,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
         try {
             userExtraConfigs = GsonHelper.asMap(Main.JSON_PARSER.parse(getExtraConfig("extraConfig", "{}")).getAsJsonObject());
         } catch (Throwable ignored) {
-            userExtraConfigs = new HashMap<>();
+            userExtraConfigs = new ConcurrentHashMap<>();
         }
 
         try {
@@ -148,11 +148,12 @@ public class BlockEntityPids extends BaseObjBlockEntity {
         if (pidsDrawing == null) return;
 
         // 鍘婚噸锛氬鏋滅粯鍒舵爣璇嗘湭鍙樺寲锛岃鏄庢暟鎹湭鏇存柊锛屾棤闇€閲嶆柊娉ㄥ唽
-        String drawInfoId = "PIDS_" + scriptKey + "_" + plats;
+        String extraConfigStr = userExtraConfigs != null ? userExtraConfigs.toString() : "";
+        String drawInfoId = "PIDS_" + scriptKey + "_" + plats + "_" + extraConfigStr;
         if (drawInfoId.equals(lastRegisteredDrawInfoId)) return;
         lastRegisteredDrawInfoId = drawInfoId;
 
-        // 绉婚櫎鏃х粯鍒跺啀娉ㄥ唽鏂扮粯锟?
+        // 绉婚櫎鏃х粯鍒跺啀娉ㄥ唽鏂扮粯鍒
         gtHelper.removeDrawGraphic(getBlockPos());
         gtHelper.addDrawGraphicWithGt(getBlockPos(),
                 new GraphicsTextureHelper.DrawInfo(
@@ -283,11 +284,10 @@ public class BlockEntityPids extends BaseObjBlockEntity {
                     .parse(extraConfigs.getOrDefault("extraConfig", "{}"))
                     .getAsJsonObject());
         } catch (Exception e) {
-            userExtraConfigs = new HashMap<>();
+            userExtraConfigs = new ConcurrentHashMap<>();
         }
 
-        GraphicsTextureHelper.getInstance().removeDrawGraphic(getBlockPos());
-        // 閲嶇疆缁樺埗鏍囪瘑锛岀‘锟?whenLoading() 涓殑 initDrawingAsync() 浼氶噸鏂版敞锟?
+
         lastRegisteredDrawInfoId = "";
 
         whenLoading();
@@ -365,7 +365,7 @@ public class BlockEntityPids extends BaseObjBlockEntity {
                             },
                             v -> {
                                 if (savePos != null) {
-                                    if (userExtraConfigs == null) userExtraConfigs = new HashMap<>();
+                                    if (userExtraConfigs == null) userExtraConfigs = new ConcurrentHashMap<>();
                                     userExtraConfigs.put(savePos, new com.google.gson.JsonPrimitive(String.valueOf(v)));
                                     extraConfigs.put("extraConfig", Main.GSON.toJson(userExtraConfigs));
                                     sendUpdateC2S();

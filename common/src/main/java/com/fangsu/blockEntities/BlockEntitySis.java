@@ -13,6 +13,7 @@ import com.fangsu.mtr.LocalRoute;
 import com.fangsu.mtr.LocalStation;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.scripting.GraphicsTexture;
+import com.fangsu.shape.RotatableShapeHelper;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.ContentInfoUtil;
 import com.fangsu.utils.GraphicsTextureHelper;
@@ -49,6 +50,9 @@ public class BlockEntitySis extends BaseDisplayBlockEntity {
 
     @Override
     public void whenLoading() {
+        // whenLoading 可能改变 shape，清除形状缓存使 setShape 重新计算
+        RotatableShapeHelper.getInstance().removeCache(getWorldPos());
+
         ensureExtraConfig("extraConfig", "{}");
         ensureExtraConfig("station", "0");
 
@@ -138,6 +142,18 @@ public class BlockEntitySis extends BaseDisplayBlockEntity {
 
         if (!scriptDone) {
             initDrawingAsync();
+        } else if (content != null && stn != null && stn.getRaw() != null && shouldCheckDataChange()) {
+            // 检测外部 MTR 数据变更（如车站名称、路线颜色），使用独立长间隔（2秒）
+            var rawStn = MtrUtil.getStationById(Long.parseLong(getExtraConfig("station", "0")));
+            if (rawStn != null) {
+                String oldName = stn.name;
+                int oldColor = stn.color;
+                stn = new LocalStation(rawStn);
+                if (!stn.name.equals(oldName) || stn.color != oldColor) {
+                    resetDrawingState();
+                    return;
+                }
+            }
         }
 
         ObjBlockScriptContext ctx = this.scriptContext;

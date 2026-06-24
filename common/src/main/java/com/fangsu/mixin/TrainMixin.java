@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(value = Train.class, remap = false, priority = 5966)
+@Mixin(value = Train.class, remap = false, priority = 596)
 public abstract class TrainMixin {
     /* ==========================================================
      *  Shadow：Train 原生字段 / 方法
@@ -32,6 +32,9 @@ public abstract class TrainMixin {
     protected abstract boolean openDoors(
             Level world, Block block, BlockPos pos, int dwellTicks
     );
+
+    @Shadow(remap = false)
+    protected abstract boolean skipScanBlocks(Level world, double trainX, double trainY, double trainZ);
 
     //    @Inject(
 //            method = "scanDoors",
@@ -52,7 +55,12 @@ public abstract class TrainMixin {
             double halfSpacing, int dwellTicks,
             CallbackInfoReturnable<Boolean> ci
     ) {
-        boolean original = ci.getReturnValue();
+//        boolean original = ci.getReturnValue();
+
+        if (skipScanBlocks(world, trainX, trainY, trainZ)) {
+            ci.setReturnValue(false);
+            return;
+        }
 
         boolean hasPlatform = false;
 
@@ -97,7 +105,9 @@ public abstract class TrainMixin {
             }
         }
 
-        ci.setReturnValue(original || hasPlatform);
-//        ci.cancel();
+        ci.setReturnValue(
+//                original ||
+                hasPlatform);
+        ci.cancel();
     }
 }

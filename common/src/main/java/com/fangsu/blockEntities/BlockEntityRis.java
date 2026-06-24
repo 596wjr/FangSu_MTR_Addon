@@ -11,6 +11,7 @@ import com.fangsu.drawing.ris.RisDrawManager;
 import com.fangsu.extraConfig.*;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.scripting.GraphicsTexture;
+import com.fangsu.shape.RotatableShapeHelper;
 import com.fangsu.ui.RouteSelectInfo;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.ContentInfoUtil;
@@ -55,6 +56,9 @@ public class BlockEntityRis extends BaseDisplayBlockEntity implements RouteDrawe
 
     @Override
     public void whenLoading() {
+        // whenLoading 可能改变 shape，清除形状缓存使 setShape 重新计算
+        RotatableShapeHelper.getInstance().removeCache(getWorldPos());
+
         ensureExtraConfig("extraConfig", "{}");
 
         String mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
@@ -123,16 +127,31 @@ public class BlockEntityRis extends BaseDisplayBlockEntity implements RouteDrawe
 
         if (!scriptDone) {
             // 节流：仅在距上次重试足够长时间后才重新加载路线并尝试初始化绘制
+            // 首次加载同步执行（仅一次，性能无影响）
             if (shouldRetryInit()) {
                 routes = reloadRoute(getExtraConfig("routes", "[]"));
                 initDrawingAsync();
             }
+        } else if (content != null && shouldCheckDataChange()) {
+            // 异步检测外部 MTR 数据变更（路线颜色等）
+            // 主线程快照 MTR 数据后，后台线程完成 JSON 解析 + 查找，避免阻塞渲染
+            triggerAsyncRouteReload(getExtraConfig("routes", "[]"));
+        }
+
+        // 检查异步重载结果
+        List<RouteSelectInfo> newRoutes = pollAsyncRoutes();
+        if (newRoutes != null && !routesEqual(newRoutes, routes)) {
+            routes = newRoutes;
+            resetDrawingState();
+            return;
         }
 
         ObjBlockScriptContext ctx = this.scriptContext;
         ctx.drawModel(dmhMain, null);
         renderDisplayModel(ctx);
     }
+
+
 
     @Override
     public void whenDisposing() {

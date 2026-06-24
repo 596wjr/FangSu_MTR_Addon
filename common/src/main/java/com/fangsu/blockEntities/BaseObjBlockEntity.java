@@ -41,10 +41,10 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable {
     private ObjBlockProperty property;
@@ -56,11 +56,11 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
     public boolean fullLight = false;
 
     public String mainModel;
-    public Map<String, String> subModels = new HashMap<>();
+    public Map<String, String> subModels = new ConcurrentHashMap<>();
 
     protected boolean markedError = false;
 
-    Map<String, String> extraConfigs = new HashMap<>();
+    Map<String, String> extraConfigs = new ConcurrentHashMap<>();
     private boolean disposed = false;
 
     public BaseObjBlockEntity(BlockEntityType<?> blockEntityType, BlockPos blockPos, BlockState blockState) {
@@ -119,7 +119,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         mainModel = tag.contains("mainModel") ? tag.getString("mainModel") : null;
         if (tag.contains("subModel")) {
             CompoundTag subModelTag = tag.getCompound("subModel");
-            subModels = new HashMap<>();
+            subModels.clear();
             for (String key : subModelTag.getAllKeys()) {
                 subModels.put(key, subModelTag.getString(key));
             }
@@ -255,10 +255,12 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
         }
 
         public void drawModel(ModelCluster model, Matrices poseStack) {
+            if (model.isClosed()) return;
             this.scriptResultWriting.addModel(model, poseStack == null ? Matrix4f.IDENTITY : poseStack.last().copy());
         }
 
         public void drawModel(DynamicModelHolder model, Matrices poseStack) {
+            if (model.getUploadedModel() == null || model.getUploadedModel().isClosed()) return;
             this.scriptResultWriting.addModel(model, poseStack == null ? Matrix4f.IDENTITY : poseStack.last().copy());
         }
 
@@ -557,7 +559,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity implements Syncable
             return entity.getWorldPosVector3f();
         }
 
-        
+
     }
 
 }

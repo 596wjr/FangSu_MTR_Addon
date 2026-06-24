@@ -23,6 +23,7 @@ public class ModelCluster implements Closeable {
     public final RawModel opaqueParts;
     public final VertArrays uploadedTranslucentParts;
     public final RawModel translucentParts;
+    private boolean isClosed = false;
 
     public ModelCluster(RawModel source, VertAttrMapping mapping, ModelManager modelManager) {
         this.translucentParts = new RawModel();
@@ -78,8 +79,12 @@ public class ModelCluster implements Closeable {
     @Override
     public void close() {
         uploadedOpaqueParts.close();
+        isClosed = true;
     }
 
+    public boolean isClosed() {
+        return isClosed;
+    }
 
     public void replaceTexture(String oldTexture, ResourceLocation newTexture) {
         uploadedOpaqueParts.replaceTexture(oldTexture, newTexture);

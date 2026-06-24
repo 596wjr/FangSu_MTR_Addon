@@ -66,8 +66,6 @@ public interface RouteDrawer {
         if (routes.isEmpty()) {
             routes.add(new RouteSelectInfo(new LocalRoute(), null));
         }
-//        Main.LOGGER.info("Loaded {} routes", routes.size());
-        Main.LOGGER.info(routes.toString());
         return routes;
 
     }

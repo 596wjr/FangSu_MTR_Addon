@@ -73,7 +73,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
     protected String mainModel;
     protected String subModel;
 
-    private double dispDoorValue;
+    protected double dispDoorValue;
     private boolean cacheDispIsOpen;
     private long lastRenderTime;
 
@@ -164,9 +164,8 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
 
         boolean open = dispDoorValue > 0;
         if (cacheDispIsOpen != open) {
-            extraConfigs.put("doorTarget", open ? "true" : "false");
-            sendUpdateC2S();
             cacheDispIsOpen = open;
+            sendUpdateC2S();
         }
     }
 
@@ -198,6 +197,7 @@ public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncabl
     @Override
     public void whenSaving(Map<String, String> extraConfigs) {
         extraConfigs.put("isOpen", this.cacheDispIsOpen ? "true" : "false");
+        extraConfigs.put("doorTarget", this.cacheDispIsOpen ? "true" : "false");
     }
 
     @Override

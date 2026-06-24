@@ -3,6 +3,7 @@ package com.fangsu.blockEntities;
 import com.fangsu.mappings.GsonHelper;
 import com.fangsu.Main;
 import com.fangsu.blocks.BaseObjBlock;
+import com.fangsu.mtr.LocalRoute;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
@@ -11,8 +12,13 @@ import com.fangsu.scripting.ModelHelper;
 import com.fangsu.shape.RawShape;
 import com.fangsu.shape.RotatableShapeHelper;
 import com.fangsu.shape.ShapeCollection;
+import com.fangsu.ui.RouteSelectInfo;
 import com.fangsu.utils.GraphicsTextureHelper;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import mtr.client.ClientData;
+import mtr.data.Platform;
+import mtr.data.Route;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
@@ -23,9 +29,14 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * 统⼀的显示类方块实体基类，封装了 ris、sis、diaoban 共享的绘制初始化、形状管理和渲染生命周期。
@@ -55,11 +66,11 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
     /**
      * 绘制状态（传递给 draw 回调）
      */
-    protected Map<String, Object> drawState = new HashMap<>();
+    protected Map<String, Object> drawState = new ConcurrentHashMap<>();
     /**
      * ⽤⼾⾃定义额外配置（来⾃ content JSON 的 extraConfig）
      */
-    protected Map<String, JsonElement> userExtraConfigs = new HashMap<>();
+    protected Map<String, JsonElement> userExtraConfigs = new ConcurrentHashMap<>();
 
     // ==================== 重试节流 ====================
 
@@ -68,6 +79,25 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
 
     /** 上次重试初始化的时间戳 */
     private long lastRetryTime = 0;
+
+    /** 外部 MTR 数据变更检测间隔（毫秒），比重试间隔长得多以减少不必要开销 */
+    private static final long DATA_CHECK_INTERVAL_MS = 2000;
+
+    /** 上次数据变更检测的时间戳 */
+    private long lastDataCheckTime = 0;
+
+    /**
+     * 检查是否应该检查外部数据变更（受 DATA_CHECK_INTERVAL 节流）。
+     * 用于检测 MTR 数据（路线颜色、车站名称等）的外部更新。
+     */
+    protected boolean shouldCheckDataChange() {
+        long now = System.currentTimeMillis();
+        if (now - lastDataCheckTime >= DATA_CHECK_INTERVAL_MS) {
+            lastDataCheckTime = now;
+            return true;
+        }
+        return false;
+    }
 
     /**
      * 检查是否应该重试初始化（受 RETRY_INTERVAL 节流）。
@@ -89,12 +119,151 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
         lastRetryTime = 0;
     }
 
+    // ==================== 异步任务基础设施 ====================
+
+    /** 共享后台线程池，用于将 JSON 解析 + MTR 查找等操作从主线程移走 */
+    private static final ExecutorService ASYNC_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "fangsu-display-async");
+        t.setDaemon(true);
+        return t;
+    });
+
+    /** 进行中的异步任务，用于去重 */
+    private CompletableFuture<Void> asyncTaskFuture;
+
+    /**
+     * 提交两步异步任务。
+     * <ol>
+     *   <li>{@code snapshotPhase} — 在主线程执行，用于快照 MTR 数据（线程安全）</li>
+     *   <li>{@code backgroundPhase} — 在后台线程执行，用于查表和创建对象</li>
+     * </ol>
+     * 已有进行中的任务时会跳过本次提交。
+     */
+    protected final void submitAsyncTask(Runnable snapshotPhase, Runnable backgroundPhase) {
+        if (asyncTaskFuture != null && !asyncTaskFuture.isDone()) return;
+        snapshotPhase.run();
+        asyncTaskFuture = CompletableFuture.runAsync(backgroundPhase, ASYNC_EXECUTOR);
+    }
+
+    /** 检查异步任务是否已完成 */
+    protected final boolean isAsyncTaskDone() {
+        return asyncTaskFuture != null && asyncTaskFuture.isDone();
+    }
+
+    /** 消费（清除）已完成的异步任务标记 */
+    protected final void consumeAsyncTask() {
+        asyncTaskFuture = null;
+    }
+
+    /** 取消所有待处理异步任务并丢弃结果 */
+    private void cancelPendingAsyncTask() {
+        asyncRoutesResult = null;
+        asyncTaskFuture = null;
+    }
+
+    // ==================== 异步路线重载（RIS / Diaoban 统一） ====================
+
+    /** 异步路线重载的结果（后台线程写入，主线程读取） */
+    private volatile List<RouteSelectInfo> asyncRoutesResult;
+
+    /** 单调递增的任务代次号，用于丢弃过期后台任务的结果 */
+    private int asyncTaskGen = 0;
+
+    /**
+     * 异步触发路线重载（两步：主线程快照 → 后台线程查表）。
+     * RIS 和 Diaoban 共用此方法，避免重复代码。
+     */
+    protected final void triggerAsyncRouteReload(String routeJson) {
+        final List<JsonElement>[] rawRoutesRef = new List[]{new ArrayList<>()};
+        final Map<Long, Route>[] routeMapRef = new Map[]{new HashMap<>()};
+        final Map<Long, Platform>[] platformMapRef = new Map[]{new HashMap<>()};
+        final int myGen = ++asyncTaskGen;
+
+        submitAsyncTask(
+                // snapshotPhase — 主线程：快照 MTR 数据（受 submitAsyncTask 去重保护）
+                () -> {
+                    // 有新任务提交时立即丢弃旧结果，防止过期数据被 pollAsyncRoutes 读取
+                    asyncRoutesResult = null;
+                    try {
+                        rawRoutesRef[0] = GsonHelper.asList(
+                                Main.JSON_PARSER.parse(routeJson).getAsJsonArray());
+                    } catch (Exception ignored) {
+                    }
+                    Map<Long, Route> map = new HashMap<>();
+                    for (Route r : ClientData.ROUTES) map.put(r.id, r);
+                    routeMapRef[0] = map;
+                    Map<Long, Platform> pMap = new HashMap<>();
+                    for (Platform p : ClientData.PLATFORMS) pMap.put(p.id, p);
+                    platformMapRef[0] = pMap;
+                },
+                // backgroundPhase — 后台线程：查表创建 RouteSelectInfo
+                () -> {
+                    // 如果后台线程启动时已有新任务取代了本任务，直接丢弃结果
+                    if (myGen != asyncTaskGen) return;
+                    List<RouteSelectInfo> results = new ArrayList<>();
+                    Map<Long, Route> rMap = routeMapRef[0];
+                    Map<Long, Platform> pMap = platformMapRef[0];
+                    for (JsonElement rawRoute : rawRoutesRef[0]) {
+                        if (!rawRoute.isJsonArray() || rawRoute.getAsJsonArray().size() < 2) continue;
+                        JsonArray a = rawRoute.getAsJsonArray();
+                        Route mtrRoute = rMap.get(a.get(0).getAsLong());
+                        Platform plat = pMap.get(a.get(1).getAsLong());
+                        if (mtrRoute != null && plat != null) {
+                            results.add(new RouteSelectInfo(new LocalRoute(mtrRoute), plat));
+                        }
+                    }
+                    if (results.isEmpty()) {
+                        results.add(new RouteSelectInfo(new LocalRoute(), null));
+                    }
+                    // 再次检查代次，确保在计算过程中没有被新任务取代
+                    if (myGen != asyncTaskGen) return;
+                    asyncRoutesResult = results;
+                }
+        );
+    }
+
+    /**
+     * 检查异步路线重载是否完成，完成则返回结果并清理状态。
+     * 未完成返回 {@code null}。
+     */
+    @Nullable
+    protected final List<RouteSelectInfo> pollAsyncRoutes() {
+        if (isAsyncTaskDone()) {
+            List<RouteSelectInfo> result = asyncRoutesResult;
+            asyncRoutesResult = null;
+            consumeAsyncTask();
+            return result;
+        }
+        return null;
+    }
+
+    /**
+     * 比较两个路线列表是否相等（仅比较 id 字段，避免对象引用不同导致的误判）。
+     */
+    protected static boolean routesEqual(List<RouteSelectInfo> a, List<RouteSelectInfo> b) {
+        if (a == b) return true;
+        if (a == null || b == null) return false;
+        if (a.size() != b.size()) return false;
+        for (int i = 0; i < a.size(); i++) {
+            RouteSelectInfo ra = a.get(i), rb = b.get(i);
+            long raId = ra.route != null ? ra.route.id : -1;
+            long rbId = rb.route != null ? rb.route.id : -1;
+            if (raId != rbId) return false;
+            long raPlat = ra.plat != null ? ra.plat.id : -1;
+            long rbPlat = rb.plat != null ? rb.plat.id : -1;
+            if (raPlat != rbPlat) return false;
+        }
+        return true;
+    }
+
     // ==================== 显示纹理 ====================
 
     /**
      * 显⽰⾯（屏幕）模型
      */
     protected DynamicModelHolder dmhDisp = new DynamicModelHolder();
+    /** 上一次替换的纹理标识，用于去重避免每帧 replaceAllTexture */
+    private ResourceLocation lastDispTextureId = null;
     /**
      * 显⽰纹理宽度
      */
@@ -188,7 +357,7 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
         try {
             userExtraConfigs = GsonHelper.asMap(Main.JSON_PARSER.parse(json).getAsJsonObject());
         } catch (Throwable ignored) {
-            userExtraConfigs = new HashMap<>();
+            userExtraConfigs = new ConcurrentHashMap<>();
         }
     }
 
@@ -244,7 +413,11 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
         if (GraphicsTextureHelper.getInstance().isTextureAvailable(getBlockPos())) {
             GraphicsTexture tex = GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos());
             if (tex != null && tex.isValid()) {
-                dmhDisp.getUploadedModel().replaceAllTexture(tex.identifier);
+                // 仅当纹理标识变化时才替换，避免每帧遍历所有 mesh 的昂贵操作
+                if (!tex.identifier.equals(lastDispTextureId)) {
+                    dmhDisp.getUploadedModel().replaceAllTexture(tex.identifier);
+                    lastDispTextureId = tex.identifier;
+                }
                 ctx.drawModel(dmhDisp.getUploadedModel(), null);
             }
         }
@@ -267,7 +440,10 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
     protected void resetDrawingState() {
         scriptDone = false;
         lastRegisteredDrawInfoId = "";
+        lastDispTextureId = null;
         resetRetryTimer();
+        // 清除待处理的异步任务结果，避免 UI 更新后过期数据覆盖正确路线
+        cancelPendingAsyncTask();
     }
 
     // ================================================================

@@ -128,10 +128,7 @@ public class GraphicsTextureHelper {
 
                 info.drawing = true;
                 info.flameCompleted = false;
-                // 非静态贴图开始新绘制前，标记为不可用，防止渲染旧内容
-                if (!info.isStatic) {
-                    info.available = false;
-                }
+                // 非静态贴图：保持纹理可用，渲染线程可继续显示旧内容，避免闪烁
 
                 CompletableFuture.runAsync(() -> {
                             info.drawFunction.draw(info.gt);
@@ -197,6 +194,20 @@ public class GraphicsTextureHelper {
         addDrawGraphicWithGt(id, drawInfo, (gt) -> {
             drawFunction.draw(gt.graphics);
         });
+    }
+
+    /**
+     * 替换已注册抽象 ID 的绘制函数（不重建纹理，保留纹理现有内容）
+     */
+    public synchronized void replaceDrawFunction(String id, DrawFunctionGt drawFunction) {
+        String drawInfoId = idToDrawInfoId.get(id);
+        if (drawInfoId == null) return;
+
+        GTInfo info = loadGts.get(drawInfoId);
+        if (info == null || info.isClosed) return;
+
+        info.drawFunction = drawFunction;
+        info.retryCount = 0;
     }
 
     /**
@@ -294,6 +305,11 @@ public class GraphicsTextureHelper {
         return getGraphics(getBlockId(block));
     }
 
+    public boolean hasDrawGraphic(String id) {
+        String drawInfoId = idToDrawInfoId.get(id);
+        return drawInfoId != null && hasGraphic(drawInfoId);
+    }
+
     public boolean hasDrawGraphic(BlockPos block) {
         return hasGraphic(getBlockId(block));
     }
@@ -345,9 +361,13 @@ public class GraphicsTextureHelper {
 
         int expectedExceptionCount = 0;
 
-        /** 当前绘制失败/超时的重试次数 */
+        /**
+         * 当前绘制失败/超时的重试次数
+         */
         int retryCount = 0;
-        /** 最大重试次数 */
+        /**
+         * 最大重试次数
+         */
         static final int MAX_RETRIES = 5;
 
         @Override

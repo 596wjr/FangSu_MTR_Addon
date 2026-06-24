@@ -60,7 +60,7 @@ public class TrainStatus {
 
     public void reset() {
         if (trainPlatformsValidPath == null || !trainPlatformsValidPath.equals(train.path) || trainPlatforms.platforms.isEmpty()) {
-            trainPlatformsValidPath = train.path;
+            trainPlatformsValidPath = new ArrayList<>(train.path);
             if (!train.getRouteIds().isEmpty()) {
                 trainPlatforms = getTrainPlatforms();
             } else {
