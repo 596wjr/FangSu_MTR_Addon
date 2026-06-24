@@ -45,7 +45,12 @@ public class MainForgeClient {
                 var testLocation = new net.minecraft.resources.ResourceLocation("fangsu:custom_blocks.json");
                 boolean hasModResources;
                 try {
+                    //#if MC_VERSION >= 11900
                     hasModResources = !rm.getResourceStack(testLocation).isEmpty();
+                    //#else
+                    rm.getResource(testLocation);
+                    hasModResources = true;
+                    //#endif
                 } catch (Exception e) {
                     hasModResources = false;
                 }
