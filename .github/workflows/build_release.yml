@@ -103,8 +103,8 @@ jobs:
             LOADERS="[\"$platform\"]"
             GAME_VERSIONS="[\"$game_version\"]"
             DEPENDENCIES='[
-              {"project_id":"XKPAmI6u", "required":true},
-              {"project_id":"lhGA9TYQ", "required":true}
+              {"project_id":"XKPAmI6u", "dependency_type":"required"},
+              {"project_id":"lhGA9TYQ", "dependency_type":"required"}
             ]'
 
             curl -X POST "https://api.modrinth.com/v2/version" \
