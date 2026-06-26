@@ -1,12 +1,15 @@
 # [MTR3] FangSu MTR Addon · 方速 MTR 扩展
 
+[MTR4兼容版本请点击这里|Please click here for MTR 4 version](https://github.com/596wjr/FangSu_For_MTR_4)
+
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Minecraft](https://img.shields.io/badge/Minecraft-1.18.2~1.20.1-brightgreen)
 ![Version](https://img.shields.io/badge/Version-1.0.0--rc5-orange)
 [![Fabric](https://img.shields.io/badge/Platform-Fabric-dbd0b4)](https://fabricmc.net/)
 [![Forge](https://img.shields.io/badge/Platform-Forge-e04e14)](https://minecraftforge.net/)
 
-**FangSu MTR Addon** 是一个以 [Minecraft Transit Railway (MTR)](https://modrinth.com/mod/minecraft-transit-railway) 为前置的 Minecraft 模组，旨在为 MTR 模组增加更多实用的轨道交通附属设施，并提供一套简洁的接口以简化 MTR 扩展开发的流程。
+**FangSu MTR Addon** 是一个以 [Minecraft Transit Railway (MTR)](https://modrinth.com/mod/minecraft-transit-railway) 为前置的
+Minecraft 模组，旨在为 MTR 模组增加更多实用的轨道交通附属设施，并提供一套简洁的接口以简化 MTR 扩展开发的流程。
 
 > **官方网站：**[https://mtr.fangsu.top/](https://mtr.fangsu.top/)
 >
@@ -81,13 +84,13 @@
 
 ## 前置依赖
 
-| 依赖                                | 类型          | 说明                       |
-| ----------------------------------- | ------------- | -------------------------- |
-| **Minecraft Transit Railway (MTR)** | 必选          | 核心前置模组，版本 ≥ 3.2.2 |
-| **Architectury API**                | 必选          | 多平台抽象层               |
-| **Fabric Loader**                   | Fabric 端必选 | ≥ 0.18.4                   |
+| 依赖                                  | 类型         | 说明                 |
+|-------------------------------------|------------|--------------------|
+| **Minecraft Transit Railway (MTR)** | 必选         | 核心前置模组，版本 ≥ 3.2.2  |
+| **Architectury API**                | 必选         | 多平台抽象层             |
+| **Fabric Loader**                   | Fabric 端必选 | ≥ 0.18.4           |
 | **Fabric API**                      | Fabric 端必选 | 提供 Fabric 平台基础能力   |
-| **Forge**                           | Forge 端必选  | Minecraft Forge 环境       |
+| **Forge**                           | Forge 端必选  | Minecraft Forge 环境 |
 
 ---
 
@@ -150,12 +153,12 @@ fangsu/
 本项目通过自定义条件编译引擎，使用 **一套代码** 支持多个 Minecraft 版本：
 
 | Minecraft 版本 | Fabric | Forge |
-| -------------- | ------ | ----- |
-| 1.18.2         | 是     | 是    |
-| 1.19.2         | 是     | 是    |
-| 1.19.3         | 是     | 是    |
-| 1.19.4         | 是     | 是    |
-| 1.20.1         | 是     | 是    |
+|--------------|--------|-------|
+| 1.18.2       | 是      | 是     |
+| 1.19.2       | 是      | 是     |
+| 1.19.3       | 是      | 是     |
+| 1.19.4       | 是      | 是     |
+| 1.20.1       | 是      | 是     |
 
 通过 `-Pgame_version=<版本>` 参数切换目标版本。
 
