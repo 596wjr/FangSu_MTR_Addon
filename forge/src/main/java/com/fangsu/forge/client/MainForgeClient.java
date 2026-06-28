@@ -39,26 +39,9 @@ public class MainForgeClient {
             try {
                 Main.LOGGER.info("[FangSu] Reloading resources...");
 
-                // 优先使用事件提供的 MultiPackResourceManager（包含新加载的资源包如加兹安资源包）
-                // 但如果它找不到模组内置资源（assets/fangsu/），则回退到 Minecraft 的主 ResourceManager
-                var rm = eventRm;
-                var testLocation = new net.minecraft.resources.ResourceLocation("fangsu:custom_blocks.json");
-                boolean hasModResources;
-                try {
-                    //#if MC_VERSION >= 11900
-                    hasModResources = !rm.getResourceStack(testLocation).isEmpty();
-                    //#else
-                    rm.getResource(testLocation);
-                    hasModResources = true;
-                    //#endif
-                } catch (Exception e) {
-                    hasModResources = false;
-                }
-                if (!hasModResources) {
-                    var gameRm = Minecraft.getInstance().getResourceManager();
-                    Main.LOGGER.warn("[FangSu] Event ResourceManager {} lacks mod resources, falling back to game ResourceManager {}", eventRm, gameRm);
-                    rm = gameRm;
-                }
+                // 使用客户端的 ResourceManager（始终包含模组内置资源），
+                // 而非事件提供的 MultiPackResourceManager（可能不包含 assets/fangsu/ 等模组资源）
+                var rm = Minecraft.getInstance().getResourceManager();
 
                 MainClient.initResources(rm);
             } catch (Exception e) {
