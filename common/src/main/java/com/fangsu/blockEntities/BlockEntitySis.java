@@ -81,9 +81,6 @@ public class BlockEntitySis extends BaseDisplayBlockEntity {
             texH = content.getTexSize()[1];
             shape = buildShapeFromArray(content.getShape());
 
-            var rawStn = MtrUtil.getStationById(Long.parseLong(getExtraConfig("station", "0")));
-            stn = (rawStn == null) ? new LocalStation() : new LocalStation(rawStn);
-
             firstInit = true;
             resetDrawingState();
         } catch (Exception e) {
