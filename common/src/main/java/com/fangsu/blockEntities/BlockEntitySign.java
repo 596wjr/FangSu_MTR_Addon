@@ -87,9 +87,6 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
         ensureExtraConfig("showRightPole", "true");
         ensureExtraConfig("rightPolePos", "8");
 
-        itemsFront = initItems(extraConfigs.get("itemsFront"));
-        itemsBack = initItems(extraConfigs.get("itemsBack"));
-
         length = Double.parseDouble(extraConfigs.get("length"));
         showLeftPole = "true".equals(extraConfigs.get("showLeftPole"));
         showRightPole = "true".equals(extraConfigs.get("showRightPole"));
@@ -98,6 +95,12 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
 
         mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
         subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
+
+        // 服务端不需要加载模型和形状，跳过客户端专属操作（initItems会触发SignItemFactory加载客户端类）
+        if (level == null || !level.isClientSide) return;
+
+        itemsFront = initItems(extraConfigs.get("itemsFront"));
+        itemsBack = initItems(extraConfigs.get("itemsBack"));
 
         // 服务端不需要加载模型和形状，跳过客户端专属操作
         if (level == null || !level.isClientSide) return;
@@ -518,16 +521,19 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
     public void readC2S(FriendlyByteBuf buf) {
         super.readC2S(buf);
 
-        requiresRedraw = true;
-
-        itemsFront = initItems(extraConfigs.get("itemsFront"));
-        itemsBack = initItems(extraConfigs.get("itemsBack"));
-
         length = Double.parseDouble(extraConfigs.getOrDefault("length", "2"));
         showLeftPole = "true".equals(extraConfigs.get("showLeftPole"));
         showRightPole = "true".equals(extraConfigs.get("showRightPole"));
         leftPolePos = Integer.parseInt(extraConfigs.getOrDefault("leftPolePos", "8"));
         rightPolePos = Integer.parseInt(extraConfigs.getOrDefault("rightPolePos", "8"));
+
+        // initItems 会触发 SignItemFactory 加载客户端类，仅在客户端执行
+        if (level == null || !level.isClientSide) return;
+
+        requiresRedraw = true;
+
+        itemsFront = initItems(extraConfigs.get("itemsFront"));
+        itemsBack = initItems(extraConfigs.get("itemsBack"));
 
     }
 
