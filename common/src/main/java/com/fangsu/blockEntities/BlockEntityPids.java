@@ -39,7 +39,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_PIDS;
 
-public class BlockEntityPids extends BaseObjBlockEntity {
+public class BlockEntityPids extends FunctionalObjBlockEntity {
     private static final String DEFAULT_MAIN_MODEL = "fangsu:pids/mtr_pids.json";
     private static final String DEFAULT_SUB_MODEL = "mtr_pids_3b";
     private static final String MAIN_MODEL_KEY = "pids";

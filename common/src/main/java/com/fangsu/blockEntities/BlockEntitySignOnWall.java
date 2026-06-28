@@ -48,7 +48,7 @@ import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_SIGN_ON_WALL;
 
 import com.fangsu.blocks.BaseObjBlock;
 
-public class BlockEntitySignOnWall extends BaseObjBlockEntity implements Syncable {
+public class BlockEntitySignOnWall extends FunctionalObjBlockEntity {
     private static final String DEFAULT_MAIN_MODEL = "fangsu:sign/beijing/beijing_sign.json";
     private static final String DEFAULT_SUB_MODEL = "beijing_sign_a_onwall";
     private static final String MAIN_MODEL_KEY = "sign";

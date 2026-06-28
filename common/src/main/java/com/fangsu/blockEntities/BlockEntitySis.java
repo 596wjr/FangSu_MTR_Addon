@@ -50,6 +50,8 @@ public class BlockEntitySis extends BaseDisplayBlockEntity {
 
     @Override
     public void whenLoading() {
+        markedError = false;
+
         // whenLoading 可能改变 shape，清除形状缓存使 setShape 重新计算
         RotatableShapeHelper.getInstance().removeCache(getWorldPos());
 

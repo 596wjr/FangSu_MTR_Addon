@@ -34,7 +34,7 @@ import com.fangsu.render.sowcer.math.Matrices;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_SCREENDOOR_GLASS;
 
-public class BlockEntityScreendoorGlass extends BaseObjBlockEntity implements Syncable {
+public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
 
     public static final String DEFAULT_MAIN_MODEL = "fangsu:screendoor/kaba.json";
     public static final String DEFAULT_SUB_MODEL_LEFT = "auto";

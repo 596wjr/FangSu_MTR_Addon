@@ -49,7 +49,7 @@ import com.fangsu.blocks.BaseObjBlock;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_SIGN;
 
-public class BlockEntitySign extends BaseObjBlockEntity implements Syncable {
+public class BlockEntitySign extends FunctionalObjBlockEntity {
     private static final String DEFAULT_MAIN_MODEL = "fangsu:sign/mtr_sign/mtr_sign.json";
     private static final String DEFAULT_SUB_MODEL = "mtr_sign_a";
     private static final String MAIN_MODEL_KEY = "sign";

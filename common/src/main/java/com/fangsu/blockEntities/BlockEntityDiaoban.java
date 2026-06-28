@@ -91,6 +91,8 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
 
     @Override
     public void whenLoading() {
+        markedError = false;
+
         // whenLoading 可能改变 shape（长度/模型变化），清除形状缓存使 setShape 重新计算
         RotatableShapeHelper.getInstance().removeCache(getWorldPos());
 

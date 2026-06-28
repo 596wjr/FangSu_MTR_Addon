@@ -37,7 +37,7 @@ import java.util.Map;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_ADV_BOARD;
 
-public class BlockEntityAdvBoard extends BaseObjBlockEntity {
+public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
     private static final String MAIN_MODEL_KEY = "adv_board";
     private static final String DEFAULT_MAIN_MODEL = "fangsu:adv_board/common_adv.json";
     private static final String DEFAULT_SUB_MODEL = "adv_in_1";

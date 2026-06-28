@@ -1,6 +1,6 @@
 package com.fangsu.ui;
 
-import com.fangsu.blockEntities.BaseObjBlockEntity;
+import com.fangsu.blockEntities.FunctionalObjBlockEntity;
 import com.fangsu.customItem.CustomItems;
 import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.utils.GraphicContext;
@@ -24,7 +24,7 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
 
     private static final int GAP = 4;
 
-    private final BaseObjBlockEntity be;
+    private final FunctionalObjBlockEntity be;
 
     private float translateX, translateY, translateZ;
     private float rotateX, rotateY, rotateZ;
@@ -32,7 +32,7 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
     private List<ConfigEntry<?>> configs;
     private boolean useSliderInput = true;
 
-    public ObjBlockConfigScreen(BaseObjBlockEntity be) {
+    public ObjBlockConfigScreen(FunctionalObjBlockEntity be) {
         super(ComponentHelper.translatable("ui.fangsu.block.title"));
         this.be = be;
 

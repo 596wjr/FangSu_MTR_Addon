@@ -36,7 +36,7 @@ import java.util.*;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_SCREENDOOR;
 
-public class BlockEntityScreendoor extends BaseObjBlockEntity implements Syncable, IPlatformDoor {
+public class BlockEntityScreendoor extends FunctionalObjBlockEntity implements IPlatformDoor {
 
     public static final String DEFAULT_MAIN_MODEL = "fangsu:screendoor/kaba.json";
     public static final String DEFAULT_SUB_MODEL_LEFT = "common";

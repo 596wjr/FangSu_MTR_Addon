@@ -37,7 +37,7 @@ import java.util.Map;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_TICKET_BARRIER;
 
-public class BlockEntityTicketBarrier extends BaseObjBlockEntity {
+public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
     public static final String DEFAULT_MAIN_MODEL = "fangsu:ticketbarrier/mtr_ticketbarrier.json";
     public static final String DEFAULT_SUB_MODEL = "mtr_ticketbarrier_1";
     public static final String MAIN_MODEL_KEY = "ticketBarrier";

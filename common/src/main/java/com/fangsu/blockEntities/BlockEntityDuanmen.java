@@ -31,7 +31,7 @@ import java.util.Map;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_DUANMEN;
 
-public class BlockEntityDuanmen extends BaseObjBlockEntity {
+public class BlockEntityDuanmen extends FunctionalObjBlockEntity {
     public static final String DEFAULT_MAIN_MODEL = "fangsu:duanmen/kaba_duanmen.json";
     public static final String DEFAULT_SUB_MODEL = "kaba_a_right";
     public static final String MAIN_MODEL_KEY = "duanmen";

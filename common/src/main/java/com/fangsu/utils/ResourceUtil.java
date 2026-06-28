@@ -20,9 +20,19 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.*;
 
 public class ResourceUtil {
-    private static final Map<String, Object> register = new HashMap<>();
+    private static final Map<String, Object> register = new ConcurrentHashMap<>();
+
+    /**
+     * 后台线程池，用于异步加载 OBJ 模型文件，避免首次放置方块时阻塞主线程导致卡顿。
+     */
+    private static final ExecutorService MODEL_LOADER = Executors.newFixedThreadPool(2, r -> {
+        Thread t = new Thread(r, "fangsu-model-loader");
+        t.setDaemon(true);
+        return t;
+    });
     private static ResourceManager resourceManager;
 
     public static final ResourceLocation ERROR_IMAGE = new ResourceLocation("fangsu:textures/gui/error.png");
@@ -198,29 +208,57 @@ public class ResourceUtil {
 
     public static DynamicModelHolder loadDmh(ResourceLocation location, Boolean flipV) throws IOException {
         String GlobalRegisterKey = "Identifier" + location.toString() + (flipV ? "_flipV" : "") + "@Dmh";
-        if (register.containsKey(GlobalRegisterKey)) {
-            return (DynamicModelHolder) register.get(GlobalRegisterKey);
+        DynamicModelHolder existing = (DynamicModelHolder) register.get(GlobalRegisterKey);
+        if (existing != null) {
+            return existing;
         }
         DynamicModelHolder dmh = new DynamicModelHolder();
-        dmh.uploadLater(loadModel(location, flipV));
-        register.put(GlobalRegisterKey, dmh);
+        existing = (DynamicModelHolder) register.putIfAbsent(GlobalRegisterKey, dmh);
+        if (existing != null) {
+            return existing;
+        }
+
+        // 异步加载模型，避免首次放置方块时阻塞主线程
+        MODEL_LOADER.submit(() -> {
+            try {
+                RawModel model = loadModel(location, flipV);
+                dmh.uploadLater(model);
+            } catch (IOException e) {
+                Main.LOGGER.error("Failed to load model async: {}", location, e);
+            }
+        });
+
         return dmh;
     }
 
     public static Map<String, DynamicModelHolder> loadPartedDmh(ResourceLocation location, Boolean flipV) throws IOException {
         String GlobalRegisterKey = "Identifier" + location.toString() + (flipV ? "_flipV" : "") + "@PartedDmh";
-        if (register.containsKey(GlobalRegisterKey)) {
-            return (Map<String, DynamicModelHolder>) register.get(GlobalRegisterKey);
+        @SuppressWarnings("unchecked")
+        Map<String, DynamicModelHolder> existing = (Map<String, DynamicModelHolder>) register.get(GlobalRegisterKey);
+        if (existing != null) {
+            return existing;
         }
-        Map<String, DynamicModelHolder> map = new HashMap<>();
-        Map<String, RawModel> models = loadPartedModel(location, flipV);
-        for (Map.Entry<String, RawModel> entry : models.entrySet()) {
-            RawModel model = entry.getValue();
-            DynamicModelHolder dmh = new DynamicModelHolder();
-            dmh.uploadLater(model);
-            map.put(entry.getKey(), dmh);
+        Map<String, DynamicModelHolder> map = new ConcurrentHashMap<>();
+        existing = (Map<String, DynamicModelHolder>) register.putIfAbsent(GlobalRegisterKey, map);
+        if (existing != null) {
+            return existing;
         }
-        register.put(GlobalRegisterKey, map);
+
+        // 异步加载模型，避免首次放置方块时阻塞主线程
+        MODEL_LOADER.submit(() -> {
+            try {
+                Map<String, RawModel> models = loadPartedModel(location, flipV);
+                for (Map.Entry<String, RawModel> entry : models.entrySet()) {
+                    RawModel model = entry.getValue();
+                    DynamicModelHolder dmh = new DynamicModelHolder();
+                    dmh.uploadLater(model);
+                    map.put(entry.getKey(), dmh);
+                }
+            } catch (IOException e) {
+                Main.LOGGER.error("Failed to load parted model async: {}", location, e);
+            }
+        });
+
         return map;
     }
 

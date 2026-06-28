@@ -48,7 +48,7 @@ import java.util.concurrent.Executors;
  *   <li>在 {@link #whenRendering()} 中绘制主模型后调用 {@link #renderDisplayModel(ObjBlockScriptContext)}</li>
  * </ul>
  */
-public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
+public abstract class BaseDisplayBlockEntity extends FunctionalObjBlockEntity {
 
     // ==================== 通用状态管理 ====================
 
@@ -486,6 +486,16 @@ public abstract class BaseDisplayBlockEntity extends BaseObjBlockEntity {
         resetRetryTimer();
         // 清除待处理的异步任务结果，避免 UI 更新后过期数据覆盖正确路线
         cancelPendingAsyncTask();
+    }
+
+    /**
+     * 重写父类方法，在发送配置同步前自动重置绘制状态。
+     * 确保切换模型、刷子右键等操作后立即触发重新绘制，避免显示黑色默认贴图。
+     */
+    @Override
+    public void sendUpdateC2S() {
+        resetDrawingState();
+        super.sendUpdateC2S();
     }
 
     // ================================================================

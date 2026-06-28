@@ -3,6 +3,7 @@ package com.fangsu.client;
 import com.fangsu.Main;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.blockEntities.BlockEntityScreendoorCentralControl;
+import com.fangsu.blockEntities.FunctionalObjBlockEntity;
 import com.fangsu.drawing.sign.SignItem;
 import com.fangsu.ui.RouteSelectInfo;
 import net.minecraft.core.BlockPos;
@@ -14,39 +15,39 @@ import java.util.function.Consumer;
 
 public final class ClientHooks {
 
-    public static Consumer<BaseObjBlockEntity> OPEN_OBJ_BLOCK_CONFIG_SCREEN
+    public static Consumer<FunctionalObjBlockEntity> OPEN_OBJ_BLOCK_CONFIG_SCREEN
             = blockEntity -> {
-                Main.LOGGER.error("打开方法没有被替换!");
-            };
+        Main.LOGGER.error("打开方法没有被替换!");
+    };
     public static Consumer<BlockEntityScreendoorCentralControl> OPEN_SCREENDOOR_CENTRAL_CONTROL_SCREEN
             = ctrl -> {
-                Main.LOGGER.error("打开方法没有被替换!");
-            };
+        Main.LOGGER.error("打开方法没有被替换!");
+    };
     public static SignScreenConsumer OPEN_OBJ_SIGN_SCREEN
             = ((faces, items, onSave) -> {
-                Main.LOGGER.error("打开方法没有被替换!");
-            });
+        Main.LOGGER.error("打开方法没有被替换!");
+    });
     public static TicketMachineConsumer OPEN_TICKET_MACHINE_SCREEN
             = ((title, pos) -> {
-                Main.LOGGER.error("打开方法没有被替换!");
-            });
+        Main.LOGGER.error("打开方法没有被替换!");
+    });
     public static PlatformSelectConsumer OPEN_PLATFORM_SELECT_SCREEN
             = (component, defaultValue, setter, pos, maxSelect) -> {
-                Main.LOGGER.error("打开方法没有被替换!");
-            };
+        Main.LOGGER.error("打开方法没有被替换!");
+    };
     public static RouteSelectConsumer OPEN_ROUTE_SELECT_SCREEN
             = (component, defaultValue, setter, pos, maxSelect) -> {
-                Main.LOGGER.error("打开方法没有被替换!");
-            };
+        Main.LOGGER.error("打开方法没有被替换!");
+    };
     public static StationSelectConsumer OPEN_STATION_SELECT_SCREEN
             = (component, defaultValue, setter, pos, maxSelect) -> {
-                Main.LOGGER.error("打开方法没有被替换!");
-            };
+        Main.LOGGER.error("打开方法没有被替换!");
+    };
 
     private ClientHooks() {
     }
 
-    public static void openObjBlockConfigScreen(BaseObjBlockEntity blockEntity) {
+    public static void openObjBlockConfigScreen(FunctionalObjBlockEntity blockEntity) {
         OPEN_OBJ_BLOCK_CONFIG_SCREEN.accept(blockEntity);
     }
 
