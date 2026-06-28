@@ -91,7 +91,7 @@ jobs:
             echo "✅ Found jar: $jar_file"
 
             # 构造元数据
-            VERSION_NUMBER="${BASE_VERSION}+${platform}.${game_version}"
+            VERSION_NUMBER="MTR3+${BASE_VERSION}+${platform}.${game_version}"
             VERSION_NAME="MTR3-${BASE_VERSION}-$(echo $platform | tr 'a-z' 'A-Z')"
             LOADERS="[\"$platform\"]"
             GAME_VERSIONS="[\"$game_version\"]"
