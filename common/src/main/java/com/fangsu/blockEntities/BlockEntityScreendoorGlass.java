@@ -77,7 +77,7 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
             loadedRight = ScreendoorGlassContent.loadRightEntries(mainModel);
 
             if (!loadedLeft.containsKey(subModelLeft) || !loadedRight.containsKey(subModelRight)) {
-                markedError = true;
+                if (level != null && level.isClientSide) markedError = true;
                 return;
             }
 
@@ -85,7 +85,7 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
             pendingAuto = true;
 
         } catch (Exception e) {
-            markedError = true;
+            if (level != null && level.isClientSide) markedError = true;
             Main.LOGGER.warn(e.getMessage());
             for (StackTraceElement stackTraceElement : e.getStackTrace()) {
                 Main.LOGGER.error(stackTraceElement.toString());

@@ -78,10 +78,13 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
         String mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
         String subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
 
+        // 服务端不需要加载模型和形状，跳过客户端专属操作
+        if (level == null || !level.isClientSide) return;
+
         try {
             content = ContentInfoUtil.getTicketBarrierContent(mainModel, subModel);
             if (content == null) {
-                markedError = true;
+                if (level != null && level.isClientSide) markedError = true;
                 return;
             }
             mainDmh = ResourceUtil.loadDmh(new ResourceLocation(content.getModel()), content.getFilpV());
@@ -116,7 +119,7 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
 //            ticketBox = parseBox(content.getTicketBox());
         } catch (Exception e) {
             Main.LOGGER.warn(e.getMessage());
-            markedError = true;
+            if (level != null && level.isClientSide) markedError = true;
         }
 
     }

@@ -87,6 +87,9 @@ public class BlockEntitySignOnWall extends FunctionalObjBlockEntity {
         mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
         subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
 
+        // 服务端不需要加载模型和形状，跳过客户端专属操作
+        if (level == null || !level.isClientSide) return;
+
         try {
             SignOnWallContent.SignOnWallDisplayInfo displayInfo = ContentInfoUtil.getSignOnWallDisplayInfo(mainModel, subModel);
             if (displayInfo == null) {
@@ -197,6 +200,7 @@ public class BlockEntitySignOnWall extends FunctionalObjBlockEntity {
 
     @Override
     public InteractionResult whenUseWithBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        if (!level.isClientSide) return InteractionResult.SUCCESS;
         ClientHooks.openSignConfigScreen(1, List.of(items), saveItems -> {
             items = saveItems.get(0);
             extraConfigs.put("items", toItemsJson(items).toString());
@@ -321,35 +325,7 @@ public class BlockEntitySignOnWall extends FunctionalObjBlockEntity {
 
     @Override
     public void readC2S(FriendlyByteBuf buf) {
-        translateX = buf.readFloat();
-        translateY = buf.readFloat();
-        translateZ = buf.readFloat();
-        rotateX = buf.readFloat();
-        rotateY = buf.readFloat();
-        rotateZ = buf.readFloat();
-        mainModel = buf.readUtf();
-        int size = buf.readInt();
-        for (int i = 0; i < size; i++) {
-            String key = buf.readUtf(64);
-            String value = buf.readUtf(16384);
-            extraConfigs.put(key, value);
-        }
-
-        size = buf.readInt();
-        for (int i = 0; i < size; i++) {
-            String key = buf.readUtf(64);
-            String value = buf.readUtf(128);
-            subModels.put(key, value);
-        }
-        if (level != null && level.isClientSide == false) {
-            level.sendBlockUpdated(
-                    worldPosition,
-                    getBlockState(),
-                    getBlockState(),
-                    3
-            );
-            this.setChanged();
-        }
+        super.readC2S(buf);
 
         requiresRedraw = true;
 

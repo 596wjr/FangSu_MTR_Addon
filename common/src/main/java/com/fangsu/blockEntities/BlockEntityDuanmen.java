@@ -65,10 +65,13 @@ public class BlockEntityDuanmen extends FunctionalObjBlockEntity {
         String subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
 
         try {
+            // 服务端不需要加载模型和形状，跳过客户端专属操作
+            if (level == null || !level.isClientSide) return;
+
             content = ContentInfoUtil.getDuanmenContent(mainModel, subModel);
             if (content == null) {
                 Main.LOGGER.error("Duanmen content is null");
-                markedError = true;
+                if (level != null && level.isClientSide) markedError = true;
                 return;
             }
             Map<String, DynamicModelHolder> dmhMap = ResourceUtil.loadPartedDmh(new ResourceLocation(content.getModel()), content.isFilpV());
@@ -102,7 +105,7 @@ public class BlockEntityDuanmen extends FunctionalObjBlockEntity {
 
         } catch (Exception e) {
             Main.LOGGER.error("Duanmen content load error", e);
-            markedError = true;
+            if (level != null && level.isClientSide) markedError = true;
         }
     }
 

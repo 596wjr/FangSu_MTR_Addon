@@ -69,7 +69,8 @@ public abstract class BaseObjBlockEntity extends BlockEntity {
         if (subModels != null) {
             CompoundTag subModelTag = new CompoundTag();
             for (String key : subModels.keySet()) {
-                subModelTag.putString(key, subModels.get(key));
+                String value = subModels.get(key);
+                if (value != null) subModelTag.putString(key, value);
             }
             tag.put("subModel", subModelTag);
         }

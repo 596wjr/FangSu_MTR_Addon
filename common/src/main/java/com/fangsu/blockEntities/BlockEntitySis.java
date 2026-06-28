@@ -63,6 +63,11 @@ public class BlockEntitySis extends BaseDisplayBlockEntity {
 
         parseUserExtraConfigs(getExtraConfig("extraConfig", "{}"));
 
+        // 服务端不需要加载模型和绘制
+        var rawStn = MtrUtil.getStationById(Long.parseLong(getExtraConfig("station", "0")));
+        stn = (rawStn == null) ? new LocalStation() : new LocalStation(rawStn);
+        if (level == null || !level.isClientSide) return;
+
         try {
             content = ContentInfoUtil.getSisContent(mainModel, subModel);
             if (content == null) {
@@ -83,7 +88,7 @@ public class BlockEntitySis extends BaseDisplayBlockEntity {
             resetDrawingState();
         } catch (Exception e) {
             Main.LOGGER.error("Station info sign content load error", e);
-            markedError = true;
+            if (level != null && level.isClientSide) markedError = true;
         }
     }
 

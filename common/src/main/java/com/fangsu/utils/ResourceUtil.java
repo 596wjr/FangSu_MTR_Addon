@@ -387,7 +387,7 @@ public class ResourceUtil {
         }
 
         if (resourceManager == null) {
-            Main.LOGGER.error("Cannot load {}: ResourceManager is not initialized yet!", location);
+            // Server-side: silently return empty, don't log error
             return new JsonObject();
         }
 

@@ -108,6 +108,9 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
 
         routes = reloadRoute(getExtraConfig("routes", "[]"));
 
+        // 服务端不需要加载模型和形状，跳过客户端专属操作
+        if (level == null || !level.isClientSide) return;
+
         try {
             DiaobanContent content = ContentInfoUtil.getDiaobanContent(mainModel, subModel);
             if (content == null) {
@@ -331,6 +334,7 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
 
     @Override
     public InteractionResult whenUseWithBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        if (!level.isClientSide) return InteractionResult.SUCCESS;
         arrowDirection += 1;
         if (arrowDirection >= 3) {
             arrowDirection = 0;

@@ -63,6 +63,9 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
         ensureExtraConfig("height", "2");
         ensureExtraConfig("images", "{}");
 
+        // 服务端不需要加载模型和形状，跳过客户端专属操作
+        if (level == null || !level.isClientSide) return;
+
         int width = getExtraConfigInt("width", 2);
         int height = getExtraConfigInt("height", 2);
 
@@ -188,7 +191,7 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
             } else {
                 Main.LOGGER.warn("content is null, cannot print details");
             }
-            markedError = true;
+            if (level != null && level.isClientSide) markedError = true;
         }
     }
 

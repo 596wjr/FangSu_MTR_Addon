@@ -81,10 +81,13 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
             userExtraConfigs = new ConcurrentHashMap<>();
         }
 
+        // 服务端不需要加载模型和绘制，跳过客户端专属操作
+        if (level == null || !level.isClientSide) return;
+
         try {
             PidsContent content = ContentInfoUtil.getPidsContent(mainModel, subModel);
             if (content == null) {
-                markedError = true;
+                if (level != null && level.isClientSide) markedError = true;
                 return;
             }
             List<Integer> texSize = content.getTexSize();
@@ -124,7 +127,7 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
             for (StackTraceElement stackTraceElement : e.getStackTrace()) {
                 Main.LOGGER.warn(stackTraceElement.toString());
             }
-            markedError = true;
+            if (level != null && level.isClientSide) markedError = true;
         }
     }
 

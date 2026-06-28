@@ -1,5 +1,6 @@
 package com.fangsu.blockEntities;
 
+import com.fangsu.Main;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.client.ClientHooks;
 import com.fangsu.extraConfig.ConfigEntry;
@@ -105,12 +106,17 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
         tag.putFloat("rotateY", rotateY);
         tag.putFloat("rotateZ", rotateZ);
 
-        this.whenSaving(extraConfigs);
+        try {
+            this.whenSaving(extraConfigs);
+        } catch (Exception e) {
+            Main.LOGGER.error("Failed to save extra configs for {} at {}", getClass().getSimpleName(), getBlockPos(), e);
+        }
 
         if (extraConfigs != null) {
             CompoundTag subConfigTag = new CompoundTag();
             for (String key : extraConfigs.keySet()) {
-                subConfigTag.putString(key, extraConfigs.get(key));
+                String value = extraConfigs.get(key);
+                if (value != null) subConfigTag.putString(key, value);
             }
             tag.put("extraConfig", subConfigTag);
         }
@@ -119,7 +125,6 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
     @Override
     public void load(@NotNull CompoundTag tag) {
         super.load(tag);
-        markedError = false;
 
         translateX = tag.contains("translateX") ? tag.getFloat("translateX") : 0;
         translateY = tag.contains("translateY") ? tag.getFloat("translateY") : 0;
@@ -136,7 +141,11 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
             }
         }
 
-        this.whenLoading();
+        try {
+            this.whenLoading();
+        } catch (Exception e) {
+            Main.LOGGER.error("Failed to load block entity {} at {}", getClass().getSimpleName(), getBlockPos(), e);
+        }
     }
 
     /**
@@ -155,18 +164,28 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
         buf.writeFloat(rotateX);
         buf.writeFloat(rotateY);
         buf.writeFloat(rotateZ);
-        buf.writeUtf(mainModel);
-        buf.writeInt(extraConfigs.size());
+        buf.writeUtf(mainModel != null ? mainModel : "");
+
+        int ecSize = Math.min(extraConfigs.size(), 256);
+        buf.writeInt(ecSize);
+        int count = 0;
         for (String key : extraConfigs.keySet()) {
+            if (count >= ecSize) break;
             String value = extraConfigs.get(key);
-            buf.writeUtf(key);
-            buf.writeUtf(value);
+            buf.writeUtf(key != null ? key : "");
+            buf.writeUtf(value != null ? value : "");
+            count++;
         }
-        buf.writeInt(subModels.size());
+
+        int smSize = Math.min(subModels.size(), 256);
+        buf.writeInt(smSize);
+        count = 0;
         for (String key : subModels.keySet()) {
+            if (count >= smSize) break;
             String value = subModels.get(key);
-            buf.writeUtf(key);
-            buf.writeUtf(value);
+            buf.writeUtf(key != null ? key : "");
+            buf.writeUtf(value != null ? value : "");
+            count++;
         }
     }
 
@@ -179,22 +198,32 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
         rotateY = buf.readFloat();
         rotateZ = buf.readFloat();
         mainModel = buf.readUtf();
-        int size = buf.readInt();
+        if (mainModel.isEmpty()) mainModel = null;
+
+        int size = Math.min(buf.readInt(), 256);
         for (int i = 0; i < size; i++) {
             String key = buf.readUtf(64);
             String value = buf.readUtf(1024);
-            extraConfigs.put(key, value);
+            if (key != null && !key.isEmpty()) {
+                extraConfigs.put(key, value != null ? value : "");
+            }
         }
 
-        size = buf.readInt();
+        size = Math.min(buf.readInt(), 256);
         for (int i = 0; i < size; i++) {
             String key = buf.readUtf(64);
             String value = buf.readUtf(1024);
-            subModels.put(key, value);
+            if (key != null && !key.isEmpty()) {
+                subModels.put(key, value != null ? value : "");
+            }
         }
 
         // 重新加载配置到字段（确保 isolation/doorOpenOverride 等同步）
-        this.whenLoading();
+        try {
+            this.whenLoading();
+        } catch (Exception e) {
+            Main.LOGGER.error("Failed to reload block entity {} at {}", getClass().getSimpleName(), getBlockPos(), e);
+        }
         this.setChanged();
 
         if (level != null && !level.isClientSide) {
@@ -225,7 +254,7 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
     }
 
     void syncToServer() {
-        if (level == null || level.isClientSide) {
+        if (level != null && level.isClientSide) {
             this.whenSaving(this.extraConfigs);
             if (!level.hasChunk(getBlockPos().getX() >> 4, getBlockPos().getZ() >> 4)) return;
             FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
