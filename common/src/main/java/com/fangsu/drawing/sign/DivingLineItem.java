@@ -4,7 +4,7 @@ import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.extraConfig.*;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import net.minecraft.resources.ResourceLocation;
+import com.fangsu.mappings.ResourceLocation;
 
 import java.awt.*;
 import java.util.ArrayList;

@@ -314,8 +314,8 @@ public class SignConfigUI extends Screen {
             ctx.fill(x, y, x + 1, y + cell, border);
             ctx.fill(x + cell - 1, y, x + cell, y + cell, border);
             SignItem token = EDITOR_ITEMS.get(idx);
-            var location = token.getIconLocation() == null ? new ResourceLocation("mtrsteamloco:imgnnotfound.png") : token.getIconLocation();
-            ctx.blit(location, x + 3, y + 3, 0, 0, cell - 6, cell - 6, cell - 6, cell - 6);
+            var location = token.getIconLocation() == null ? new com.fangsu.mappings.ResourceLocation("mtrsteamloco:imgnnotfound.png") : token.getIconLocation();
+            ctx.blit(location.getRaw(), x + 3, y + 3, 0, 0, cell - 6, cell - 6, cell - 6, cell - 6);
             if (hover) ctx.drawString(font, "+", x + cell / 2 - 3, y + cell / 2 - 4, 0xFFFFFF, false);
             if (hover && token.withText) {
                 ctx.drawString(font, ComponentHelper.translatable("ui.fangsu.sign.tooltip3"), width - 80, 32, 0xCCCCCC, false);

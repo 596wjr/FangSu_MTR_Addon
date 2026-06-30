@@ -11,7 +11,7 @@ import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import com.fangsu.mappings.ResourceLocation;
 
 import java.awt.*;
 import java.io.IOException;
@@ -55,7 +55,7 @@ public class TrainIconItem extends SignItem {
             g.fillRoundRect((int) (x), (int) y, (int) u, (int) u, (int) (u * 0.15), (int) (u * 0.15));
         }
         try {
-            g.drawImage(ResourceUtil.loadImage(ICON_LOCATION), (int) x, (int) y, (int) u, (int) u, null);
+            g.drawImage(ResourceUtil.loadImage(ICON_LOCATION.getRaw()), (int) x, (int) y, (int) u, (int) u, null);
         } catch (IOException ignored) {
         }
     }

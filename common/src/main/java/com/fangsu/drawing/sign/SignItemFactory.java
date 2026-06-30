@@ -5,7 +5,7 @@ import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import net.minecraft.resources.ResourceLocation;
+import com.fangsu.mappings.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -32,6 +32,13 @@ public final class SignItemFactory {
         REGISTRY.put("trainicon", TrainIconItem::new);
     }
 
+    public static void add(String type, Function<JsonObject, SignItem> factory) {
+        if (REGISTRY.containsKey(type)) {
+            Main.LOGGER.warn("[FangSu] SignItemFactory: Type {} is already registered. Overwriting.", type);
+        }
+        REGISTRY.put(type, factory);
+    }
+
     public static Function<JsonObject, SignItem> get(String type) {
         Function<JsonObject, SignItem> item = REGISTRY.get(type);
         if (item == null) {
@@ -51,7 +58,7 @@ public final class SignItemFactory {
     public static void init() {
         registerBuiltInSign();
         registerJsItems();
-        JsonElement builtInSign = ResourceUtil.simpleLoadAsJson(new ResourceLocation("fangsu:sign/builtin_sign.json"));
+        JsonElement builtInSign = ResourceUtil.simpleLoadAsJson(new ResourceLocation("fangsu:sign/builtin_sign.json").getRaw());
         if (builtInSign.isJsonObject()) {
             JsonObject obj = builtInSign.getAsJsonObject();
             if (obj.has("signItems") && obj.get("signItems").isJsonArray()) {
@@ -64,7 +71,7 @@ public final class SignItemFactory {
                 }
             }
         }
-        JsonElement mtrItem = ResourceUtil.loadAsJSON(new ResourceLocation("mtr:mtr_custom_resources.json"));
+        JsonElement mtrItem = ResourceUtil.loadAsJSON(new ResourceLocation("mtr:mtr_custom_resources.json").getRaw());
         Map<String, SignItem> mtrItems = getMtrItems(mtrItem);
         for (Map.Entry<String, SignItem> entry : mtrItems.entrySet()) {
             SignItem current = entry.getValue();
@@ -136,7 +143,7 @@ public final class SignItemFactory {
     }
 
     private static void registerJsItems() {
-        JsonElement signJsonElement = ResourceUtil.loadAsJSON(SIGN_LOCATION);
+        JsonElement signJsonElement = ResourceUtil.loadAsJSON(SIGN_LOCATION.getRaw());
         if (signJsonElement == null || !signJsonElement.isJsonObject()) return;
         JsonObject signJsonObject = signJsonElement.getAsJsonObject();
         for (Map.Entry<String, JsonElement> entry : signJsonObject.entrySet()) {
@@ -170,8 +177,8 @@ public final class SignItemFactory {
                         configs.add(configObject);
                     }
                 }
-                REGISTRY.put(finalKey, json -> new JsItem(finalKey, new ResourceLocation(content), icon, configs, json));
-                EDITOR_ITEMS.add(new JsItem(finalKey, new ResourceLocation(content), icon, configs, new JsonObject()));
+                REGISTRY.put(finalKey, json -> new JsItem(finalKey, new com.fangsu.mappings.ResourceLocation(content), icon, configs, json));
+                EDITOR_ITEMS.add(new JsItem(finalKey, new com.fangsu.mappings.ResourceLocation(content), icon, configs, new JsonObject()));
             } else {
                 REGISTRY.put(finalKey, json -> new JsItem(finalKey, null, icon, null, json));
                 EDITOR_ITEMS.add(new JsItem(finalKey, null, icon, null, new JsonObject()));

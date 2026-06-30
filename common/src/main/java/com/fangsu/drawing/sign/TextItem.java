@@ -8,7 +8,7 @@ import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import com.fangsu.mappings.ResourceLocation;
 
 import java.awt.*;
 import java.util.ArrayList;

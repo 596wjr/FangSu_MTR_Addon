@@ -8,7 +8,7 @@ import com.fangsu.extraConfig.StringConfig;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonObject;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import com.fangsu.mappings.ResourceLocation;
 
 import java.awt.*;
 import java.io.IOException;
@@ -66,7 +66,7 @@ public class ImageItem extends SignItem {
         float corner = u * (1 - scale) / 2;
         if (image == null) {
             try {
-                image = ResourceUtil.loadImage(imageLocation);
+                image = ResourceUtil.loadImage(imageLocation.getRaw());
             } catch (IOException e) {
                 image = null;
             }

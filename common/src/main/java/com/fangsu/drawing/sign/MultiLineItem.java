@@ -1,6 +1,6 @@
 package com.fangsu.drawing.sign;
 
-import net.minecraft.resources.ResourceLocation;
+import com.fangsu.mappings.ResourceLocation;
 
 import java.awt.*;
 import java.util.List;

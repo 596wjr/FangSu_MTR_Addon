@@ -7,7 +7,7 @@ import com.fangsu.userScripts.ScriptManager;
 import com.fangsu.userScripts.SignItemScriptHolder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import net.minecraft.resources.ResourceLocation;
+import com.fangsu.mappings.ResourceLocation;
 import org.graalvm.polyglot.Value;
 
 import java.awt.*;
@@ -42,7 +42,7 @@ public class JsItem extends SignItem {
         this.configs = configs;
 
         ScriptManager scriptManager = ScriptManager.getInstance();
-        this.scriptHolder = scriptManager.getOrInitHolder(this.scriptLocation, SignItemScriptHolder::new);
+        this.scriptHolder = scriptManager.getOrInitHolder(scriptLocation == null ? null : this.scriptLocation.getRaw(), SignItemScriptHolder::new);
 
         extra = new HashMap<>();
         if (json.has("extra") && json.get("extra").isJsonObject()) {

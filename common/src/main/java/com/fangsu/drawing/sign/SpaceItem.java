@@ -6,7 +6,7 @@ import com.fangsu.extraConfig.ConfigSpec;
 import com.fangsu.extraConfig.NumberInputConfig;
 import com.google.gson.JsonObject;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import com.fangsu.mappings.ResourceLocation;
 
 import java.awt.*;
 import java.util.List;

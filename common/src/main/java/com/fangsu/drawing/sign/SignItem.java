@@ -4,7 +4,7 @@ import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.utils.ResourceUtil;
 import com.google.common.base.Objects;
 import com.google.gson.JsonObject;
-import net.minecraft.resources.ResourceLocation;
+import com.fangsu.mappings.ResourceLocation;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -32,7 +32,7 @@ public abstract class SignItem {
      * UI 中用于显示的图标（资源 id），可为空
      */
     public BufferedImage getIcon() throws IOException {
-        return ResourceUtil.loadImage(new ResourceLocation("mtrsteamloco:imgnotfound.png"));
+        return ResourceUtil.loadImage(new ResourceLocation("mtrsteamloco:imgnotfound.png").getRaw());
     }
 
     /**

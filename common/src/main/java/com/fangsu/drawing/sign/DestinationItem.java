@@ -11,7 +11,7 @@ import com.google.gson.JsonObject;
 import mtr.data.Platform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import com.fangsu.mappings.ResourceLocation;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -30,7 +30,7 @@ public class DestinationItem extends SignItem {
         if (json.has("align")) {
             align = json.getAsJsonPrimitive("align").getAsInt();
         } else align = 0;
-        font = ResourceUtil.loadFont(new ResourceLocation("fangsu:fonts/source-han-sans-bold.otf"));
+        font = ResourceUtil.loadFont(new ResourceLocation("fangsu:fonts/source-han-sans-bold.otf").getRaw());
     }
 
     @Override

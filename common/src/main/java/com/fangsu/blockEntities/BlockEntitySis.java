@@ -64,9 +64,10 @@ public class BlockEntitySis extends BaseDisplayBlockEntity {
         parseUserExtraConfigs(getExtraConfig("extraConfig", "{}"));
 
         // 服务端不需要加载模型和绘制
+        if (level == null || !level.isClientSide) return;
+
         var rawStn = MtrUtil.getStationById(Long.parseLong(getExtraConfig("station", "0")));
         stn = (rawStn == null) ? new LocalStation() : new LocalStation(rawStn);
-        if (level == null || !level.isClientSide) return;
 
         try {
             content = ContentInfoUtil.getSisContent(mainModel, subModel);
@@ -90,7 +91,7 @@ public class BlockEntitySis extends BaseDisplayBlockEntity {
     }
 
     private void initDrawingAsync() {
-        if (!firstInit) return;
+        if (!firstInit || content == null) return;
 
         // 如果车站数据还未加载完成（rawStn == null 或名称为"?"），跳过本次绘制注册
         if (stn.getRaw() == null || "?".equals(stn.name)) {
@@ -145,7 +146,10 @@ public class BlockEntitySis extends BaseDisplayBlockEntity {
         }
 
         if (!scriptDone) {
-            initDrawingAsync();
+            // 节流重试，避免每帧重复调用 initDrawingAsync
+            if (shouldRetryInit()) {
+                initDrawingAsync();
+            }
         } else if (content != null && stn != null && stn.getRaw() != null && shouldCheckDataChange()) {
             // 检测外部 MTR 数据变更（如车站名称、路线颜色），使用独立长间隔（2秒）
             var rawStn = MtrUtil.getStationById(Long.parseLong(getExtraConfig("station", "0")));

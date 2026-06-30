@@ -1,7 +1,7 @@
 package com.fangsu.drawing.sign;
 
 import com.google.gson.JsonObject;
-import net.minecraft.resources.ResourceLocation;
+import com.fangsu.mappings.ResourceLocation;
 
 import java.awt.*;
 
