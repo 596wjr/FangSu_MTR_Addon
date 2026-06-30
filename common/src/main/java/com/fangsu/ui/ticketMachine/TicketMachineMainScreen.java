@@ -125,7 +125,7 @@ public class TicketMachineMainScreen extends Screen {
         super.onClose();
     }
 
-//#if MC_VERSION >= 12000
+    //#if MC_VERSION >= 12000
     @Override
     public void render(GuiGraphics nativeGfx, int mouseX, int mouseY, float partialTick) {
         super.render(nativeGfx, mouseX, mouseY, partialTick);
@@ -344,7 +344,7 @@ public class TicketMachineMainScreen extends Screen {
                 //#if MC_VERSION >= 11900
                 Component labelText = Component.literal(route.name().replace("|", " "));
                 //#else
-                //$$ Component labelText = ComponentHelper.literal(route.name().replace("|", " "));
+                //$$ LocalComponent labelText = ComponentHelper.literal(route.name().replace("|", " "));
                 //#endif
                 ScreenUtil.drawScrollingText(
                         nativeGfx, font, labelText,
@@ -416,7 +416,7 @@ public class TicketMachineMainScreen extends Screen {
                     //#if MC_VERSION >= 11900
                     Component stnName = Component.literal(stn.name());
                     //#else
-                    //$$ Component stnName = ComponentHelper.literal(stn.name());
+                    //$$ LocalComponent stnName = ComponentHelper.literal(stn.name());
                     //#endif
                     ScreenUtil.drawScrollingText(nativeGfx, font,
                             stnName,
@@ -570,7 +570,7 @@ public class TicketMachineMainScreen extends Screen {
         //#if MC_VERSION >= 11900
         Component priceText = Component.literal(customPriceInput.isEmpty() ? "0" : customPriceInput);
         //#else
-        //$$ Component priceText = ComponentHelper.literal(customPriceInput.isEmpty() ? "0" : customPriceInput);
+        //$$ LocalComponent priceText = ComponentHelper.literal(customPriceInput.isEmpty() ? "0" : customPriceInput);
         //#endif
         ScreenUtil.drawCenteredStringScale(nativeGfx,
                 priceText,
@@ -608,7 +608,7 @@ public class TicketMachineMainScreen extends Screen {
                 //#if MC_VERSION >= 11900
                 Component keyText = Component.literal(key);
                 //#else
-                //$$ Component keyText = ComponentHelper.literal(key);
+                //$$ LocalComponent keyText = ComponentHelper.literal(key);
                 //#endif
                 ScreenUtil.drawCenteredStringScale(nativeGfx, keyText, x + buttonW / 2, y + 4, 0xffffffff, 0.8f, true);
 

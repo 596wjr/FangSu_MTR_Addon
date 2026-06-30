@@ -1,5 +1,6 @@
 package com.fangsu.extraConfig;
 
+import com.fangsu.mappings.LocalComponent;
 import net.minecraft.network.chat.Component;
 
 import java.util.function.BiConsumer;
@@ -13,6 +14,15 @@ public class StringConfig extends ConfigEntry<String> {
 
     public StringConfig(
             Component title,
+            ConfigSpec spec,
+            Supplier<String> getter,
+            Consumer<String> setter
+    ) {
+        super(title, spec, getter, setter);
+    }
+
+    public StringConfig(
+            LocalComponent title,
             ConfigSpec spec,
             Supplier<String> getter,
             Consumer<String> setter

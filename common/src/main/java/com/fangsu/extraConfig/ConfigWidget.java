@@ -1,6 +1,7 @@
 package com.fangsu.extraConfig;
 
 import com.fangsu.mappings.ComponentHelper;
+import com.fangsu.mappings.LocalComponent;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
@@ -27,6 +28,18 @@ public class ConfigWidget extends AbstractWidget {
         for (AbstractWidget w : widgets) {
             this.children.add(w);
         }
+    }
+
+    public ConfigWidget(
+            int x,
+            int y,
+            int width,
+            int height,
+            int labelWidth,
+            LocalComponent title,
+            AbstractWidget... widgets
+    ) {
+        this(x, y, width, height, labelWidth, title.getRaw(), widgets);
     }
 
     /* ================== 事件转发 ================== */

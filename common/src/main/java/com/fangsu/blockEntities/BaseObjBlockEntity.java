@@ -130,7 +130,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity {
             this.model = model;
         }
 
-//        public ObjBlockProperty(Component name, ModelCluster model, ScriptHolder script) {
+//        public ObjBlockProperty(LocalComponent name, ModelCluster model, ScriptHolder script) {
 //            this.name = name;
 //            this.model = model;
 //            this.script = script;

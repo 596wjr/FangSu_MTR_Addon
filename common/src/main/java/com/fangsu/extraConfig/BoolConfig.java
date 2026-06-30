@@ -1,6 +1,7 @@
 package com.fangsu.extraConfig;
 
 import com.fangsu.mappings.ComponentHelper;
+import com.fangsu.mappings.LocalComponent;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 
@@ -13,6 +14,15 @@ public class BoolConfig extends ConfigEntry<Boolean> {
 
     public BoolConfig(
             Component title,
+            ConfigSpec spec,
+            Supplier<Boolean> getter,
+            Consumer<Boolean> setter
+    ) {
+        super(title, spec, getter, setter);
+    }
+
+    public BoolConfig(
+            LocalComponent title,
             ConfigSpec spec,
             Supplier<Boolean> getter,
             Consumer<Boolean> setter

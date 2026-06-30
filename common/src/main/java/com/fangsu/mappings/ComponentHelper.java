@@ -4,9 +4,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 
 /**
- * Component 鍏煎宸ュ叿绫伙紝缁熶竴 1.18.2 锟?1.20.1 锟?Component.translatable API锟?
+ * LocalComponent 鍏煎宸ュ叿绫伙紝缁熶竴 1.18.2 锟?1.20.1 锟?LocalComponent.translatable API锟?
  * <p>
- * 1.19+ 寮€锟?Component 鎺ュ彛鏈夐潤鎬佹柟锟?translatable()锟?
+ * 1.19+ 寮€锟?LocalComponent 鎺ュ彛鏈夐潤鎬佹柟锟?translatable()锟?
  * 1.18.2 闇€锟?new TranslatableComponent()锟?
  */
 public class ComponentHelper {
@@ -31,7 +31,9 @@ public class ComponentHelper {
         return translatable(key).getString();
     }
 
-    /** 等效于 Component.empty() — 1.18.2 不存在该静态方法 */
+    /**
+     * 等效于 LocalComponent.empty() — 1.18.2 不存在该静态方法
+     */
     public static MutableComponent empty() {
         //#if MC_VERSION >= 11900
         return Component.empty();
@@ -40,7 +42,9 @@ public class ComponentHelper {
         //#endif
     }
 
-    /** 等效于 Component.literal(str) — 1.18.2 不存在该静态方法 */
+    /**
+     * 等效于 LocalComponent.literal(str) — 1.18.2 不存在该静态方法
+     */
     public static MutableComponent literal(String str) {
         //#if MC_VERSION >= 11900
         return Component.literal(str);

@@ -3,6 +3,7 @@ package com.fangsu.extraConfig;
 //#if MC_VERSION >= 12000
 import net.minecraft.client.gui.GuiGraphics;
 //#endif
+import com.fangsu.mappings.LocalComponent;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
@@ -18,6 +19,14 @@ public class ConfigRow extends AbstractWidget {
     ) {
         super(x, y, w, h, title);
         this.field = field;
+    }
+
+    public ConfigRow(
+            int x, int y, int w, int h,
+            LocalComponent title,
+            AbstractWidget field
+    ) {
+        this(x, y, w, h, title.getRaw(), field);
     }
 
     //#if MC_VERSION >= 12000

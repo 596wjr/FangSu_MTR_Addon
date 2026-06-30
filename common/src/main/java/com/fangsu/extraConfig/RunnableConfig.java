@@ -1,6 +1,7 @@
 package com.fangsu.extraConfig;
 
 import com.fangsu.mappings.ComponentHelper;
+import com.fangsu.mappings.LocalComponent;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 
@@ -23,6 +24,14 @@ public class RunnableConfig extends ConfigEntry<Void> {
         );
         this.action = action;
         this.buttonText = title;
+    }
+
+    public RunnableConfig(
+            LocalComponent title,
+            ConfigSpec spec,
+            Runnable action
+    ) {
+        this(title.getRaw(), spec, action);
     }
 
     public RunnableConfig setButtonText(Component text) {

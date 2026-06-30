@@ -274,4 +274,75 @@ public class G2dTextHelper {
     public static int drawStrMultiLinesWithStretch(Graphics2D g, Font font, int x, int y, int h, int maxWidth, int allAlign, int align, String... lines) {
         return drawStrMultiLinesWithStretch(g, font, font, x, y, h, maxWidth, allAlign, align, lines);
     }
+
+    /**
+     * 绘制多行文字，超出最大宽度的行水平压缩，不到最大宽度的行水平分散对齐绘制
+     *
+     * @param g        Java AWT绘图上下文对象
+     * @param font     字体对象
+     * @param x        基准点X坐标（左对齐起始X）
+     * @param y        基准点Y坐标（第一行文字底部基线位置）
+     * @param maxWidth 最大宽度，超出时水平压缩，不足时分散对齐
+     * @param h        行高（每行之间的垂直间距）
+     * @param lines    要绘制的多行文字
+     * @return 最大宽度
+     */
+    public static int drawStrDistributedAlign(Graphics2D g, Font font, int x, int y, int maxWidth, int h, String... lines) {
+        if (lines == null || lines.length == 0) return 0;
+
+        g.setFont(font);
+        FontRenderContext frc = g.getFontRenderContext();
+
+        int currentY = y;
+        for (String line : lines) {
+            if (line == null || line.isEmpty()) {
+                currentY += h;
+                continue;
+            }
+
+            // 获取每个字符的宽度
+            int len = line.length();
+            int[] charWidths = new int[len];
+            int totalWidth = 0;
+            for (int i = 0; i < len; i++) {
+                String ch = String.valueOf(line.charAt(i));
+                Rectangle2D bounds = font.getStringBounds(ch, frc);
+                charWidths[i] = (int) Math.ceil(bounds.getWidth());
+                totalWidth += charWidths[i];
+            }
+
+            if (totalWidth <= maxWidth && len > 1) {
+                // 不到最大宽度且多于1个字符，分散对齐
+                int totalGaps = len - 1;
+                int gapWidth = (maxWidth - totalWidth) / totalGaps;
+                int extraRemainder = (maxWidth - totalWidth) - gapWidth * totalGaps;
+
+                int drawX = x;
+                for (int i = 0; i < len; i++) {
+                    String ch = String.valueOf(line.charAt(i));
+                    g.drawString(ch, drawX, currentY);
+                    drawX += charWidths[i] + gapWidth + (i < extraRemainder ? 1 : 0);
+                }
+            } else if (totalWidth > maxWidth) {
+                // 超过最大宽度，水平压缩
+                double scaleX = (double) maxWidth / totalWidth;
+                AffineTransform oldTransform = g.getTransform();
+                AffineTransform tx = new AffineTransform();
+                tx.translate(x, currentY);
+                tx.scale(scaleX, 1.0);
+                tx.translate(-x, -currentY);
+                g.transform(tx);
+                g.drawString(line, x, currentY);
+                g.setTransform(oldTransform);
+            } else {
+                // 只有1个字符且不超过宽度，居中绘制
+                int drawX = x + (maxWidth - totalWidth) / 2;
+                g.drawString(line, drawX, currentY);
+            }
+
+            currentY += h;
+        }
+
+        return maxWidth;
+    }
 }

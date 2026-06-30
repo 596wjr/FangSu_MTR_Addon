@@ -1,5 +1,6 @@
 package com.fangsu.extraConfig;
 
+import com.fangsu.mappings.LocalComponent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
@@ -29,6 +30,15 @@ public class NumberInputConfig extends ConfigEntry<Float> {
         this.max = spec.getFloat("max", Float.POSITIVE_INFINITY);
         this.isInt = spec.getBool("isInt", false);
         this.isHex = spec.getBool("isHex", false);   // 从 spec 读取开关，默认为 false
+    }
+
+    public NumberInputConfig(
+            LocalComponent title,
+            ConfigSpec spec,
+            Supplier<Float> getter,
+            Consumer<Float> setter
+    ) {
+        this(title.getRaw(), spec, getter, setter);
     }
 
     @Override

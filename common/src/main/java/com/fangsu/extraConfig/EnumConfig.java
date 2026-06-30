@@ -1,6 +1,7 @@
 package com.fangsu.extraConfig;
 
 import com.fangsu.mappings.ComponentHelper;
+import com.fangsu.mappings.LocalComponent;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 
@@ -25,11 +26,25 @@ public class EnumConfig extends ConfigEntry<Integer> {
         this.entries = entries;
     }
 
+    public EnumConfig(
+            LocalComponent title,
+            ConfigSpec spec,
+            List<? extends Component> entries,
+            Supplier<Integer> getter,
+            Consumer<Integer> setter
+    ) {
+        this(title.getRaw(), spec, entries, getter, setter);
+    }
+
     @Override
     public ConfigWidget createWidget(int x, int y, int labelW, int fieldW) {
 
         //#if MC_VERSION >= 11903
-        Button btn = Button.builder(entries.get(value), b -> { value = (value + 1) % entries.size(); b.setMessage(entries.get(value)); notifyValueChanged(); }).bounds(x + labelW, y, fieldW, 20).build();
+        Button btn = Button.builder(entries.get(value), b -> {
+            value = (value + 1) % entries.size();
+            b.setMessage(entries.get(value));
+            notifyValueChanged();
+        }).bounds(x + labelW, y, fieldW, 20).build();
         //#else
         //$$ Button btn = new Button(x + labelW, y, fieldW, 20, entries.get(value), b -> { value = (value + 1) % entries.size(); b.setMessage(entries.get(value)); notifyValueChanged(); });
         //#endif

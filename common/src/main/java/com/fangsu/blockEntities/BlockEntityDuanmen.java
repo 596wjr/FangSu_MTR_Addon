@@ -180,12 +180,12 @@ public class BlockEntityDuanmen extends FunctionalObjBlockEntity {
                     (facing == Direction.EAST && hitPos.x > (1 - hitPoint))     //x+
             ) {
                 setExtraConfig("isOpen", "true");
-//                player.displayClientMessage(Component.literal("direction = " + facing + " x = " + hitPos.x + " z = " + hitPos.z + " hitPoint = " + hitPoint), true);
+//                player.displayClientMessage(LocalComponent.literal("direction = " + facing + " x = " + hitPos.x + " z = " + hitPos.z + " hitPoint = " + hitPoint), true);
                 sendUpdateC2S();
                 return InteractionResult.SUCCESS;
             } else {
                 player.displayClientMessage(ComponentHelper.translatable("msg.fangsu.duanmen.requiresKey"), true);
-//                player.displayClientMessage(Component.literal("direction = " + facing + " x = " + hitPos.x + " z = " + hitPos.z + " hitPoint = " + hitPoint), true);
+//                player.displayClientMessage(LocalComponent.literal("direction = " + facing + " x = " + hitPos.x + " z = " + hitPos.z + " hitPoint = " + hitPoint), true);
                 return InteractionResult.PASS;
             }
         }
