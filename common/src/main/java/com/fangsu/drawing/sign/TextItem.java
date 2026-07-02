@@ -80,7 +80,7 @@ public class TextItem extends SignItem {
         List<ConfigEntry<?>> configs = new ArrayList<>();
         configs.add(new StringConfig(
                 ComponentHelper.translatable("ui.fangsu.common.text"),
-                new ConfigSpec("str"),
+                new ConfigSpec("str").setParam("multiline", new JsonPrimitive(true)).setParam("lines", new JsonPrimitive(2)),
                 () -> this.text,
                 (v) -> this.text = v
         ));
@@ -103,7 +103,7 @@ public class TextItem extends SignItem {
         ));
         configs.add(new StringConfig(
                 ComponentHelper.translatable("ui.fangsu.common.fontLocation"),
-                new ConfigSpec("str"),
+                new ConfigSpec("str").setParam("multiline", new JsonPrimitive(true)).setParam("lines", new JsonPrimitive(2)),
                 () -> this.fontLocation.toString(),
                 (v) -> this.fontLocation = new ResourceLocation(v)
         ));
