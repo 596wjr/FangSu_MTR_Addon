@@ -7,7 +7,6 @@ import com.fangsu.scripting.TextUtil;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import net.minecraft.network.chat.Component;
 import com.fangsu.mappings.ResourceLocation;
 
 import java.awt.*;
