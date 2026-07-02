@@ -32,13 +32,13 @@ public class NumberInputConfig extends ConfigEntry<Float> {
         this.isHex = spec.getBool("isHex", false);   // 从 spec 读取开关，默认为 false
     }
 
-    public NumberInputConfig(
+    public static NumberInputConfig fromLocal(
             LocalComponent title,
             ConfigSpec spec,
             Supplier<Float> getter,
             Consumer<Float> setter
     ) {
-        this(title.getRaw(), spec, getter, setter);
+        return new NumberInputConfig(title.getRaw(), spec, getter, setter);
     }
 
     @Override

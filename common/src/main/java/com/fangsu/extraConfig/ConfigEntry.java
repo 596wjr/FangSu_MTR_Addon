@@ -1,6 +1,5 @@
 package com.fangsu.extraConfig;
 
-import com.fangsu.mappings.LocalComponent;
 import net.minecraft.network.chat.Component;
 
 import java.util.function.Consumer;
@@ -20,15 +19,6 @@ public abstract class ConfigEntry<T> {
     protected Function<T, Boolean> showCondition;
     private boolean saveOnChange = false;
     private Consumer<ConfigEntry<?>> changeListener;
-
-    protected ConfigEntry(
-            LocalComponent title,
-            ConfigSpec spec,
-            Supplier<T> getter,
-            Consumer<T> setter
-    ) {
-        this(title.getRaw(), spec, getter, setter);
-    }
 
     protected ConfigEntry(
             Component title,

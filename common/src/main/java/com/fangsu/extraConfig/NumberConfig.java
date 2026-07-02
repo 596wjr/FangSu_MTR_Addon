@@ -33,13 +33,13 @@ public class NumberConfig extends ConfigEntry<Float> {
         this.step = spec.getFloat("step", 0f);
     }
 
-    public NumberConfig(
+    public static NumberConfig fromLocal(
             LocalComponent title,
             ConfigSpec spec,
             Supplier<Float> getter,
             Consumer<Float> setter
     ) {
-        this(title.getRaw(), spec, getter, setter);
+        return new NumberConfig(title.getRaw(), spec, getter, setter);
     }
 
     @Override

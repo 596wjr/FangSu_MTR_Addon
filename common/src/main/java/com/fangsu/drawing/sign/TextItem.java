@@ -55,7 +55,7 @@ public class TextItem extends SignItem {
         String[] lines = TextUtil.getNonExtraParts(text).split("\\|");
         g.setColor(color);
         Font font;
-        font = ResourceUtil.loadFont(fontLocation);
+        font = ResourceUtil.loadFont(fontLocation.getRaw());
         return G2dTextHelper.getMultiLinesWidth(g, font, (int) unit, lines);
     }
 
@@ -66,7 +66,7 @@ public class TextItem extends SignItem {
         float u = ctx.unit();
         g.setColor(color);
         Font font;
-        font = ResourceUtil.loadFont(fontLocation);
+        font = ResourceUtil.loadFont(fontLocation.getRaw());
         G2dTextHelper.drawStrMultiLines(g, font, (int) ctx.x(), (int) ctx.y() - (int) u, (int) u, align, lines);
     }
 

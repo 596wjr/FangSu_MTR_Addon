@@ -21,12 +21,12 @@ public class ConfigRow extends AbstractWidget {
         this.field = field;
     }
 
-    public ConfigRow(
+    public static ConfigRow fromLocal(
             int x, int y, int w, int h,
             LocalComponent title,
             AbstractWidget field
     ) {
-        this(x, y, w, h, title.getRaw(), field);
+        return new ConfigRow(x, y, w, h, title.getRaw(), field);
     }
 
     //#if MC_VERSION >= 12000

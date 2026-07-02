@@ -21,13 +21,13 @@ public class StringConfig extends ConfigEntry<String> {
         super(title, spec, getter, setter);
     }
 
-    public StringConfig(
+    public static StringConfig fromLocal(
             LocalComponent title,
             ConfigSpec spec,
             Supplier<String> getter,
             Consumer<String> setter
     ) {
-        super(title, spec, getter, setter);
+        return new StringConfig(title.getRaw(), spec, getter, setter);
     }
 
     @Override

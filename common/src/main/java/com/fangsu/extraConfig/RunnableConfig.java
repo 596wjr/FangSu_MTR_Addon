@@ -26,12 +26,12 @@ public class RunnableConfig extends ConfigEntry<Void> {
         this.buttonText = title;
     }
 
-    public RunnableConfig(
+    public static RunnableConfig fromLocal(
             LocalComponent title,
             ConfigSpec spec,
             Runnable action
     ) {
-        this(title.getRaw(), spec, action);
+        return new RunnableConfig(title.getRaw(), spec, action);
     }
 
     public RunnableConfig setButtonText(Component text) {

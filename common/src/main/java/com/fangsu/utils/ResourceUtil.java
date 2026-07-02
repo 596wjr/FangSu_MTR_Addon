@@ -87,10 +87,6 @@ public class ResourceUtil {
         return lines.toArray(new String[0]);
     }
 
-    public static String[] loadStringAsArray(com.fangsu.mappings.ResourceLocation location) throws IOException {
-        return loadStringAsArray(location.getRaw());
-    }
-
     public static byte[] loadResourceBytes(ResourceLocation location) throws IOException {
         if (resourceManager == null) {
             return null;
@@ -104,10 +100,6 @@ public class ResourceUtil {
         } catch (IOException e) {
             return null;
         }
-    }
-
-    public static byte[] loadResourceBytes(com.fangsu.mappings.ResourceLocation location) throws IOException {
-        return loadResourceBytes(location.getRaw());
     }
 
     /**
@@ -138,10 +130,6 @@ public class ResourceUtil {
             register.put(GlobalRegisterKey, s);
             return s;
         }
-    }
-
-    public static String loadString(com.fangsu.mappings.ResourceLocation location) throws IOException {
-        return loadString(location.getRaw());
     }
 
     /**
@@ -182,10 +170,6 @@ public class ResourceUtil {
             Main.LOGGER.warn("Image resource not found: {}", location);
             throw e;
         }
-    }
-
-    public static BufferedImage loadImage(com.fangsu.mappings.ResourceLocation location) throws IOException {
-        return loadImage(location.getRaw());
     }
 
     public static RawModel loadModel(ResourceLocation location, Boolean flipV) throws IOException {
@@ -285,10 +269,6 @@ public class ResourceUtil {
         return new Font(Font.SANS_SERIF, Font.PLAIN, 12);
     }
 
-    public static Font loadFont(com.fangsu.mappings.ResourceLocation location) {
-        return loadFont(location.getRaw());
-    }
-
     /**
      * 检查资源是否存在
      */
@@ -377,10 +357,6 @@ public class ResourceUtil {
         JsonElement json = Main.JSON_PARSER.parse(loaded);
         register.put(GlobalRegisterKey, json);
         return json;
-    }
-
-    public static @NotNull JsonElement simpleLoadAsJson(com.fangsu.mappings.ResourceLocation location) {
-        return simpleLoadAsJson(location.getRaw());
     }
 
     /**

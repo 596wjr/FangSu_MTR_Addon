@@ -21,13 +21,13 @@ public class BoolConfig extends ConfigEntry<Boolean> {
         super(title, spec, getter, setter);
     }
 
-    public BoolConfig(
+    public static BoolConfig fromLocal(
             LocalComponent title,
             ConfigSpec spec,
             Supplier<Boolean> getter,
             Consumer<Boolean> setter
     ) {
-        super(title, spec, getter, setter);
+        return new BoolConfig(title.getRaw(), spec, getter, setter);
     }
 
     @Override

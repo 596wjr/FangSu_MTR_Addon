@@ -26,14 +26,14 @@ public class EnumConfig extends ConfigEntry<Integer> {
         this.entries = entries;
     }
 
-    public EnumConfig(
+    public static EnumConfig fromLocal(
             LocalComponent title,
             ConfigSpec spec,
             List<? extends Component> entries,
             Supplier<Integer> getter,
             Consumer<Integer> setter
     ) {
-        this(title.getRaw(), spec, entries, getter, setter);
+        return new EnumConfig(title.getRaw(), spec, entries, getter, setter);
     }
 
     @Override

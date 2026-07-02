@@ -290,25 +290,27 @@ public class G2dTextHelper {
     public static int drawStrDistributedAlign(Graphics2D g, Font font, int x, int y, int maxWidth, int h, String... lines) {
         if (lines == null || lines.length == 0) return 0;
 
-        g.setFont(font);
-        FontRenderContext frc = g.getFontRenderContext();
+        int currentY = (int) (y + h - h * (0.095));
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            int fontSize = (int) (h * ACTUAL_DRAW_HEIGHT / (lines.length + 2) * (i == 0 ? 3 : 1));
+            int lineGap = lines.length == 1 ? 0 : (int) (h * 0.1 / (lines.length - 1));
+            currentY += fontSize + lineGap;
 
-        int currentY = y;
-        for (String line : lines) {
-            if (line == null || line.isEmpty()) {
-                currentY += h;
-                continue;
-            }
+            if (line == null || line.isEmpty()) continue;
+
+            Font drawFont = font.deriveFont(Font.PLAIN, fontSize);
+            FontRenderContext frc = g.getFontRenderContext();
 
             // 获取每个字符的宽度
             int len = line.length();
             int[] charWidths = new int[len];
             int totalWidth = 0;
-            for (int i = 0; i < len; i++) {
-                String ch = String.valueOf(line.charAt(i));
-                Rectangle2D bounds = font.getStringBounds(ch, frc);
-                charWidths[i] = (int) Math.ceil(bounds.getWidth());
-                totalWidth += charWidths[i];
+            for (int j = 0; j < len; j++) {
+                String ch = String.valueOf(line.charAt(j));
+                Rectangle2D bounds = drawFont.getStringBounds(ch, frc);
+                charWidths[j] = (int) Math.ceil(bounds.getWidth());
+                totalWidth += charWidths[j];
             }
 
             if (totalWidth <= maxWidth && len > 1) {
@@ -317,11 +319,12 @@ public class G2dTextHelper {
                 int gapWidth = (maxWidth - totalWidth) / totalGaps;
                 int extraRemainder = (maxWidth - totalWidth) - gapWidth * totalGaps;
 
+                g.setFont(drawFont);
                 int drawX = x;
-                for (int i = 0; i < len; i++) {
-                    String ch = String.valueOf(line.charAt(i));
+                for (int j = 0; j < len; j++) {
+                    String ch = String.valueOf(line.charAt(j));
                     g.drawString(ch, drawX, currentY);
-                    drawX += charWidths[i] + gapWidth + (i < extraRemainder ? 1 : 0);
+                    drawX += charWidths[j] + gapWidth + (j < extraRemainder ? 1 : 0);
                 }
             } else if (totalWidth > maxWidth) {
                 // 超过最大宽度，水平压缩
@@ -331,16 +334,16 @@ public class G2dTextHelper {
                 tx.translate(x, currentY);
                 tx.scale(scaleX, 1.0);
                 tx.translate(-x, -currentY);
+                g.setFont(drawFont);
                 g.transform(tx);
                 g.drawString(line, x, currentY);
                 g.setTransform(oldTransform);
             } else {
                 // 只有1个字符且不超过宽度，居中绘制
+                g.setFont(drawFont);
                 int drawX = x + (maxWidth - totalWidth) / 2;
                 g.drawString(line, drawX, currentY);
             }
-
-            currentY += h;
         }
 
         return maxWidth;

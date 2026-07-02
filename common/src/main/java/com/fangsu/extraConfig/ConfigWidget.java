@@ -30,7 +30,7 @@ public class ConfigWidget extends AbstractWidget {
         }
     }
 
-    public ConfigWidget(
+    public static ConfigWidget fromLocal(
             int x,
             int y,
             int width,
@@ -39,7 +39,7 @@ public class ConfigWidget extends AbstractWidget {
             LocalComponent title,
             AbstractWidget... widgets
     ) {
-        this(x, y, width, height, labelWidth, title.getRaw(), widgets);
+        return new ConfigWidget(x, y, width, height, labelWidth, title.getRaw(), widgets);
     }
 
     /* ================== 事件转发 ================== */
