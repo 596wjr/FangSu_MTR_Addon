@@ -6,6 +6,8 @@ import com.google.gson.JsonElement;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,8 +28,7 @@ public final class ConfigTypes {
         register("number_input", ConfigTypes::numberInputConfig);
         register("string", ConfigTypes::stringConfig);
         register("str", ConfigTypes::stringConfig);   // 鍖椾含鍖呬娇锟?"str" 鑰岄潪 "string"
-        register("list", ConfigTypes::listConfig);
-    }
+        register("list", ConfigTypes::listConfig);        register("resource", ConfigTypes::resourceConfig);    }
 
     private static <T> void register(String type, Factory<T> factory) {
         REGISTRY.put(type, factory);
@@ -143,7 +144,27 @@ public final class ConfigTypes {
 
         return new EnumConfig(title, spec, values, getter, setter);
     }
-
+    private static ConfigEntry<String> resourceConfig(
+            Component title,
+            ConfigSpec spec,
+            Supplier<String> getter,
+            Consumer<String> setter
+    ) {
+        // 支持 "suffixes" 数组和单 "suffix" 字符串两种格式
+        List<String> suffixes;
+        JsonElement suffixesEl = spec.params.get("suffixes");
+        if (suffixesEl != null && suffixesEl.isJsonArray()) {
+            List<String> list = new ArrayList<>();
+            for (JsonElement e : suffixesEl.getAsJsonArray()) {
+                list.add(e.getAsString());
+            }
+            suffixes = list;
+        } else {
+            String single = spec.getString("suffix", null);
+            suffixes = single != null ? List.of(single) : Collections.emptyList();
+        }
+        return new ResourceConfig(title, spec, getter, setter, suffixes);
+    }
     /* ================= 鍐呴儴鎺ュ彛 ================= */
 
     @FunctionalInterface

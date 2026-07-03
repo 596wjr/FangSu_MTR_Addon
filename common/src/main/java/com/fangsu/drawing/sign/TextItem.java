@@ -100,11 +100,18 @@ public class TextItem extends SignItem {
                 () -> this.align,
                 (v) -> this.align = v
         ));
-        configs.add(new StringConfig(
+//        configs.add(new StringConfig(
+//                ComponentHelper.translatable("ui.fangsu.common.fontLocation"),
+//                new ConfigSpec("str").setParam("multiline", new JsonPrimitive(true)).setParam("lines", new JsonPrimitive(2)),
+//                () -> this.fontLocation.toString(),
+//                (v) -> this.fontLocation = new ResourceLocation(v)
+//        ));
+        configs.add(new ResourceConfig(
                 ComponentHelper.translatable("ui.fangsu.common.fontLocation"),
-                new ConfigSpec("str").setParam("multiline", new JsonPrimitive(true)).setParam("lines", new JsonPrimitive(2)),
+                new ConfigSpec("str"),
                 () -> this.fontLocation.toString(),
-                (v) -> this.fontLocation = new ResourceLocation(v)
+                (v) -> this.fontLocation = new ResourceLocation(v),
+                List.of(".ttf", ".otf")
         ));
         return configs;
     }

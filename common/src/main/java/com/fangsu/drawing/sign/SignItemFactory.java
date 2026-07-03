@@ -15,7 +15,7 @@ public final class SignItemFactory {
     private static final ResourceLocation SIGN_LOCATION = new ResourceLocation("fangsu:sign/script_sign.json");
 
     private static final Map<String, Function<JsonObject, SignItem>> REGISTRY = new HashMap<>();
-    public static final List<SignItem> EDITOR_ITEMS = new ArrayList<>();
+    public static final Set<SignItem> EDITOR_ITEMS = new HashSet<>();
 
     private SignItemFactory() {
     }

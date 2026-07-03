@@ -280,8 +280,10 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
         if (content != null)
             for (String k : content.getFaces().keySet()) {
                 JsonObject v = images.has(k) ? images.get(k).getAsJsonObject() : null;
-                String type = v == null ? "local" : v.getAsJsonPrimitive("type").getAsString();
-                String path = v == null ? DEFAULT_IMAGE_PATH : v.getAsJsonPrimitive("path").getAsString();
+                final String type = (v != null && v.has("type") && v.get("type").isJsonPrimitive())
+                        ? v.getAsJsonPrimitive("type").getAsString() : "local";
+                final String path = (v != null && v.has("path") && v.get("path").isJsonPrimitive())
+                        ? v.getAsJsonPrimitive("path").getAsString() : DEFAULT_IMAGE_PATH;
 
                 int typeIndex = switch (type) {
                     case "identifier", "local" -> 0;
@@ -303,13 +305,14 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
                             updateDispType(k, newType);
                         }
                 ));
-                configs.add(new StringConfig(
+                configs.add(new ResourceConfig(
                         ComponentHelper.translatable("ui.fangsu.adv.path_for", k),
-                        new ConfigSpec("str").setParam("multiline", new JsonPrimitive(true)).setParam("lines", new JsonPrimitive(3)),
+                        new ConfigSpec("str"),
                         () -> path,
                         (newPath) -> {
                             updateDispPath(k, newPath);
-                        }
+                        },
+                        List.of(".png", ".jpg", ".jpeg", ".gif")
                 ));
             }
 

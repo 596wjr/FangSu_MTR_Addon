@@ -12,8 +12,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 //#endif
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -28,7 +27,7 @@ public class SignConfigUI extends Screen {
     private static final int ROW_COUNT = 6;
     private static final int G2D_SCALE = 4;
 
-    private List<Map<String, List<SignItem>>> dispItems;
+    private final List<Map<String, List<SignItem>>> dispItems;
     private final Consumer<List<Map<String, List<SignItem>>>> setter;
 
     private int modeFlag = 0;
@@ -61,7 +60,7 @@ public class SignConfigUI extends Screen {
 
     //#if MC_VERSION >= 12000
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void render(@NotNull GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         GraphicContext g = GraphicContext.of(graphics);
         renderBackground(graphics);
         //#else
@@ -97,7 +96,7 @@ public class SignConfigUI extends Screen {
     }
 
     @Override
-    public void resize(Minecraft client, int width, int height) {
+    public void resize(@NotNull Minecraft client, int width, int height) {
         super.resize(client, width, height);
         recreateG2dLayer();
     }
@@ -298,9 +297,10 @@ public class SignConfigUI extends Screen {
         int gap = 6;
         int usableWidth = width - 32;
         int lineItems = Math.max(1, usableWidth / (cell + gap));
-        int contentHeight = ((EDITOR_ITEMS.size() + lineItems - 1) / lineItems) * (cell + gap);
+        final var itemsList = new ArrayList<>(EDITOR_ITEMS);
+        int contentHeight = ((itemsList.size() + lineItems - 1) / lineItems) * (cell + gap);
         ctx.enableScissor(12, top, width - 12, height - 12);
-        for (int idx = 0; idx < EDITOR_ITEMS.size(); idx++) {
+        for (int idx = 0; idx < itemsList.size(); idx++) {
             int row = idx / lineItems;
             int col = idx % lineItems;
             int x = 16 + col * (cell + gap);
@@ -313,7 +313,7 @@ public class SignConfigUI extends Screen {
             ctx.fill(x, y + cell - 1, x + cell, y + cell, border);
             ctx.fill(x, y, x + 1, y + cell, border);
             ctx.fill(x + cell - 1, y, x + cell, y + cell, border);
-            SignItem token = EDITOR_ITEMS.get(idx);
+            SignItem token = itemsList.get(idx);
             var location = token.getIconLocation() == null ? new com.fangsu.mappings.ResourceLocation("mtrsteamloco:imgnnotfound.png") : token.getIconLocation();
             ctx.blit(location.getRaw(), x + 3, y + 3, 0, 0, cell - 6, cell - 6, cell - 6, cell - 6);
             if (hover) ctx.drawString(font, "+", x + cell / 2 - 3, y + cell / 2 - 4, 0xFFFFFF, false);

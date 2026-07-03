@@ -528,6 +528,45 @@ public class ResourceUtil {
         return result;
     }
 
+    /**
+     * 列出指定命名空间和路径前缀下的所有资源文件
+     *
+     * @param namespace  命名空间过滤，null表示所有命名空间
+     * @param pathPrefix 路径前缀过滤，null表示所有路径
+     * @param suffixes   文件后缀过滤集合（如 [".json", ".png"]），null或空集合表示所有后缀
+     * @return 匹配的ResourceLocation列表，按路径排序
+     */
+    public static List<ResourceLocation> listResources(String namespace, String pathPrefix, Collection<String> suffixes) {
+        if (resourceManager == null) {
+            return Collections.emptyList();
+        }
+
+        //#if MC_VERSION >= 11900
+        Map<ResourceLocation, Resource> resources = resourceManager.listResources(
+                pathPrefix != null ? pathPrefix : "",
+                loc -> {
+                    if (namespace != null && !loc.getNamespace().equals(namespace)) return false;
+                    if (suffixes != null && !suffixes.isEmpty()) {
+                        boolean matches = false;
+                        for (String s : suffixes) {
+                            if (loc.getPath().endsWith(s)) {
+                                matches = true;
+                                break;
+                            }
+                        }
+                        if (!matches) return false;
+                    }
+                    return true;
+                }
+        );
+        List<ResourceLocation> result = new ArrayList<>(resources.keySet());
+        result.sort(Comparator.comparing(ResourceLocation::toString));
+        return result;
+        //#else
+        //$$ return Collections.emptyList();
+        //#endif
+    }
+
     public static String hashTo12Chars(String input) {
         // 1. 计算 Java 内置哈希（int 32 位）
         int hash = java.util.Objects.hashCode(input);
