@@ -86,7 +86,7 @@ public class RegisterUtil {
     //$$             })
     //$$             .build();
     //$$ }
-    //$$ //#elseif MC_VERSION >= 11903
+    //#elseif MC_VERSION >= 11903
     //$$ public static CreativeModeTab addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
     //$$     CreativeModeTab.Builder builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0);
     //$$     return builder
