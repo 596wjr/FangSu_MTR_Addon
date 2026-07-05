@@ -8,7 +8,7 @@ import dev.architectury.registry.registries.RegistrySupplier;
 import net.minecraft.world.item.CreativeModeTab;
 
 public class ModCreativeTabs {
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     public static final RegistrySupplier<CreativeModeTab> FANGSU_MAIN = RegisterUtil.addCreativeTab(
             "main",
             ComponentHelper.translatable("tab.fangsu.main").getString(),

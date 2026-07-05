@@ -28,8 +28,6 @@ public class FangSuRegistries {
     public static final ResourceLocation MENU_KEY = net.minecraft.core.registries.Registries.MENU.location();
     //#if MC_VERSION >= 12000
     public static final ResourceLocation CREATIVE_MODE_TAB_KEY = net.minecraft.core.registries.Registries.CREATIVE_MODE_TAB.location();
-    //#elseif MC_VERSION >= 11904
-    //$$public static final ResourceLocation CREATIVE_MODE_TAB_KEY = new ResourceLocation("minecraft:creative_mode_tab");
     //#endif
     //#else
     //$$public static final ResourceLocation BLOCK_KEY = new ResourceLocation("minecraft:block");
@@ -67,7 +65,7 @@ public class FangSuRegistries {
         return createDeferredRegister(modId, MENU_KEY);
     }
 
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     public static DeferredRegister<CreativeModeTab> createCreativeTabRegister(String modId) {
         return createDeferredRegister(modId, CREATIVE_MODE_TAB_KEY);
     }

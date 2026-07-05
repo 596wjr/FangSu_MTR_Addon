@@ -25,7 +25,7 @@ public class RegisterUtil {
             FangSuRegistries.createItemRegister(Main.MOD_ID);
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             FangSuRegistries.createBlockEntityRegister(Main.MOD_ID);
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     public static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
             FangSuRegistries.createCreativeTabRegister(Main.MOD_ID);
     //#endif
@@ -55,7 +55,7 @@ public class RegisterUtil {
         return ITEMS.register(id, () -> new BlockItem(block.get(), tabProps(new Item.Properties())));
     }
 
-    //#if MC_VERSION >= 11904
+    //#if MC_VERSION >= 12000
     public static RegistrySupplier<CreativeModeTab> addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
         return CREATIVE_TABS.register(
                 id,
@@ -117,7 +117,7 @@ public class RegisterUtil {
         BLOCKS.register();
         ITEMS.register();
         BLOCK_ENTITIES.register();
-        //#if MC_VERSION >= 11904
+        //#if MC_VERSION >= 12000
         CREATIVE_TABS.register();
         //#endif
         MENUS.register();
