@@ -15,6 +15,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+//#if MC_VERSION >= 11903 && MC_VERSION < 12000
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceLocation;
+//#endif
 
 import java.util.function.Supplier;
 
@@ -66,7 +70,7 @@ public class RegisterUtil {
                             .icon(() -> new ItemStack(icon.get()))
                             .displayItems((parameters, output) -> {
                                 for (RegistrySupplier<Item> item : items) {
-                                    output.accept(item.get());
+                                    output.accept(new ItemStack(item.get()));
                                 }
                             })
                             .build();
@@ -76,28 +80,34 @@ public class RegisterUtil {
     //#elseif MC_VERSION >= 11904
     //$$ public static CreativeModeTab addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
     //$$     CreativeModeTab.Builder builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0);
-    //$$     return builder
+    //$$     CreativeModeTab tab = builder
     //$$             .title(ComponentHelper.translatable(name))
     //$$             .icon(() -> new ItemStack(icon.get()))
     //$$             .displayItems((parameters, output) -> {
     //$$                 for (RegistrySupplier<Item> item : items) {
-    //$$                     output.accept(item.get());
+    //$$                     output.accept(new ItemStack(item.get()));
     //$$                 }
     //$$             })
     //$$             .build();
+    //$$     Registry.register(net.minecraft.core.registries.BuiltInRegistries.CREATIVE_MODE_TAB,
+    //$$             new ResourceLocation(Main.MOD_ID, id), tab);
+    //$$     return tab;
     //$$ }
     //#elseif MC_VERSION >= 11903
     //$$ public static CreativeModeTab addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
     //$$     CreativeModeTab.Builder builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0);
-    //$$     return builder
+    //$$     CreativeModeTab tab = builder
     //$$             .title(ComponentHelper.translatable(name))
     //$$             .icon(() -> new ItemStack(icon.get()))
     //$$             .displayItems((enabledFeatures, output, hasPermissions) -> {
     //$$                 for (RegistrySupplier<Item> item : items) {
-    //$$                     output.accept(item.get());
+    //$$                     output.accept(new ItemStack(item.get()));
     //$$                 }
     //$$             })
     //$$             .build();
+    //$$     Registry.register(net.minecraft.core.registries.BuiltInRegistries.CREATIVE_MODE_TAB,
+    //$$             new ResourceLocation(Main.MOD_ID, id), tab);
+    //$$     return tab;
     //$$ }
     //#endif
 
