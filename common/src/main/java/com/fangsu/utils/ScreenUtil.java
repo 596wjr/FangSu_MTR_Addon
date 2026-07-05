@@ -45,7 +45,7 @@ public class ScreenUtil {
     //#if MC_VERSION >= 12000
     public static int drawStringScale(GuiGraphics graphics, Component component, int x, int y, int color, float scale, boolean shadow) {
         //#else
-        //$$ public static int drawStringScale(PoseStack poseStack, LocalComponent component, int x, int y, int color, float scale, boolean shadow) {
+        //$$ public static int drawStringScale(PoseStack poseStack, Component component, int x, int y, int color, float scale, boolean shadow) {
         //#endif
         //#if MC_VERSION >= 12000
         Font font = Minecraft.getInstance().font;
