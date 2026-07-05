@@ -170,7 +170,7 @@ public class ScreenUtil {
     //$$public static void drawScrollingText(
     //$$        PoseStack poseStack,
     //$$        Font font,
-    //$$        LocalComponent text,
+    //$$        Component text,
     //$$        int x, int y,
     //$$        int width, int height,
     //$$        int color,
