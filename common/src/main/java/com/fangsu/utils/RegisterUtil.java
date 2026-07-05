@@ -73,13 +73,26 @@ public class RegisterUtil {
                 }
         );
     }
-    //#elseif MC_VERSION >= 11903
+    //#elseif MC_VERSION >= 11904
     //$$ public static CreativeModeTab addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
     //$$     CreativeModeTab.Builder builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0);
     //$$     return builder
     //$$             .title(ComponentHelper.translatable(name))
     //$$             .icon(() -> new ItemStack(icon.get()))
     //$$             .displayItems((parameters, output) -> {
+    //$$                 for (RegistrySupplier<Item> item : items) {
+    //$$                     output.accept(item.get());
+    //$$                 }
+    //$$             })
+    //$$             .build();
+    //$$ }
+    //$$ //#elseif MC_VERSION >= 11903
+    //$$ public static CreativeModeTab addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
+    //$$     CreativeModeTab.Builder builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0);
+    //$$     return builder
+    //$$             .title(ComponentHelper.translatable(name))
+    //$$             .icon(() -> new ItemStack(icon.get()))
+    //$$             .displayItems((enabledFeatures, output, hasPermissions) -> {
     //$$                 for (RegistrySupplier<Item> item : items) {
     //$$                     output.accept(item.get());
     //$$                 }
