@@ -344,7 +344,7 @@ public class TicketMachineMainScreen extends Screen {
                 //#if MC_VERSION >= 11900
                 Component labelText = Component.literal(route.name().replace("|", " "));
                 //#else
-                //$$ LocalComponent labelText = ComponentHelper.literal(route.name().replace("|", " "));
+                //$$ Component labelText = ComponentHelper.literal(route.name().replace("|", " "));
                 //#endif
                 ScreenUtil.drawScrollingText(
                         nativeGfx, font, labelText,
@@ -416,7 +416,7 @@ public class TicketMachineMainScreen extends Screen {
                     //#if MC_VERSION >= 11900
                     Component stnName = Component.literal(stn.name());
                     //#else
-                    //$$ LocalComponent stnName = ComponentHelper.literal(stn.name());
+                    //$$ Component stnName = ComponentHelper.literal(stn.name());
                     //#endif
                     ScreenUtil.drawScrollingText(nativeGfx, font,
                             stnName,
@@ -570,7 +570,7 @@ public class TicketMachineMainScreen extends Screen {
         //#if MC_VERSION >= 11900
         Component priceText = Component.literal(customPriceInput.isEmpty() ? "0" : customPriceInput);
         //#else
-        //$$ LocalComponent priceText = ComponentHelper.literal(customPriceInput.isEmpty() ? "0" : customPriceInput);
+        //$$ Component priceText = ComponentHelper.literal(customPriceInput.isEmpty() ? "0" : customPriceInput);
         //#endif
         ScreenUtil.drawCenteredStringScale(nativeGfx,
                 priceText,
@@ -608,7 +608,7 @@ public class TicketMachineMainScreen extends Screen {
                 //#if MC_VERSION >= 11900
                 Component keyText = Component.literal(key);
                 //#else
-                //$$ LocalComponent keyText = ComponentHelper.literal(key);
+                //$$ Component keyText = ComponentHelper.literal(key);
                 //#endif
                 ScreenUtil.drawCenteredStringScale(nativeGfx, keyText, x + buttonW / 2, y + 4, 0xffffffff, 0.8f, true);
 

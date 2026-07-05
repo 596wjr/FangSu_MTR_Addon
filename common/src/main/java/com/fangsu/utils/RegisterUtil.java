@@ -79,7 +79,7 @@ public class RegisterUtil {
     //$$     return builder
     //$$             .title(ComponentHelper.translatable(name))
     //$$             .icon(() -> new ItemStack(icon.get()))
-    //$$             .displayItems((enabledFeatures, output, hasPermissions) -> {
+    //$$             .displayItems((parameters, output) -> {
     //$$                 for (RegistrySupplier<Item> item : items) {
     //$$                     output.accept(item.get());
     //$$                 }
