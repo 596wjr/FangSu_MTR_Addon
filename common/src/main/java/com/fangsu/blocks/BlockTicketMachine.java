@@ -26,7 +26,6 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -34,7 +33,10 @@ import org.jetbrains.annotations.Nullable;
 public class BlockTicketMachine extends Block {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final EnumProperty<DoubleBlockHalf> HALF = BlockStateProperties.DOUBLE_BLOCK_HALF;
-    private static final VoxelShape SHAPE = Shapes.block();
+    private static final VoxelShape SHAPE_NORTH = Block.box(0, 0, 8, 16, 16, 16);
+    private static final VoxelShape SHAPE_EAST  = Block.box(0, 0, 0, 8, 16, 16);
+    private static final VoxelShape SHAPE_SOUTH = Block.box(0, 0, 0, 16, 16, 8);
+    private static final VoxelShape SHAPE_WEST  = Block.box(8, 0, 0, 16, 16, 16);
 
     public BlockTicketMachine() {
         super(BlockBehaviour.Properties.of(
@@ -100,7 +102,18 @@ public class BlockTicketMachine extends Block {
 
     @Override
     public @NotNull VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return SHAPE;
+        return switch (state.getValue(FACING)) {
+            case NORTH -> SHAPE_NORTH;
+            case EAST  -> SHAPE_EAST;
+            case SOUTH -> SHAPE_SOUTH;
+            case WEST  -> SHAPE_WEST;
+            default    -> SHAPE_NORTH;
+        };
+    }
+
+    @Override
+    public @NotNull VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return getShape(state, level, pos, context);
     }
 
     @Override
