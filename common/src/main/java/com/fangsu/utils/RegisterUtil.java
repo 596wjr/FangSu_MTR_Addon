@@ -76,7 +76,7 @@ public class RegisterUtil {
     //#elseif MC_VERSION >= 11904
     //$$ public static CreativeModeTab addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
     //$$     CreativeModeTab.Builder builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0);
-    //$$     CreativeModeTab tab = builder
+    //$$     return builder
     //$$             .title(ComponentHelper.translatable(name))
     //$$             .icon(() -> new ItemStack(icon.get()))
     //$$             .displayItems((parameters, output) -> {
@@ -85,13 +85,11 @@ public class RegisterUtil {
     //$$                 }
     //$$             })
     //$$             .build();
-    //$$     CreativeModeTab.allTabs().add(tab);
-    //$$     return tab;
     //$$ }
     //#elseif MC_VERSION >= 11903
     //$$ public static CreativeModeTab addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
     //$$     CreativeModeTab.Builder builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0);
-    //$$     CreativeModeTab tab = builder
+    //$$     return builder
     //$$             .title(ComponentHelper.translatable(name))
     //$$             .icon(() -> new ItemStack(icon.get()))
     //$$             .displayItems((enabledFeatures, output, hasPermissions) -> {
@@ -100,8 +98,6 @@ public class RegisterUtil {
     //$$                 }
     //$$             })
     //$$             .build();
-    //$$     CreativeModeTab.allTabs().add(tab);
-    //$$     return tab;
     //$$ }
     //#endif
 
