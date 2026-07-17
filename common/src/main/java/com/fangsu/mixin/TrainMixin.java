@@ -1,7 +1,9 @@
 package com.fangsu.mixin;
 
+import com.fangsu.MainClient;
 import com.fangsu.blockEntities.IPlatformDoor;
 import com.fangsu.blocks.IBlockPlatform;
+import com.fangsu.Main;
 import mtr.block.BlockPSDAPGBase;
 import mtr.block.BlockPlatform;
 import mtr.data.Train;
@@ -12,12 +14,28 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(value = Train.class, remap = false, priority = 596)
 public abstract class TrainMixin {
+
+    @Unique
+    private static Class<?> fangsu$IBlockPlatformClass = Void.class;
+
+    private static boolean fangsu$foundMetropolis = false;
+
+    static {
+        try {
+            fangsu$IBlockPlatformClass = Class.forName("team.dovecotmc.metropolis.block.interfaces.IBlockPlatform", false, MainClient.class.getClassLoader());
+            Main.LOGGER.info("Loaded metropolis IBlockPlatformClass");
+            fangsu$foundMetropolis = true;
+        } catch (Exception ignored) {
+        }
+    }
+
     /* ==========================================================
      *  Shadow：Train 原生字段 / 方法
      * ========================================================== */
@@ -88,6 +106,7 @@ public abstract class TrainMixin {
                     Block block = world.getBlockState(pos).getBlock();
                     if (block instanceof IBlockPlatform
                             || block instanceof BlockPlatform || block instanceof BlockPSDAPGBase
+                            || (fangsu$foundMetropolis && fangsu$IBlockPlatformClass.isInstance(block))
                     ) {
                         openDoors(world, block, pos, dwellTicks);
                         BlockEntity entity = world.getBlockEntity(pos);

@@ -151,5 +151,19 @@
     "ui.fangsu.screendoor.centralControl.doorCount": "Scanned %s screendoors",
     "ui.fangsu.screendoor.isAuto": "Auto Door Side",
     "ui.fangsu.screendoor.isolation": "Isolation",
-    "ui.fangsu.screendoor.doorOpenOverride": "Door Open"
+    "ui.fangsu.screendoor.doorOpenOverride": "Door Open",
+    "block.fangsu.rotating_rail": "Rotating Rail",
+    "ui.fangsu.rotating_rail.mode": "Track Mode",
+    "ui.fangsu.rotating_rail.mode.f": "Straight",
+    "ui.fangsu.rotating_rail.mode.r": "Rotating",
+    "ui.fangsu.rotating_rail.mode.crossing": "Crossing",
+    "ui.fangsu.rotating_rail.model": "Model Path",
+    "ui.fangsu.rotating_rail.t_length": "Segment Length",
+    "ui.fangsu.rotating_rail.length": "Length",
+    "ui.fangsu.rotating_rail.interval": "Interval",
+    "ui.fangsu.rotating_rail.flip": "Flip Direction",
+    "ui.fangsu.rotating_rail.count": "Segment Count",
+    "ui.fangsu.rotating_rail.rotation": "Rotation Angle",
+    "ui.fangsu.rotating_rail.r1": "Rotation (Platform)",
+    "ui.fangsu.rotating_rail.r2": "Rotation (Non-Platform)"
 }

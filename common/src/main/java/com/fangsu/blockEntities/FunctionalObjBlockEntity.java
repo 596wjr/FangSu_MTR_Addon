@@ -24,7 +24,10 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * 功能性方块实体的抽象基类，继承自 {@link BaseObjBlockEntity}。
@@ -38,6 +41,27 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
 
     public float translateX = 0, translateY = 0, translateZ = 0;
     public float rotateX = 0, rotateY = 0, rotateZ = 0;
+
+    /**
+     * 共享后台线程池，用于将 whenLoading 中的 JSON 解析、模型加载等操作从主线程移走。
+     */
+    private static final ExecutorService LOADING_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "fangsu-loading-async");
+        t.setDaemon(true);
+        return t;
+    });
+
+    /**
+     * 进行中的异步加载任务，用于 whenLoading 异步化以及 whenDisposing 时取消。
+     */
+    private CompletableFuture<Void> loadingFuture;
+
+    /**
+     * 上一次 whenRendering 的异步执行状态。
+     * 渲染器在调用 whenRendering 前会检查此 future 是否已完成，
+     * 避免在渲染线程堆积未完成的渲染调用。
+     */
+    private CompletableFuture<Void> renderingFuture;
 
     public FunctionalObjBlockEntity(BlockEntityType<?> blockEntityType, BlockPos blockPos, BlockState blockState) {
         super(blockEntityType, blockPos, blockState);
@@ -141,11 +165,7 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
             }
         }
 
-        try {
-            this.whenLoading();
-        } catch (Exception e) {
-            Main.LOGGER.error("Failed to load block entity {} at {}", getClass().getSimpleName(), getBlockPos(), e);
-        }
+        triggerAsyncLoading();
     }
 
     /**
@@ -219,11 +239,7 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
         }
 
         // 重新加载配置到字段（确保 isolation/doorOpenOverride 等同步）
-        try {
-            this.whenLoading();
-        } catch (Exception e) {
-            Main.LOGGER.error("Failed to reload block entity {} at {}", getClass().getSimpleName(), getBlockPos(), e);
-        }
+        triggerAsyncLoading();
         this.setChanged();
 
         if (level != null && !level.isClientSide) {
@@ -235,6 +251,85 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
             );
         }
         this.setChanged();
+    }
+
+    /**
+     * 触发异步加载，将 {@link #whenLoading()} 的执行移至后台线程，
+     * 避免阻塞主线程（世界加载 / 网络同步）。
+     * <p>
+     * 如果已有进行中的异步加载任务，会先取消上一个任务再提交新的。
+     */
+    protected final void triggerAsyncLoading() {
+        // 取消上一个进行中的异步加载任务
+        cancelPendingAsyncLoading();
+
+        loadingFuture = CompletableFuture.runAsync(() -> {
+            try {
+                this.whenLoading();
+            } catch (Exception e) {
+                Main.LOGGER.error("Failed to load block entity {} at {}", getClass().getSimpleName(), getBlockPos(), e);
+            }
+        }, LOADING_EXECUTOR);
+    }
+
+    /**
+     * 取消进行中的异步加载任务。
+     */
+    protected final void cancelPendingAsyncLoading() {
+        if (loadingFuture != null && !loadingFuture.isDone()) {
+            loadingFuture.cancel(true);
+        }
+        loadingFuture = null;
+    }
+
+    /**
+     * 检查异步加载是否已完成。
+     *
+     * @return 如果没有异步加载任务或任务已完成，返回 true
+     */
+    protected final boolean isAsyncLoadingDone() {
+        return loadingFuture == null || loadingFuture.isDone();
+    }
+
+    /**
+     * 同步等待异步加载完成（阻塞当前线程）。
+     * 仅在明确需要确保加载完成后的副作用时使用。
+     */
+    protected final void awaitAsyncLoading() {
+        if (loadingFuture != null && !loadingFuture.isDone()) {
+            try {
+                loadingFuture.get();
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    // ==================== whenRendering 异步化辅助 ====================
+
+    /**
+     * 尝试开始一次 whenRendering 调用。
+     * 只有当异步加载已完成且上一次 whenRendering 已完成后，才返回 true 并标记渲染开始。
+     * <p>
+     * 渲染器在调用 {@link #whenRendering()} 前应使用此方法检查条件。
+     *
+     * @return 是否可以安全调用 whenRendering
+     */
+    public final boolean tryBeginRendering() {
+        if (!isAsyncLoadingDone()) return false;
+        if (renderingFuture != null && !renderingFuture.isDone()) return false;
+        renderingFuture = new CompletableFuture<>();
+        return true;
+    }
+
+    /**
+     * 标记当帧 whenRendering 调用已完成。
+     * 渲染器应在 whenRendering 调用完毕后调用此方法，
+     * 以允许下一帧继续触发渲染。
+     */
+    public final void finishRendering() {
+        if (renderingFuture != null && !renderingFuture.isDone()) {
+            renderingFuture.complete(null);
+        }
     }
 
     public abstract void whenLoading();
@@ -249,6 +344,7 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
     public void setRemoved() {
         if (!disposed) {
             whenDisposing();
+            cancelPendingAsyncLoading();
         }
         super.setRemoved();
     }

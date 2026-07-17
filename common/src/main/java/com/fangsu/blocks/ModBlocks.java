@@ -70,6 +70,13 @@ public class ModBlocks {
     public static final RegistrySupplier<Item> ITEM_SCREENDOOR_CENTRAL_CONTROL =
             RegisterUtil.addBlockItem("screendoor_central_control", BLOCK_SCREENDOOR_CENTRAL_CONTROL);
 
+    public static final RegistrySupplier<Block> BLOCK_ROTATING_RAIL = RegisterUtil.addBlock("rotating_rail", BlockRotatingRail::new);
+
+    public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_ROTATING_RAIL =
+            RegisterUtil.addBlockEntity("block_entity_rotating_rail", BLOCK_ROTATING_RAIL, BlockEntityRotatingRail::new);
+
+    public static final RegistrySupplier<Item> ITEM_ROTATING_RAIL = RegisterUtil.addBlockItem("rotating_rail", BLOCK_ROTATING_RAIL);
+
     public static final RegistrySupplier<Block> BLOCK_COLLISION_COMPENSATOR =
             RegisterUtil.addBlock("collision_compensation_block", BlockCollisionCompensator::new);
     public static final RegistrySupplier<Item> ITEM_COLLISION_COMPENSATOR =

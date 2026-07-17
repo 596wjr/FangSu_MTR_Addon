@@ -53,10 +53,22 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
 
 //        if (prop == null) return;
 
-        try {
-            blockEntity.whenRendering();
-        } catch (Exception e) {
-            Main.LOGGER.error(e.getMessage());
+        if (blockEntity instanceof FunctionalObjBlockEntity functional) {
+            if (functional.tryBeginRendering()) {
+                try {
+                    functional.whenRendering();
+                } catch (Exception e) {
+                    Main.LOGGER.error(e.getMessage());
+                } finally {
+                    functional.finishRendering();
+                }
+            }
+        } else {
+            try {
+                blockEntity.whenRendering();
+            } catch (Exception e) {
+                Main.LOGGER.error(e.getMessage());
+            }
         }
 
         final BlockPos pos = blockEntity.getBlockPos();

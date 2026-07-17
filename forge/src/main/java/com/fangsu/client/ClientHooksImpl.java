@@ -28,6 +28,12 @@ public final class ClientHooksImpl {
         Minecraft.getInstance().setScreen(new ObjBlockConfigScreen(blockEntity));
     }
 
+    public static void openRotatingRailConfigScreen(BaseObjBlockEntity be) {
+        Minecraft.getInstance().setScreen(
+                new ConfigScreen(com.fangsu.mappings.ComponentHelper.translatable("ui.fangsu.block.extras"), ((com.fangsu.blockEntities.BlockEntityRotatingRail) be).getConfigs())
+        );
+    }
+
     public static void openSignConfigScreen(
             int faces, List<Map<String, List<SignItem>>> items, Consumer<List<Map<String, List<SignItem>>>> setter
     ) {

@@ -53,7 +53,7 @@ public final class DiaobanDrawManager {
     public DiaobanDrawItem getDrawItem(String key) {
         return drawOptions.get(key);
     }
-    
+
     public static void registerJavaDrawing(String text, String key, String contentText, Supplier<BaseDiaobanDrawing> factory) {
         drawOptions.put(key, new DiaobanDrawItem(text, key, contentText, new JsonObject(), factory));
 //        drawingSuppliers.put(key, factory);
@@ -62,7 +62,7 @@ public final class DiaobanDrawManager {
     public static BaseDiaobanDrawing createDrawing(String key) {
         DiaobanDrawItem item = drawOptions.get(key);
         if (item == null) {
-            Main.LOGGER.warn("Diaoban draw item not found for key: {}, falling back to JS drawing", key);
+//            Main.LOGGER.warn("Diaoban draw item not found for key: {}, falling back to JS drawing", key);
             return new JsDiaobanDrawing(key);
         }
         Supplier<BaseDiaobanDrawing> javaFactory = item.supplier();
