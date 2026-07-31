@@ -191,7 +191,7 @@ public class ModelSelectScreen extends Screen {
 
         // 列标题
         g.drawCenteredString(font, ComponentHelper.translatable("ui.fangsu.block.modelSelect"), (getListLeft() + getListRight()) / 2, getContentTop() - font.lineHeight - 4, 0xFFFFFF);
-        g.drawCenteredString(font, Component.literal("Detail"), (getContentAreaLeft() + getContentAreaRight()) / 2, getContentTop() - font.lineHeight - 4, 0xFFFFFF);
+        g.drawCenteredString(font, ComponentHelper.literal("Detail"), (getContentAreaLeft() + getContentAreaRight()) / 2, getContentTop() - font.lineHeight - 4, 0xFFFFFF);
 
         for (ScrollEntry entry : listEntries) {
             entry.applyScroll(listScrollOffset);
@@ -229,7 +229,7 @@ public class ModelSelectScreen extends Screen {
             // 自动换行
             String text = ComponentHelper.translatable(entry.info.getText()).getString();
             int textMaxWidth = itemWidth - 4;
-            List<FormattedCharSequence> wrappedLines = font.split(Component.literal(text), textMaxWidth);
+            List<FormattedCharSequence> wrappedLines = font.split(ComponentHelper.literal(text), textMaxWidth);
             int textY = y + (LIST_ITEM_HEIGHT - wrappedLines.size() * font.lineHeight) / 2;
             for (FormattedCharSequence line : wrappedLines) {
                 g.drawString(font, line, itemLeft + 2, textY, textColor, false);
