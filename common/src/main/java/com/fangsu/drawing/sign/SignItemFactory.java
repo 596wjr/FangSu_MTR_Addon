@@ -15,7 +15,7 @@ public final class SignItemFactory {
     private static final ResourceLocation SIGN_LOCATION = new ResourceLocation("fangsu:sign/script_sign.json");
 
     private static final Map<String, Function<JsonObject, SignItem>> REGISTRY = new HashMap<>();
-    public static final Set<SignItem> EDITOR_ITEMS = new HashSet<>();
+    public static final Set<SignItem> EDITOR_ITEMS = new LinkedHashSet<>();
 
     private SignItemFactory() {
     }
@@ -29,6 +29,7 @@ public final class SignItemFactory {
         REGISTRY.put("route", RouteItemA::new);
         REGISTRY.put("routeb", RouteItemB::new);
         REGISTRY.put("destination", DestinationItem::new);
+        REGISTRY.put("destination_route", RouteDestinationItem::new);
         REGISTRY.put("trainicon", TrainIconItem::new);
     }
 

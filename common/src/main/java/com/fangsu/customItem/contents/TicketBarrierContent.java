@@ -22,6 +22,7 @@ public class TicketBarrierContent extends BaseContent {
     private final List<Double> cardBox;
     private final List<Double> ticketBox;
     private final TicketBarrierConnectType connectType;
+    private final Double hitPos;
 
     private TicketBarrierContent(JsonObject json) {
         super(json);
@@ -36,6 +37,7 @@ public class TicketBarrierContent extends BaseContent {
         cardBox = parseSingleBox(json.get("cardBox"));
         ticketBox = parseSingleBox(json.get("ticketBox"));
         connectType = TicketBarrierConnectType.fromInt(json.has("connectType") ? json.get("connectType").getAsInt() : 0);
+        hitPos = json.has("hitPos") ? json.get("hitPos").getAsDouble() : null;
     }
 
     public String getModel() {
@@ -80,6 +82,10 @@ public class TicketBarrierContent extends BaseContent {
 
     public TicketBarrierConnectType getConnectType() {
         return connectType;
+    }
+
+    public Double getHitPos() {
+        return hitPos;
     }
 
     private static List<TicketBarrierDoorInfo> parseDoors(JsonElement doorsElement) {
@@ -212,13 +218,10 @@ public class TicketBarrierContent extends BaseContent {
             }
 
             public static DoorInfo fromJson(JsonObject json) {
-                if (json == null || !json.has("subModel")) {
+                if (json == null || !json.has("pos") || !json.get("pos").isJsonArray()) {
                     return null;
                 }
-                String subModel = json.get("subModel").getAsString();
-                if (!json.has("pos") || !json.get("pos").isJsonArray()) {
-                    return null;
-                }
+                String subModel = json.has("subModel") ? json.get("subModel").getAsString() : null;
                 List<Double> pos = new ArrayList<>();
                 for (JsonElement posElement : json.getAsJsonArray("pos")) {
                     if (posElement == null || !posElement.isJsonPrimitive() || !posElement.getAsJsonPrimitive().isNumber()) {

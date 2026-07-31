@@ -2,7 +2,8 @@
     "ticketBarrier": [
         {
             "text": "fangsu.item.ticketbarrier.text",
-            "content": "fangsu:ticketbarrier/mtr_ticketbarrier.json"
+            "content": "fangsu:ticketbarrier/mtr_ticketbarrier.json",
+            "contentText": "fangsu.item.ticketbarrier.contentText"
         }
     ],
     "screendoor": [

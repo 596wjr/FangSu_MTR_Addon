@@ -35,6 +35,16 @@ import java.lang.reflect.Method;
 public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements BlockEntityRenderer<T> {
     private static final RegistryObject<ItemStack> BARRIER_ITEM_STACK = new RegistryObject<>(() -> new ItemStack(net.minecraft.world.item.Items.BARRIER, 1));
 
+    /**
+     * 共享后台线程池，用于非 FunctionalObjBlockEntity 的 whenRendering 异步化。
+     */
+    private static final java.util.concurrent.ExecutorService OTHER_RENDER_EXECUTOR =
+            java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "fangsu-other-render-async");
+                t.setDaemon(true);
+                return t;
+            });
+
     public BaseBlockEntityRender(BlockEntityRenderDispatcher dispatcher) {
         super();
     }
@@ -55,19 +65,24 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
 
         if (blockEntity instanceof FunctionalObjBlockEntity functional) {
             if (functional.tryBeginRendering()) {
-                try {
-                    functional.whenRendering();
-                } catch (Exception e) {
-                    Main.LOGGER.error(e.getMessage());
-                } finally {
-                    functional.finishRendering();
-                }
+                // whenRendering 已在后台线程执行
+                // 等待异步 whenRendering 完成，确保 scriptResult 已填充
+                functional.awaitRenderingTask();
             }
         } else {
+            // BlockEntityRotatingRail 等非 FunctionalObjBlockEntity
+            // 也使用单次后台线程提交 whenRendering
+            final java.util.concurrent.CompletableFuture<Void> renderTask =
+                    java.util.concurrent.CompletableFuture.runAsync(() -> {
+                        try {
+                            blockEntity.whenRendering();
+                        } catch (Exception e) {
+                            Main.LOGGER.error(e.getMessage());
+                        }
+                    }, OTHER_RENDER_EXECUTOR);
             try {
-                blockEntity.whenRendering();
-            } catch (Exception e) {
-                Main.LOGGER.error(e.getMessage());
+                renderTask.get();
+            } catch (Exception ignored) {
             }
         }
 
@@ -87,6 +102,10 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
             //$$ Minecraft.getInstance().getItemRenderer().renderStatic(BARRIER_ITEM_STACK.get(), net.minecraft.client.renderer.block.model.ItemTransforms.TransformType.GROUND, lightToUse, 0, matrices, multiBufferSource, 0);
             //#endif
             matrices.popPose();
+            // whenRendering 在后台可能已开始，需要完成渲染周期
+            if (blockEntity instanceof FunctionalObjBlockEntity functional) {
+                functional.finishRendering();
+            }
             return;
         }
 
@@ -117,6 +136,11 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
 //            }
 //            prop.script.tryCallRenderFunctionAsync(blockEntity.scriptContext);
 //        }
+
+        if (blockEntity instanceof FunctionalObjBlockEntity functional) {
+            functional.finishRendering();
+        }
+        // 非 FunctionalObjBlockEntity 无需调用 finishRendering
         blockEntity.scriptContext.renderFunctionFinished();
     }
 

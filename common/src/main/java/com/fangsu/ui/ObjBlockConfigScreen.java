@@ -342,8 +342,7 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
         box.setResponder(text -> {
             Float v = parseFloat(text);
             if (v == null) return;
-            float snapped = snap(v, min, max, step);
-            setter.accept(snapped);
+            setter.accept(v);
             onChanged.run();
         });
         this.addRenderableWidget(box);

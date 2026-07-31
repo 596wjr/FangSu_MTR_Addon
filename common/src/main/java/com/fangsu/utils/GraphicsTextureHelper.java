@@ -102,7 +102,7 @@ public class GraphicsTextureHelper {
             try {
                 // 静态纹理已上传完成（needsUpload 已由第一个循环处理），无需每 tick 重复 upload
                 if (info.isStatic && info.available &&
-                        info.gt.isValid()) {
+                        info.gt.isValid() && !info.redrawNeeded) {
                     continue;
                 }
                 if (info.isClosed) continue;
@@ -114,8 +114,8 @@ public class GraphicsTextureHelper {
                     continue;
                 }
 
-                // 静态贴图：如果已标记为可用，不再重复绘制
-                if (info.isStatic && info.available) continue;
+                // 静态贴图：如果已标记为可用且无需重绘，不再重复绘制
+                if (info.isStatic && info.available && !info.redrawNeeded) continue;
 
                 // 超过最大重试次数，放弃
                 if (info.retryCount >= GTInfo.MAX_RETRIES) {
@@ -128,7 +128,7 @@ public class GraphicsTextureHelper {
 
                 info.drawing = true;
                 info.flameCompleted = false;
-                // 非静态贴图：保持纹理可用，渲染线程可继续显示旧内容，避免闪烁
+                info.redrawNeeded = false;
 
                 CompletableFuture.runAsync(() -> {
                             info.drawFunction.draw(info.gt);
@@ -197,7 +197,9 @@ public class GraphicsTextureHelper {
     }
 
     /**
-     * 替换已注册抽象 ID 的绘制函数（不重建纹理，保留纹理现有内容）
+     * 替换已注册抽象 ID 的绘制函数（不重建纹理，保留纹理现有内容）。
+     * 会重置 redrawNeeded 和 flameCompleted 标记，使 tick 循环能重新执行新的绘制函数。
+     * 同时清除旧纹理内容，防止在下次绘制完成前显示残留的旧画面（不清屏重叠绘制）。
      */
     public synchronized void replaceDrawFunction(String id, DrawFunctionGt drawFunction) {
         String drawInfoId = idToDrawInfoId.get(id);
@@ -208,6 +210,68 @@ public class GraphicsTextureHelper {
 
         info.drawFunction = drawFunction;
         info.retryCount = 0;
+        // 标记需要重绘，使 tick 循环能跳过静态纹理跳过检查
+        info.redrawNeeded = true;
+        // 重置帧完成标记，使 tick 循环通过 !flameCompleted 检查（非首次时的保护）
+        info.flameCompleted = true;
+        // 清除旧纹理内容，防止在下次绘制完成前显示残留的旧画面
+        clearTextureContent(info);
+    }
+
+    /**
+     * 清除纹理的 BufferedImage 内容（填充完全透明），
+     * 并立即上传到 GPU，避免旧内容在新绘制完成前显示。
+     */
+    private void clearTextureContent(GTInfo info) {
+        if (info.gt == null || info.gt.graphics == null || info.gt.bufferedImage == null) return;
+        try {
+            final java.awt.Graphics2D g = info.gt.graphics;
+            g.setComposite(java.awt.AlphaComposite.Clear);
+            g.fillRect(0, 0, info.gt.width, info.gt.height);
+            g.setComposite(java.awt.AlphaComposite.SrcOver);
+            info.gt.upload();
+        } catch (Exception e) {
+            Main.LOGGER.warn("Failed to clear texture content for {}: {}", info.ids, e.getMessage());
+        }
+    }
+
+    /**
+     * 将抽象 ID 绑定到已存在的 drawInfoId 纹理上（共享模式）。
+     * <p>
+     * 与 {@link #addDrawGraphicWithGt} 不同，此方法假定 drawInfoId 已在 {@code loadGts} 中存在，
+     * 仅建立 id → drawInfoId 的映射，不创建新纹理、不替换绘制函数、不触发重绘。
+     * 用于多个方块显示完全相同内容时共享同一 GPU 纹理。
+     *
+     * @param id         抽象 ID
+     * @param drawInfoId 已存在的绘制内容标识
+     */
+    public synchronized void bindToExistingDrawInfo(String id, String drawInfoId) {
+        if (id == null || drawInfoId == null) return;
+
+        // 如果已绑定到同一个 drawInfoId，无需操作
+        final String existingDrawInfoId = idToDrawInfoId.get(id);
+        if (drawInfoId.equals(existingDrawInfoId)) return;
+
+        GTInfo info = loadGts.get(drawInfoId);
+        if (info == null || info.isClosed) return;
+
+        // 先解绑旧的 drawInfoId（如果有）
+        if (existingDrawInfoId != null) {
+            GTInfo oldInfo = loadGts.get(existingDrawInfoId);
+            if (oldInfo != null) {
+                oldInfo.ids.remove(id);
+                if (oldInfo.ids.isEmpty()) {
+                    oldInfo.gt.closeLater();
+                    oldInfo.isClosed = true;
+                    loadGts.remove(existingDrawInfoId);
+                }
+            }
+        }
+
+        idToDrawInfoId.put(id, drawInfoId);
+        if (!info.ids.contains(id)) {
+            info.ids.add(id);
+        }
     }
 
     /**
@@ -277,6 +341,103 @@ public class GraphicsTextureHelper {
         return info != null && info.available;
     }
 
+    /**
+     * 检查指定 {@code drawInfoId} 是否已被注册（无论是否通过当前 abstract ID）。
+     * 用于调用方在注册前判断是否有其他方块已注册了相同内容的纹理，从而实现共享。
+     *
+     * @param drawInfoId 绘制内容标识
+     * @return 如果已有相同 drawInfoId 的 GTInfo 且未关闭，返回 true
+     */
+    public synchronized boolean hasDrawInfoId(String drawInfoId) {
+        if (drawInfoId == null) return false;
+        GTInfo info = loadGts.get(drawInfoId);
+        return info != null && !info.isClosed;
+    }
+
+    /**
+     * 获取指定 {@code drawInfoId} 对应的 GraphicsTexture（若有）。
+     * 用于共享方直接在渲染时获取已由首个注册方绘制完成的纹理。
+     *
+     * @param drawInfoId 绘制内容标识
+     * @return GraphicsTexture 或 null
+     */
+    public synchronized GraphicsTexture getGraphicsByDrawInfoId(String drawInfoId) {
+        if (drawInfoId == null) return null;
+        GTInfo info = loadGts.get(drawInfoId);
+        if (info == null) return null;
+        if (info.available) {
+            info.markFlameCompleted();
+        }
+        return info.gt;
+    }
+
+    /**
+     * 判断指定 {@code drawInfoId} 对应的纹理是否已就绪可用。
+     */
+    public synchronized boolean isDrawInfoAvailable(String drawInfoId) {
+        if (drawInfoId == null) return false;
+        GTInfo info = loadGts.get(drawInfoId);
+        return info != null && info.available;
+    }
+
+    /**
+     * 判断抽象 ID 是否有已注册的绘制条目（无论是否可用）。
+     * 用于决定是替换绘制函数还是创建新的纹理。
+     */
+    public synchronized boolean hasRegisteredGraphic(String id) {
+        String drawInfoId = idToDrawInfoId.get(id);
+        if (drawInfoId == null) return false;
+        GTInfo info = loadGts.get(drawInfoId);
+        return info != null && !info.isClosed;
+    }
+
+    public synchronized boolean hasRegisteredGraphic(BlockPos block) {
+        return hasRegisteredGraphic(getBlockId(block));
+    }
+
+    /**
+     * 检查已注册条目的纹理尺寸是否与指定尺寸匹配。
+     * 用于决定是替换绘制函数还是重建纹理。
+     *
+     * @param id 抽象 ID
+     * @param w  期望宽度
+     * @param h  期望高度
+     * @return 如果已有纹理且尺寸完全匹配返回 true；否则返回 false
+     */
+    public synchronized boolean getRegisteredGraphicSize(String id, int w, int h) {
+        String drawInfoId = idToDrawInfoId.get(id);
+        if (drawInfoId == null) return false;
+        GTInfo info = loadGts.get(drawInfoId);
+        if (info == null || info.isClosed || info.gt == null) return false;
+        return info.gt.width == w && info.gt.height == h;
+    }
+
+    public synchronized boolean getRegisteredGraphicSize(BlockPos block, int w, int h) {
+        return getRegisteredGraphicSize(getBlockId(block), w, h);
+    }
+
+    /**
+     * 按 drawInfoId 查询已注册纹理的尺寸是否匹配。
+     * 用于跨方块共享判断：其他方块的纹理尺寸是否与当前需求匹配。
+     */
+    public synchronized boolean getRegisteredGraphicSizeByDrawInfoId(String drawInfoId, int w, int h) {
+        if (drawInfoId == null) return false;
+        GTInfo info = loadGts.get(drawInfoId);
+        if (info == null || info.isClosed || info.gt == null) return false;
+        return info.gt.width == w && info.gt.height == h;
+    }
+
+    /**
+     * 获取抽象 ID 当前绑定的 drawInfoId。
+     */
+    public synchronized String getDrawInfoIdForId(String id) {
+        return idToDrawInfoId.get(id);
+    }
+
+    public synchronized String getDrawInfoIdForId(BlockPos block) {
+        return getDrawInfoIdForId(getBlockId(block));
+    }
+
     /* =========================
        对外 API（BlockPos 兼容版本）
        ========================= */
@@ -295,6 +456,14 @@ public class GraphicsTextureHelper {
             DrawFunctionGt drawFunction
     ) {
         addDrawGraphicWithGt(getBlockId(block), drawInfo, drawFunction);
+    }
+
+    /**
+     * 替换已注册 BlockPos 的绘制函数（不重建纹理，保留纹理现有内容）。
+     * 用于参数变更时避免因为重建纹理而出现短暂黑色闪烁。
+     */
+    public synchronized void replaceDrawFunction(BlockPos block, DrawFunctionGt drawFunction) {
+        replaceDrawFunction(getBlockId(block), drawFunction);
     }
 
     public synchronized void removeDrawGraphic(BlockPos block) {
@@ -358,6 +527,12 @@ public class GraphicsTextureHelper {
 
         volatile boolean drawing = false;
         volatile boolean needsUpload = false;
+        /**
+         * 需要重新绘制的标记。当替换绘制函数时设为 true，
+         * tick 循环不会因静态纹理检查而跳过此条目。
+         * 在下一次绘制完成后自动重置为 false。
+         */
+        volatile boolean redrawNeeded = false;
 
         int expectedExceptionCount = 0;
 

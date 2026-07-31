@@ -172,7 +172,7 @@ public class MtrUtil {
     /**
      * 获取路线的终点站名称。
      */
-    public static String getDestinationByRoute(Route route) {
+    public static String getDestinationByRouteMtr(Route route) {
         if (route == null) return "undefined";
         try {
             Route.RoutePlatform destinationRoutePlatform = route.platformIds.get(route.platformIds.size() - 1);
@@ -250,6 +250,7 @@ public class MtrUtil {
             for (ScheduleEntry entry : schedules) {
                 if (entry.routeId == 0) continue;
                 Route route = getRouteByIdMtr(entry.routeId);
+                LocalRoute localRoute = getRouteById(entry.routeId);
                 if (route == null || route.platformIds == null || route.platformIds.isEmpty()) continue;
 
                 List<String> stationNames = new ArrayList<>();
@@ -264,7 +265,7 @@ public class MtrUtil {
                     }
                 }
 
-                String destination = getDestinationByRoute(route);
+                String destination = getDestinationByRoute(localRoute);
                 String customDestination = route.getDestination(entry.currentStationIndex);
 
                 arrivalInfoList.add(new PidsArrivalInfo(

@@ -66,6 +66,21 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
         subModelLeft = CustomItemHelper.checkSubModel(this, "subModelLeft", DEFAULT_SUB_MODEL_LEFT);
         subModelRight = CustomItemHelper.checkSubModel(this, "subModelRight", DEFAULT_SUB_MODEL_RIGHT);
 
+        // 仅客户端需要 auto 标记来恢复 subModels 中的 "auto"
+        if (level != null && level.isClientSide) {
+            String isAutoLeft = extraConfigs.get("isAutoLeft");
+            String isAutoRight = extraConfigs.get("isAutoRight");
+
+            if ("true".equals(isAutoLeft)) {
+                subModels.put("subModelLeft", DEFAULT_SUB_MODEL_LEFT);
+                subModelLeft = DEFAULT_SUB_MODEL_LEFT;
+            }
+            if ("true".equals(isAutoRight)) {
+                subModels.put("subModelRight", DEFAULT_SUB_MODEL_RIGHT);
+                subModelRight = DEFAULT_SUB_MODEL_RIGHT;
+            }
+        }
+
         actualSubModelLeft = subModelLeft;
         actualSubModelRight = subModelRight;
 
@@ -81,7 +96,6 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
                 return;
             }
 
-            // 锟?涓嶅湪 loading 闃舵鐩存帴锟?auto
             pendingAuto = true;
 
         } catch (Exception e) {
@@ -180,8 +194,32 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
                 notifyNeighborsForAuto();
             }
 
+            // auto 计算完成后，将结果直接写入 subModels 并同步到服务端
+            boolean leftChanged = !Objects.equals(subModels.get("subModelLeft"), actualSubModelLeft);
+            boolean rightChanged = !Objects.equals(subModels.get("subModelRight"), actualSubModelRight);
+
+            // 先把 auto 标记写入 extraConfigs（sendUpdateC2S 会触发 whenSaving）
+            if (leftIsAuto) extraConfigs.put("isAutoLeft", "true");
+            else extraConfigs.remove("isAutoLeft");
+            if (rightIsAuto) extraConfigs.put("isAutoRight", "true");
+            else extraConfigs.remove("isAutoRight");
+
+            if (actualSubModelLeft != null && !actualSubModelLeft.isEmpty()) {
+                subModels.put("subModelLeft", actualSubModelLeft);
+            }
+            if (actualSubModelRight != null && !actualSubModelRight.isEmpty()) {
+                subModels.put("subModelRight", actualSubModelRight);
+            }
+
+            if (leftChanged || rightChanged) {
+                extraConfigs.put("isAutoLeft", "false");
+                extraConfigs.put("isAutoRight", "false");
+
+                sendUpdateC2S();
+            }
+
         } catch (Exception e) {
-            Main.LOGGER.warn("Auto recompute failed: {}", e.getMessage());
+            // Main.LOGGER.warn("Auto recompute failed: {}", e.getMessage());
         }
     }
 
@@ -245,14 +283,7 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
 
     @Override
     public void whenSaving(Map<String, String> extraConfigs) {
-        if (DEFAULT_SUB_MODEL_LEFT.equals(subModels.getOrDefault("subModelLeft", DEFAULT_SUB_MODEL_LEFT))
-                && actualSubModelLeft != null && !actualSubModelLeft.isEmpty()) {
-            subModels.put("subModelLeft", actualSubModelLeft);
-        }
-        if (DEFAULT_SUB_MODEL_RIGHT.equals(subModels.getOrDefault("subModelRight", DEFAULT_SUB_MODEL_RIGHT))
-                && actualSubModelRight != null && !actualSubModelRight.isEmpty()) {
-            subModels.put("subModelRight", actualSubModelRight);
-        }
+        // auto 标记已在 recomputeAuto 中写入 extraConfigs，无需额外操作
     }
 
     @Override

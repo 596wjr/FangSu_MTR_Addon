@@ -4,6 +4,7 @@ import com.fangsu.Main;
 import com.fangsu.render.sowcer.math.Vector3f;
 import com.fangsu.scripting.*;
 import com.fangsu.utils.ModuleAccessHelper;
+import com.fangsu.utils.MtrUtil;
 import net.minecraft.resources.ResourceLocation;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Engine;
@@ -14,6 +15,7 @@ import org.graalvm.polyglot.proxy.ProxyObject;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -86,7 +88,7 @@ public class ScriptManager {
                 .targetTypeMapping(
                         Double.class,
                         Integer.class,
-                        value -> true,
+                        Objects::nonNull,
                         value -> (int) Math.round(value),
                         HostAccess.TargetMappingPrecedence.HIGH
                 )
@@ -141,7 +143,7 @@ public class ScriptManager {
 
         // Java 类绑定
         bindings.putMember("Color", createColorBinding());
-        bindings.putMember("Font", java.awt.Font.class);
+        inject(context, java.awt.Font.class, "Font");
         bindings.putMember("BasicStroke", java.awt.BasicStroke.class);
         bindings.putMember("RenderingHints", java.awt.RenderingHints.class);
         bindings.putMember("Rectangle", java.awt.Rectangle.class);
@@ -166,6 +168,7 @@ public class ScriptManager {
         bindings.putMember("TextUtil", JsStaticBridge.fromStaticClass(TextUtil.class));
         bindings.putMember("MinecraftClient", JsStaticBridge.fromStaticClass(MinecraftClientUtil.class));
         bindings.putMember("Resources", JsStaticBridge.fromStaticClass(JsResources.class));
+        bindings.putMember("MtrUtil", JsStaticBridge.fromStaticClass(MtrUtil.class));
 
         // 数学类
         bindings.putMember("Vector3f", JsStaticBridge.fromStaticClass(Vector3f.class));
@@ -173,6 +176,8 @@ public class ScriptManager {
         // 函数绑定
         bindings.putMember("drawStrUnified", fn(a -> JsFunctions.jsDrawStrUnified(a[0].asHostObject(), a[1].asHostObject(), a[2].asString(), a[3].asDouble(), a[4].asDouble(), a[5].asDouble(), a[6].asInt())));
         bindings.putMember("getUnifiedStringWidth", fn(a -> JsFunctions.jsGetUnifiedStringWidth(a[0].asHostObject(), a[1].asHostObject(), a[2].asString(), a[3].asDouble())));
+        bindings.putMember("drawStrUnifiedWithStretch", fn(a -> JsFunctions.jsDrawStrUnifiedWithStretch(a[0].asHostObject(), a[1].asHostObject(), a[2].asString(), a[3].asDouble(), a[4].asDouble(), a[5].asDouble(), a[6].asInt(), a[7].asInt())));
+        bindings.putMember("drawStrMultiLinesWithStretch", fn(a -> JsFunctions.jsDrawStrMultiLinesWithStretch(a[0].asHostObject(), a[1].asHostObject(), a[2].asHostObject(), a[3].asString(), a[4].asDouble(), a[5].asDouble(), a[6].asDouble(), a[7].asInt(), a[8].asInt())));
         bindings.putMember("drawStrDL", fn(a -> JsFunctions.jsDrawStrDl(a[0].asHostObject(), a[1].asHostObject(), a[2].asHostObject(), a[3].asString(), a[4].asDouble(), a[5].asDouble(), a[6].asDouble(), a[7].asInt(), a[8].asInt())));
         bindings.putMember("getDLStringWidth", fn(a -> JsFunctions.jsGetDLStringWidth(a[0].asHostObject(), a[1].asHostObject(), a[2].asHostObject(), a[3].asString(), a[4].asDouble())));
         bindings.putMember("getMatching", fn(a -> TextUtil.getCjkMatching(a[0].asString(), a[1].asBoolean())));

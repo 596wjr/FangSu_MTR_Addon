@@ -24,6 +24,13 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 public class ModelSelectScreen extends Screen {
+
+    /* ===================== 滚动条拖动状态 ===================== */
+
+    private boolean draggingListScrollbar = false;
+    private int listDragOffset = 0;
+    private boolean draggingContentScrollbar = false;
+    private int contentDragOffset = 0;
     private static final int PADDING = 12;
     private static final int LIST_ITEM_HEIGHT = 20;
     private static final int BUTTON_HEIGHT = 20;
@@ -38,7 +45,6 @@ public class ModelSelectScreen extends Screen {
     private Screen parent = null;
 
     private final List<ScrollEntry> listEntries = new ArrayList<>();
-    private final List<Button> listButtons = new ArrayList<>();
 
     private ModelSelectInfo selected;
     private Button confirmButton;
@@ -100,7 +106,6 @@ public class ModelSelectScreen extends Screen {
     protected void init() {
         super.init();
         listEntries.clear();
-        listButtons.clear();
         listScrollOffset = 0;
         contentScrollOffset = 0;
 
@@ -115,18 +120,12 @@ public class ModelSelectScreen extends Screen {
             }
         }
 
+        int itemHeight = getItemHeight();
         int y = getContentTop();
         for (ModelSelectInfo info : options) {
             int baseY = y;
-            //#if MC_VERSION >= 11903
-            Button button = Button.builder(ComponentHelper.translatable(info.getText()), btn -> setSelected(info)).bounds(getListLeft(), baseY, LIST_WIDTH, LIST_ITEM_HEIGHT).build();
-            //#else
-            //$$ Button button = new Button(getListLeft(), baseY, LIST_WIDTH, LIST_ITEM_HEIGHT, ComponentHelper.translatable(info.getText()), btn -> setSelected(info));
-            //#endif
-            addRenderableWidget(button);
-            listButtons.add(button);
-            listEntries.add(new ScrollEntry(button, baseY));
-            y += LIST_ITEM_HEIGHT + 2;
+            listEntries.add(new ScrollEntry(null, baseY, info));
+            y += itemHeight + 2;
         }
 
         //#if MC_VERSION >= 11903
@@ -147,7 +146,6 @@ public class ModelSelectScreen extends Screen {
         //#endif
 
         updateConfirmState();
-        updateButtonStyles();
     }
 
     @Override
@@ -159,28 +157,11 @@ public class ModelSelectScreen extends Screen {
         selected = info;
         contentScrollOffset = 0;
         updateConfirmState();
-        updateButtonStyles();
     }
 
     private void updateConfirmState() {
         if (confirmButton != null) {
             confirmButton.active = selected != null;
-        }
-    }
-
-    private void updateButtonStyles() {
-        for (int i = 0; i < listButtons.size(); i++) {
-            Button button = listButtons.get(i);
-            ModelSelectInfo info = options.get(i);
-            if (selected != null && Objects.equals(selected.getContent(), info.getContent())) {
-                //#if MC_VERSION >= 12000
-                button.setMessage(Component.literal(">" + ComponentHelper.translatable(info.getText()).getString() + "<"));
-                //#else
-                //$$ button.setMessage(ComponentHelper.literal(">" + ComponentHelper.translatable(info.getText()).getString() + "<"));
-                //#endif
-            } else {
-                button.setMessage(ComponentHelper.translatable(info.getText()));
-            }
         }
     }
 
@@ -194,45 +175,80 @@ public class ModelSelectScreen extends Screen {
         //$$     GraphicContext g = GraphicContext.of(poseStack);
         //#endif
         //#if MC_VERSION >= 12000
-        renderBackground(graphics);
+        renderDirtBackground(g.asMinecraft());
         //#else
         //$$ renderBackground(poseStack);
         //#endif
 
-        g.fill(getPanelLeft(), getPanelTop(), getPanelRight(), getPanelBottom(), 0xCCFFFFFF);
+        // 标题（白色，左上角）
+        g.drawString(font, title, 10, 2, 0xFFFFFF, false);
 
-        g.drawString(
-                this.font,
-                this.title,
-                this.width / 2 - this.font.width(this.title) / 2,
-                getPanelTop() - 18,
-                0x101010,
-                false
-        );
+        // 左侧列列表背景
+        g.fill(getListLeft(), getContentTop(), getListRight(), getContentBottom(), 0xaa000000);
+
+        // 内容面板背景
+        g.fill(getContentAreaLeft(), getContentTop(), getContentAreaRight(), getContentBottom(), 0xaa000000);
+
+        // 列标题
+        g.drawCenteredString(font, ComponentHelper.translatable("ui.fangsu.block.modelSelect"), (getListLeft() + getListRight()) / 2, getContentTop() - font.lineHeight - 4, 0xFFFFFF);
+        g.drawCenteredString(font, Component.literal("Detail"), (getContentAreaLeft() + getContentAreaRight()) / 2, getContentTop() - font.lineHeight - 4, 0xFFFFFF);
 
         for (ScrollEntry entry : listEntries) {
             entry.applyScroll(listScrollOffset);
         }
 
+        // 列表项（手动绘制）
         g.enableScissor(getListLeft(), getContentTop(), getListRight(), getContentBottom());
-        for (Button button : listButtons) {
-            button.render(g.asMinecraft(), mouseX, mouseY, partialTick);
-        }
+        renderListItems(g, mouseX, mouseY);
         g.disableScissor();
 
-        renderContentPanel(g);
+        renderListScrollbar(g);
+
+        // 内容面板
+        renderContentPanel(g, mouseX, mouseY);
+        renderContentScrollbar(g);
+
         confirmButton.render(g.asMinecraft(), mouseX, mouseY, partialTick);
     }
 
-    private void renderContentPanel(GraphicContext g) {
-        g.fill(
-                getContentAreaLeft(),
-                getContentTop(),
-                getContentAreaRight(),
-                getContentBottom(),
-                0x55FFFFFF
-        );
+    private void renderListItems(GraphicContext g, int mouseX, int mouseY) {
+        int itemLeft = getListLeft() + 2;
+        int itemWidth = getListRight() - getListLeft() - 4;
+        for (ScrollEntry entry : listEntries) {
+            int y = entry.currentY;
+            if (y + LIST_ITEM_HEIGHT < getContentTop() || y > getContentBottom()) continue;
 
+            boolean isSelected = selected != null && entry.info != null && Objects.equals(selected.getContent(), entry.info.getContent());
+            boolean hovered = mouseX >= itemLeft && mouseX <= itemLeft + itemWidth && mouseY >= y && mouseY <= y + LIST_ITEM_HEIGHT;
+
+            int bgColor = isSelected ? 0x55ffffff : hovered ? 0x44ffffff : 0x33ffffff;
+            g.fill(itemLeft, y, itemLeft + itemWidth, y + LIST_ITEM_HEIGHT, bgColor);
+
+            int textColor = isSelected ? 0xFFFFFF00 : 0xffffffff;
+
+            // 自动换行
+            String text = ComponentHelper.translatable(entry.info.getText()).getString();
+            int textMaxWidth = itemWidth - 4;
+            List<FormattedCharSequence> wrappedLines = font.split(Component.literal(text), textMaxWidth);
+            int textY = y + (LIST_ITEM_HEIGHT - wrappedLines.size() * font.lineHeight) / 2;
+            for (FormattedCharSequence line : wrappedLines) {
+                g.drawString(font, line, itemLeft + 2, textY, textColor, false);
+                textY += font.lineHeight;
+            }
+
+            // 点击检测
+            if (hovered && mouseClickInfo != null && mouseClickInfo.button == 0) {
+                setSelected(entry.info);
+                mouseClickInfo = null;
+            }
+        }
+    }
+
+    private int getItemHeight() {
+        return LIST_ITEM_HEIGHT;
+    }
+
+    private void renderContentPanel(GraphicContext g, int mouseX, int mouseY) {
         int textLeft = getContentAreaLeft() + 6;
         int textWidth = getContentAreaRight() - textLeft - 6;
 
@@ -240,11 +256,9 @@ public class ModelSelectScreen extends Screen {
         int lineHeight = Minecraft.getInstance().font.lineHeight;
         int totalHeight = lines.size() * lineHeight;
 
-        contentScrollOffset = Mth.clamp(
-                contentScrollOffset,
-                Math.min(0, getContentBottom() - getContentTop() - totalHeight),
-                0
-        );
+        int visibleHeight = getContentBottom() - getContentTop();
+        int maxScroll = Math.max(0, totalHeight + 12 - visibleHeight);
+        contentScrollOffset = Mth.clamp(contentScrollOffset, -maxScroll, 0);
 
         g.enableScissor(
                 getContentAreaLeft(),
@@ -255,7 +269,7 @@ public class ModelSelectScreen extends Screen {
 
         int y = getContentTop() + 6 + contentScrollOffset;
         for (Component line : lines) {
-            g.drawString(this.font, line, textLeft, y, 0x202020, false);
+            g.drawString(this.font, line, textLeft, y, 0xffffffff, false);
             y += lineHeight;
         }
 
@@ -282,6 +296,163 @@ public class ModelSelectScreen extends Screen {
         //#endif
     }
 
+    /* ===================== 滚动条 ===================== */
+
+    private int calcListContentHeight() {
+        if (listEntries.isEmpty()) return 0;
+        return listEntries.get(listEntries.size() - 1).baseY - getContentTop() + getItemHeight();
+    }
+
+    private int calcContentContentHeight() {
+        int textWidth = getContentAreaRight() - getContentAreaLeft() - 12;
+        return getSelectedContentLines(textWidth).size() * Minecraft.getInstance().font.lineHeight + 12;
+    }
+
+    private int getScrollbarVisibleHeight() {
+        return getContentBottom() - getContentTop();
+    }
+
+    private void renderListScrollbar(GraphicContext g) {
+        int visible = getScrollbarVisibleHeight();
+        int total = calcListContentHeight();
+        if (total <= visible) return;
+
+        int sbX = getListRight() - 4;
+        int sbW = 4;
+        int sbTop = getContentTop();
+        int sbBottom = getContentBottom();
+        g.fill(sbX, sbTop, sbX + sbW, sbBottom, 0x30FFFFFF);
+
+        float ratio = (float) -listScrollOffset / Math.max(1, total - visible);
+        int thumbH = Math.max(10, (int) (visible * (float) visible / total));
+        int thumbY = sbTop + (int) (ratio * (visible - thumbH));
+        g.fill(sbX, thumbY, sbX + sbW, thumbY + thumbH, 0x99FFFFFF);
+
+        listSbInfo[0] = sbX;
+        listSbInfo[1] = sbX + sbW;
+        listSbInfo[2] = sbTop;
+        listSbInfo[3] = sbBottom;
+        listSbInfo[4] = thumbY;
+        listSbInfo[5] = thumbY + thumbH;
+    }
+
+    private void renderContentScrollbar(GraphicContext g) {
+        int visible = getScrollbarVisibleHeight();
+        int total = calcContentContentHeight();
+        if (total <= visible) return;
+
+        int sbX = getContentAreaRight() - 4;
+        int sbW = 4;
+        int sbTop = getContentTop();
+        int sbBottom = getContentBottom();
+        g.fill(sbX, sbTop, sbX + sbW, sbBottom, 0x30FFFFFF);
+
+        float ratio = (float) -contentScrollOffset / Math.max(1, total - visible);
+        int thumbH = Math.max(10, (int) (visible * (float) visible / total));
+        int thumbY = sbTop + (int) (ratio * (visible - thumbH));
+        g.fill(sbX, thumbY, sbX + sbW, thumbY + thumbH, 0x99FFFFFF);
+
+        contentSbInfo[0] = sbX;
+        contentSbInfo[1] = sbX + sbW;
+        contentSbInfo[2] = sbTop;
+        contentSbInfo[3] = sbBottom;
+        contentSbInfo[4] = thumbY;
+        contentSbInfo[5] = thumbY + thumbH;
+    }
+
+    private final int[] listSbInfo = new int[6];
+    private final int[] contentSbInfo = new int[6];
+
+    private MouseClickInfo mouseClickInfo;
+
+    private record MouseClickInfo(double mouseX, double mouseY, int button) {
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0) {
+            // 列表滚动条
+            if (trySbClick(mouseX, mouseY, listSbInfo, listScrollOffset, calcListContentHeight(), true)) return true;
+            // 内容滚动条
+            if (trySbClick(mouseX, mouseY, contentSbInfo, contentScrollOffset, calcContentContentHeight(), false)) return true;
+        }
+        mouseClickInfo = new MouseClickInfo(mouseX, mouseY, button);
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    private boolean trySbClick(double mx, double my, int[] info, int scrollOffset, int totalHeight, boolean isListScroll) {
+        if (info[0] == 0 && info[1] == 0) return false; // 未初始化
+        int visible = getScrollbarVisibleHeight();
+        if (totalHeight <= visible) return false;
+        if (mx < info[0] || mx > info[1] || my < info[2] || my > info[3]) return false;
+
+        int thumbTop = info[4];
+        int thumbBottom = info[5];
+        if (my >= thumbTop && my <= thumbBottom) {
+            if (isListScroll) {
+                draggingListScrollbar = true;
+                listDragOffset = (int) (my - thumbTop);
+            } else {
+                draggingContentScrollbar = true;
+                contentDragOffset = (int) (my - thumbTop);
+            }
+            return true;
+        } else {
+            int page = visible / 2;
+            int target;
+            if (my < thumbTop) {
+                target = scrollOffset + page;
+            } else {
+                target = scrollOffset - page;
+            }
+            int maxScroll = Math.max(0, totalHeight - visible);
+            target = Math.max(-maxScroll, Math.min(target, 0));
+            if (isListScroll) {
+                listScrollOffset = target;
+            } else {
+                contentScrollOffset = target;
+            }
+            return true;
+        }
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        draggingListScrollbar = false;
+        draggingContentScrollbar = false;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (button == 0) {
+            if (draggingListScrollbar) {
+                return dragScrollbar(mouseY, listSbInfo, listScrollOffset, calcListContentHeight(), true);
+            }
+            if (draggingContentScrollbar) {
+                return dragScrollbar(mouseY, contentSbInfo, contentScrollOffset, calcContentContentHeight(), false);
+            }
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    private boolean dragScrollbar(double mouseY, int[] info, int scrollOffset, int totalHeight, boolean isList) {
+        int visible = getScrollbarVisibleHeight();
+        int maxScroll = Math.max(0, totalHeight - visible);
+        if (maxScroll <= 0) return false;
+        int thumbH = Math.max(10, (int) (visible * (float) visible / totalHeight));
+        int offset = isList ? listDragOffset : contentDragOffset;
+        float ratio = (float) (mouseY - info[2] - offset) / (visible - thumbH);
+        ratio = Math.max(0, Math.min(1, ratio));
+        int target = (int) (-ratio * maxScroll);
+        if (isList) {
+            listScrollOffset = target;
+        } else {
+            contentScrollOffset = target;
+        }
+        return true;
+    }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         if (isPointInside(mouseX, mouseY, getListLeft(), getContentTop(), getListRight(), getContentBottom())) {
@@ -296,7 +467,7 @@ public class ModelSelectScreen extends Screen {
     private boolean scrollList(double delta) {
         int visible = getContentBottom() - getContentTop();
         int total = listEntries.isEmpty() ? 0 :
-                listEntries.get(listEntries.size() - 1).baseY - getContentTop() + LIST_ITEM_HEIGHT;
+                listEntries.get(listEntries.size() - 1).baseY - getContentTop() + getItemHeight();
         if (total <= visible) {
             listScrollOffset = 0;
             return false;
@@ -364,18 +535,32 @@ public class ModelSelectScreen extends Screen {
     private static class ScrollEntry {
         private final AbstractWidget widget;
         private final int baseY;
+        private final ModelSelectInfo info;
+        private int currentY;
 
         private ScrollEntry(AbstractWidget widget, int baseY) {
             this.widget = widget;
             this.baseY = baseY;
+            this.info = null;
+            this.currentY = baseY;
+        }
+
+        private ScrollEntry(AbstractWidget widget, int baseY, ModelSelectInfo info) {
+            this.widget = widget;
+            this.baseY = baseY;
+            this.info = info;
+            this.currentY = baseY;
         }
 
         private void applyScroll(int offset) {
-            //#if MC_VERSION >= 11903
-            widget.setY(baseY + offset);
-            //#else
-            //$$ widget.y = baseY + offset;
-            //#endif
+            currentY = baseY + offset;
+            if (widget != null) {
+                //#if MC_VERSION >= 11903
+                widget.setY(currentY);
+                //#else
+                //$$ widget.y = currentY;
+                //#endif
+            }
         }
     }
 }

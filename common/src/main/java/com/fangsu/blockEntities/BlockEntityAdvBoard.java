@@ -45,6 +45,8 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
 
     private AdvBoardContent content;
     private Map<String, ResourceLocation> currentTextures;
+    /** key → GIF 的 ResourceLocation.toString()，用于按 GIF 资源解绑 */
+    private Map<String, String> gifBindings;
 
     private DynamicModelHolder dmhMain;
     private Map<String, DynamicModelHolder> dmhDispMap;
@@ -69,10 +71,10 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
         int width = getExtraConfigInt("width", 2);
         int height = getExtraConfigInt("height", 2);
 
-        // 瑙ｇ粦锟?GIF锛堥槻锟?whenLoading 琚噸澶嶈皟鐢ㄦ椂娉勬紡锟?
-        if (currentTextures != null) {
-            for (String k : currentTextures.keySet()) {
-                GifHelper.getInstance().unbindGif(getBlockPos() + "_" + k);
+        // 解绑旧 GIF（防止 whenLoading 被重复调用时泄漏）
+        if (gifBindings != null) {
+            for (String gifId : gifBindings.values()) {
+                GifHelper.getInstance().unbindGif(gifId);
             }
         }
 
@@ -82,6 +84,7 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
 
             dmhDispMap = new HashMap<>();
             currentTextures = new HashMap<>();
+            gifBindings = new HashMap<>();
 
             dmhMain = new DynamicModelHolder();
 
@@ -140,11 +143,13 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
                 switch (type) {
                     case "identifier", "local":
                         if (path.toLowerCase().endsWith(".gif")) {
-                            //gif
+                            //gif — 一个 GIF 文件只绑定一次，用 ResourceLocation.toString() 作为唯一 ID
                             ResourceLocation gifLocation = new ResourceLocation(path);
-                            ResourceLocation texLocation = GifHelper.getInstance().bindGif(getBlockPos() + "_" + k, gifLocation);
+                            String gifId = gifLocation.toString();
+                            ResourceLocation texLocation = GifHelper.getInstance().bindGif(gifId, gifLocation);
                             if (texLocation != null) {
                                 currentTextures.put(k, texLocation);
+                                gifBindings.put(k, gifId);
                             }
                         } else {
                             //png
@@ -224,10 +229,11 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
     @Override
     public void whenDisposing() {
         RotatableShapeHelper.getInstance().removeCache(getWorldPos());
-        // 瑙ｇ粦鎵€锟?GIF
-        JsonObject images = Main.JSON_PARSER.parse(getExtraConfig("images", "{}")).getAsJsonObject();
-        for (String k : images.keySet()) {
-            GifHelper.getInstance().unbindGif(getBlockPos() + "_" + k);
+        // 解绑所有 GIF（根据 gifBindings 中记录的 GIF ID 来解绑）
+        if (gifBindings != null) {
+            for (String gifId : gifBindings.values()) {
+                GifHelper.getInstance().unbindGif(gifId);
+            }
         }
     }
 
@@ -238,11 +244,23 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
             String key = entry.getKey();
             ResourceLocation location = currentTextures.get(key);
 
-            // 瀵逛簬 GIF锛屼粠 GifHelper 鑾峰彇鏈€鏂扮殑绾圭悊浣嶇疆
+            // 对于 GIF，从 GifHelper 获取最新的纹理位置
             if (location == null) {
-                location = GifHelper.getInstance().getGifTextureLocation(getBlockPos() + "_" + key);
-                if (location != null) {
-                    currentTextures.put(key, location);
+                // 通过配置中的图片路径反向查找 GIF 纹理位置
+                String path = getExtraConfig("images", "{}");
+                try {
+                    JsonObject images = Main.JSON_PARSER.parse(path).getAsJsonObject();
+                    if (images.has(key)) {
+                        String imgPath = images.get(key).getAsJsonObject().get("path").getAsString();
+                        if (imgPath.toLowerCase().endsWith(".gif")) {
+                            ResourceLocation gifLoc = new ResourceLocation(imgPath);
+                            location = GifHelper.getInstance().getGifTextureLocation(gifLoc.toString());
+                            if (location != null) {
+                                currentTextures.put(key, location);
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {
                 }
             }
 

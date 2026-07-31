@@ -42,6 +42,13 @@ public class SignConfigUI extends Screen {
     private GraphicsTexture g2dLayer;
     private MouseClickInfo mouseClickInfo;
 
+    /* ===================== 滚动条拖动状态 ===================== */
+
+    private boolean draggingPaletteScroll = false;
+    private int paletteDragOffset = 0;
+    private boolean draggingRowScroll = false;
+    private int draggingRowIndex = -1;
+
     public SignConfigUI(int faces, List<Map<String, List<SignItem>>> items, Consumer<List<Map<String, List<SignItem>>>> setter) {
         super(ComponentHelper.translatable("ui.fangsu.sign.title"));
         this.faces = faces;
@@ -131,6 +138,22 @@ public class SignConfigUI extends Screen {
                 List<SignItem> lane = faceLanes.computeIfAbsent(partName(part), k -> new ArrayList<>());
                 float laneStartX = part == 2 ? width + rowScroll[i] : rowScroll[i];
                 drawLane(g2d, lane, laneStartX, rowY + rowHeight * 0.3f, part, u, false);
+
+                // 水平滚动条
+                if (lane != null && !lane.isEmpty()) {
+                    float totalLaneWidth = 0;
+                    for (SignItem token : lane) totalLaneWidth += getTokenWidth(g2d, token, u) + u * 0.1f;
+                    int scrollbarY = rowBottom - 4;
+                    int scrollbarH = 4;
+                    int scrollbarW = width;
+                    if (totalLaneWidth > scrollbarW) {
+                        ctx.fill(0, scrollbarY, scrollbarW, scrollbarY + scrollbarH, 0x30FFFFFF);
+                        float ratio = -rowScroll[i] / Math.max(1, totalLaneWidth - scrollbarW);
+                        int thumbW = Math.max(10, (int) (scrollbarW * (float) scrollbarW / totalLaneWidth));
+                        int thumbX = (int) (ratio * (scrollbarW - thumbW));
+                        ctx.fill(thumbX, scrollbarY, thumbX + thumbW, scrollbarY + scrollbarH, 0x99FFFFFF);
+                    }
+                }
 
                 if (mouseClickInfo != null && mouseClickInfo.button == 0 && mouseClickInfo.mouseY >= rowY && mouseClickInfo.mouseY <= rowBottom) {
                     modeFlag = 1;
@@ -332,6 +355,19 @@ public class SignConfigUI extends Screen {
             }
         }
         ctx.disableScissor();
+
+        // 调色板垂直滚动条
+        int paletteAreaHeight = height - top - 12;
+        if (contentHeight > paletteAreaHeight) {
+            int scrollbarX = width - 6;
+            int scrollbarW = 4;
+            ctx.fill(scrollbarX, top, scrollbarX + scrollbarW, height - 12, 0x30FFFFFF);
+            float ratio = -paletteScroll / Math.max(1, contentHeight - paletteAreaHeight);
+            int thumbH = Math.max(10, (int) (paletteAreaHeight * (float) paletteAreaHeight / contentHeight));
+            int thumbY = top + (int) (ratio * (paletteAreaHeight - thumbH));
+            ctx.fill(scrollbarX, thumbY, scrollbarX + scrollbarW, thumbY + thumbH, 0x99FFFFFF);
+        }
+
         float minScroll = -Math.max(0, contentHeight - (height - top - 12));
         paletteScroll = Math.max(minScroll, Math.min(0, paletteScroll));
     }
@@ -409,8 +445,126 @@ public class SignConfigUI extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0) {
+            // 检查调色板滚动条点击
+            if (modeFlag != 0) {
+                int top = height / 2;
+                int paletteAreaHeight = height - top - 12;
+                int cell = 26;
+                int gap = 6;
+                int usableWidth = width - 32;
+                int lineItems = Math.max(1, usableWidth / (cell + gap));
+                int contentHeight = ((EDITOR_ITEMS.size() + lineItems - 1) / lineItems) * (cell + gap);
+                if (contentHeight > paletteAreaHeight) {
+                    int sbX = width - 5;
+                    int sbW = 4;
+                    int sbLeft = sbX;
+                    int sbRight = sbX + sbW;
+                    if (mouseX >= sbLeft && mouseX <= sbRight && mouseY >= top && mouseY <= height - 12) {
+                        float ratio = -paletteScroll / Math.max(1, contentHeight - paletteAreaHeight);
+                        int thumbH = Math.max(10, (int) (paletteAreaHeight * (float) paletteAreaHeight / contentHeight));
+                        int thumbY = top + (int) (ratio * (paletteAreaHeight - thumbH));
+                        if (mouseY >= thumbY && mouseY <= thumbY + thumbH) {
+                            draggingPaletteScroll = true;
+                            paletteDragOffset = (int) (mouseY - thumbY);
+                            return true;
+                        } else {
+                            // 轨道点击翻页
+                            int page = paletteAreaHeight / 2;
+                            if (mouseY < thumbY) {
+                                paletteScroll = Math.max(-(contentHeight - paletteAreaHeight), paletteScroll + page);
+                            } else {
+                                paletteScroll = Math.min(0, paletteScroll - page);
+                            }
+                            return true;
+                        }
+                    }
+                }
+            }
+            // 检查选择模式下行水平滚动条点击
+            if (modeFlag == 0) {
+                int rowHeight = (height - 12) / ROW_COUNT;
+                float u = Math.min(30f, rowHeight * 0.65f);
+                for (int i = 0; i < ROW_COUNT; i++) {
+                    int rowY = 12 + i * rowHeight;
+                    int rowBottom = rowY + rowHeight;
+                    if (mouseY >= rowBottom - 6 && mouseY <= rowBottom) {
+                        // 计算该行人lane总宽度
+                        int side = i / 3;
+                        int part = i % 3;
+                        if (side < faces) {
+                            Map<String, List<SignItem>> faceLanes = dispItems.get(side);
+                            List<SignItem> lane = faceLanes.get(partName(part));
+                            if (lane != null && !lane.isEmpty()) {
+                                float totalLaneWidth = 0;
+                                for (SignItem token : lane) totalLaneWidth += getTokenWidth(g2dLayer.graphics, token, u) + u * 0.1f;
+                                if (totalLaneWidth > width) {
+                                    float ratio = -rowScroll[i] / Math.max(1, totalLaneWidth - width);
+                                    int thumbW = Math.max(10, (int) (width * (float) width / totalLaneWidth));
+                                    int thumbX = (int) (ratio * (width - thumbW));
+                                    if (mouseX >= thumbX && mouseX <= thumbX + thumbW) {
+                                        draggingRowScroll = true;
+                                        draggingRowIndex = i;
+                                        return true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         mouseClickInfo = new MouseClickInfo(mouseX, mouseY, button);
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        draggingPaletteScroll = false;
+        draggingRowScroll = false;
+        draggingRowIndex = -1;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (draggingPaletteScroll && button == 0) {
+            int top = height / 2;
+            int paletteAreaHeight = height - top - 12;
+            int cell = 26;
+            int gap = 6;
+            int usableWidth = width - 32;
+            int lineItems = Math.max(1, usableWidth / (cell + gap));
+            int contentHeight = ((EDITOR_ITEMS.size() + lineItems - 1) / lineItems) * (cell + gap);
+            int maxScroll = Math.max(0, contentHeight - paletteAreaHeight);
+            if (maxScroll > 0) {
+                float ratio = (float) (mouseY - top - paletteDragOffset) / (paletteAreaHeight - 10);
+                ratio = Math.max(0, Math.min(1, ratio));
+                paletteScroll = -ratio * maxScroll;
+            }
+            return true;
+        }
+        if (draggingRowScroll && draggingRowIndex >= 0 && button == 0) {
+            int rowHeight = (height - 12) / ROW_COUNT;
+            float u = Math.min(30f, rowHeight * 0.65f);
+            int side = draggingRowIndex / 3;
+            int part = draggingRowIndex % 3;
+            if (side < faces) {
+                Map<String, List<SignItem>> faceLanes = dispItems.get(side);
+                List<SignItem> lane = faceLanes.get(partName(part));
+                if (lane != null && !lane.isEmpty()) {
+                    float totalLaneWidth = 0;
+                    for (SignItem token : lane) totalLaneWidth += getTokenWidth(g2dLayer.graphics, token, u) + u * 0.1f;
+                    if (totalLaneWidth > width) {
+                        float ratio = (float) mouseX / width;
+                        ratio = Math.max(0, Math.min(1, ratio));
+                        rowScroll[draggingRowIndex] = -ratio * (totalLaneWidth - width);
+                    }
+                }
+            }
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
     @Override

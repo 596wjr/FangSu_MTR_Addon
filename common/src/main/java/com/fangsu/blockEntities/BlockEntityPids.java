@@ -156,6 +156,16 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
         if (drawInfoId.equals(lastRegisteredDrawInfoId)) return;
         lastRegisteredDrawInfoId = drawInfoId;
 
+        // 检查 drawInfoId 是否已被其他方块注册（同内容共享纹理）
+        if (gtHelper.hasDrawInfoId(drawInfoId)) {
+            final boolean sizeMatches = gtHelper.getRegisteredGraphicSizeByDrawInfoId(drawInfoId, texW, texH);
+            if (sizeMatches) {
+                // 已有相同内容的纹理：直接绑定共享，不创建新纹理、不触发重绘
+                gtHelper.bindToExistingDrawInfo("block_" + getBlockPos().getX() + "_" + getBlockPos().getY() + "_" + getBlockPos().getZ(), drawInfoId);
+                return;
+            }
+        }
+
         // 绉婚櫎鏃х粯鍒跺啀娉ㄥ唽鏂扮粯鍒
         gtHelper.removeDrawGraphic(getBlockPos());
         gtHelper.addDrawGraphicWithGt(getBlockPos(),

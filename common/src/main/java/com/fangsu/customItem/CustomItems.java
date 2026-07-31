@@ -9,6 +9,7 @@ import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import net.minecraft.ResourceLocationException;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 
@@ -60,18 +61,23 @@ public class CustomItems {
                 Main.LOGGER.warn("Failed to load contents: value is null or empty!");
                 continue;
             }
-            ContentManager cm = ContentManager.getInstance();
-            long contentBegin = System.currentTimeMillis();
-            List<ModelSelectInfo> thisItemInfo = getModelSelectInfos(value);
-            items.put(key, thisItemInfo);
-            if (cm.canLoadType(key)) {
-                for (ModelSelectInfo modelSelectInfo : thisItemInfo) {
-                    cm.loadItem(key, modelSelectInfo.getContent());
+            try {
+                ContentManager cm = ContentManager.getInstance();
+                long contentBegin = System.currentTimeMillis();
+                List<ModelSelectInfo> thisItemInfo = getModelSelectInfos(value);
+                items.put(key, thisItemInfo);
+                if (cm.canLoadType(key)) {
+                    for (ModelSelectInfo modelSelectInfo : thisItemInfo) {
+                        cm.loadItem(key, modelSelectInfo.getContent());
+                    }
+                } else {
+                    ContentInfoUtil.preloadByType(key, thisItemInfo);
                 }
-            } else {
-                ContentInfoUtil.preloadByType(key, thisItemInfo);
+                Main.LOGGER.debug("Loaded content {} in {} ms", key, System.currentTimeMillis() - contentBegin);
+            } catch (Exception e) {
+                Main.LOGGER.error("Failed to load content '{}', skipping: {}", key, e.getMessage());
+                items.remove(key);
             }
-            Main.LOGGER.debug("Loaded content {} in {} ms", key, System.currentTimeMillis() - contentBegin);
         }
         Main.LOGGER.info("Loaded {} items in {} ms", items.size(), System.currentTimeMillis() - begin);
     }

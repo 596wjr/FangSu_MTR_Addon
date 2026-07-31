@@ -348,7 +348,7 @@ public class RotatableShapeHelper {
     }
 
     private static Vec3 applyTransform(Vec3 v, Vec3 pivotWorld, float rx, float ry, float rz) {
-        Vec3 r = rotateX(v, rx);
+        Vec3 r = rotateX(v, -rx);
         r = rotateY(r, ry);
         r = rotateZ(r, rz);
         return r.add(pivotWorld);

@@ -156,6 +156,15 @@ public class JsFunctions {
         return G2dTextHelper.getUnifiedStringWidth(g, font, str, (float) h);
     }
 
+    public static int jsDrawStrUnifiedWithStretch(Graphics2D g, Font font, String str, double x, double y, double h, int maxWidth, int align) {
+        return G2dTextHelper.drawStrUnifiedWithStretch(g, font, str, x, y, h, maxWidth, align);
+    }
+
+    public static int jsDrawStrMultiLinesWithStretch(Graphics2D g, Font cjkFont, Font nonCjkFont, String str, double x, double y, double h, int maxWidth, int align) {
+        String drawStr = str == null ? "" : str;
+        return G2dTextHelper.drawStrMultiLinesWithStretch(g, cjkFont, nonCjkFont, (int) x, (int) y, (int) h, maxWidth, align, drawStr.split("\\|"));
+    }
+
     private static final Pattern CJK_PATTERN = Pattern.compile("^(\\d+|[\u4e00-\u9fa5]+)线$");
     private static final Pattern LINE_PATTERN = Pattern.compile("^Line\\s+(\\d+|[A-Za-z]+)$");
     private static final Pattern LINE_SUFFIX_PATTERN = Pattern.compile("([A-Za-z\\s]+)\\sLine");

@@ -31,6 +31,11 @@ public abstract class BasicConfigScreen extends Screen {
     protected final List<AbstractWidget> fixedWidgets = new ArrayList<>();
     protected final List<ScrollEntry> entries = new ArrayList<>();
 
+    /* ===================== 滚动条拖动状态 ===================== */
+
+    private boolean draggingScrollbar = false;
+    private int dragScrollOffset = 0;
+
     protected BasicConfigScreen(Component title) {
         super(title);
     }
@@ -205,6 +210,91 @@ public abstract class BasicConfigScreen extends Screen {
             e.widget.render(g.asMinecraft(), mouseX, mouseY, partialTick);
         }
         g.disableScissor();
+
+        renderScrollbar(g);
+    }
+
+    private void renderScrollbar(GraphicContext g) {
+        int visibleTop = getContentTop();
+        int visibleBottom = getContentBottom();
+        int visibleHeight = visibleBottom - visibleTop;
+
+        int contentBottom = getActualContentBottom();
+        int contentTop = entries.isEmpty() ? 0 : entries.get(0).baseY;
+        int contentHeight = contentBottom - contentTop;
+
+        if (contentHeight <= visibleHeight) return;
+
+        int scrollbarX = getContentRight() + 2;
+        int scrollbarW = 4;
+        g.fill(scrollbarX, visibleTop, scrollbarX + scrollbarW, visibleBottom, 0x30FFFFFF);
+
+        float ratio = (float) -scrollOffset / Math.max(1, contentHeight - visibleHeight);
+        int thumbH = Math.max(10, (int) (visibleHeight * (float) visibleHeight / contentHeight));
+        int thumbY = visibleTop + (int) (ratio * (visibleHeight - thumbH));
+        g.fill(scrollbarX, thumbY, scrollbarX + scrollbarW, thumbY + thumbH, 0x99FFFFFF);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0) {
+            int visibleTop = getContentTop();
+            int visibleBottom = getContentBottom();
+            int visibleHeight = visibleBottom - visibleTop;
+            int contentBottom = getActualContentBottom();
+            int contentTop = entries.isEmpty() ? 0 : entries.get(0).baseY;
+            int contentHeight = contentBottom - contentTop;
+            if (contentHeight > visibleHeight) {
+                int sbX = getContentRight() + 2;
+                int sbW = 4;
+                if (mouseX >= sbX && mouseX <= sbX + sbW && mouseY >= visibleTop && mouseY <= visibleBottom) {
+                    float ratio = (float) -scrollOffset / Math.max(1, contentHeight - visibleHeight);
+                    int thumbH = Math.max(10, (int) (visibleHeight * (float) visibleHeight / contentHeight));
+                    int thumbY = visibleTop + (int) (ratio * (visibleHeight - thumbH));
+                    if (mouseY >= thumbY && mouseY <= thumbY + thumbH) {
+                        draggingScrollbar = true;
+                        dragScrollOffset = (int) (mouseY - thumbY);
+                        return true;
+                    } else {
+                        int page = visibleHeight / 2;
+                        if (mouseY < thumbY) {
+                            scrollOffset = Math.max(visibleHeight - contentHeight, scrollOffset + page);
+                        } else {
+                            scrollOffset = Math.min(0, scrollOffset - page);
+                        }
+                        return true;
+                    }
+                }
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        draggingScrollbar = false;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (draggingScrollbar && button == 0) {
+            int visibleTop = getContentTop();
+            int visibleBottom = getContentBottom();
+            int visibleHeight = visibleBottom - visibleTop;
+            int contentBottom = getActualContentBottom();
+            int contentTop = entries.isEmpty() ? 0 : entries.get(0).baseY;
+            int contentHeight = contentBottom - contentTop;
+            int maxScroll = Math.max(0, contentHeight - visibleHeight);
+            if (maxScroll > 0) {
+                int thumbH = Math.max(10, (int) (visibleHeight * (float) visibleHeight / contentHeight));
+                float ratio = (float) (mouseY - visibleTop - dragScrollOffset) / (visibleHeight - thumbH);
+                ratio = Math.max(0, Math.min(1, ratio));
+                scrollOffset = (int) (-ratio * maxScroll);
+            }
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
     @Override

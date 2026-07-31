@@ -32,6 +32,12 @@ public abstract class BaseSelectionScreen extends Screen {
     private SelectionItem pendingAdd;
     private SelectionItem pendingRemove;
 
+    /* ===================== 滚动条拖动状态 ===================== */
+
+    private int dragScrollIndex = -1;
+    private int dragThumbOffset = 0;
+    private int dragThumbSize = 0;
+
     protected List<Component> titles;
 
     /* ===================== 构造 ===================== */
@@ -78,6 +84,8 @@ public abstract class BaseSelectionScreen extends Screen {
 
         int columnWidth = calcColumnWidth();
         int columnGap = calcColumnGap();
+
+        scrollbarHitInfo[0] = -1; // 重置滚动条点击信息
 
         for (int i = 0; i <= column; i++) {
 
@@ -146,7 +154,7 @@ public abstract class BaseSelectionScreen extends Screen {
 
         g.enableScissor(x, yTop, x + columnWidth, yBottom);
 
-        int y = (int) (yTop + scroll.get(index) + font.lineHeight * 0.5);
+        int y = (int) (yTop - scroll.get(index) + font.lineHeight * 0.5);
         int totalHeight = 0;
 
         for (SelectionItem item : columnItems) {
@@ -158,6 +166,8 @@ public abstract class BaseSelectionScreen extends Screen {
 
         handleScroll(index, x, columnWidth, totalHeight);
         g.disableScissor();
+
+        renderScrollbar(g, index, x + columnWidth - 4, yTop, yBottom - yTop, totalHeight);
     }
 
     private int renderItem(
@@ -277,19 +287,120 @@ public abstract class BaseSelectionScreen extends Screen {
     }
 
 
+    private int calcVisibleHeight() {
+        return heightPercent(0.7) - heightPercent(0.2);
+    }
+
+    /**
+     * 内容实际占用的总高度 = item总高度 + 顶部初始偏移(font.lineHeight * 0.5)
+     */
+    private int calcContentHeight(int totalHeight) {
+        return totalHeight + (int) (font.lineHeight * 0.5);
+    }
+
+    /**
+     * scroll 为正数表示已向下滚动的像素量。
+     * 范围: [0, maxScroll]，0=顶部，maxScroll=最底部。
+     */
+    private int calcMaxScroll(int totalHeight) {
+        return Math.max(0, calcContentHeight(totalHeight) - calcVisibleHeight());
+    }
+
     private void handleScroll(int index, int x, int width, int totalHeight) {
         if (mouseScrollInfo == null) return;
 
         if (mouseScrollInfo.mouseX < x || mouseScrollInfo.mouseX > x + width) return;
         if (mouseScrollInfo.mouseY < heightPercent(0.2) || mouseScrollInfo.mouseY > heightPercent(0.7)) return;
 
-        int value = scroll.get(index) + (int) (mouseScrollInfo.delta * 8);
-        value = Math.max(0, Math.min(value, totalHeight - height / 2));
+        int maxScroll = calcMaxScroll(totalHeight);
+        if (maxScroll <= 0) return;
+
+        int value = scroll.get(index) - (int) (mouseScrollInfo.delta * 8);
+        value = Math.max(0, Math.min(value, maxScroll));
         scroll.set(index, value);
 
         mouseScrollInfo = null;
     }
+    /* ===================== 滚动条 ===================== */
 
+    private void renderScrollbar(GraphicContext g, int index, int barX, int barY, int barHeight, int totalHeight) {
+        int maxScroll = calcMaxScroll(totalHeight);
+        if (maxScroll <= 0) return;
+
+        int scrollbarWidth = 4;
+        int scrollbarColor = 0x99FFFFFF;
+        int scrollbarBgColor = 0x30FFFFFF;
+
+        int sbLeft = barX - scrollbarWidth;
+        int sbRight = barX;
+
+        // 滚动条背景
+        g.fill(sbLeft, barY, sbRight, barY + barHeight, scrollbarBgColor);
+
+        // 滑块
+        int visibleHeight = calcVisibleHeight();
+        int contentHeight = calcContentHeight(totalHeight);
+        float scrollRatio = (float) scroll.get(index) / maxScroll;
+        int thumbHeight = Math.max(10, (int) (barHeight * (float) visibleHeight / contentHeight));
+        int thumbY = barY + (int) (scrollRatio * (barHeight - thumbHeight));
+        g.fill(sbLeft, thumbY, sbRight, thumbY + thumbHeight, scrollbarColor);
+
+        // 保存当前列的滚动条信息供点击检测
+        scrollbarHitInfo[0] = index;
+        scrollbarHitInfo[1] = sbLeft;
+        scrollbarHitInfo[2] = sbRight;
+        scrollbarHitInfo[3] = barY;
+        scrollbarHitInfo[4] = barY + barHeight;
+        scrollbarHitInfo[5] = thumbY;
+        scrollbarHitInfo[6] = thumbY + thumbHeight;
+    }
+
+    private final int[] scrollbarHitInfo = new int[7];
+
+    private boolean tryScrollbarClick(double mouseX, double mouseY, int button) {
+        if (button != 0) return false;
+        int col = scrollbarHitInfo[0];
+        if (col < 0) return false;
+        int sbLeft = scrollbarHitInfo[1];
+        int sbRight = scrollbarHitInfo[2];
+        int sbTop = scrollbarHitInfo[3];
+        int sbBottom = scrollbarHitInfo[4];
+        int thumbTop = scrollbarHitInfo[5];
+        int thumbBottom = scrollbarHitInfo[6];
+
+        if (mouseX < sbLeft || mouseX > sbRight || mouseY < sbTop || mouseY > sbBottom) return false;
+
+        // 检查是否点击了滑块
+        if (mouseY >= thumbTop && mouseY <= thumbBottom) {
+            dragScrollIndex = col;
+            dragThumbOffset = (int) (mouseY - thumbTop);
+            dragThumbSize = thumbBottom - thumbTop;
+        } else {
+            // 点击滑块上方或下方的轨道区域 -> 翻一页
+            int columnWidth = calcColumnWidth();
+            List<SelectionItem> columnItems = getColumnItems(col);
+            int totalHeight = 0;
+            if (columnItems != null) {
+                for (SelectionItem item : columnItems) {
+                    totalHeight += getItemHeight(item, columnWidth);
+                }
+            }
+            int maxScroll = calcMaxScroll(totalHeight);
+            if (maxScroll > 0) {
+                int page = calcVisibleHeight() / 2;
+                int currentScroll = scroll.get(col);
+                int target;
+                if (mouseY < thumbTop) {
+                    target = currentScroll - page; // 向上翻页
+                } else {
+                    target = currentScroll + page; // 向下翻页
+                }
+                target = Math.max(0, Math.min(target, maxScroll));
+                scroll.set(col, target);
+            }
+        }
+        return true;
+    }
     /* ===================== 工具方法 ===================== */
 
     private boolean isItemSelected(int index, SelectionItem item) {
@@ -343,13 +454,58 @@ public abstract class BaseSelectionScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (tryScrollbarClick(mouseX, mouseY, button)) {
+            return true;
+        }
         mouseClickInfo = new MouseClickInfo(mouseX, mouseY, button);
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        dragScrollIndex = -1;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (dragScrollIndex >= 0) {
+            int columnWidth = calcColumnWidth();
+            int yTop = heightPercent(0.2);
+            int barHeight = heightPercent(0.7) - yTop;
+
+            List<SelectionItem> columnItems = getColumnItems(dragScrollIndex);
+            int totalHeight = 0;
+            if (columnItems != null) {
+                for (SelectionItem item : columnItems) {
+                    totalHeight += getItemHeight(item, columnWidth);
+                }
+            }
+
+            int maxScroll = calcMaxScroll(totalHeight);
+            if (maxScroll > 0) {
+                float ratio = (float) (mouseY - yTop - dragThumbOffset) / (barHeight - dragThumbSize);
+                ratio = Math.max(0, Math.min(1, ratio));
+                scroll.set(dragScrollIndex, (int) (ratio * maxScroll));
+            }
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         mouseScrollInfo = new MouseScrollInfo(mouseX, mouseY, delta);
+        // 检查是否在任意列区域内，返回true以消耗事件
+        int columnWidth = calcColumnWidth();
+        int columnGap = calcColumnGap();
+        for (int i = 0; i <= column; i++) {
+            int x = calcColumnX(i, columnWidth, columnGap);
+            if (mouseX >= x && mouseX <= x + columnWidth &&
+                    mouseY >= heightPercent(0.2) && mouseY <= heightPercent(0.7)) {
+                return true;
+            }
+        }
         return super.mouseScrolled(mouseX, mouseY, delta);
     }
 

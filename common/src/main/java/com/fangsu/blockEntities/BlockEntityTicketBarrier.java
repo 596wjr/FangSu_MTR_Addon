@@ -7,10 +7,15 @@ import com.fangsu.render.sowcer.math.Matrices;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.contents.TicketBarrierContent;
 import com.fangsu.Main;
+import com.fangsu.network.ModNetwork;
 import com.fangsu.utils.*;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.ticketSystem.*;
 import com.fangsu.extraConfig.*;
+
+import dev.architectury.networking.NetworkManager;
+import io.netty.buffer.Unpooled;
+import net.minecraft.network.FriendlyByteBuf;
 
 import com.google.gson.JsonPrimitive;
 
@@ -165,37 +170,39 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
 
     @Override
     public InteractionResult whenUseWithOther(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-        if (level.isClientSide) return InteractionResult.SUCCESS;
-
-        Map<String, String> extra = this.extraConfigs;
+        if (!level.isClientSide) return InteractionResult.PASS;
 
         Vec3 hitPos = hit.getLocation().subtract(pos.getX(), pos.getY(), pos.getZ());
 
         Direction facing = level.getBlockState(pos)
                 .getValue(BaseObjBlock.FACING);
 
-        if ((facing == Direction.NORTH && hitPos.z > 0.5) ||
-                (facing == Direction.SOUTH && hitPos.z < 0.5) ||
-                (facing == Direction.WEST && hitPos.x > 0.5) ||
-                (facing == Direction.EAST && hitPos.x < 0.5)
+        double hitThreshold = content != null && content.getHitPos() != null ? content.getHitPos() : 0.5;
+        if ((facing == Direction.NORTH && hitPos.z > hitThreshold) ||
+                (facing == Direction.SOUTH && hitPos.z < 1 - hitThreshold) ||
+                (facing == Direction.WEST && hitPos.x > hitThreshold) ||
+                (facing == Direction.EAST && hitPos.x < 1 - hitThreshold)
         ) {
-            boolean success = TicketBarrierHandler.handle(
-                    level,
-                    pos,
-                    player,
-                    hand,
-                    hit,
-                    extra,
-                    this::sendUpdateC2S
-            );
-            if (success) {
-                checkSideOpen(level, pos);
-                return InteractionResult.SUCCESS;
-            } else return InteractionResult.PASS;
+            FriendlyByteBuf packetBuf = new FriendlyByteBuf(Unpooled.buffer());
+            packetBuf.writeBlockPos(pos);
+            NetworkManager.sendToServer(ModNetwork.TICKET_BARRIER_SYNC, packetBuf);
+            return InteractionResult.SUCCESS;
         } else {
             player.displayClientMessage(ComponentHelper.translatable("mst.fangsu.ticketbarrier.wrongDirection"), true);
             return InteractionResult.PASS;
         }
+    }
+
+    public void handleServerInteraction(Level level, Player player) {
+        TicketBarrierHandler.handle(
+                level,
+                worldPosition,
+                player,
+                InteractionHand.MAIN_HAND,
+                new BlockHitResult(Vec3.atCenterOf(worldPosition), player.getDirection(), worldPosition, false),
+                extraConfigs,
+                this::sendUpdateC2S
+        );
     }
 
     private void checkSideOpen(Level level, BlockPos pos) {
@@ -358,24 +365,34 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
 
         private TicketBarrierDoorRenderInfo(TicketBarrierContent.TicketBarrierDoorInfo doorInfo) throws Exception {
             this.doorType = doorInfo.getDoorType();
-            if (!doorInfo.isUsePartedModel()) {
-                return;
-            }
-            Map<String, DynamicModelHolder> dmhs = ResourceUtil.loadPartedDmh(new ResourceLocation(doorInfo.getModel()), doorInfo.isFlipV());
-            for (TicketBarrierContent.TicketBarrierDoorInfo.DoorInfo door : doorInfo.getDoors()) {
-                List<Double> posList = door.getPos();
-                if (posList.size() < 3) {
-                    continue;
+            if (doorInfo.isUsePartedModel()) {
+                Map<String, DynamicModelHolder> dmhs = ResourceUtil.loadPartedDmh(new ResourceLocation(doorInfo.getModel()), doorInfo.isFlipV());
+                for (TicketBarrierContent.TicketBarrierDoorInfo.DoorInfo door : doorInfo.getDoors()) {
+                    List<Double> posList = door.getPos();
+                    if (posList.size() < 3) {
+                        continue;
+                    }
+                    DynamicModelHolder dmh = dmhs.get(door.getSubModel());
+                    if (dmh == null && dmhs.size() == 1) {
+                        dmh = dmhs.values().iterator().next();
+                    }
+                    if (dmh == null) {
+                        continue;
+                    }
+                    Double[] posArray = posList.toArray(Double[]::new);
+                    doors.add(new Door(dmh, posArray, door.getSide(), door.getStep()));
                 }
-                DynamicModelHolder dmh = dmhs.get(door.getSubModel());
-                if (dmh == null && dmhs.size() == 1) {
-                    dmh = dmhs.values().iterator().next();
+            } else {
+                DynamicModelHolder wholeDmh = ResourceUtil.loadDmh(new ResourceLocation(doorInfo.getModel()), doorInfo.isFlipV());
+                if (wholeDmh == null) return;
+                for (TicketBarrierContent.TicketBarrierDoorInfo.DoorInfo door : doorInfo.getDoors()) {
+                    List<Double> posList = door.getPos();
+                    if (posList.size() < 3) {
+                        continue;
+                    }
+                    Double[] posArray = posList.toArray(Double[]::new);
+                    doors.add(new Door(wholeDmh, posArray, door.getSide(), door.getStep()));
                 }
-                if (dmh == null) {
-                    continue;
-                }
-                Double[] posArray = posList.toArray(Double[]::new);
-                doors.add(new Door(dmh, posArray, door.getSide(), door.getStep()));
             }
         }
 

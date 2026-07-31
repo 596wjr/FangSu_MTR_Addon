@@ -5,6 +5,7 @@ import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import net.minecraft.ResourceLocationException;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayList;
@@ -52,7 +53,13 @@ public class ContentManager {
     }
 
     public void loadItem(String type, String path) {
-        ResourceLocation pathLocation = new ResourceLocation(path);
+        ResourceLocation pathLocation;
+        try {
+            pathLocation = new ResourceLocation(path);
+        } catch (ResourceLocationException e) {
+            Main.LOGGER.warn("Failed to load content {}({}): invalid resource location - {}", type, path, e.getMessage());
+            return;
+        }
         JsonElement itemElement = ResourceUtil.loadAsJSON(pathLocation);
         if (itemElement == null || !itemElement.isJsonObject()) {
             Main.LOGGER.warn("Failed to load content {}({}): JSON is null or empty", type, path);

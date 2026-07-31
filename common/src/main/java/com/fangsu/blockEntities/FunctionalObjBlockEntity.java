@@ -52,9 +52,29 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
     });
 
     /**
+     * 渲染专用后台线程池，用于将 {@link #whenRendering()} 中的
+     * 模型变换、Java2D 绘制等 CPU 密集型操作从渲染线程移走，
+     * 避免阻塞主线程的帧率。
+     * <p>
+     * 注意：不涉及 OpenGL 调用的操作（如矩阵变换、drawModel 入队）
+     * 可以安全地在后台线程执行。涉及 GL 的操作仍必须在渲染线程执行。
+     */
+    private static final ExecutorService RENDERING_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "fangsu-rendering-async");
+        t.setDaemon(true);
+        return t;
+    });
+
+    /**
      * 进行中的异步加载任务，用于 whenLoading 异步化以及 whenDisposing 时取消。
      */
     private CompletableFuture<Void> loadingFuture;
+
+    /**
+     * 标记异步加载（whenLoading）是否已完成。
+     * 在 {@link #whenRendering()} 中检查此标记，未完成时直接 return。
+     */
+    private volatile boolean loadingComplete = false;
 
     /**
      * 上一次 whenRendering 的异步执行状态。
@@ -62,6 +82,13 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
      * 避免在渲染线程堆积未完成的渲染调用。
      */
     private CompletableFuture<Void> renderingFuture;
+
+    /**
+     * 异步渲染任务。当 {@link #tryBeginRendering()} 返回 true 时，
+     * {@link #whenRendering()} 被提交到此 future 在后台线程执行，
+     * 渲染线程可继续处理其他方块实体的渲染收集阶段。
+     */
+    private CompletableFuture<Void> renderingTask;
 
     public FunctionalObjBlockEntity(BlockEntityType<?> blockEntityType, BlockPos blockPos, BlockState blockState) {
         super(blockEntityType, blockPos, blockState);
@@ -269,7 +296,7 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
             } catch (Exception e) {
                 Main.LOGGER.error("Failed to load block entity {} at {}", getClass().getSimpleName(), getBlockPos(), e);
             }
-        }, LOADING_EXECUTOR);
+        }, LOADING_EXECUTOR).thenRun(() -> loadingComplete = true);
     }
 
     /**
@@ -280,6 +307,7 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
             loadingFuture.cancel(true);
         }
         loadingFuture = null;
+        loadingComplete = false;
     }
 
     /**
@@ -308,28 +336,61 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
 
     /**
      * 尝试开始一次 whenRendering 调用。
-     * 只有当异步加载已完成且上一次 whenRendering 已完成后，才返回 true 并标记渲染开始。
      * <p>
-     * 渲染器在调用 {@link #whenRendering()} 前应使用此方法检查条件。
+     * 该方法会返回 true 确保渲染流程正常进行。
+     * 如果异步加载（whenLoading）尚未完成，则提交一个空任务（不执行实际渲染），
+     * 等待加载完成后下一帧再正常渲染。
+     * 如果上一次 whenRendering 仍在执行，也返回 false 避免堆积。
+     * <p>
+     * 调用此方法后，渲染器应调用 {@link #awaitRenderingTask()} 等待
+     * 后台任务完成，再执行提交操作。
      *
-     * @return 是否可以安全调用 whenRendering
+     * @return 是否可以安全提交到后台线程
      */
     public final boolean tryBeginRendering() {
-        if (!isAsyncLoadingDone()) return false;
         if (renderingFuture != null && !renderingFuture.isDone()) return false;
         renderingFuture = new CompletableFuture<>();
+        if (!loadingComplete) {
+            // 加载未完成，提交空任务，下一帧加载完成后再渲染
+            renderingTask = CompletableFuture.runAsync(() -> {}, RENDERING_EXECUTOR);
+            return true;
+        }
+        // 将 whenRendering 提交到后台线程执行，不阻塞渲染线程
+        renderingTask = CompletableFuture.runAsync(() -> {
+            try {
+                this.whenRendering();
+            } catch (Exception e) {
+                Main.LOGGER.error("Async whenRendering error for {} at {}: {}",
+                        getClass().getSimpleName(), getBlockPos(), e.getMessage());
+            }
+        }, RENDERING_EXECUTOR);
         return true;
     }
 
     /**
-     * 标记当帧 whenRendering 调用已完成。
-     * 渲染器应在 whenRendering 调用完毕后调用此方法，
+     * 等待异步 whenRendering 任务完成。
+     * 渲染器应在渲染提交（scriptResult.commit/renderDirect）前调用此方法，
+     * 确保 whenRendering 已填充完 scriptResult。
+     */
+    public final void awaitRenderingTask() {
+        if (renderingTask != null && !renderingTask.isDone()) {
+            try {
+                renderingTask.get();
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    /**
+     * 标记当帧渲染已完成。
+     * 应在 whenRendering + scriptResult 提交完成后调用，
      * 以允许下一帧继续触发渲染。
      */
     public final void finishRendering() {
         if (renderingFuture != null && !renderingFuture.isDone()) {
             renderingFuture.complete(null);
         }
+        renderingTask = null;
     }
 
     public abstract void whenLoading();
@@ -345,6 +406,11 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
         if (!disposed) {
             whenDisposing();
             cancelPendingAsyncLoading();
+            // 取消进行中的异步渲染任务
+            if (renderingTask != null && !renderingTask.isDone()) {
+                renderingTask.cancel(true);
+                renderingTask = null;
+            }
         }
         super.setRemoved();
     }

@@ -3,10 +3,12 @@ package com.fangsu.network;
 import com.fangsu.Main;
 import net.minecraft.core.Registry;
 import com.fangsu.blockEntities.BlockEntityScreendoorCentralControl;
+import com.fangsu.blockEntities.BlockEntityTicketBarrier;
 import com.fangsu.blockEntities.Syncable;
 import com.fangsu.items.TicketItem;
 import dev.architectury.networking.NetworkManager;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.player.Player;
 //#if MC_VERSION >= 11903
 import net.minecraft.core.registries.BuiltInRegistries;
 //#endif
@@ -32,6 +34,8 @@ public class ModNetwork {
             new ResourceLocation("fangsu", "ticket_machine_sync");
     public static final ResourceLocation CENTRAL_CONTROL_SYNC =
             new ResourceLocation("fangsu", "central_control_sync");
+    public static final ResourceLocation TICKET_BARRIER_SYNC =
+            new ResourceLocation("fangsu", "ticket_barrier_sync");
 
     public static void init() {
         NetworkManager.registerReceiver(
@@ -48,6 +52,11 @@ public class ModNetwork {
                 NetworkManager.Side.C2S,
                 CENTRAL_CONTROL_SYNC,
                 ModNetwork::handleCentralControlSync
+        );
+        NetworkManager.registerReceiver(
+                NetworkManager.Side.C2S,
+                TICKET_BARRIER_SYNC,
+                ModNetwork::handleTicketBarrierSync
         );
     }
 
@@ -175,6 +184,29 @@ public class ModNetwork {
             }
         }
         inv.setChanged();
+    }
+
+    private static void handleTicketBarrierSync(
+            FriendlyByteBuf buf,
+            NetworkManager.PacketContext ctx
+    ) {
+        BlockPos pos = buf.readBlockPos();
+
+        ctx.queue(() -> {
+            ServerPlayer player = (ServerPlayer) ctx.getPlayer();
+            if (player == null) return;
+
+            //#if MC_VERSION >= 12000
+            Level level = player.level();
+            //#else
+            //$$ Level level = player.level;
+            //#endif
+            BlockEntity be = level.getBlockEntity(pos);
+
+            if (be instanceof BlockEntityTicketBarrier barrier) {
+                barrier.handleServerInteraction(level, player);
+            }
+        });
     }
 
     private static void handleCentralControlSync(

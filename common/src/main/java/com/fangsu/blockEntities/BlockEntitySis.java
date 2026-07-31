@@ -117,7 +117,8 @@ public class BlockEntitySis extends BaseDisplayBlockEntity {
 
         LocalRoute[] routeArray = routes.toArray(new LocalRoute[0]);
         int arrowDirection = getExtraConfigInt("arrowDirection", 0);
-        String drawInfoId = "SIS_" + scriptPath + "_" + stn.id + "_" + arrowDirection;
+        String extraConfigStr = userExtraConfigs != null ? userExtraConfigs.toString() : "";
+        String drawInfoId = "SIS_" + scriptPath + "_" + stn.id + "_" + arrowDirection + "_" + extraConfigStr;
 
         tryRegisterDrawing(drawInfoId, texW, texH,
                 gt -> {

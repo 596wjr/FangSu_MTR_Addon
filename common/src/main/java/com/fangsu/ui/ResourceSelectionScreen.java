@@ -165,8 +165,11 @@ public class ResourceSelectionScreen extends Screen {
         }
 
         // 已选定命名空间：正常浏览目录
-        final String effectivePrefix = currentPath.isEmpty() ? null : currentPath;
-        final List<ResourceLocation> allResources = ResourceUtil.listResources(null, effectivePrefix, suffixes);
+        // 在根目录时，不使用路径前缀过滤，确保根目录下的文件（不含子目录路径）能被获取到。
+        // Minecraft 1.19+ 的 resourceManager.listResources 在传入空字符串前缀时，
+        // 某些实现可能不返回根目录下的直接文件（如 "a.png" 不含 "/" 的路径）。
+        // 因此这里统一使用 "" 作为前缀，而非 null 转 ""，保证遍历所有路径。
+        final List<ResourceLocation> allResources = ResourceUtil.listResources(null, currentPath.isEmpty() ? "" : currentPath, suffixes);
 
         final Set<String> dirSet = new TreeSet<>();
         final Set<String> fileSet = new TreeSet<>();

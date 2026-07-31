@@ -4,21 +4,19 @@ import com.fangsu.Main;
 import com.fangsu.MainClient;
 import com.fangsu.client.ClientHooks;
 import com.fangsu.client.ClientHooksImpl;
-import net.minecraft.client.Minecraft;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.event.AddReloadListenerEvent;
+import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-@OnlyIn(Dist.CLIENT)
-@Mod.EventBusSubscriber(value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
+@Mod.EventBusSubscriber(value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class MainForgeClient {
 
     private static boolean hooksInitialized = false;
 
     private static void initializeHooks() {
+        Main.LOGGER.info("[FangSu] Initializing hooks");
         if (!hooksInitialized) {
             ClientHooks.OPEN_OBJ_BLOCK_CONFIG_SCREEN = ClientHooksImpl::openObjBlockConfigScreen;
             ClientHooks.OPEN_OBJ_SIGN_SCREEN = ClientHooksImpl::openSignConfigScreen;
@@ -33,23 +31,22 @@ public class MainForgeClient {
     }
 
     @SubscribeEvent
-    public static void onAddReloadListeners(AddReloadListenerEvent event) {
+    public static void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {
         initializeHooks();
 
-        event.addListener((ResourceManagerReloadListener) eventRm -> {
+        event.registerReloadListener((ResourceManagerReloadListener) rm -> {
             try {
                 Main.LOGGER.info("[FangSu] Reloading resources...");
 
-                // 使用客户端的 ResourceManager（始终包含模组内置资源），
-                // 而非事件提供的 MultiPackResourceManager（可能不包含 assets/fangsu/ 等模组资源）
-                var rm = Minecraft.getInstance().getResourceManager();
-
+                // RegisterClientReloadListenersEvent 将监听器注册到客户端的
+                // ReloadableResourceManager 上，每次客户端资源包重载时都会自动调用。
+                // rm 是包含所有已启用资源包（包括模组内置资源）的正确 ResourceManager。
                 MainClient.initResources(rm);
             } catch (Exception e) {
                 Main.LOGGER.error("[FangSu] Failed to reload resources", e);
             }
         });
 
-        Main.LOGGER.info("[FangSu] Resource reload listener registered");
+        Main.LOGGER.info("[FangSu] Client resource reload listener registered");
     }
 }
