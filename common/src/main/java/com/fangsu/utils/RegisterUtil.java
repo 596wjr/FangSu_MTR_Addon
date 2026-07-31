@@ -25,7 +25,7 @@ public class RegisterUtil {
             FangSuRegistries.createItemRegister(Main.MOD_ID);
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             FangSuRegistries.createBlockEntityRegister(Main.MOD_ID);
-    //#if MC_VERSION >= 12000
+    //#if MC_VERSION >= 11903
     public static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
             FangSuRegistries.createCreativeTabRegister(Main.MOD_ID);
     //#endif
@@ -55,7 +55,7 @@ public class RegisterUtil {
         return ITEMS.register(id, () -> new BlockItem(block.get(), tabProps(new Item.Properties())));
     }
 
-    //#if MC_VERSION >= 12000
+    //#if MC_VERSION >= 11904
     public static RegistrySupplier<CreativeModeTab> addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
         return CREATIVE_TABS.register(
                 id,
@@ -73,31 +73,23 @@ public class RegisterUtil {
                 }
         );
     }
-    //#elseif MC_VERSION >= 11904
-    //$$ public static CreativeModeTab addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
-    //$$     CreativeModeTab.Builder builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0);
-    //$$     return builder
-    //$$             .title(ComponentHelper.translatable(name))
-    //$$             .icon(() -> new ItemStack(icon.get()))
-    //$$             .displayItems((parameters, output) -> {
-    //$$                 for (RegistrySupplier<Item> item : items) {
-    //$$                     output.accept(new ItemStack(item.get()));
-    //$$                 }
-    //$$             })
-    //$$             .build();
-    //$$ }
     //#elseif MC_VERSION >= 11903
-    //$$ public static CreativeModeTab addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
-    //$$     CreativeModeTab.Builder builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0);
-    //$$     return builder
-    //$$             .title(ComponentHelper.translatable(name))
-    //$$             .icon(() -> new ItemStack(icon.get()))
-    //$$             .displayItems((enabledFeatures, output, hasPermissions) -> {
-    //$$                 for (RegistrySupplier<Item> item : items) {
-    //$$                     output.accept(new ItemStack(item.get()));
-    //$$                 }
-    //$$             })
-    //$$             .build();
+    //$$ public static RegistrySupplier<CreativeModeTab> addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
+    //$$     return CREATIVE_TABS.register(
+    //$$             id,
+    //$$             () -> {
+    //$$                 CreativeModeTab.Builder builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0);
+    //$$                 return builder
+    //$$                         .title(ComponentHelper.translatable(name))
+    //$$                         .icon(() -> new ItemStack(icon.get()))
+    //$$                         .displayItems((enabledFeatures, output, hasPermissions) -> {
+    //$$                             for (RegistrySupplier<Item> item : items) {
+    //$$                                 output.accept(new ItemStack(item.get()));
+    //$$                             }
+    //$$                         })
+    //$$                         .build();
+    //$$             }
+    //$$     );
     //$$ }
     //#endif
 
@@ -130,7 +122,7 @@ public class RegisterUtil {
         BLOCKS.register();
         ITEMS.register();
         BLOCK_ENTITIES.register();
-        //#if MC_VERSION >= 12000
+        //#if MC_VERSION >= 11903
         CREATIVE_TABS.register();
         //#endif
         MENUS.register();
