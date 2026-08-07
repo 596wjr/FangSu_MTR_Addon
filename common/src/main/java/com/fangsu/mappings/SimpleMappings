@@ -1,0 +1,23 @@
+package com.fangsu.mappings;
+
+public class SimpleMappings<T> implements IMappings<T>{
+    private final T raw;
+
+    protected SimpleMappings<T>(T raw){
+        this.raw = raw;
+    }
+
+    public static SimpleMappings<T> fromRaw(T raw){
+        return new SimpleMappings<T>(raw);
+    }
+
+    @Override
+    public T getRaw(){
+        return this.raw;
+    }
+
+    @Override
+    public String toString(){
+        return "SimpleMappings{raw=" + raw + "}";
+    }
+}
