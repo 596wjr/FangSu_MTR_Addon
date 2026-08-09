@@ -74,11 +74,13 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
         final ScriptHolderBase scriptHolder;
         final Map<String, Object> scriptInfo;
         final Map<String, Object> scriptExtra;
-        LcdBase lcd = null;
+        // final：lambda（drawFn）内引用，Java 要求 effectively final；分支内各自赋值
+        final LcdBase lcd;
         if (scriptLcd) {
             scriptHolder = LcdScriptSupport.getHolder(lcdInfo.script());
             scriptInfo = LcdScriptSupport.buildInfo(lcdInfo);
             scriptExtra = LcdScriptSupport.buildExtraConfig(lcdInfo);
+            lcd = null;
         } else {
             scriptHolder = null;
             scriptInfo = null;
