@@ -29,6 +29,27 @@ public final class ClientHooksImpl {
         );
     }
 
+    public static void openRotatingRailModelSelectScreen(com.fangsu.blockEntities.BlockEntityRotatingRail rail) {
+        Minecraft.getInstance().setScreen(new ModelSelectScreen(
+                com.fangsu.mappings.ComponentHelper.translatable("ui.fangsu.rotating_rail.rail"),
+                rail,
+                com.fangsu.customItem.NteRailManager.getInstance().getRails(),
+                target -> (target instanceof com.fangsu.blockEntities.BlockEntityRotatingRail)
+                        ? ((com.fangsu.blockEntities.BlockEntityRotatingRail) target).getExtraConfig("railId", "pujiang_line_track_only")
+                        : "pujiang_line_track_only",
+                (target, value) -> {
+                    if (target instanceof com.fangsu.blockEntities.BlockEntityRotatingRail r) {
+                        r.setExtraConfig("railId", value);
+                        if (r == rail) {
+                            r.reloadModel();
+                        }
+                    }
+                },
+                Minecraft.getInstance().screen,
+                rail::reloadModel
+        ));
+    }
+
     public static void openSignConfigScreen(
             int faces, List<Map<String, List<SignItem>>> items, Consumer<List<Map<String, List<SignItem>>>> setter
     ) {

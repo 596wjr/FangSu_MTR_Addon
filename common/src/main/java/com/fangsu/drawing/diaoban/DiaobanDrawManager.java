@@ -1,6 +1,7 @@
 package com.fangsu.drawing.diaoban;
 
 import com.fangsu.customItem.ModelSelectInfo;
+import com.fangsu.customItem.BasicModelSelectInfo;
 import com.fangsu.Main;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonArray;
@@ -97,7 +98,7 @@ public final class DiaobanDrawManager {
         }
     }
 
-    public static class DiaobanDrawItem extends ModelSelectInfo {
+    public static class DiaobanDrawItem extends BasicModelSelectInfo {
         private final Supplier<BaseDiaobanDrawing> supplier;
         private final JsonObject settings;
 

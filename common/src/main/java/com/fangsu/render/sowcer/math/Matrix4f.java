@@ -175,7 +175,7 @@ public class Matrix4f {
 //$$    }
 //$$
 //$$    public void scale(float x, float y, float z) {
-//$$        impl.scale(x, y, z);
+//$$        multiply(new Matrix4f(com.mojang.math.Matrix4f.createScaleMatrix(x, y, z)));
 //$$    }
 //$$
 //$$    public Vector3f transform(Vector3f src) {

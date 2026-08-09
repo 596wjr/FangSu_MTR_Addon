@@ -70,6 +70,33 @@ public class MtrUtil {
     }
 
     /**
+     * 获取指定方块坐标处的轨道节点信息。
+     *
+     * @param x 方块 X 坐标
+     * @param y 方块 Y 坐标
+     * @param z 方块 Z 坐标
+     * @return 该坐标处的节点信息；若该坐标不是节点方块或世界不可用，则返回 connected=false 的节点
+     */
+    public static MtrNode getMtrNode(int x, int y, int z) {
+        final BlockPos pos = new BlockPos(x, y, z);
+        final BlockGetter world = Minecraft.getInstance().level;
+        if (world == null) {
+            return new MtrNode(0, x, y, z, false);
+        }
+        final BlockState state = world.getBlockState(pos);
+        if (!(state.getBlock() instanceof BlockNode)) {
+            return new MtrNode(0, x, y, z, false);
+        }
+        final float angle = BlockNode.getAngle(state);
+        final boolean connected = ClientData.RAILS.containsKey(pos);
+        return new MtrNode(angle, x, y, z, connected);
+    }
+
+    /** 轨道节点信息（角度、坐标、是否已连接）。 */
+    public static record MtrNode(float angle, int x, int y, int z, boolean connected) {
+    }
+
+    /**
      * 获取站台对应的路线详情。
      */
     public static List<ClientCache.PlatformRouteDetails> getRouteByPlatform(long platformId) {
@@ -215,6 +242,7 @@ public class MtrUtil {
     public static boolean isDestination(LocalRoute route, Platform platform) {
         if (route == null) return false;
         if (platform == null) return false;
+        if (route.platformIds == null || route.platformIds.isEmpty()) return false;
         return route.platformIds.get(route.platformIds.size() - 1).platformId == platform.id;
     }
 

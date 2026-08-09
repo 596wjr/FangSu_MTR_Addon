@@ -4,6 +4,7 @@ import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.blocks.ModBlocks;
 import com.fangsu.customItem.CustomItems;
 import com.fangsu.customItem.CustomMtrLifts;
+import com.fangsu.customItem.NteRailManager;
 import com.fangsu.render.ShadersModHandler;
 import com.fangsu.render.sowcer.util.DrawContext;
 import com.fangsu.render.sowcerext.reuse.AtlasManager;
@@ -83,6 +84,11 @@ public class MainClient {
                 CustomItems.getInstance().init();
             } catch (Exception e) {
                 Main.LOGGER.error("[FangSu] CustomItems.init failed", e);
+            }
+            try {
+                NteRailManager.getInstance().load();
+            } catch (Exception e) {
+                Main.LOGGER.error("[FangSu] NteRailManager.init failed", e);
             }
             Main.LOGGER.info("[FangSu] CustomItems.init completed, starting SignItemFactory.init...");
 

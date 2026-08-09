@@ -1,6 +1,7 @@
 package com.fangsu.customItem.contents;
 
 import com.fangsu.customItem.ModelSelectInfo;
+import com.fangsu.customItem.BasicModelSelectInfo;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -62,8 +63,8 @@ public final class ContentResourceLoader {
             String text = item.get("text") instanceof String s ? s : "";
             String content = item.get("id") instanceof String s ? s : "";
             String contentText = item.get("contentText") instanceof String s ? s : null;
-            if (contentText != null) infos.add(new ModelSelectInfo(text, content, contentText));
-            else infos.add(new ModelSelectInfo(text, content));
+            if (contentText != null) infos.add(new BasicModelSelectInfo(text, content, contentText));
+            else infos.add(new BasicModelSelectInfo(text, content));
         }
         return infos;
     }

@@ -2,8 +2,6 @@ package com.fangsu.blocks;
 
 import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.client.ClientHooks;
-import com.fangsu.ui.ticketMachine.TicketMachineMainScreen;
-import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;

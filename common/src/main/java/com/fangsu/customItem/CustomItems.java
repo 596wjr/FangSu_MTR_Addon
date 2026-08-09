@@ -94,8 +94,8 @@ public class CustomItems {
             String content = detailObj.get("content").getAsString();
             String contentText = detailObj.has("contentText") ? detailObj.get("contentText").getAsString() : null;
             if (contentText == null || contentText.isEmpty())
-                thisItemInfo.add(new ModelSelectInfo(text, content));
-            else thisItemInfo.add(new ModelSelectInfo(text, content, contentText));
+                thisItemInfo.add(new BasicModelSelectInfo(text, content));
+            else thisItemInfo.add(new BasicModelSelectInfo(text, content, contentText));
         }
         return thisItemInfo;
     }

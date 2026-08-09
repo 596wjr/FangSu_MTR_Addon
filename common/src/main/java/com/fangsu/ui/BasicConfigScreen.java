@@ -214,22 +214,34 @@ public abstract class BasicConfigScreen extends Screen {
         renderScrollbar(g);
     }
 
+    /**
+     * 内容总高度：从视口顶部（getContentTop）到内容底部（getActualContentBottom）。
+     * 采用视口顶部作为起始，确保最大滚动量能把最后一项完整滚入视口。
+     */
+    private int getContentHeight() {
+        return Math.max(0, getActualContentBottom() - getContentTop());
+    }
+
+    /** 最大滚动量（负偏移的绝对值），内容不足以滚动时为 0。 */
+    private int getMaxScroll() {
+        return Math.max(0, getContentHeight() - (getContentBottom() - getContentTop()));
+    }
+
     private void renderScrollbar(GraphicContext g) {
         int visibleTop = getContentTop();
         int visibleBottom = getContentBottom();
         int visibleHeight = visibleBottom - visibleTop;
 
-        int contentBottom = getActualContentBottom();
-        int contentTop = entries.isEmpty() ? 0 : entries.get(0).baseY;
-        int contentHeight = contentBottom - contentTop;
+        int contentHeight = getContentHeight();
+        int maxScroll = getMaxScroll();
 
-        if (contentHeight <= visibleHeight) return;
+        if (maxScroll <= 0) return;
 
         int scrollbarX = getContentRight() + 2;
         int scrollbarW = 4;
         g.fill(scrollbarX, visibleTop, scrollbarX + scrollbarW, visibleBottom, 0x30FFFFFF);
 
-        float ratio = (float) -scrollOffset / Math.max(1, contentHeight - visibleHeight);
+        float ratio = (float) -scrollOffset / maxScroll;
         int thumbH = Math.max(10, (int) (visibleHeight * (float) visibleHeight / contentHeight));
         int thumbY = visibleTop + (int) (ratio * (visibleHeight - thumbH));
         g.fill(scrollbarX, thumbY, scrollbarX + scrollbarW, thumbY + thumbH, 0x99FFFFFF);
@@ -241,14 +253,13 @@ public abstract class BasicConfigScreen extends Screen {
             int visibleTop = getContentTop();
             int visibleBottom = getContentBottom();
             int visibleHeight = visibleBottom - visibleTop;
-            int contentBottom = getActualContentBottom();
-            int contentTop = entries.isEmpty() ? 0 : entries.get(0).baseY;
-            int contentHeight = contentBottom - contentTop;
-            if (contentHeight > visibleHeight) {
+            int maxScroll = getMaxScroll();
+            if (maxScroll > 0) {
+                int contentHeight = getContentHeight();
                 int sbX = getContentRight() + 2;
                 int sbW = 4;
                 if (mouseX >= sbX && mouseX <= sbX + sbW && mouseY >= visibleTop && mouseY <= visibleBottom) {
-                    float ratio = (float) -scrollOffset / Math.max(1, contentHeight - visibleHeight);
+                    float ratio = (float) -scrollOffset / maxScroll;
                     int thumbH = Math.max(10, (int) (visibleHeight * (float) visibleHeight / contentHeight));
                     int thumbY = visibleTop + (int) (ratio * (visibleHeight - thumbH));
                     if (mouseY >= thumbY && mouseY <= thumbY + thumbH) {
@@ -258,7 +269,7 @@ public abstract class BasicConfigScreen extends Screen {
                     } else {
                         int page = visibleHeight / 2;
                         if (mouseY < thumbY) {
-                            scrollOffset = Math.max(visibleHeight - contentHeight, scrollOffset + page);
+                            scrollOffset = Math.max(-maxScroll, scrollOffset + page);
                         } else {
                             scrollOffset = Math.min(0, scrollOffset - page);
                         }
@@ -280,12 +291,9 @@ public abstract class BasicConfigScreen extends Screen {
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (draggingScrollbar && button == 0) {
             int visibleTop = getContentTop();
-            int visibleBottom = getContentBottom();
-            int visibleHeight = visibleBottom - visibleTop;
-            int contentBottom = getActualContentBottom();
-            int contentTop = entries.isEmpty() ? 0 : entries.get(0).baseY;
-            int contentHeight = contentBottom - contentTop;
-            int maxScroll = Math.max(0, contentHeight - visibleHeight);
+            int visibleHeight = getContentBottom() - visibleTop;
+            int contentHeight = getContentHeight();
+            int maxScroll = getMaxScroll();
             if (maxScroll > 0) {
                 int thumbH = Math.max(10, (int) (visibleHeight * (float) visibleHeight / contentHeight));
                 float ratio = (float) (mouseY - visibleTop - dragScrollOffset) / (visibleHeight - thumbH);
@@ -299,23 +307,16 @@ public abstract class BasicConfigScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        int visibleTop = getContentTop();
-        int visibleBottom = getContentBottom();
-        int visibleHeight = visibleBottom - visibleTop;
+        int maxScroll = getMaxScroll();
 
-        int contentBottom = getActualContentBottom();
-        int contentTop = entries.isEmpty() ? 0 : entries.get(0).baseY;
-        int contentHeight = contentBottom - contentTop;
-
-        if (contentHeight <= visibleHeight) {
+        if (maxScroll <= 0) {
             scrollOffset = 0;
             return false;
         }
 
         scrollOffset += (int) (delta * 12);
 
-        int minOffset = visibleHeight - contentHeight;
-        scrollOffset = Mth.clamp(scrollOffset, minOffset, 0);
+        scrollOffset = Mth.clamp(scrollOffset, -maxScroll, 0);
         return true;
     }
 

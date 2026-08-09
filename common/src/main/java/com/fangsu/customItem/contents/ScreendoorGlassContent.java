@@ -2,6 +2,7 @@ package com.fangsu.customItem.contents;
 
 import com.fangsu.Main;
 import com.fangsu.customItem.ModelSelectInfo;
+import com.fangsu.customItem.BasicModelSelectInfo;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -114,9 +115,9 @@ public class ScreendoorGlassContent extends BaseContent {
             String id = gc.getId().substring(side.length() + 1); // strip prefix
             String contentText = gc.contentText != null ? gc.contentText : "";
             if (contentText.isEmpty())
-                infos.add(new ModelSelectInfo(gc.text, id));
+                infos.add(new BasicModelSelectInfo(gc.text, id));
             else
-                infos.add(new ModelSelectInfo(gc.text, id, contentText));
+                infos.add(new BasicModelSelectInfo(gc.text, id, contentText));
         }
         return infos;
     }

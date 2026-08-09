@@ -10,6 +10,7 @@ import com.fangsu.Main;
 import com.fangsu.network.ModNetwork;
 import com.fangsu.utils.*;
 import com.fangsu.blocks.BaseObjBlock;
+import com.fangsu.blocks.BlockTicketBarrier;
 import com.fangsu.ticketSystem.*;
 import com.fangsu.extraConfig.*;
 
@@ -203,6 +204,49 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
                 extraConfigs,
                 this::sendUpdateC2S
         );
+    }
+
+    @Override
+    public InteractionResult whenUseWithBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        if (level.isClientSide) return InteractionResult.SUCCESS;
+        flipBarrier(level, pos, player);
+        return InteractionResult.SUCCESS;
+    }
+
+    /**
+     * 刷子操作：MTR 计费模式下切换出入口（入站⇄出站），并反转闸机朝向（南向变为北向等）。
+     * 仅操作被点击的单台闸机；其他收费模式只反转朝向。
+     */
+    private void flipBarrier(Level level, BlockPos pos, Player player) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof BlockTicketBarrier)) return;
+        Direction facing = state.getValue(BaseObjBlock.FACING);
+        Direction newFacing = facing.getOpposite();
+
+        // MTR 计费模式下切换出入口（入站⇄出站）
+        boolean mtrFare = getExtraConfigInt("fareType", 0) == 0;
+        if (mtrFare) {
+            setExtraConfig("isExit", String.valueOf(!getExtraConfigBool("isExit", false)));
+            sendUpdateC2S();
+        }
+
+        // 反转朝向（同类型方块仅改属性，方块实体数据保留）
+        level.setBlock(pos, state.setValue(BaseObjBlock.FACING, newFacing), 3);
+
+        // 提示玩家操作结果
+        if (mtrFare) {
+            boolean nowExit = getExtraConfigBool("isExit", false);
+            player.displayClientMessage(ComponentHelper.translatable(
+                    "msg.fangsu.ticketbarrier.brushSet",
+                    ComponentHelper.translatable(nowExit ? "msg.fangsu.ticketbarrier.exit" : "msg.fangsu.ticketbarrier.entrance"),
+                    ComponentHelper.translatable("block.minecraft." + newFacing.getName())
+            ), true);
+        } else {
+            player.displayClientMessage(ComponentHelper.translatable(
+                    "msg.fangsu.ticketbarrier.brushFlip",
+                    ComponentHelper.translatable("block.minecraft." + newFacing.getName())
+            ), true);
+        }
     }
 
     private void checkSideOpen(Level level, BlockPos pos) {

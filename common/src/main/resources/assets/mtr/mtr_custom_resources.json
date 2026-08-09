@@ -35,6 +35,22 @@
       "texture_id": "mtr:textures/entity/r_train",
       "base_train_type": "r_train_mini",
       "speed_sound_base_id": "c1141a"
+    },
+    "r_train_fangsu_js_lcd": {
+      "name": "R-TRAIN (JS LCD)",
+      "description": "Provided by FangSu Blocks",
+      "color": "6CB5E2",
+      "lcd": {
+        "id": "mtr",
+        "slots": "mtr:r_train/slots.json",
+        "script": "fangsu:lcd/r_train_lcd.js",
+        "extraConfig": {
+          "font": "fangsu:fonts/ae.ttf"
+        }
+      },
+      "texture_id": "mtr:textures/entity/r_train",
+      "base_train_type": "r_train",
+      "speed_sound_base_id": "c1141a"
     }
   }
 }

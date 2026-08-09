@@ -1,67 +1,20 @@
 package com.fangsu.customItem;
 
-import com.fangsu.mappings.ComponentHelper;
 import com.google.gson.JsonObject;
-import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Objects;
+/**
+ * 模型选择项的信息接口，描述一个可选模型（如吊板 / PIDS / 屏风门的某个子模型）。
+ * 仅供 {@link com.fangsu.ui.ModelSelectScreen} 等 UI 与逻辑层读取使用。
+ */
+public interface ModelSelectInfo {
+    String getText();
 
-public class ModelSelectInfo {
-    private final String text;
-    private final String content;
-    private final String contentText;
-    private final JsonObject defaultItem;
+    String getContent();
 
-    public ModelSelectInfo(@Nullable String text, @Nullable String content, @Nullable String contentText, @Nullable JsonObject defaultItem) {
-        this.text = text == null ? "[MISSING TEXT]" : text;
-        this.content = content == null ? "Unknown" : content;
-        this.contentText = contentText == null ? ComponentHelper.translatable("ui.fangsu.block.no_detail").getString() : contentText;
-        this.defaultItem = defaultItem;
-    }
+    String getContentText();
 
-    public ModelSelectInfo(String text, String content) {
-        this(text, content, ComponentHelper.translatable("ui.fangsu.block.no_detail").getString(), null);
-    }
-
-    public ModelSelectInfo(String text, String content, String contentText) {
-        this(text, content, contentText, null);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (obj == null) return false;
-        if (obj == this) return true;
-        if (obj instanceof ModelSelectInfo m) {
-            return m.content.equals(this.content);
-        }
-        return false;
-    }
-
-    @Override
-    public String toString() {
-        return "ModelSelectInfo {\"text\":" + text + ", \"content\":" + contentText + ", \"contentText\":" + contentText + "}";
-    }
-
-    public String getText() {
-        return text;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public String getContentText() {
-        return contentText;
-    }
-
-    public JsonObject getDefault() {
-        return defaultItem;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(text, content, contentText, defaultItem);
-    }
-
+    @Nullable
+    JsonObject getDefault();
 }
+

@@ -8,6 +8,8 @@ import com.fangsu.render.sowcer.math.PoseStackUtil;
 import com.fangsu.render.sowcer.math.Vector3f;
 import com.fangsu.scripting.DisplayHelper;
 import com.fangsu.scripting.GraphicsTexture;
+import com.fangsu.userScripts.ScriptHolderBase;
+import com.fangsu.userScripts.ScriptManager;
 import com.fangsu.utils.GraphicsTextureHelper;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -66,10 +68,26 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
             return new FunctionalTrainRenderer(null, instanceBaseRenderer, trainClient, null, null, trainStatus);
         }
 
-        LcdBase lcd = LcdManager.getInstance().getLcd(lcdInfo.id());
-        if (lcd == null) {
-            Main.LOGGER.warn("LCD not found for id: {}", lcdInfo.id());
-            return new FunctionalTrainRenderer(lcdInfo, instanceBaseRenderer, trainClient, null, null, trainStatus);
+        // JS 脚本 LCD：lcd.script 存在时优先走脚本绘制路径（参照 JCM 给列车挂 JS 的方式），
+        // 否则走 Java 实现（LcdManager 注册表）
+        final boolean scriptLcd = lcdInfo.hasScript();
+        final ScriptHolderBase scriptHolder;
+        final Map<String, Object> scriptInfo;
+        final Map<String, Object> scriptExtra;
+        LcdBase lcd = null;
+        if (scriptLcd) {
+            scriptHolder = LcdScriptSupport.getHolder(lcdInfo.script());
+            scriptInfo = LcdScriptSupport.buildInfo(lcdInfo);
+            scriptExtra = LcdScriptSupport.buildExtraConfig(lcdInfo);
+        } else {
+            scriptHolder = null;
+            scriptInfo = null;
+            scriptExtra = null;
+            lcd = LcdManager.getInstance().getLcd(lcdInfo.id());
+            if (lcd == null) {
+                Main.LOGGER.warn("LCD not found for id: {}", lcdInfo.id());
+                return new FunctionalTrainRenderer(lcdInfo, instanceBaseRenderer, trainClient, null, null, trainStatus);
+            }
         }
 
         GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
@@ -79,21 +97,29 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
         Runnable noopCallback = () -> {};
 
         GraphicsTextureHelper.DrawFunctionGt drawFn = (gt) -> {
-            drawState.clear();
-            var slots = lcdInfo.slotsInfo().getAsJsonArray("slots");
+            // 注意：不再清空 drawState——脚本侧用它做跨帧缓存（字体/时间），与 PIDS 脚本同语义；
+            // Java 实现（MtrLcd）不使用 state，无副作用
             trainStatus.updateRoute();
-            if (trainStatus.currentRoute != null && trainStatus.drawableRoute != null) {
-                for (JsonElement slot : slots) {
-                    JsonObject obj = slot.getAsJsonObject();
-                    String name = obj.get("name").getAsString();
-                    JsonArray texAreaJson = obj.get("texArea").getAsJsonArray();
-                    int[] texArea = new int[]{texAreaJson.get(0).getAsInt(), texAreaJson.get(1).getAsInt(), texAreaJson.get(2).getAsInt(), texAreaJson.get(3).getAsInt()};
-                    lcd.draw(gt.graphics, trainStatus, lcdInfo, drawState,
-                            name, texArea[0], texArea[1], texArea[2], texArea[3], noopCallback);
-                }
+            if (scriptLcd) {
+                // 脚本路径：每帧整张纹理重绘，无线路数据时由脚本自行处理
+                if (scriptHolder == null) return; // ScriptManager 未初始化：保持纹理为空
+                ScriptManager.getInstance().requestRunFunctionSync(scriptHolder, gt::upload, "draw",
+                        gt.graphics, drawState, trainStatus, scriptInfo, scriptExtra);
             } else {
-                // 路线数据未就绪（新 TrainClient 尚未同步），跳过绘制以保留纹理的上一帧有效内容
-                // 无需 upload，tick 循环会通过 needsUpload 统一上传
+                var slots = lcdInfo.slotsInfo().getAsJsonArray("slots");
+                if (trainStatus.currentRoute != null && trainStatus.drawableRoute != null) {
+                    for (JsonElement slot : slots) {
+                        JsonObject obj = slot.getAsJsonObject();
+                        String name = obj.get("name").getAsString();
+                        JsonArray texAreaJson = obj.get("texArea").getAsJsonArray();
+                        int[] texArea = new int[]{texAreaJson.get(0).getAsInt(), texAreaJson.get(1).getAsInt(), texAreaJson.get(2).getAsInt(), texAreaJson.get(3).getAsInt()};
+                        lcd.draw(gt.graphics, trainStatus, lcdInfo, drawState,
+                                name, texArea[0], texArea[1], texArea[2], texArea[3], noopCallback);
+                    }
+                } else {
+                    // 路线数据未就绪（新 TrainClient 尚未同步），跳过绘制以保留纹理的上一帧有效内容
+                    // 无需 upload，tick 循环会通过 needsUpload 统一上传
+                }
             }
         };
         // TrainClient 重建后（trainId 复用）替换绘制函数以捕获新的 trainStatus/drawState，保留旧纹理内容

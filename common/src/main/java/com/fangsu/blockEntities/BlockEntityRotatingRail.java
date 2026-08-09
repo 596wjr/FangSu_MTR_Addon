@@ -3,15 +3,19 @@ package com.fangsu.blockEntities;
 import com.fangsu.Main;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.client.ClientHooks;
+import com.fangsu.customItem.NteRailManager.NteRail;
+import com.fangsu.customItem.NteRailManager;
 import com.fangsu.extraConfig.*;
 import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.network.ModNetwork;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcer.math.Matrices;
 import com.fangsu.render.sowcerext.model.RawModel;
+
 import com.fangsu.utils.ResourceUtil;
 import dev.architectury.networking.NetworkManager;
 import io.netty.buffer.Unpooled;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
@@ -47,12 +51,13 @@ import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_ROTATING_RAIL;
 public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Syncable {
 
     // ==================== 默认值 ====================
-    private static final String DEFAULT_MODEL = "mtrsteamloco:rails/pujiang_line_track_only.obj";
+    private static final String DEFAULT_RAIL_ID = "pujiang_line_track_only";
+    private static final String DEFAULT_FALLBACK_MODEL = "mtrsteamloco:rails/pujiang_line_track_only.obj";
     private static final String MODE_F = "f";
     private static final String MODE_R = "r";
     private static final String MODE_CROSSING = "crossing";
 
-    // ==================== ExtraConfig（从 FunctionalObjBlockEntity 复制） ====================
+    // ==================== ExtraConfig ====================
     protected Map<String, String> extraConfigs = new ConcurrentHashMap<>();
 
     public final String getExtraConfig(String key) {
@@ -112,6 +117,9 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
             buf.writeUtf(value != null ? value : "");
             count++;
         }
+        writeNode(buf, fixedNode);
+        writeNode(buf, posNode);
+        writeNode(buf, negNode);
     }
 
     @Override
@@ -124,6 +132,9 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
             String value = buf.readUtf();
             extraConfigs.put(key, value);
         }
+        fixedNode = readNode(buf);
+        posNode = readNode(buf);
+        negNode = readNode(buf);
         triggerAsyncLoading();
         this.setChanged();
         if (level != null && !level.isClientSide) {
@@ -131,7 +142,29 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
         }
     }
 
+    private static void writeNode(FriendlyByteBuf buf, BlockPos node) {
+        buf.writeBoolean(node != null);
+        if (node != null) {
+            buf.writeInt(node.getX());
+            buf.writeInt(node.getY());
+            buf.writeInt(node.getZ());
+        }
+    }
+
+    private static BlockPos readNode(FriendlyByteBuf buf) {
+        if (!buf.readBoolean()) return null;
+        return new BlockPos(buf.readInt(), buf.readInt(), buf.readInt());
+    }
+
     // ==================== NBT 持久化 ====================
+
+    /**
+     * 需要以原生 NBT 字段保存的字符串配置键集合。
+     */
+    private static final java.util.Set<String> STRING_CONFIG_KEYS = java.util.Set.of(
+            "mode", "railId", "t_length", "flipV", "length", "in", "flip",
+            "t_count", "r", "r1", "r2"
+    );
 
     @Override
     public void saveAdditional(@NotNull CompoundTag tag) {
@@ -144,14 +177,27 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
             Main.LOGGER.error("Failed to save extra configs for {} at {}", getClass().getSimpleName(), getBlockPos(), e);
         }
 
+        // 直接使用游戏原生 NBT，将每个配置作为根标签下的独立字段保存（避免嵌套 extraConfig 层）
         if (extraConfigs != null) {
-            CompoundTag subConfigTag = new CompoundTag();
-            for (String key : extraConfigs.keySet()) {
+            for (String key : STRING_CONFIG_KEYS) {
                 String value = extraConfigs.get(key);
-                if (value != null) subConfigTag.putString(key, value);
+                if (value != null) {
+                    tag.putString(key, value);
+                }
             }
-            tag.put("extraConfig", subConfigTag);
         }
+
+        // R 模式：三个节点的位置以原生 int 三元组保存
+        saveNode(tag, "fixed", fixedNode);
+        saveNode(tag, "pos", posNode);
+        saveNode(tag, "neg", negNode);
+    }
+
+    private static void saveNode(@NotNull CompoundTag tag, String prefix, BlockPos node) {
+        if (node == null) return;
+        tag.putInt(prefix + "X", node.getX());
+        tag.putInt(prefix + "Y", node.getY());
+        tag.putInt(prefix + "Z", node.getZ());
     }
 
     @Override
@@ -160,14 +206,24 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
         markedError = false;
 
         extraConfigs.clear();
-        if (tag.contains("extraConfig")) {
-            CompoundTag subConfigTag = tag.getCompound("extraConfig");
-            for (String key : subConfigTag.getAllKeys()) {
-                extraConfigs.put(key, subConfigTag.getString(key));
+        for (String key : STRING_CONFIG_KEYS) {
+            if (tag.contains(key)) {
+                extraConfigs.put(key, tag.getString(key));
             }
         }
 
+        fixedNode = loadNode(tag, "fixed");
+        posNode = loadNode(tag, "pos");
+        negNode = loadNode(tag, "neg");
+
         triggerAsyncLoading();
+    }
+
+    private static BlockPos loadNode(@NotNull CompoundTag tag, String prefix) {
+        if (!tag.contains(prefix + "X") || !tag.contains(prefix + "Y") || !tag.contains(prefix + "Z")) {
+            return null;
+        }
+        return new BlockPos(tag.getInt(prefix + "X"), tag.getInt(prefix + "Y"), tag.getInt(prefix + "Z"));
     }
 
     // ==================== 异步加载（从 FunctionalObjBlockEntity 复制） ====================
@@ -204,6 +260,11 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
     private RawModel defaultRawModel;
     private boolean modelLoadingFailed = false;
 
+    // R 模式：三个节点位置（不动/正向/反向）
+    private BlockPos fixedNode;
+    private BlockPos posNode;
+    private BlockPos negNode;
+
     // 直轨模式缓存
     private final Map<String, List<double[]>> chordCache = new ConcurrentHashMap<>();
 
@@ -223,7 +284,7 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
     public void whenLoading() {
         // 注册默认配置
         ensureExtraConfig("mode", MODE_F);
-        ensureExtraConfig("model", DEFAULT_MODEL);
+        ensureExtraConfig("railId", DEFAULT_RAIL_ID);
         ensureExtraConfig("t_length", "1.6");
         ensureExtraConfig("flipV", "1");
 
@@ -297,12 +358,49 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
         chordCache.clear();
     }
 
-    // ==================== 模型加载 ====================
+    // ==================== 模型加载（基于 NteRail 选择） ====================
+
+    /**
+     * 返回当前选择的 NteRail，若无效则返回 null。
+     */
+    @org.jetbrains.annotations.Nullable
+    private NteRail getSelectedNteRail() {
+        String railId = getExtraConfig("railId", DEFAULT_RAIL_ID);
+        NteRail rail = NteRailManager.getInstance().getRail(railId);
+        if (rail == null) {
+            // 回退到第一个可用轨道
+            List<NteRail> rails = NteRailManager.getInstance().getRails();
+            if (!rails.isEmpty()) {
+                rail = rails.get(0);
+            }
+        }
+        return rail;
+    }
+
+    /**
+     * 返回每格方块内的轨道段数（segments per block），由所选 NteRail 的 {@link NteRail#repeatInterval()} 推导。
+     * repeatInterval 表示每段轨道在方块中的间距，故段密度 = 1 / repeatInterval。
+     * 若 NteRail 无效，则回退到配置的 t_length。
+     */
+    private double getSegmentPerBlock() {
+        NteRail rail = getSelectedNteRail();
+        if (rail != null && rail.repeatInterval() > 0) {
+            return 1.0 / rail.repeatInterval();
+        }
+        return getExtraConfigFloat("t_length", 1.6f);
+    }
 
     private void loadTrackModel() {
-        String modelPath = getExtraConfig("model", DEFAULT_MODEL);
-        boolean flipV = "1".equals(getExtraConfig("flipV", "1"));
+        NteRail rail = getSelectedNteRail();
+        if (rail == null || rail.model() == null || rail.model().isEmpty()) {
+            Main.LOGGER.warn("[RotatingRail] No valid NteRail selected, using default model");
+            loadModelFromPath(DEFAULT_FALLBACK_MODEL, true);
+            return;
+        }
+        loadModelFromPath(rail.model(), rail.flipV());
+    }
 
+    private void loadModelFromPath(String modelPath, boolean flipV) {
         try {
             RawModel rawModel = ResourceUtil.loadModel(new ResourceLocation(modelPath), flipV);
             if (rawModel != null) {
@@ -330,7 +428,7 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
     private void renderModeF(ObjBlockScriptContext ctx, DynamicModelHolder model, boolean hasRedstone) {
         double length = getExtraConfigFloat("length", 20f);
         double interval = getExtraConfigFloat("in", 4f);
-        double tLength = getExtraConfigFloat("t_length", 1.6f);
+        double tLength = getSegmentPerBlock();
         String flip = getExtraConfig("flip", "1");
 
         // 计算目标偏移
@@ -343,26 +441,33 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
             offsetState = targetOffset;
         }
 
-        // 两条平行主轨道
-        Matrices ma = new Matrices();
-        ma.translate((float) (offsetState - interval), -1, (float) (0.5 * length));
-        ma.last().scale(1.0f, 1.0f, (float) (length * tLength));
-        ctx.drawModel(model, ma);
+        // 两条平行主轨道：每一条都由正常排布的轨道段组成（不拉伸单个模型）
+        double totalSegments = length * tLength;
+        int segmentCount = Math.max(1, (int) Math.round(totalSegments));
+        double xLeft = offsetState - interval;
+        double xRight = offsetState;
+        for (int i = 0; i < segmentCount; i++) {
+            double z = (i + 0.5) / tLength;
 
-        ma.translate((float) (-interval), 0, 0);
-        ctx.drawModel(model, ma);
+            Matrices left = new Matrices();
+            left.translate((float) xLeft, 0, (float) z);
+            ctx.drawModel(model, left);
+
+            Matrices right = new Matrices();
+            right.translate((float) xRight, 0, (float) z);
+            ctx.drawModel(model, right);
+        }
 
         // 获取弦缓存计算结果
         List<double[]> route = getChordResult(length, interval, tLength);
 
-        // 绘制弦上的轨道段
-        float flipSign = "0".equals(flip) ? 1 : -1;
+        // 绘制弦上的轨道段（Y+1：原为 -1，现在 0）
         for (double[] q : route) {
             Matrices r = new Matrices();
             float tx = "0".equals(flip)
                     ? (float) (offsetState + q[0])
                     : (float) (offsetState + interval - q[0]);
-            r.translate(tx, -1, (float) q[1]);
+            r.translate(tx, 0, (float) q[1]);
             r.rotateY("0".equals(flip) ? (float) q[2] : (float) (-q[2]));
             ctx.drawModel(model, r);
         }
@@ -465,7 +570,7 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
             try {
                 double length = getExtraConfigFloat("length", 20f);
                 double interval = getExtraConfigFloat("in", 4f);
-                double tLength = getExtraConfigFloat("t_length", 1.6f);
+                double tLength = getSegmentPerBlock();
                 getChordResult(length, interval, tLength);
             } catch (Exception e) {
                 Main.LOGGER.warn("[RotatingRail] Chord calculation error: {}", e.getMessage());
@@ -475,29 +580,32 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
 
     // ==================== 旋转模式 (track_r.js) ====================
 
+    /**
+     * 旋转模式：与 JS track_r.js 一致——输入弯曲角度（r）与段数（t_count）。
+     * 从方块实体原点开始，逐段沿 Z 轴推进并按角度弯曲；红石激活时弯曲归零，未激活时弯曲到 r。
+     * 段长（t_length）从所选 NteRail 的 repeatInterval 读取。
+     */
     private void renderModeR(ObjBlockScriptContext ctx, DynamicModelHolder model, boolean hasRedstone) {
-        double tLength = getExtraConfigFloat("t_length", 1.6f);
+        double tLength = getSegmentPerBlock();
         double angle = getExtraConfigFloat("r", 22.5f);
-        double count = getExtraConfigFloat("t_count", 20f);
-
-        if (angle == 0 || angle == 180 || Double.isNaN(angle)) {
+        int count = Math.max(1, (int) getExtraConfigFloat("t_count", 20f));
+        if (angle == 0 || angle == 180 || Float.isNaN((float) angle)) {
             angle = 22.5;
         }
 
-        // 红石控制偏移
+        // 平滑动画：红石激活 → 角度归零；未激活 → 弯曲到 angle
         double targetAngle = hasRedstone ? 0 : angle;
-        double angleSign = Math.abs(angle) / angle;
-
         if (Math.abs(targetAngle - angleState) >= 0.1) {
-            angleState += 0.1 * angleSign * (targetAngle > angleState ? 1 : -1);
+            angleState += (targetAngle > angleState ? 1 : -1) * 0.1 * (Math.abs(angle) / angle);
         } else {
             angleState = targetAngle;
         }
 
+        // 与 JS 相同：同一个矩阵上累计 translate + rotateY，逐段绘制
         Matrices r = new Matrices();
-        r.translate(0, -1, 0);
-
-        for (int q = 0; q <= (int) count; q++) {
+        // Y+1（原 JS 为 -1）
+        r.translate(0, 0, 0);
+        for (int q = 0; q <= count; q++) {
             r.translate(0, 0, (float) (1.0 / tLength));
             r.rotateY((float) (angleState / count * (Math.PI / 180)));
             ctx.drawModel(model, r);
@@ -507,7 +615,7 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
     // ==================== 道口模式 (track_crossing.js) ====================
 
     private void renderModeCrossing(ObjBlockScriptContext ctx, DynamicModelHolder model, boolean hasRedstone) {
-        double tLength = getExtraConfigFloat("t_length", 1.6f);
+        double tLength = getSegmentPerBlock();
         double length = getExtraConfigFloat("length", 6f);
         double r1 = getExtraConfigFloat("r1", 22.5f);
         double r2 = getExtraConfigFloat("r2", -22.5f);
@@ -521,15 +629,16 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
             angleState = targetAngle;
         }
 
-        Matrices ma = new Matrices();
-        ma.rotateY((float) (angleState * (Math.PI / 180)));
-        ma.last().scale(1.0f, 1.0f, (float) (length * tLength));
-
-        // 先绘制立柱（pole）- 使用加载的轨道模型本身
-        ctx.drawModel(model, null);
-
-        // 绘制旋转后的轨道
-        ctx.drawModel(model, ma);
+        // 旋转的轨道：按正常轨距排布（不再拉伸单个模型），Y+1 渲染。
+        // 先旋转再平移（rotateY 在前），使整段轨道都绕方块实体中心（同一中心）旋转，
+        // 而非每个轨道段绕自身中心旋转。
+        int segmentCount = Math.max(1, (int) Math.round(length * tLength));
+        for (int i = 0; i < segmentCount; i++) {
+            Matrices seg = new Matrices();
+            seg.rotateY((float) (angleState * (Math.PI / 180)));
+            seg.translate(0, 0, (float) ((i + 0.5) / tLength));
+            ctx.drawModel(model, seg);
+        }
     }
 
     // ==================== 配置界面 ====================
@@ -559,28 +668,12 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
                 }
         ).setSaveOnChange(true));
 
-        // 模型路径（使用 ResourceConfig — EditBox + Browse 按钮）
-        configs.add(new ResourceConfig(
-                ComponentHelper.translatable("ui.fangsu.rotating_rail.model"),
-                new ConfigSpec("resource"),
-                () -> extra.getOrDefault("model", DEFAULT_MODEL),
-                val -> {
-                    extra.put("model", val);
-                    reloadModel();
-                },
-                List.of(".obj")
-        ));
-
-        // 通用参数
-        configs.add(new NumberInputConfig(
-                ComponentHelper.translatable("ui.fangsu.rotating_rail.t_length"),
-                new ConfigSpec("number"),
-                () -> getExtraConfigFloat("t_length", 1.6f),
-                val -> {
-                    extra.put("t_length", String.valueOf(val));
-                    sendUpdateC2S();
-                }
-        ));
+        // 轨道模型选择：使用 ModelSelectScreen 打开（从 NteRailManager 中选择 NteRail）
+        configs.add(new RunnableConfig(
+                ComponentHelper.translatable("ui.fangsu.rotating_rail.rail"),
+                new ConfigSpec("func"),
+                () -> ClientHooks.openRotatingRailModelSelectScreen(BlockEntityRotatingRail.this)
+        ).setButtonText(ComponentHelper.translatable("ui.fangsu.rotating_rail.rail_select")));
 
         String currentMode = extra.getOrDefault("mode", MODE_F);
 
@@ -634,16 +727,16 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
 
     private void addRConfigs(List<ConfigEntry<?>> configs, Map<String, String> extra) {
         configs.add(new NumberInputConfig(
-                ComponentHelper.translatable("ui.fangsu.rotating_rail.count"),
+                ComponentHelper.translatable("ui.fangsu.rotating_rail.t_count"),
                 new ConfigSpec("number"),
                 () -> getExtraConfigFloat("t_count", 20f),
                 val -> {
-                    extra.put("t_count", String.valueOf(Math.round(val)));
+                    extra.put("t_count", String.valueOf(val));
                     sendUpdateC2S();
                 }
         ));
         configs.add(new NumberInputConfig(
-                ComponentHelper.translatable("ui.fangsu.rotating_rail.rotation"),
+                ComponentHelper.translatable("ui.fangsu.rotating_rail.r"),
                 new ConfigSpec("number"),
                 () -> getExtraConfigFloat("r", 22.5f),
                 val -> {
@@ -692,7 +785,7 @@ public class BlockEntityRotatingRail extends BaseObjBlockEntity implements Synca
         sendUpdateC2S();
     }
 
-    private void reloadModel() {
+    public void reloadModel() {
         if (trackModelHolder != null) {
             trackModelHolder.close();
             trackModelHolder = null;

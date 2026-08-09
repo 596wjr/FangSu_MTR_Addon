@@ -11,17 +11,30 @@ import com.fangsu.utils.ResourceUtil;
 import net.minecraft.resources.ResourceLocation;
 
 import java.awt.*;
-import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 public class MtrLcd extends LcdBase {
+
+    private static Font CJK_FONT;
+    private static Font NON_CJK_FONT;
+
+    private static Font getCjkFont() {
+        if (CJK_FONT == null) CJK_FONT = ResourceUtil.loadFont(new ResourceLocation("mtr:font/noto-serif-cjk-tc-semibold.ttf"));
+        return CJK_FONT;
+    }
+
+    private static Font getNonCjkFont() {
+        if (NON_CJK_FONT == null) NON_CJK_FONT = ResourceUtil.loadFont(new ResourceLocation("mtr:font/noto-sans-semibold.ttf"));
+        return NON_CJK_FONT;
+    }
+
     @Override
     public void draw(Graphics2D g, TrainStatus status, LcdInfo info, Map<String, Object> state, String side, int x, int y, int w, int h, Runnable callback) {
-        Font cjkFont = ResourceUtil.loadFont(new ResourceLocation("mtr:font/noto-serif-cjk-tc-semibold.ttf"));
-        Font nonCjkFont = ResourceUtil.loadFont(new ResourceLocation("mtr:font/noto-sans-semibold.ttf"));
+        final Font cjkFont = getCjkFont();
+        final Font nonCjkFont = getNonCjkFont();
 
         if (status.currentRoute == null || status.drawableRoute == null) {
             g.setColor(Color.WHITE);

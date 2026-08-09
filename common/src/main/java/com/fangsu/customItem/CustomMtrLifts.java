@@ -103,7 +103,7 @@ public class CustomMtrLifts {
         return defaultInfo;
     }
 
-    public static abstract class LiftSelectInfo extends ModelSelectInfo {
+    public static abstract class LiftSelectInfo extends BasicModelSelectInfo {
         private LiftSelectInfo(@Nullable String text, @Nullable String content, @Nullable String contentText, @Nullable JsonObject defaultItem) {
             super(text, content, contentText, defaultItem);
         }
