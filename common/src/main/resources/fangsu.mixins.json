@@ -13,7 +13,8 @@
   "mixins": [
     "CustomResourcesMixin",
     "LiftMixin",
-    "TrainMixin"
+    "TrainMixin",
+    "RailwayDataRailActionsModuleMixin"
   ],
   "injectors": {
     "defaultRequire": 1

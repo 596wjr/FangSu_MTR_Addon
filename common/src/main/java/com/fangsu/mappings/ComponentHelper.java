@@ -1,5 +1,6 @@
 package com.fangsu.mappings;
 
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 
@@ -50,6 +51,19 @@ public class ComponentHelper {
         return Component.literal(str);
         //#else
         //$$ return new net.minecraft.network.chat.TextComponent(str);
+        //#endif
+    }
+
+    /**
+     * 跨版本创建按钮：1.19.3+ 用 Button.builder（新 API），
+     * 1.18.2/1.19.2 无 builder 方法，用构造器（照 BasicConfigScreen.addButton 分界）。
+     * 版本差异收敛于此，UI 各处调用无需再写 //#if 双分支。
+     */
+    public static Button button(int x, int y, int width, int height, Component label, Button.OnPress onPress) {
+        //#if MC_VERSION >= 11903
+        return Button.builder(label, onPress).bounds(x, y, width, height).build();
+        //#else
+        //$$ return new Button(x, y, width, height, label, onPress);
         //#endif
     }
 }

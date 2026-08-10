@@ -47,6 +47,7 @@ public class MainClient {
         ModMenus.initClient();
         ShadersModHandler.init();
         ScriptManager.getInstance().init();
+        com.fangsu.network.HybridCreatorClient.init();
 
         try {
             Class.forName("cn.zbx1425.mtrsteamloco.MainClient", false, MainClient.class.getClassLoader());

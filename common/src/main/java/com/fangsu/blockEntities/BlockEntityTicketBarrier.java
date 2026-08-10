@@ -179,11 +179,11 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
                 .getValue(BaseObjBlock.FACING);
 
         double hitThreshold = content != null && content.getHitPos() != null ? content.getHitPos() : 0.5;
-        if ((facing == Direction.NORTH && hitPos.z > hitThreshold) ||
+        boolean canUse = (facing == Direction.NORTH && hitPos.z > hitThreshold) ||
                 (facing == Direction.SOUTH && hitPos.z < 1 - hitThreshold) ||
                 (facing == Direction.WEST && hitPos.x > hitThreshold) ||
-                (facing == Direction.EAST && hitPos.x < 1 - hitThreshold)
-        ) {
+                (facing == Direction.EAST && hitPos.x < 1 - hitThreshold);
+        if (canUse) {
             FriendlyByteBuf packetBuf = new FriendlyByteBuf(Unpooled.buffer());
             packetBuf.writeBlockPos(pos);
             NetworkManager.sendToServer(ModNetwork.TICKET_BARRIER_SYNC, packetBuf);

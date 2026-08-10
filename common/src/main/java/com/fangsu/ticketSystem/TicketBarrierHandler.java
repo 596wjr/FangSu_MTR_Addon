@@ -49,7 +49,14 @@ public final class TicketBarrierHandler {
                     dispName = extraConfigs.getOrDefault("customDisplayName", "");
                 } else {
                     Station station = MtrTicketSystem.getStation(level, pos);
-                    if (station == null) return false;
+                    if (station == null) {
+                        // 车站区域未划定或闸机不在区域内时，静默返回会让玩家以为闸机坏了，给出明确提示
+                        player.displayClientMessage(
+                                ComponentHelper.translatable("msg.fangsu.ticketbarrier.noStationArea"),
+                                true
+                        );
+                        return false;
+                    }
                     dispName = station.name;
                     zone = station.zone;
                 }

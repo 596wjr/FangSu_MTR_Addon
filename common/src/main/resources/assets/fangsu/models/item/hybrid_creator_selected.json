@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "fangsu:item/hybrid_creator",
+    "layer1": "mtr:item/rail_connector_selected"
+  }
+}

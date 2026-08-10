@@ -58,6 +58,7 @@ public class ModNetwork {
                 TICKET_BARRIER_SYNC,
                 ModNetwork::handleTicketBarrierSync
         );
+        HybridCreatorPackets.registerServer();
     }
 
     private static void handleBeSync(
