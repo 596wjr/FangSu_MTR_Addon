@@ -109,7 +109,8 @@ public class ItemHybridCreator extends ItemNodeModifierSelectableBlockBase {
         }
         // MTR3 无 reverse 语义：展开方向固定从轨道几何起点端（getPosition(0) 端）开始，
         // 与 MTR 原版桥梁构建一致，无需记录先点/后点
-        //#if MC_VERSION >= 11900
+        // Entity.level() 方法 1.20.0+ 才有；1.18.2~1.19.4 用 public 字段 player.level（照 ModNetwork 分界）
+        //#if MC_VERSION >= 12000
         final Level level = player.level();
         //#else
         //$$ final Level level = player.level;

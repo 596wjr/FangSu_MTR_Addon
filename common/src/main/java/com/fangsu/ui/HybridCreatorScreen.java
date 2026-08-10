@@ -559,7 +559,8 @@ public class HybridCreatorScreen extends Screen {
             return false;
         }
 
-        //#if MC_VERSION >= 11903
+        // GuiEventListener.isFocused/setFocused 是 1.19.4 才加入接口（1.19.3 无此方法，@Override 会报错）
+        //#if MC_VERSION >= 11904
         @Override
         public boolean isFocused() {
             return false;
