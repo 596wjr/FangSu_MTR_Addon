@@ -75,29 +75,33 @@ public class RegisterUtil {
     }
     //#elseif MC_VERSION >= 11904
     //$$ public static CreativeModeTab addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
-    //$$     CreativeModeTab.Builder builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0);
-    //$$     return builder
-    //$$             .title(ComponentHelper.translatable(name))
-    //$$             .icon(() -> new ItemStack(icon.get()))
-    //$$             .displayItems((parameters, output) -> {
-    //$$                 for (RegistrySupplier<Item> item : items) {
-    //$$                     output.accept(new ItemStack(item.get()));
-    //$$                 }
-    //$$             })
-    //$$             .build();
+    //$$     // 1.19.3+ 自定义标签页必须经平台注册机制才能出现在创造物品栏：
+    //$$     // Architectury 内部（Fabric 用 FabricItemGroup.builder + ItemGroupEvents，Forge 用 CreativeModeTabEvent），
+    //$$     // 与 mtr4 Minecraft-Mappings-rewrite 1.19.4 的处理一致；直接 new CreativeModeTab.builder(...).build() 不会注册
+    //$$     return dev.architectury.registry.CreativeTabRegistry
+    //$$             .create(new net.minecraft.resources.ResourceLocation(Main.MOD_ID, id), builder -> builder
+    //$$                     .title(ComponentHelper.translatable(name))
+    //$$                     .icon(() -> new ItemStack(icon.get()))
+    //$$                     .displayItems((parameters, output) -> {
+    //$$                         for (RegistrySupplier<Item> item : items) {
+    //$$                             output.accept(new ItemStack(item.get()));
+    //$$                         }
+    //$$                     }))
+    //$$             .get();
     //$$ }
     //#elseif MC_VERSION >= 11903
     //$$ public static CreativeModeTab addCreativeTab(String id, String name, RegistrySupplier<Item> icon, RegistrySupplier<Item>... items) {
-    //$$     CreativeModeTab.Builder builder = CreativeModeTab.builder(CreativeModeTab.Row.TOP, 0);
-    //$$     return builder
-    //$$             .title(ComponentHelper.translatable(name))
-    //$$             .icon(() -> new ItemStack(icon.get()))
-    //$$             .displayItems((enabledFeatures, output, hasPermissions) -> {
-    //$$                 for (RegistrySupplier<Item> item : items) {
-    //$$                     output.accept(new ItemStack(item.get()));
-    //$$                 }
-    //$$             })
-    //$$             .build();
+    //$$     // 1.19.3 的 DisplayItemsGenerator 为 3 参数签名（FeatureFlagSet, Output, boolean）
+    //$$     return dev.architectury.registry.CreativeTabRegistry
+    //$$             .create(new net.minecraft.resources.ResourceLocation(Main.MOD_ID, id), builder -> builder
+    //$$                     .title(ComponentHelper.translatable(name))
+    //$$                     .icon(() -> new ItemStack(icon.get()))
+    //$$                     .displayItems((enabledFeatures, output, hasPermissions) -> {
+    //$$                         for (RegistrySupplier<Item> item : items) {
+    //$$                             output.accept(new ItemStack(item.get()));
+    //$$                         }
+    //$$                     }))
+    //$$             .get();
     //$$ }
     //#endif
 
