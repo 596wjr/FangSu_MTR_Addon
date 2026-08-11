@@ -4,6 +4,7 @@ import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.ticketSystem.FareInfo;
 import com.fangsu.ticketSystem.FareType;
 import com.fangsu.ticketSystem.SingleJourneyTicketData;
+import com.fangsu.utils.RegisterUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
@@ -110,5 +111,7 @@ public class ItemSingleJourneyTicket extends Item implements TicketItem {
                     )
             );
         }
+
+        RegisterUtil.addDescTooltip(tooltip, "item.fangsu.single_journey_ticket.desc");
     }
 }

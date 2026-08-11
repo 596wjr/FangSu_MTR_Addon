@@ -25,7 +25,6 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.registries.BuiltInRegistries;
 //#endif
 import net.minecraft.util.FormattedCharSequence;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.level.block.Block;
@@ -49,7 +48,9 @@ import java.util.function.Function;
 public class HybridSliceTaskScreen extends Screen {
 
     private final HybridSliceTask task;
-    /** 任务在 tasksTag 中的键 */
+    /**
+     * 任务在 tasksTag 中的键
+     */
     private final String key;
     private final Screen parent;
     protected int tx = 0;
@@ -58,7 +59,9 @@ public class HybridSliceTaskScreen extends Screen {
     // 按钮创建统一走 ComponentHelper.button（内部处理 builder/构造器版本差异），位置由 placeButton 设置
     private final Button btnReturn = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("X"), button -> onClose());
     private final Button btnEnterConfig = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.translatable("ui.fangsu.hybrid_creator.config.title"), button -> setConfigScreen());
-    /** 懒创建：Screen.minecraft 在 init() 后才非 null，字段初始化器里用会 NPE */
+    /**
+     * 懒创建：Screen.minecraft 在 init() 后才非 null，字段初始化器里用会 NPE
+     */
     private EditBox nameField;
     private final Button btnAddWidth;
     private final Button btnSubWidth;
@@ -68,8 +71,13 @@ public class HybridSliceTaskScreen extends Screen {
     private final Button btnAddTX = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("▷"), button -> setTX(tx - 4 * Square.LENGTH));
     private final Button btnSubTY = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("▲"), button -> setTY(ty + 4 * Square.LENGTH));
     private final Button btnAddTY = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("▼"), button -> setTY(ty - 4 * Square.LENGTH));
-    private final Button btnCenter = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("▣"), button -> { tx = 0; ty = 0; });
-    /** 当前编辑的厚度片（组内索引）：厚度 N 时画布显示第 k 片的独立矩阵；厚度 1 时恒 0 且控件隐藏 */
+    private final Button btnCenter = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("▣"), button -> {
+        tx = 0;
+        ty = 0;
+    });
+    /**
+     * 当前编辑的厚度片（组内索引）：厚度 N 时画布显示第 k 片的独立矩阵；厚度 1 时恒 0 且控件隐藏
+     */
     private int currentSlice = 0;
     private final Button btnPrevSlice = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("◁"), button -> setCurrentSlice(currentSlice - 1));
     private final Button btnNextSlice = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("▷"), button -> setCurrentSlice(currentSlice + 1));
@@ -77,7 +85,8 @@ public class HybridSliceTaskScreen extends Screen {
     private final List<Square> canvas = new ArrayList<>();
     private final Inventory inventory = new Inventory();
     private Square mouseOver = null;
-    private final Square now = new Square(0, 0, null, square -> {}, square -> true, square -> true, true);
+    private final Square now = new Square(0, 0, null, square -> {
+    }, square -> true, square -> true, true);
 
     private int scissorX, scissorY, scissorW, scissorH;
 
@@ -105,7 +114,9 @@ public class HybridSliceTaskScreen extends Screen {
         updateTask();
     }
 
-    /** 画布写回任务当前组的 lumps 并同步物品 NBT（其他组的编辑在切换时已即时写回） */
+    /**
+     * 画布写回任务当前组的 lumps 并同步物品 NBT（其他组的编辑在切换时已即时写回）
+     */
     private void updateTask() {
         final int base = currentSlice * task.width * task.height;
         for (int i = 0; i < canvas.size() && i < task.width * task.height; i++) {
@@ -134,7 +145,9 @@ public class HybridSliceTaskScreen extends Screen {
         }
     }
 
-    /** 切换编辑的厚度片（clamp 到 [0, thickness)）；编辑均已即时写回，切换无丢失 */
+    /**
+     * 切换编辑的厚度片（clamp 到 [0, thickness)）；编辑均已即时写回，切换无丢失
+     */
     private void setCurrentSlice(int idx) {
         final int n = task.thickness;
         if (n <= 1) return;
@@ -147,7 +160,9 @@ public class HybridSliceTaskScreen extends Screen {
         return sq.x + l >= scissorX && sq.x <= scissorX + scissorW && sq.y + l >= scissorY && sq.y <= scissorY + scissorH;
     }
 
-    /** 属性屏保存回调：画布格 → 写回 NBT；方块选择器格 → 同步到当前方块 */
+    /**
+     * 属性屏保存回调：画布格 → 写回 NBT；方块选择器格 → 同步到当前方块
+     */
     public void onPropertySaved(Square square) {
         if (canvas.contains(square)) {
             updateTask();
@@ -188,7 +203,9 @@ public class HybridSliceTaskScreen extends Screen {
     //$$ }
     //#endif
 
-    /** 渲染主体：graphics 预处理后为 GuiGraphics（1.20+）/ PoseStack（旧版），随版本分支 */
+    /**
+     * 渲染主体：graphics 预处理后为 GuiGraphics（1.20+）/ PoseStack（旧版），随版本分支
+     */
     private void renderImpl(GraphicContext g, int mouseX, int mouseY, float partialTick) {
         //#if MC_VERSION >= 12000
         final GuiGraphics graphics = g.asMinecraft();
@@ -679,7 +696,9 @@ public class HybridSliceTaskScreen extends Screen {
         private boolean draggingSlider = false;
         private final List<Square> blocksList = new ArrayList<>();
         private final List<Square> searchedList = new ArrayList<>();
-        /** 懒创建（Screen.minecraft 在 init() 后才非 null），由外层 Screen.init() 调 {@link #initSearchField()} */
+        /**
+         * 懒创建（Screen.minecraft 在 init() 后才非 null），由外层 Screen.init() 调 {@link #initSearchField()}
+         */
         private EditBox searchField;
 
         public Inventory() {
@@ -690,9 +709,9 @@ public class HybridSliceTaskScreen extends Screen {
             }, square -> now.state == null, square -> true, true));
             //#if MC_VERSION >= 11903
             for (Block block : BuiltInRegistries.BLOCK) {
-            //#else
-            //$$ for (Block block : net.minecraft.core.Registry.BLOCK) {
-            //#endif
+                //#else
+                //$$ for (Block block : net.minecraft.core.Registry.BLOCK) {
+                //#endif
                 blocksList.add(new Square(0, 0, block.defaultBlockState(), square -> {
                     now.state = square.state;
                     now.replacement = square.replacement;
@@ -701,7 +720,9 @@ public class HybridSliceTaskScreen extends Screen {
             searchedList.addAll(blocksList);
         }
 
-        /** 中键取色用：返回鼠标位置处的方块格子（含「空」项），无则 null */
+        /**
+         * 中键取色用：返回鼠标位置处的方块格子（含「空」项），无则 null
+         */
         public Square pick(double mouseX, double mouseY) {
             for (Square square : searchedList) {
                 if (square.isMouseOver(mouseX, mouseY)) return square;

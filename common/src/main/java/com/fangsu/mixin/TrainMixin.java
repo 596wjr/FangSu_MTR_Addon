@@ -60,23 +60,42 @@ public abstract class TrainMixin {
 
         // ANTE
         try {
-            fangsu$BlockEyeCandyClass = Class.forName(
+            // ANTE 1.1.0+ 为双平台合一打包：common 代码类名带 fabric. / forge. 前缀
+            // （如 fabric.cn.zbx1425.mtrsteamloco.block.BlockEyeCandy），因此按多种类名依次尝试
+            fangsu$BlockEyeCandyClass = fangsu$loadClass(
                     "cn.zbx1425.mtrsteamloco.block.BlockEyeCandy",
-                    false,
-                    Main.class.getClassLoader()
+                    "fabric.cn.zbx1425.mtrsteamloco.block.BlockEyeCandy",
+                    "forge.cn.zbx1425.mtrsteamloco.block.BlockEyeCandy"
             );
-            fangsu$BlockEyeCandyEntityClass = Class.forName(
+            fangsu$BlockEyeCandyEntityClass = fangsu$loadClass(
                     "cn.zbx1425.mtrsteamloco.block.BlockEyeCandy$BlockEntityEyeCandy",
-                    false,
-                    Main.class.getClassLoader()
+                    "fabric.cn.zbx1425.mtrsteamloco.block.BlockEyeCandy$BlockEntityEyeCandy",
+                    "forge.cn.zbx1425.mtrsteamloco.block.BlockEyeCandy$BlockEntityEyeCandy"
             );
             fangsu$isPlatformMethod = fangsu$BlockEyeCandyEntityClass.getMethod("isPlatform");
             fangsu$setDoorTargetMethod = fangsu$BlockEyeCandyEntityClass.getMethod("setDoorTarget", boolean.class);
             fangsu$setDoorValueMethod = fangsu$BlockEyeCandyEntityClass.getMethod("setDoorValue", float.class);
-            Main.LOGGER.info("Loaded mtrsteamloco BlockEyeCandy");
+            Main.LOGGER.info("Loaded mtrsteamloco BlockEyeCandy: " + fangsu$BlockEyeCandyClass.getName());
             fangsu$foundEyeCandy = true;
         } catch (Exception ignored) {
         }
+    }
+
+    /**
+     * 依次尝试加载类，返回第一个加载成功的；全部失败则抛出最后的异常。
+     * 用于兼容不同打包方式下类名是否带 fabric. / forge. 前缀。
+     */
+    @Unique
+    private static Class<?> fangsu$loadClass(String... classNames) throws ClassNotFoundException {
+        ClassNotFoundException lastException = null;
+        for (String className : classNames) {
+            try {
+                return Class.forName(className, false, Main.class.getClassLoader());
+            } catch (ClassNotFoundException e) {
+                lastException = e;
+            }
+        }
+        throw lastException != null ? lastException : new ClassNotFoundException();
     }
 
     /* ==========================================================

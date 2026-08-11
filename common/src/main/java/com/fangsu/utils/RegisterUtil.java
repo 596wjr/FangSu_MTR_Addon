@@ -6,16 +6,20 @@ import com.fangsu.mappings.FangSuRegistries;
 import com.fangsu.mappings.RegistryObject;
 import dev.architectury.registry.registries.DeferredRegister;
 import dev.architectury.registry.registries.RegistrySupplier;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 
+import java.util.List;
 import java.util.function.Supplier;
 
 public class RegisterUtil {
@@ -52,7 +56,33 @@ public class RegisterUtil {
     //#endif
 
     public static RegistrySupplier<Item> addBlockItem(String id, RegistrySupplier<Block> block) {
-        return ITEMS.register(id, () -> new BlockItem(block.get(), tabProps(new Item.Properties())));
+        return ITEMS.register(id, () -> new FangSuBlockItem(block.get(), tabProps(new Item.Properties()), "block.fangsu." + id + ".desc"));
+    }
+
+    /**
+     * 在物品栏 tooltip 中追加一条灰色描述（前置空行），供各物品/方块物品统一调用
+     */
+    public static void addDescTooltip(List<Component> tooltip, String descKey) {
+        tooltip.add(ComponentHelper.empty());
+        tooltip.add(ComponentHelper.translatable(descKey).withStyle(ChatFormatting.GRAY));
+    }
+
+    /**
+     * 方速方块物品：自动在物品栏 tooltip 中追加该方块的描述（lang 键 block.fangsu.<id>.desc）
+     */
+    public static class FangSuBlockItem extends BlockItem {
+        private final String descKey;
+
+        public FangSuBlockItem(Block block, Item.Properties properties, String descKey) {
+            super(block, properties);
+            this.descKey = descKey;
+        }
+
+        @Override
+        public void appendHoverText(ItemStack stack, @org.jetbrains.annotations.Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
+            super.appendHoverText(stack, level, tooltip, flag);
+            addDescTooltip(tooltip, descKey);
+        }
     }
 
     //#if MC_VERSION >= 12000

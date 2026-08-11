@@ -5,6 +5,7 @@ import com.fangsu.data.hybrid.HybridSliceTask;
 import com.fangsu.data.hybrid.RailActionsModuleExtraSupplier;
 import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.network.HybridCreatorPackets;
+import com.fangsu.utils.RegisterUtil;
 import mtr.data.Rail;
 import mtr.data.RailwayData;
 import mtr.data.RailwayDataRailActionsModule;
@@ -17,10 +18,12 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 
 import java.lang.reflect.Field;
+import java.util.List;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -46,6 +49,11 @@ public class ItemHybridCreator extends ItemNodeModifierSelectableBlockBase {
     public ItemHybridCreator() {
         // MTR3 构造无 ItemSettings；width=1 → radius=0（宽度为 1 的桥梁构建）
         super(false, 0, 1);
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
+        RegisterUtil.addDescTooltip(tooltip, "item.fangsu.hybrid_creator.desc");
     }
 
     @Override
