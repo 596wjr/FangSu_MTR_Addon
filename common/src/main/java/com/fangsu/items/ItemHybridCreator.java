@@ -12,6 +12,7 @@ import mtr.data.RailwayDataRailActionsModule;
 import mtr.item.ItemNodeModifierSelectableBlockBase;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -43,7 +44,9 @@ import java.util.Map;
  */
 public class ItemHybridCreator extends ItemNodeModifierSelectableBlockBase {
 
-    /** NBT 键：任务列表（客户端编辑器写、服务端构建时读） */
+    /**
+     * NBT 键：任务列表（客户端编辑器写、服务端构建时读）
+     */
     public static final String TAG_TASKS = "tasks";
 
     public ItemHybridCreator() {
@@ -147,8 +150,7 @@ public class ItemHybridCreator extends ItemNodeModifierSelectableBlockBase {
         try {
             final Field field = RailwayData.class.getDeclaredField("rails");
             field.setAccessible(true);
-            @SuppressWarnings("unchecked")
-            final Map<BlockPos, Map<BlockPos, Rail>> rails = (Map<BlockPos, Map<BlockPos, Rail>>) field.get(railwayData);
+            @SuppressWarnings("unchecked") final Map<BlockPos, Map<BlockPos, Rail>> rails = (Map<BlockPos, Map<BlockPos, Rail>>) field.get(railwayData);
             return getRail(rails, posStart, posEnd);
         } catch (ReflectiveOperationException e) {
             com.fangsu.Main.LOGGER.error("[HybridCreator] 读取轨道表失败", e);
