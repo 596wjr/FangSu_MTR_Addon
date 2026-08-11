@@ -93,8 +93,9 @@ public class ItemHybridCreator extends ItemNodeModifierSelectableBlockBase {
         final List<HybridSliceTask> tasks = new ArrayList<>();
         for (String key : tasksTag.getAllKeys()) {
             final HybridSliceTask task = new HybridSliceTask(tasksTag.getCompound(key));
-            // 防御：任务数据损坏（如手工改 NBT）时跳过，避免构建越界
-            if (task.width < 1 || task.height < 1 || task.step <= 0 || task.lumps.size() != task.width * task.height) {
+            // 防御：任务数据损坏（如手工改 NBT）时跳过，避免构建越界；
+            // lumps 为 N 组（厚度）平铺 = thickness × 宽 × 高
+            if (task.width < 1 || task.height < 1 || task.step <= 0 || task.thickness < 1 || task.lumps.size() != task.thickness * task.width * task.height) {
                 com.fangsu.Main.LOGGER.error("[HybridCreator] 跳过非法任务 {}（{}x{} step={} lumps={}）", task.name, task.width, task.height, task.step, task.lumps.size());
                 continue;
             }

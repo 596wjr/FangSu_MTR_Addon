@@ -69,6 +69,10 @@ public class HybridSliceTaskScreen extends Screen {
     private final Button btnSubTY = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("▲"), button -> setTY(ty + 4 * Square.LENGTH));
     private final Button btnAddTY = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("▼"), button -> setTY(ty - 4 * Square.LENGTH));
     private final Button btnCenter = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("▣"), button -> { tx = 0; ty = 0; });
+    /** 当前编辑的厚度片（组内索引）：厚度 N 时画布显示第 k 片的独立矩阵；厚度 1 时恒 0 且控件隐藏 */
+    private int currentSlice = 0;
+    private final Button btnPrevSlice = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("◁"), button -> setCurrentSlice(currentSlice - 1));
+    private final Button btnNextSlice = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("▷"), button -> setCurrentSlice(currentSlice + 1));
 
     private final List<Square> canvas = new ArrayList<>();
     private final Inventory inventory = new Inventory();
@@ -101,12 +105,13 @@ public class HybridSliceTaskScreen extends Screen {
         updateTask();
     }
 
-    /** 画布写回任务 lumps 并同步物品 NBT */
+    /** 画布写回任务当前组的 lumps 并同步物品 NBT（其他组的编辑在切换时已即时写回） */
     private void updateTask() {
-        for (int i = 0; i < canvas.size() && i < task.lumps.size(); i++) {
+        final int base = currentSlice * task.width * task.height;
+        for (int i = 0; i < canvas.size() && i < task.width * task.height; i++) {
             final Square sq = canvas.get(i);
-            task.lumps.get(i).blockState = sq.state;
-            task.lumps.get(i).replacement = sq.replacement;
+            task.lumps.get(base + i).blockState = sq.state;
+            task.lumps.get(base + i).replacement = sq.replacement;
         }
         HybridCreatorScreen.updateTag(tag -> {
             if (tag.contains(HybridCreatorScreen.TAG_TASKS)) {
@@ -117,14 +122,24 @@ public class HybridSliceTaskScreen extends Screen {
 
     private void reload() {
         canvas.clear();
-        for (int i = 0; i < task.lumps.size(); i++) {
-            final HybridSliceTask.HybridCreatorLump lump = task.lumps.get(i);
+        // 只加载当前厚度片的矩阵（lumps 平铺为 N 组 × 宽×高）
+        final int base = currentSlice * task.width * task.height;
+        for (int i = 0; i < task.width * task.height; i++) {
+            final HybridSliceTask.HybridCreatorLump lump = task.lumps.get(base + i);
             canvas.add(new Square(0, 0, lump.blockState, square -> {
                 square.state = now.state;
                 square.replacement = now.replacement;
                 updateTask();
             }, square -> true, square -> isInScissor(square), lump.replacement));
         }
+    }
+
+    /** 切换编辑的厚度片（clamp 到 [0, thickness)）；编辑均已即时写回，切换无丢失 */
+    private void setCurrentSlice(int idx) {
+        final int n = task.thickness;
+        if (n <= 1) return;
+        currentSlice = Math.max(0, Math.min(n - 1, idx));
+        reload();
     }
 
     private boolean isInScissor(Square sq) {
@@ -203,6 +218,13 @@ public class HybridSliceTaskScreen extends Screen {
         btnSubTY.render(graphics, mouseX, mouseY, partialTick);
         btnAddTY.render(graphics, mouseX, mouseY, partialTick);
         btnCenter.render(graphics, mouseX, mouseY, partialTick);
+        if (task.thickness > 1) {
+            // 厚度片切换（◁ 第 k 片 ▷）：只显示组内索引与总数；
+            // 文字画在按钮组正下方（y=30），避开画布外框（y≥39 起，且画布后渲染会覆盖）
+            btnPrevSlice.render(graphics, mouseX, mouseY, partialTick);
+            btnNextSlice.render(graphics, mouseX, mouseY, partialTick);
+            g.drawCenteredString(minecraft.font, ComponentHelper.translatable("ui.fangsu.hybrid_creator.slice_n", currentSlice + 1, task.thickness).getString(), 127, 30, 0xFFFFFFFF);
+        }
 
         final int fullX = 40;
         final int fullY = 40;
@@ -319,8 +341,8 @@ public class HybridSliceTaskScreen extends Screen {
         //#else
         //$$ nameField.x = 40; nameField.y = 10; // 1.19.2 及以下 AbstractWidget 无 setPosition，x/y 为 public 字段
         //#endif
-        nameField.setWidth(90);
-        placeButton(btnEnterConfig, 140, 10, 40);
+        nameField.setWidth(60);
+        placeButton(btnEnterConfig, 155, 10, 40);
 
         placeButton(btnAddWidth, 40, height - 30, 20);
         placeButton(btnSubWidth, 70, height - 30, 20);
@@ -333,6 +355,11 @@ public class HybridSliceTaskScreen extends Screen {
         placeButton(btnAddTY, 10, 130, 20);
 
         placeButton(btnCenter, 10, height - 30, 20);
+
+        // 厚度片切换（顶部第一行，厚度 1 时不渲染不注册）；
+        // 原放 y=34 会被画布外框（y=39 起、后渲染）遮住下缘，上移与 nameField 同排
+        placeButton(btnPrevSlice, 105, 10, 20);
+        placeButton(btnNextSlice, 130, 10, 20);
     }
 
     private static void placeButton(Button button, int x, int y, int width) {
@@ -445,6 +472,10 @@ public class HybridSliceTaskScreen extends Screen {
         result.add(btnSubTY);
         result.add(btnAddTY);
         result.add(btnCenter);
+        if (task.thickness > 1) {
+            result.add(btnPrevSlice);
+            result.add(btnNextSlice);
+        }
         result.add(now);
         return result;
     }
