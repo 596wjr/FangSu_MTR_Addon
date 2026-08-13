@@ -59,6 +59,7 @@ public class ModNetwork {
                 ModNetwork::handleTicketBarrierSync
         );
         HybridCreatorPackets.registerServer();
+        DisplacementToolPackets.registerServer();
     }
 
     private static void handleBeSync(
