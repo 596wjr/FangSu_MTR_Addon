@@ -19,7 +19,8 @@ import java.util.function.Consumer;
 
 /**
  * 「导入预设」屏幕：列出游戏目录 hybrid_creator/ 文件夹下全部 JSON 预设（新的在前），
- * 点选一个导入。文件多时支持滚轮滚动。
+ * 点选一个导入。subDir 非空时列出其子目录（如方案预设 hybrid_creator/schemes/）。
+ * 文件多时支持滚轮滚动。
  */
 public class HybridPresetImportScreen extends Screen {
 
@@ -29,14 +30,20 @@ public class HybridPresetImportScreen extends Screen {
 
     private final Screen parent;
     private final Consumer<CompoundTag> onImport;
+    private final String subDir;
     private final List<String> files = new ArrayList<>();
     private final List<Button> buttons = new ArrayList<>();
     private int scroll = 0;
 
     public HybridPresetImportScreen(Screen parent, Consumer<CompoundTag> onImport) {
+        this(parent, onImport, null);
+    }
+
+    public HybridPresetImportScreen(Screen parent, Consumer<CompoundTag> onImport, String subDir) {
         super(ComponentHelper.translatable("ui.fangsu.hybrid_creator.import_preset.title"));
         this.parent = parent;
         this.onImport = onImport;
+        this.subDir = subDir;
     }
 
     @Override
@@ -44,7 +51,7 @@ public class HybridPresetImportScreen extends Screen {
         files.clear();
         buttons.clear();
         try {
-            files.addAll(HybridCreatorJsonIO.listJsonFiles());
+            files.addAll(HybridCreatorJsonIO.listJsonFiles(subDir));
         } catch (IOException e) {
             com.fangsu.Main.LOGGER.error("[HybridCreator] 读取预设列表失败", e);
         }
@@ -61,7 +68,7 @@ public class HybridPresetImportScreen extends Screen {
 
     private void importPreset(String fileName) {
         try {
-            final CompoundTag tasksTag = HybridCreatorJsonIO.read(fileName);
+            final CompoundTag tasksTag = HybridCreatorJsonIO.read(fileName, subDir);
             if (tasksTag == null) {
                 if (minecraft.player != null) {
                     minecraft.player.displayClientMessage(ComponentHelper.translatable("msg.fangsu.hybrid_creator.import_fail"), true);
@@ -69,6 +76,9 @@ public class HybridPresetImportScreen extends Screen {
                 return;
             }
             onImport.accept(tasksTag);
+            // 回调已自行切换屏幕（如弹出确认对话框）：后续流程由回调负责，跳过默认的
+            // 成功提示与返回（minecraft.setScreen 立即生效，此处 screen 已不是本屏）
+            if (minecraft.screen != this) return;
             if (minecraft.player != null) {
                 minecraft.player.displayClientMessage(ComponentHelper.translatable(
                         "msg.fangsu.hybrid_creator.import_preset_success", fileName), true);

@@ -1,5 +1,7 @@
 package com.fangsu.ui;
 
+import com.fangsu.data.hybrid.HybridCreatorJsonIO;
+import com.fangsu.data.hybrid.HybridScheme;
 import com.fangsu.data.hybrid.HybridSliceTask;
 import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.utils.GraphicContext;
@@ -32,6 +34,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -53,12 +56,20 @@ public class HybridSliceTaskScreen extends Screen {
      */
     private final String key;
     private final Screen parent;
+    /** 构建级混合方案列表（物品 NBT 顶层）：本屏与画布格 schemeIndex 共用，修改经 updateTask 持久化 */
+    private final List<HybridScheme> schemes;
     protected int tx = 0;
     protected int ty = 0;
 
     // 按钮创建统一走 ComponentHelper.button（内部处理 builder/构造器版本差异），位置由 placeButton 设置
     private final Button btnReturn = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("X"), button -> onClose());
     private final Button btnEnterConfig = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.translatable("ui.fangsu.hybrid_creator.config.title"), button -> setConfigScreen());
+    /**
+     * 右侧面板模式：0 = 方块选择器、1 = 混合方案面板（「混合方块」按钮切换）
+     */
+    private int rightPanelMode = 0;
+    private final Button btnScheme = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.translatable("ui.fangsu.hybrid_creator.scheme"), button -> setRightPanelMode(1 - rightPanelMode));
+    private final SchemeInventory schemeInventory = new SchemeInventory();
     /**
      * 懒创建：Screen.minecraft 在 init() 后才非 null，字段初始化器里用会 NPE
      */
@@ -90,11 +101,12 @@ public class HybridSliceTaskScreen extends Screen {
 
     private int scissorX, scissorY, scissorW, scissorH;
 
-    public HybridSliceTaskScreen(HybridSliceTask task, String key, Screen parent) {
+    public HybridSliceTaskScreen(HybridSliceTask task, String key, Screen parent, List<HybridScheme> schemes) {
         super(ComponentHelper.literal(""));
         this.task = task;
         this.key = key;
         this.parent = parent;
+        this.schemes = schemes;
         // 按钮 lambda 引用 task 字段，必须在 task 赋值后初始化（字段初始化器顺序在前会报「可能尚未初始化」）
         btnAddWidth = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("+"), button -> setWidthAndHeight(task.width + 2, task.height));
         btnSubWidth = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("-"), button -> setWidthAndHeight(task.width - 2, task.height));
@@ -121,12 +133,22 @@ public class HybridSliceTaskScreen extends Screen {
         final int base = currentSlice * task.width * task.height;
         for (int i = 0; i < canvas.size() && i < task.width * task.height; i++) {
             final Square sq = canvas.get(i);
-            task.lumps.get(base + i).blockState = sq.state;
-            task.lumps.get(base + i).replacement = sq.replacement;
+            final HybridSliceTask.HybridCreatorLump lump = task.lumps.get(base + i);
+            lump.blockState = sq.state;
+            lump.replacement = sq.replacement;
+            lump.schemeIndex = sq.schemeIndex;
         }
         HybridCreatorScreen.updateTag(tag -> {
             if (tag.contains(HybridCreatorScreen.TAG_TASKS)) {
                 tag.getCompound(HybridCreatorScreen.TAG_TASKS).put(key, task.toCompoundTag());
+            }
+            // 构建级方案列表写回物品 NBT 顶层（与 tasks 并列；空则移除键）
+            if (schemes.isEmpty()) {
+                tag.remove(HybridCreatorScreen.TAG_SCHEMES);
+            } else {
+                final net.minecraft.nbt.ListTag schemesTag = new net.minecraft.nbt.ListTag();
+                for (HybridScheme scheme : schemes) schemesTag.add(scheme.toCompoundTag());
+                tag.put(HybridCreatorScreen.TAG_SCHEMES, schemesTag);
             }
         });
     }
@@ -137,11 +159,14 @@ public class HybridSliceTaskScreen extends Screen {
         final int base = currentSlice * task.width * task.height;
         for (int i = 0; i < task.width * task.height; i++) {
             final HybridSliceTask.HybridCreatorLump lump = task.lumps.get(base + i);
-            canvas.add(new Square(0, 0, lump.blockState, square -> {
-                square.state = now.state;
-                square.replacement = now.replacement;
+            final Square square = new Square(0, 0, lump.blockState, square1 -> {
+                square1.state = now.state;
+                square1.replacement = now.replacement;
+                square1.schemeIndex = now.schemeIndex;
                 updateTask();
-            }, square -> true, square -> isInScissor(square), lump.replacement));
+            }, square1 -> true, square1 -> isInScissor(square1), lump.replacement);
+            square.schemeIndex = lump.schemeIndex;
+            canvas.add(square);
         }
     }
 
@@ -189,6 +214,8 @@ public class HybridSliceTaskScreen extends Screen {
             updateTask();
         });
         inventory.initSearchField();
+        schemeInventory.initSearchField();
+        schemeInventory.rebuild();
     }
 
     //#if MC_VERSION >= 12000
@@ -226,6 +253,7 @@ public class HybridSliceTaskScreen extends Screen {
         // 按钮手动渲染（不依赖 addRenderableWidget；此前遗漏 render 导致全部按钮不可见）
         btnReturn.render(graphics, mouseX, mouseY, partialTick);
         btnEnterConfig.render(graphics, mouseX, mouseY, partialTick);
+        btnScheme.render(graphics, mouseX, mouseY, partialTick);
         btnAddWidth.render(graphics, mouseX, mouseY, partialTick);
         btnSubWidth.render(graphics, mouseX, mouseY, partialTick);
         btnAddHeight.render(graphics, mouseX, mouseY, partialTick);
@@ -245,11 +273,11 @@ public class HybridSliceTaskScreen extends Screen {
 
         final int fullX = 40;
         final int fullY = 40;
-        final int fullW = width - 40 - 10 - Inventory.WIDTH;
+        final int fullW = width - 40 - 10 - panelWidth();
         final int fullH = height - 40 - 40;
         scissorX = 62;
         scissorY = 52;
-        scissorW = width - 62 - 10 - Inventory.WIDTH;
+        scissorW = width - 62 - 10 - panelWidth();
         scissorH = height - 52 - 40;
 
         final float midX = tx + scissorX + scissorW / 2.0F;
@@ -310,9 +338,13 @@ public class HybridSliceTaskScreen extends Screen {
         g.fill(px + 18, y, px + 20, y + task.height * Square.LENGTH, 0x7F00FF00);
         g.disableScissor();
 
-        // 当前方块与选择器
+        // 当前方块（笔刷预览）与右侧选择面板（按模式：方块选择器 / 混合方案面板）
         now.render(graphics, mouseX, mouseY, 191, 11, partialTick);
-        inventory.render(graphics, mouseX, mouseY, partialTick);
+        if (rightPanelMode == 0) {
+            inventory.render(graphics, mouseX, mouseY, partialTick);
+        } else {
+            schemeInventory.render(graphics, mouseX, mouseY, partialTick);
+        }
 
         if (mouseOver != null) {
             mouseOver.renderTooltip(graphics, mouseX, mouseY);
@@ -360,6 +392,9 @@ public class HybridSliceTaskScreen extends Screen {
         //#endif
         nameField.setWidth(60);
         placeButton(btnEnterConfig, 155, 10, 40);
+        // 「混合方块」：独立按钮，整体置于物品栏（右侧面板）左缘外侧。
+        // y 在画布区（底部 height-40）下方，不遮挡画布；面板列表区不用让位
+        placeButton(btnScheme, width - panelWidth() - 60, height - 30, 60);
 
         placeButton(btnAddWidth, 40, height - 30, 20);
         placeButton(btnSubWidth, 70, height - 30, 20);
@@ -412,6 +447,89 @@ public class HybridSliceTaskScreen extends Screen {
         minecraft.setScreen(new HybridSliceConfigScreen(task, key, this));
     }
 
+    /* ===================== 混合方块（右侧面板模式切换 + 笔刷） ===================== */
+
+    /** 右侧面板宽度（随模式变化，画布 scissor 区域联动） */
+    private int panelWidth() {
+        return rightPanelMode == 0 ? Inventory.WIDTH : SchemeInventory.WIDTH;
+    }
+
+    /** 选中普通方块笔刷（同时清除混合方案引用模式） */
+    private void selectBlock(BlockState state, boolean replacement) {
+        now.state = state;
+        now.replacement = replacement;
+        now.schemeIndex = -1;
+    }
+
+    /** 选中混合方案笔刷：画布放置「方案引用」格；replacement 保留笔刷现值 */
+    private void selectScheme(int schemeIndex) {
+        now.state = null;
+        now.schemeIndex = schemeIndex;
+    }
+
+    /** 方案新建/编辑/导入/删除后的回调：刷新方案面板 + 持久化 NBT */
+    private void onSchemeEdited() {
+        schemeInventory.rebuild();
+        updateTask();
+    }
+
+    private void setRightPanelMode(int mode) {
+        rightPanelMode = mode;
+        if (mode == 1) {
+            schemeInventory.rebuild();
+        }
+    }
+
+    /** 新建混合方案（默认名「混合方案 N」）并刷新面板 */
+    private void addScheme() {
+        schemes.add(new HybridScheme(ComponentHelper.translatable("ui.fangsu.hybrid_creator.scheme.default_name", schemes.size() + 1).getString()));
+        onSchemeEdited();
+    }
+
+    /**
+     * 删除混合方案并重映射引用：
+     * 被删索引的画布格清空，其后索引前移；笔刷同步；随后 reload + 持久化。
+     */
+    private void removeScheme(int index) {
+        if (index < 0 || index >= schemes.size()) return;
+        schemes.remove(index);
+        for (HybridSliceTask.HybridCreatorLump lump : task.lumps) {
+            if (lump.schemeIndex == index) {
+                lump.schemeIndex = -1;
+                lump.blockState = null;
+            } else if (lump.schemeIndex > index) {
+                lump.schemeIndex--;
+            }
+        }
+        if (now.schemeIndex == index) {
+            now.schemeIndex = -1;
+            now.state = null;
+        } else if (now.schemeIndex > index) {
+            now.schemeIndex--;
+        }
+        reload();
+        onSchemeEdited();
+    }
+
+    /** 打开方案导入屏：把导入的方案追加到任务方案列表并刷新面板 */
+    private void importScheme() {
+        minecraft.setScreen(new HybridSchemeImportScreen(this, scheme -> {
+            schemes.add(scheme);
+            onSchemeEdited();
+        }));
+    }
+
+    /** 导入预设：hybrid_creator/schemes/ 子文件夹下的单方案 JSON 文件 → 解析为方案加入任务 */
+    private void importSchemePreset() {
+        minecraft.setScreen(new HybridPresetImportScreen(this, tag -> {
+            final HybridScheme imported = HybridScheme.fromCompoundTag(tag);
+            if (imported != null) {
+                schemes.add(imported);
+                onSchemeEdited();
+            }
+        }, HybridCreatorJsonIO.SCHEME_DIR));
+    }
+
     /* ===================== 中键拖动平移画布 ===================== */
 
     private double pressX = 0;
@@ -447,21 +565,33 @@ public class HybridSliceTaskScreen extends Screen {
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (button == 2 && middleDown) {
             middleDown = false;
-            // 无拖动的点击：取色（优先画布格子，其次方块选择器格子）
+            // 无拖动的点击：取色（优先画布格子，其次当前模式的选择面板格子）
             if (Math.abs(mouseX - pressX) < 5 && Math.abs(mouseY - pressY) < 5) {
                 Square picked = null;
                 for (Square square : canvas) {
-                    if (square.isMouseOver(pressX, pressY) && square.state != null) {
+                    if (square.isMouseOver(pressX, pressY) && (square.state != null || square.schemeIndex >= 0)) {
                         picked = square;
                         break;
                     }
                 }
                 if (picked == null) {
-                    picked = inventory.pick(pressX, pressY);
+                    if (rightPanelMode == 0) {
+                        picked = inventory.pick(pressX, pressY);
+                    } else {
+                        // 方案面板取色：命中卡片 → 直接选为笔刷（Card 非 Square，单独处理）
+                        final SchemeInventory.Card card = schemeInventory.pick(pressX, pressY);
+                        if (card != null) {
+                            selectScheme(card.index);
+                            return true;
+                        }
+                    }
                 }
                 if (picked != null) {
-                    now.state = picked.state;
-                    now.replacement = picked.replacement;
+                    if (picked.schemeIndex >= 0 && picked.isSchemeValid()) {
+                        selectScheme(picked.schemeIndex);
+                    } else {
+                        selectBlock(picked.state, picked.replacement);
+                    }
                 }
             }
             return true;
@@ -476,10 +606,17 @@ public class HybridSliceTaskScreen extends Screen {
         final List<GuiEventListener> result = new ArrayList<>();
         result.addAll(super.children());
         result.addAll(canvas);
-        result.addAll(inventory.children());
+        // 按模式只挂当前面板的 widget：非活动面板的 x/y 是上次渲染的陈旧值，
+        // 留在 children 里会拦截画布区点击（now 在列表末尾尤其危险）
+        if (rightPanelMode == 0) {
+            result.addAll(inventory.children());
+        } else {
+            result.addAll(schemeInventory.children());
+        }
         result.add(nameField);
         result.add(btnReturn);
         result.add(btnEnterConfig);
+        result.add(btnScheme);
         result.add(btnAddWidth);
         result.add(btnSubWidth);
         result.add(btnAddHeight);
@@ -562,6 +699,8 @@ public class HybridSliceTaskScreen extends Screen {
         public int y;
         public BlockState state;
         public boolean replacement;
+        /** 混合方案引用索引（≥0 = 引用 schemes，构建时按权重随机抽选；-1 = 普通方块格） */
+        public int schemeIndex = -1;
         private final Consumer<Square> consumer;
         private final Function<Square, Boolean> highlight;
         private final Function<Square, Boolean> visible;
@@ -576,6 +715,17 @@ public class HybridSliceTaskScreen extends Screen {
             if (visible != null) this.visible = visible;
             else this.visible = square -> true;
             this.replacement = replacement;
+        }
+
+        /** 方案引用是否有效（索引在任务方案列表范围内） */
+        private boolean isSchemeValid() {
+            return schemeIndex >= 0 && schemeIndex < schemes.size();
+        }
+
+        /** 方案格预览图标：方案的代表状态（权重最高条目）；悬空/无效返回 null */
+        private BlockState schemePreviewState() {
+            if (!isSchemeValid()) return null;
+            return schemes.get(schemeIndex).representativeState();
         }
 
         //#if MC_VERSION >= 12000
@@ -599,10 +749,18 @@ public class HybridSliceTaskScreen extends Screen {
             if (!isVisible()) return;
             g.fill(x, y, x + LENGTH, y + LENGTH, isMouseOver(mouseX, mouseY) ? 0xfffafff2 : 0xff9b9e96);
             g.fill(x + 1, y + 1, x + LENGTH - 1, y + LENGTH - 1, 0xff919191);
-            if (state != null) {
-                renderBlockState(matrices, x + 1, y + 1, partialTick, state);
+            if (state != null || schemeIndex >= 0) {
+                // 混合方案格：预览图标 = 方案代表状态（权重最高条目）；悬空引用无图标只画红角标
+                final BlockState preview = state != null ? state : schemePreviewState();
+                if (preview != null) {
+                    renderBlockState(matrices, x + 1, y + 1, partialTick, preview);
+                }
                 g.fill(x + 1, y + 1, x + LENGTH - 1, y + LENGTH - 1, highlight.apply(this) ? 0x2ff5f5f5 : 0x1fdda9df);
                 g.blit(replacement ? PURPLE_CIRCLE : BLUE_CIRCLE, x + 1, y + 1, 16, 16, 0, 0, 1, 1, 1, 1);
+                if (schemeIndex >= 0) {
+                    // 混合方案角标：右下角 6×6（有效 = 黄、悬空 = 红），免新贴图
+                    g.fill(x + LENGTH - 6, y + LENGTH - 6, x + LENGTH, y + LENGTH, isSchemeValid() ? 0xFFE0A800 : 0xFFFF5555);
+                }
             } else if (x >= width - Inventory.WIDTH && highlight.apply(this)) {
                 // 选择器「空」项：选中时画圆环标记（画布空格被 scissor 裁剪不会进入此区域）
                 g.blit(PURPLE_CIRCLE, x + 1, y + 1, 16, 16, 0, 0, 1, 1, 1, 1);
@@ -612,11 +770,25 @@ public class HybridSliceTaskScreen extends Screen {
             }
         }
 
-        //#if MC_VERSION >= 12000
-        public void renderTooltip(GuiGraphics matrices, int mouseX, int mouseY) {
-            // 1.20.1 的 renderTooltip 只收 List<FormattedCharSequence>，逐条转
+        /** 构建 tooltip 行（无版本差异，两分支的 renderTooltip 共用） */
+        private List<FormattedCharSequence> tooltipLines() {
             final List<FormattedCharSequence> lines = new ArrayList<>();
-            if (state != null) {
+            if (schemeIndex >= 0) {
+                // 混合方案格：方案名 + 各条目「方块名 ×权重」；悬空引用显示红字提示
+                final HybridScheme scheme = isSchemeValid() ? schemes.get(schemeIndex) : null;
+                if (scheme == null) {
+                    lines.add(ComponentHelper.translatable("ui.fangsu.hybrid_creator.scheme.invalid").getVisualOrderText());
+                } else {
+                    lines.add(ComponentHelper.literal(scheme.name == null || scheme.name.isEmpty() ? "?" : scheme.name).getVisualOrderText());
+                    for (HybridScheme.SchemeEntry entry : scheme.entries) {
+                        final String blockName = entry.blockState == null
+                                ? ComponentHelper.translatable("ui.fangsu.hybrid_creator.scheme.invalid_block").getString()
+                                : entry.blockState.getBlock().getName().getString();
+                        lines.add(ComponentHelper.literal(blockName + " ×" + entry.weight).getVisualOrderText());
+                    }
+                }
+                lines.add(ComponentHelper.literal("Replacement: " + replacement).getVisualOrderText());
+            } else if (state != null) {
                 lines.add(ComponentHelper.literal("Replacement: " + replacement).getVisualOrderText());
                 lines.add(state.getBlock().getName().getVisualOrderText());
                 for (var property : state.getBlock().getStateDefinition().getProperties()) {
@@ -625,24 +797,20 @@ public class HybridSliceTaskScreen extends Screen {
             } else {
                 lines.add(ComponentHelper.translatable("ui.fangsu.hybrid_creator.empty").getVisualOrderText());
             }
-            matrices.renderTooltip(minecraft.font, lines, mouseX, mouseY);
+            return lines;
+        }
+
+        //#if MC_VERSION >= 12000
+        public void renderTooltip(GuiGraphics matrices, int mouseX, int mouseY) {
+            // 1.20.1 的 renderTooltip 只收 List<FormattedCharSequence>，逐条转
+            matrices.renderTooltip(minecraft.font, tooltipLines(), mouseX, mouseY);
         }
         //#else
         //$$ public void renderTooltip(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY) {
         //$$     // 旧版渲染接口只收 List<FormattedCharSequence>，逐条转
-        //$$     final List<FormattedCharSequence> lines = new ArrayList<>();
-        //$$     if (state != null) {
-        //$$         lines.add(ComponentHelper.literal("Replacement: " + replacement).getVisualOrderText());
-        //$$         lines.add(state.getBlock().getName().getVisualOrderText());
-        //$$         for (var property : state.getBlock().getStateDefinition().getProperties()) {
-        //$$             lines.add(ComponentHelper.literal(property.getName() + ": " + state.getValue(property)).getVisualOrderText());
-        //$$         }
-        //$$     } else {
-        //$$         lines.add(ComponentHelper.translatable("ui.fangsu.hybrid_creator.empty").getVisualOrderText());
-        //$$     }
         //$$     // 内部类不继承外层 Screen 方法，且自身同名方法会遮蔽外层；
         //$$     // 必须显式引用外层 HybridSliceTaskScreen.this.renderTooltip(PoseStack, List, int, int)
-        //$$     HybridSliceTaskScreen.this.renderTooltip(poseStack, lines, mouseX, mouseY);
+        //$$     HybridSliceTaskScreen.this.renderTooltip(poseStack, tooltipLines(), mouseX, mouseY);
         //$$ }
         //#endif
 
@@ -661,12 +829,19 @@ public class HybridSliceTaskScreen extends Screen {
             if (button == 0) {
                 consumer.accept(this);
             } else if (button == 1) {
-                if (state != null) {
+                if (schemeIndex >= 0 && isSchemeValid()) {
+                    // 混合方案格：右键直接打开方案编辑屏
+                    minecraft.setScreen(new HybridSchemeEditScreen(schemes, schemeIndex, HybridSliceTaskScreen.this, HybridSliceTaskScreen.this::onSchemeEdited));
+                } else if (state != null) {
                     minecraft.setScreen(new HybridCreatorPropertyScreen(HybridSliceTaskScreen.this, this));
                 }
             } else if (button == 2) {
-                now.state = this.state;
-                now.replacement = this.replacement;
+                // 中键取色：混合方案格取回方案笔刷，普通格取回方块笔刷
+                if (schemeIndex >= 0 && isSchemeValid()) {
+                    selectScheme(schemeIndex);
+                } else {
+                    selectBlock(this.state, this.replacement);
+                }
             }
             return true;
         }
@@ -703,19 +878,15 @@ public class HybridSliceTaskScreen extends Screen {
 
         public Inventory() {
             // 「空」作为第一个可选方块：选中后画布放置即清空该格（blockState=null）
-            blocksList.add(new Square(0, 0, null, square -> {
-                now.state = square.state;
-                now.replacement = square.replacement;
-            }, square -> now.state == null, square -> true, true));
+            blocksList.add(new Square(0, 0, null, square -> selectBlock(square.state, square.replacement),
+                    square -> now.state == null && now.schemeIndex < 0, square -> true, true));
             //#if MC_VERSION >= 11903
             for (Block block : BuiltInRegistries.BLOCK) {
                 //#else
                 //$$ for (Block block : net.minecraft.core.Registry.BLOCK) {
                 //#endif
-                blocksList.add(new Square(0, 0, block.defaultBlockState(), square -> {
-                    now.state = square.state;
-                    now.replacement = square.replacement;
-                }, square -> square.state == now.state, square -> true, true));
+                blocksList.add(new Square(0, 0, block.defaultBlockState(), square -> selectBlock(square.state, square.replacement),
+                        square -> square.state == now.state && now.schemeIndex < 0, square -> true, true));
             }
             searchedList.addAll(blocksList);
         }
@@ -921,6 +1092,374 @@ public class HybridSliceTaskScreen extends Screen {
         @Override
         //#endif
         public void setFocused(boolean focused) {
+        }
+    }
+
+    /* ===================== 混合方案选择面板 ===================== */
+
+    public class SchemeInventory implements GuiEventListener {
+        public static final int WIDTH = 140;
+        /** 卡片高 60（名称 + 图标行 + 权重百分比 + 按钮行） */
+        public static final int CARD_HEIGHT = 60;
+
+        private int scroll = 0;
+        private boolean draggingSlider = false;
+        private EditBox searchField;
+        private final List<Card> cards = new ArrayList<>();
+        private final List<Card> searchedCards = new ArrayList<>();
+        private final Button btnAdd = ComponentHelper.button(0, 0, 20, 18, ComponentHelper.translatable("ui.fangsu.hybrid_creator.scheme.new"), button -> addScheme());
+        private final Button btnImport = ComponentHelper.button(0, 0, 20, 18, ComponentHelper.translatable("ui.fangsu.hybrid_creator.scheme.import"), button -> importScheme());
+        private final Button btnImportPreset = ComponentHelper.button(0, 0, 20, 18, ComponentHelper.translatable("ui.fangsu.hybrid_creator.import_preset"), button -> importSchemePreset());
+
+        /** 从任务方案列表重建卡片（方案增删/导入后调用） */
+        public void rebuild() {
+            cards.clear();
+            for (int i = 0; i < schemes.size(); i++) {
+                cards.add(new Card(i));
+            }
+            search(searchField == null ? "" : searchField.getValue());
+        }
+
+        public void initSearchField() {
+            searchField = new EditBox(minecraft.font, 0, 1, WIDTH - 3, 15, ComponentHelper.literal(""));
+            //#if MC_VERSION >= 12003
+            //$$ searchField.moveCursorToStart(true);
+            //#else
+            searchField.moveCursorToStart();
+            //#endif
+            searchField.setResponder(this::search);
+        }
+
+        public void search(String str) {
+            if (str.isEmpty()) {
+                searchedCards.clear();
+                searchedCards.addAll(cards);
+                return;
+            }
+            str = str.toLowerCase();
+            final List<Card> list = new ArrayList<>();
+            for (Card card : cards) {
+                final HybridScheme scheme = card.scheme();
+                if (scheme != null && scheme.name != null && scheme.name.toLowerCase().contains(str)) {
+                    list.add(card);
+                }
+            }
+            searchedCards.clear();
+            searchedCards.addAll(list);
+        }
+
+        /** 中键取色用：返回鼠标位置处的方案卡片，无则 null */
+        public Card pick(double mouseX, double mouseY) {
+            for (Card card : searchedCards) {
+                if (card.isMouseOver(mouseX, mouseY)) return card;
+            }
+            return null;
+        }
+
+        //#if MC_VERSION >= 12000
+        public void render(GuiGraphics matrices, int mouseX, int mouseY, float partialTick) {
+            renderImpl(GraphicContext.of(matrices), mouseX, mouseY, partialTick);
+        }
+        //#else
+        //$$ public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        //$$     renderImpl(GraphicContext.of(poseStack), mouseX, mouseY, partialTick);
+        //$$ }
+        //#endif
+
+        private void renderImpl(GraphicContext g, int mouseX, int mouseY, float partialTick) {
+            //#if MC_VERSION >= 12000
+            final GuiGraphics matrices = g.asMinecraft();
+            //#else
+            //$$ final com.mojang.blaze3d.vertex.PoseStack matrices = g.asMinecraft();
+            //#endif
+            final int sx = width - WIDTH;
+            g.fill(sx, 0, sx + WIDTH, height, 0xff212121);
+            g.fill(sx, 0, sx + 1, height, mouseX >= sx ? 0xfff2f7eb : 0xffafb3aa);
+            //#if MC_VERSION >= 11903
+            searchField.setPosition(sx + 3, 1);
+            //#else
+            //$$ searchField.x = sx + 3; searchField.y = 1; // 1.19.2 及以下 AbstractWidget 无 setPosition，x/y 为 public 字段
+            //#endif
+            searchField.setWidth(WIDTH - 3);
+            searchField.render(matrices, mouseX, mouseY, partialTick);
+
+            // [+ 新建] [+ 导入] [+ 导入预设] 按钮（y=20 高 18，与搜索框分行）
+            placeButton(btnAdd, sx + 3, 20, 40);
+            placeButton(btnImport, sx + 45, 20, 40);
+            placeButton(btnImportPreset, sx + 87, 20, 50);
+            btnAdd.render(matrices, mouseX, mouseY, partialTick);
+            btnImport.render(matrices, mouseX, mouseY, partialTick);
+            btnImportPreset.render(matrices, mouseX, mouseY, partialTick);
+
+            // 卡片列表区（y=42 起，滚动）
+            final int ssx = sx;
+            final int ssy = 42;
+            final int ssw = WIDTH;
+            final int ssh = height - 42;
+            checkAndScroll(scroll);
+            if (searchedCards.isEmpty()) {
+                // 空态提示（居中灰字）
+                g.drawCenteredString(minecraft.font, ComponentHelper.translatable("ui.fangsu.hybrid_creator.scheme.empty_hint"), ssx + ssw / 2, ssy + ssh / 2, 0xFF9E9E9E);
+            }
+            g.enableScissor(ssx, ssy, ssx + ssw, ssy + ssh);
+            for (int i = 0; i < searchedCards.size(); i++) {
+                searchedCards.get(i).render(matrices, mouseX, mouseY, ssx + 4, ssy + scroll + i * CARD_HEIGHT, partialTick);
+            }
+            g.disableScissor();
+            if (canScroll()) {
+                final int[] pas = getSliderPositionAndSize(ssx, ssy, ssh);
+                g.fill(pas[0], pas[1], pas[0] + pas[2], pas[1] + pas[3], 0xffb0b0b0);
+            }
+        }
+
+        public List<? extends GuiEventListener> children() {
+            final List<GuiEventListener> result = new ArrayList<>();
+            result.add(this);
+            result.add(searchField);
+            result.add(btnAdd);
+            result.add(btnImport);
+            result.add(btnImportPreset);
+            for (Card card : searchedCards) {
+                result.addAll(card.children());
+            }
+            return result;
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            if (!canScroll()) return false;
+            final int[] pas = getSliderPositionAndSize(width - WIDTH, 42, height - 42);
+            if (isMouseOverSlider(mouseX, mouseY)) {
+                setScroll((int) mouseY);
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public boolean mouseDragged(double sx, double sy, int button, double dx, double dy) {
+            if (isMouseOverSlider(sx, sy) || draggingSlider) {
+                setScroll((int) (sy + dy));
+                draggingSlider = true;
+                return true;
+            }
+            return false;
+        }
+
+        //#if MC_VERSION < 12003
+        @Override
+        public boolean mouseScrolled(double x, double y, double amount) {
+            if (canScroll() && isMouseOver(x, y)) {
+                checkAndScroll(scroll + 20 * (int) amount);
+                return true;
+            }
+            return false;
+        }
+        //#else
+        //$$ @Override
+        //$$ public boolean mouseScrolled(double x, double y, double amount, double horizontalAmount) {
+        //$$     if (canScroll() && isMouseOver(x, y)) {
+        //$$         checkAndScroll(scroll + 20 * (int) amount);
+        //$$         return true;
+        //$$     }
+        //$$     return false;
+        //$$ }
+        //#endif
+
+        @Override
+        public boolean mouseReleased(double mouseX, double mouseY, int button) {
+            if (draggingSlider) {
+                draggingSlider = false;
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public boolean isMouseOver(double mouseX, double mouseY) {
+            final int sx = width - WIDTH;
+            return sx <= mouseX && mouseX <= sx + WIDTH && 42 <= mouseY && mouseY <= height;
+        }
+
+        private boolean isMouseOverSlider(double mouseX, double mouseY) {
+            if (!canScroll()) return false;
+            final int[] pas = getSliderPositionAndSize(width - WIDTH, 42, height - 42);
+            return pas[0] <= mouseX && mouseX <= pas[0] + pas[2] && pas[1] <= mouseY && mouseY <= pas[1] + pas[3];
+        }
+
+        private int[] getSliderPositionAndSize(int ssx, int ssy, int ssh) {
+            final float ah = ah();
+            final float th = ssh;
+            int h = (int) (th / ah * th);
+            if (h < 5) h = 5;
+            final int py = ssy + (int) (-1F * scroll / ah * th);
+            return new int[]{ssx + WIDTH - 5, py, 5, h};
+        }
+
+        private boolean canScroll() {
+            return ah() > height - 42;
+        }
+
+        private int ah() {
+            return searchedCards.size() * CARD_HEIGHT;
+        }
+
+        private void setScroll(int mouseY) {
+            final int[] pas = getSliderPositionAndSize(width - WIDTH, 42, height - 42);
+            final int maxd = (height - 42) - pas[3];
+            final int dy = mouseY - pas[3] / 2 - 42;
+            checkAndScroll((int) (dy / (float) maxd * (-ah() + (height - 42))));
+        }
+
+        private void checkAndScroll(int temp) {
+            if (!canScroll()) {
+                scroll = 0;
+                return;
+            }
+            if (temp > 0) temp = 0;
+            final int min = -ah() + (height - 42);
+            if (temp < min) temp = min;
+            scroll = temp;
+        }
+
+        // GuiEventListener.isFocused/setFocused 是 1.19.4 才加入接口（1.19.3 无此方法，@Override 会报错）
+        //#if MC_VERSION >= 11904
+        @Override
+        //#endif
+        public boolean isFocused() {
+            return false;
+        }
+
+        //#if MC_VERSION >= 11904
+        @Override
+        //#endif
+        public void setFocused(boolean focused) {
+        }
+
+        /* ===================== 方案卡片 ===================== */
+
+        public class Card implements GuiEventListener {
+            /** 任务方案列表索引；删除方案时由外层 removeScheme 重映射画布引用 */
+            public final int index;
+            private int x;
+            private int y;
+            private final Button btnSelect;
+            private final Button btnEdit;
+            private final Button btnRemove;
+
+            public Card(int index) {
+                this.index = index;
+                // 按钮 lambda 捕获 this.index：index 在构造器内才赋值，字段初始化器阶段
+                // 引用 final 字段会报「可能尚未初始化」，按钮必须在构造器里创建
+                btnSelect = ComponentHelper.button(0, 0, 44, 18, ComponentHelper.translatable("ui.fangsu.hybrid_creator.scheme.select"), button -> selectScheme(index));
+                btnEdit = ComponentHelper.button(0, 0, 44, 18, ComponentHelper.translatable("ui.fangsu.hybrid_creator.scheme.edit"), button -> minecraft.setScreen(new HybridSchemeEditScreen(schemes, index, HybridSliceTaskScreen.this, HybridSliceTaskScreen.this::onSchemeEdited)));
+                btnRemove = ComponentHelper.button(0, 0, 20, 18, ComponentHelper.literal("×"), button -> removeScheme(index));
+            }
+
+            /** 当前索引对应的方案；索引失效（删除后未重建）返回 null */
+            public HybridScheme scheme() {
+                return index >= 0 && index < schemes.size() ? schemes.get(index) : null;
+            }
+
+            public List<? extends GuiEventListener> children() {
+                final List<GuiEventListener> result = new ArrayList<>();
+                result.add(btnSelect);
+                result.add(btnEdit);
+                result.add(btnRemove);
+                result.add(this);
+                return result;
+            }
+
+            //#if MC_VERSION >= 12000
+            public void render(GuiGraphics matrices, int mouseX, int mouseY, int tx, int ty, float partialTick) {
+                renderImpl(GraphicContext.of(matrices), mouseX, mouseY, tx, ty, partialTick);
+            }
+            //#else
+            //$$ public void render(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, int tx, int ty, float partialTick) {
+            //$$     renderImpl(GraphicContext.of(poseStack), mouseX, mouseY, tx, ty, partialTick);
+            //$$ }
+            //#endif
+
+            private void renderImpl(GraphicContext g, int mouseX, int mouseY, int tx, int ty, float partialTick) {
+                //#if MC_VERSION >= 12000
+                final GuiGraphics matrices = g.asMinecraft();
+                //#else
+                //$$ final com.mojang.blaze3d.vertex.PoseStack matrices = g.asMinecraft();
+                //#endif
+                x = tx;
+                y = ty;
+                final HybridScheme scheme = scheme();
+                if (scheme == null) return; // 悬空卡片不渲染（删除方案后 rebuild 会移除）
+                if (now.schemeIndex == index) {
+                    g.fill(x, y, x + WIDTH - 8, y + CARD_HEIGHT, 0xa0eeeeee);
+                } else if (isMouseOver(mouseX, mouseY)) {
+                    g.fill(x, y, x + WIDTH - 8, y + CARD_HEIGHT, 0x40eeeeee);
+                }
+                // 方案名（超宽截断加省略号）
+                String name = scheme.name == null || scheme.name.isEmpty() ? "?" : scheme.name;
+                if (minecraft.font.width(name) > WIDTH - 16) {
+                    name = minecraft.font.plainSubstrByWidth(name, WIDTH - 19) + "…";
+                }
+                g.drawString(minecraft.font, name, x + 2, y + 2, 0xFFFFFFFF, false);
+
+                // 图标行 + 权重百分比（按权重降序取前 4 个有效条目）
+                final List<HybridScheme.SchemeEntry> entries = new ArrayList<>();
+                for (HybridScheme.SchemeEntry entry : scheme.entries) {
+                    if (entry.blockState != null && entry.weight > 0) entries.add(entry);
+                }
+                entries.sort(Comparator.comparingInt(e -> -e.weight));
+                final long total = scheme.totalWeight();
+                final PoseStack pose = matrices.pose();
+                for (int k = 0; k < Math.min(4, entries.size()); k++) {
+                    final HybridScheme.SchemeEntry entry = entries.get(k);
+                    final int ix = x + 2 + k * 18;
+                    renderBlockState(matrices, ix, y + 13, partialTick, entry.blockState);
+                    final String pct = total > 0 ? Math.round(entry.weight * 100F / total) + "%" : "0%";
+                    // 0.6 缩放小字（drawCenteredString 的 x/y 即中心点）
+                    pose.pushPose();
+                    pose.translate(ix + 8, y + 30, 0);
+                    pose.scale(0.6F, 0.6F, 1);
+                    g.drawCenteredString(minecraft.font, pct, 0, 0, 0xFFFFFFFF);
+                    pose.popPose();
+                }
+
+                // 按钮行 [选择][编辑][×]
+                placeButton(btnSelect, x + 2, y + 39, 44);
+                placeButton(btnEdit, x + 48, y + 39, 44);
+                placeButton(btnRemove, x + WIDTH - 26, y + 39, 20);
+                btnSelect.render(matrices, mouseX, mouseY, partialTick);
+                btnEdit.render(matrices, mouseX, mouseY, partialTick);
+                btnRemove.render(matrices, mouseX, mouseY, partialTick);
+            }
+
+            @Override
+            public boolean mouseClicked(double mouseX, double mouseY, int button) {
+                // 整卡左键 = 选中方案（按钮在 children() 里先行分发，点击按钮不会落到这里）
+                if (button == 0 && isMouseOver(mouseX, mouseY)) {
+                    selectScheme(index);
+                    return true;
+                }
+                return false;
+            }
+
+            @Override
+            public boolean isMouseOver(double mouseX, double mouseY) {
+                return x <= mouseX && mouseX <= x + WIDTH - 8 && y <= mouseY && mouseY <= y + CARD_HEIGHT;
+            }
+
+            // GuiEventListener.isFocused/setFocused 是 1.19.4 才加入接口（1.19.3 无此方法，@Override 会报错）
+            //#if MC_VERSION >= 11904
+            @Override
+            //#endif
+            public boolean isFocused() {
+                return false;
+            }
+
+            //#if MC_VERSION >= 11904
+            @Override
+            //#endif
+            public void setFocused(boolean focused) {
+            }
         }
     }
 }

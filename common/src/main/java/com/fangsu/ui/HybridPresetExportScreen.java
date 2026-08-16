@@ -13,19 +13,26 @@ import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * 「导出预设」屏幕：输入预设名称，导出到游戏目录 hybrid_creator/ 文件夹。
- * 文件名做安全过滤（见 {@link HybridCreatorJsonIO#write(CompoundTag, String)}）。
+ * 「导出预设」屏幕：输入预设名称，导出到游戏目录 hybrid_creator/ 文件夹
+ * （subDir 非空时导出到其子目录，如方案预设 hybrid_creator/schemes/）。
+ * 文件名做安全过滤（见 {@link HybridCreatorJsonIO#write(CompoundTag, String, String)}）。
  */
 public class HybridPresetExportScreen extends Screen {
 
     private final Screen parent;
     private final CompoundTag tasksTag;
+    private final String subDir;
     private EditBox nameField;
 
     public HybridPresetExportScreen(Screen parent, CompoundTag tasksTag) {
+        this(parent, tasksTag, null);
+    }
+
+    public HybridPresetExportScreen(Screen parent, CompoundTag tasksTag, String subDir) {
         super(ComponentHelper.translatable("ui.fangsu.hybrid_creator.export_preset.title"));
         this.parent = parent;
         this.tasksTag = tasksTag;
+        this.subDir = subDir;
     }
 
     @Override
@@ -47,7 +54,7 @@ public class HybridPresetExportScreen extends Screen {
 
     private void exportPreset() {
         try {
-            HybridCreatorJsonIO.write(tasksTag, nameField.getValue());
+            HybridCreatorJsonIO.write(tasksTag, nameField.getValue(), subDir);
             if (minecraft.player != null) {
                 minecraft.player.displayClientMessage(ComponentHelper.translatable(
                         "msg.fangsu.hybrid_creator.export_preset_success", nameField.getValue()), true);

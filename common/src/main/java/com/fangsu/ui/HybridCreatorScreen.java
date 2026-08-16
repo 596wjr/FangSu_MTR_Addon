@@ -1,6 +1,7 @@
 package com.fangsu.ui;
 
 import com.fangsu.data.hybrid.HybridCreatorJsonIO;
+import com.fangsu.data.hybrid.HybridScheme;
 import com.fangsu.data.hybrid.HybridSliceTask;
 import com.fangsu.items.ModItems;
 import com.fangsu.mappings.ComponentHelper;
@@ -24,9 +25,15 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 /**
@@ -38,6 +45,10 @@ import java.util.function.Consumer;
 public class HybridCreatorScreen extends Screen {
 
     public static final String TAG_TASKS = "tasks";
+    /** 构建级混合方案列表键（物品 NBT 顶层，与 tasks 并列；lumps 的 schemeIndex 引用此列表） */
+    public static final String TAG_SCHEMES = "schemes";
+    /** 切片 JSON 里的方案预设引用键：{旧索引: 预设文件名}，导出切片时同步方案预设写入，导入时按名字找回 */
+    public static final String TAG_SCHEME_PRESETS = "scheme_presets";
     private static final ResourceLocation WHITE = new ResourceLocation("minecraft", "textures/block/white_concrete_powder.png");
 
     public static Screen createScreen(Screen parent) {
@@ -47,6 +58,10 @@ public class HybridCreatorScreen extends Screen {
 
     private final Screen parent;
     private final List<Entry> entries = new ArrayList<>();
+    /** 构建级混合方案列表（物品 NBT 顶层）：所有任务共用，清空构建时一并清除 */
+    private final List<HybridScheme> schemes = new ArrayList<>();
+    /** 已同步导入的预设文件 → 构建级索引（同文件重复导入不重复添加）；清空构建时一并失效 */
+    private final Map<String, Integer> importedPresetIndex = new HashMap<>();
     private Entry selectedEntry = null;
     private int scroll = 0;
     private int scissorX, scissorY, scissorW, scissorH;
@@ -60,6 +75,8 @@ public class HybridCreatorScreen extends Screen {
     private final Button btnImport = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.translatable("ui.fangsu.hybrid_creator.import"), button -> importJson());
     private final Button btnExportPreset = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.translatable("ui.fangsu.hybrid_creator.export_preset"), button -> exportPresetJson());
     private final Button btnImportPreset = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.translatable("ui.fangsu.hybrid_creator.import_preset"), button -> importPresetJson());
+    private final Button btnExportSlice = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.translatable("ui.fangsu.hybrid_creator.export_slice"), button -> exportSliceJson());
+    private final Button btnImportSlice = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.translatable("ui.fangsu.hybrid_creator.import_slice"), button -> importSliceJson());
     private final Button btnClose = ComponentHelper.button(0, 0, 20, 20, ComponentHelper.literal("X"), button -> onClose());
 
     private HybridCreatorScreen(Screen parent) {
@@ -90,6 +107,13 @@ public class HybridCreatorScreen extends Screen {
     public boolean load() {
         final CompoundTag tag = getTag();
         if (tag == null) return false;
+        // 构建级混合方案（物品 NBT 顶层 TAG_SCHEMES 键，与 "tasks" 并列）
+        schemes.clear();
+        if (tag.contains(TAG_SCHEMES)) {
+            for (net.minecraft.nbt.Tag t : tag.getList(TAG_SCHEMES, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+                schemes.add(HybridScheme.fromCompoundTag((net.minecraft.nbt.CompoundTag) t));
+            }
+        }
         if (!tag.contains(TAG_TASKS)) return true;
         final CompoundTag tasksTag = tag.getCompound(TAG_TASKS);
         for (String key : tasksTag.getAllKeys()) {
@@ -100,7 +124,7 @@ public class HybridCreatorScreen extends Screen {
         return true;
     }
 
-    /** 把全部条目按顺序写回 NBT（key = 列表下标）并同步服务端 */
+    /** 把全部条目按顺序写回 NBT（key = 列表下标）并同步服务端；构建级方案列表一并写回（空则移除键） */
     private void update() {
         updateTag(tag -> {
             final List<Entry> copy = new ArrayList<>(entries);
@@ -111,6 +135,13 @@ public class HybridCreatorScreen extends Screen {
                 tasksTag.put(copy.get(i).key, copy.get(i).task.toCompoundTag());
             }
             tag.put(TAG_TASKS, tasksTag);
+            if (schemes.isEmpty()) {
+                tag.remove(TAG_SCHEMES);
+            } else {
+                final net.minecraft.nbt.ListTag schemesTag = new net.minecraft.nbt.ListTag();
+                for (HybridScheme scheme : schemes) schemesTag.add(scheme.toCompoundTag());
+                tag.put(TAG_SCHEMES, schemesTag);
+            }
         });
     }
 
@@ -140,6 +171,9 @@ public class HybridCreatorScreen extends Screen {
     private void clearEntries() {
         entries.clear();
         selectedEntry = null;
+        // 清空构建：混合方案一并清除（方案数据属于构建内容，不随切片任务）
+        schemes.clear();
+        importedPresetIndex.clear();
         update();
     }
 
@@ -180,6 +214,131 @@ public class HybridCreatorScreen extends Screen {
             return;
         }
         minecraft.setScreen(new HybridPresetExportScreen(this, tag.getCompound(TAG_TASKS)));
+    }
+
+    /** 导出切片：把选中的单个任务导出到 hybrid_creator/slices/ 文件夹。
+     *  切片引用了混合方案时提示是否同步导出方案预设（是 → 导出并写入引用映射到切片 JSON） */
+    private void exportSliceJson() {
+        if (selectedEntry == null) {
+            showMessage(ComponentHelper.translatable("msg.fangsu.hybrid_creator.export_fail"));
+            return;
+        }
+        final CompoundTag tasksTag = selectedEntry.task.toCompoundTag();
+        // 切片引用了构建级方案（lumps 里 schemeIndex 指向合法索引）才需要同步方案预设
+        final Set<Integer> used = new HashSet<>();
+        for (HybridSliceTask.HybridCreatorLump lump : selectedEntry.task.lumps) {
+            if (lump.schemeIndex >= 0 && lump.schemeIndex < schemes.size()) used.add(lump.schemeIndex);
+        }
+        if (used.isEmpty()) {
+            minecraft.setScreen(new HybridPresetExportScreen(this, tasksTag, HybridCreatorJsonIO.SLICE_DIR));
+            return;
+        }
+        minecraft.setScreen(new HybridConfirmScreen(this,
+                ComponentHelper.translatable("ui.fangsu.hybrid_creator.slice.export_schemes_confirm"),
+                () -> {
+                    // 是：先把引用的方案导出为预设（切片名_方案名_时间），映射写入切片 tag 再导出
+                    exportSchemesPresets(tasksTag, used);
+                    minecraft.setScreen(new HybridPresetExportScreen(HybridCreatorScreen.this, tasksTag, HybridCreatorJsonIO.SLICE_DIR));
+                },
+                () -> minecraft.setScreen(new HybridPresetExportScreen(HybridCreatorScreen.this, tasksTag, HybridCreatorJsonIO.SLICE_DIR))));
+    }
+
+    /** 导出切片引用的方案为预设文件（hybrid_creator/schemes/，名 = 切片名_方案名_时间戳），
+     *  并把「旧索引 → 预设文件名」映射写入切片 tag（导入时按名字找回并重映射引用） */
+    private void exportSchemesPresets(CompoundTag tasksTag, Set<Integer> used) {
+        final String stamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        final net.minecraft.nbt.CompoundTag mapping = new net.minecraft.nbt.CompoundTag();
+        for (int index : used) {
+            final HybridScheme scheme = schemes.get(index);
+            try {
+                final String path = HybridCreatorJsonIO.write(scheme.toCompoundTag(),
+                        selectedEntry.task.name + "_" + scheme.name + "_" + stamp, HybridCreatorJsonIO.SCHEME_DIR);
+                mapping.putString(String.valueOf(index), Path.of(path).getFileName().toString());
+            } catch (IOException e) {
+                com.fangsu.Main.LOGGER.error("[HybridCreator] 导出方案预设失败（切片导出继续）", e);
+                showMessage(ComponentHelper.translatable("msg.fangsu.hybrid_creator.io_error"));
+            }
+        }
+        tasksTag.put(TAG_SCHEME_PRESETS, mapping);
+    }
+
+    /** 导入切片：从 hybrid_creator/slices/ 文件夹选择单个任务 JSON 文件，加入列表末尾。
+     *  切片 JSON 带有方案预设引用（scheme_presets）时提示是否同步导入 */
+    private void importSliceJson() {
+        minecraft.setScreen(new HybridPresetImportScreen(this, tasksTag -> {
+            if (!tasksTag.contains(TAG_SCHEME_PRESETS)) {
+                addSliceTask(tasksTag);
+                return;
+            }
+            minecraft.setScreen(new HybridConfirmScreen(HybridCreatorScreen.this,
+                    ComponentHelper.translatable("ui.fangsu.hybrid_creator.slice.import_schemes_confirm"),
+                    () -> importSliceWithSchemes(tasksTag),
+                    () -> {
+                        addSliceTask(tasksTag);
+                        minecraft.setScreen(HybridCreatorScreen.this);
+                    }));
+        }, HybridCreatorJsonIO.SLICE_DIR));
+    }
+
+    /** 直接导入切片（不含方案预设）：构造任务加入列表末尾并持久化 */
+    private void addSliceTask(CompoundTag tasksTag) {
+        final HybridSliceTask task = new HybridSliceTask(tasksTag);
+        final Entry entry = new Entry(task, String.valueOf(entries.size()));
+        entries.add(entry);
+        selectedEntry = entry;
+        update();
+    }
+
+    /** 同步导入切片引用的方案预设：按 scheme_presets 映射从 hybrid_creator/schemes/ 读回方案，
+     *  追加到构建级列表（同文件不重复添加）并重映射切片 lumps 里的引用索引 */
+    private void importSliceWithSchemes(CompoundTag tasksTag) {
+        final HybridSliceTask task = new HybridSliceTask(tasksTag);
+        final net.minecraft.nbt.CompoundTag presetsTag = tasksTag.getCompound(TAG_SCHEME_PRESETS);
+        int importedCount = 0;
+        if (!presetsTag.isEmpty()) {
+            final Map<Integer, Integer> remap = new HashMap<>();
+            for (String oldKey : presetsTag.getAllKeys()) {
+                final int oldIndex;
+                try {
+                    oldIndex = Integer.parseInt(oldKey);
+                } catch (NumberFormatException ignored) {
+                    continue; // 手改 JSON 的非法键：跳过
+                }
+                final String fileName = presetsTag.getString(oldKey);
+                // 同文件已导入过 → 复用其构建级索引，不重复添加
+                final Integer existing = importedPresetIndex.get(fileName);
+                if (existing != null) {
+                    remap.put(oldIndex, existing);
+                    continue;
+                }
+                try {
+                    final CompoundTag schemeTag = HybridCreatorJsonIO.read(fileName, HybridCreatorJsonIO.SCHEME_DIR);
+                    if (schemeTag == null) continue; // 预设文件缺失：保持原索引（构建时悬空跳过）
+                    final HybridScheme scheme = HybridScheme.fromCompoundTag(schemeTag);
+                    if (scheme == null) continue;
+                    schemes.add(scheme);
+                    final int newIndex = schemes.size() - 1;
+                    importedPresetIndex.put(fileName, newIndex);
+                    remap.put(oldIndex, newIndex);
+                    importedCount++;
+                } catch (IOException e) {
+                    com.fangsu.Main.LOGGER.error("[HybridCreator] 导入方案预设失败", e);
+                }
+            }
+            // 重映射切片 lumps 中的引用：旧索引 → 构建级新索引
+            for (HybridSliceTask.HybridCreatorLump lump : task.lumps) {
+                final Integer mapped = remap.get(lump.schemeIndex);
+                if (mapped != null) lump.schemeIndex = mapped;
+            }
+        }
+        final Entry entry = new Entry(task, String.valueOf(entries.size()));
+        entries.add(entry);
+        selectedEntry = entry;
+        update();
+        minecraft.setScreen(this);
+        if (minecraft.player != null) {
+            minecraft.player.displayClientMessage(ComponentHelper.translatable("msg.fangsu.hybrid_creator.import_slice_with_schemes", importedCount), true);
+        }
     }
 
     /** 导入结果统一落地：写 NBT、刷新条目列表（供粘贴导入与预设导入共用） */
@@ -244,8 +403,11 @@ public class HybridCreatorScreen extends Screen {
         placeButton(btnClear, width - 50, 150, 40);
         placeButton(btnExport, width - 50, 180, 40);
         placeButton(btnImport, width - 50, 210, 40);
-        placeButton(btnExportPreset, width - 99, 180, 44);
-        placeButton(btnImportPreset, width - 99, 210, 44);
+        // 右列两行：左 = 导出/导入切片、右 = 导出/导入预设（切片按钮在预设按钮左侧）
+        placeButton(btnExportSlice, width - 167, 180, 58);
+        placeButton(btnImportSlice, width - 167, 210, 58);
+        placeButton(btnExportPreset, width - 105, 180, 58);
+        placeButton(btnImportPreset, width - 105, 210, 58);
         placeButton(btnClose, 10, 10, 20);
         btnAdd.render(graphics, mouseX, mouseY, partialTick);
         btnRemove.render(graphics, mouseX, mouseY, partialTick);
@@ -255,6 +417,8 @@ public class HybridCreatorScreen extends Screen {
         btnImport.render(graphics, mouseX, mouseY, partialTick);
         btnExportPreset.render(graphics, mouseX, mouseY, partialTick);
         btnImportPreset.render(graphics, mouseX, mouseY, partialTick);
+        btnExportSlice.render(graphics, mouseX, mouseY, partialTick);
+        btnImportSlice.render(graphics, mouseX, mouseY, partialTick);
         btnClose.render(graphics, mouseX, mouseY, partialTick);
 
         scissorX = 0;
@@ -385,6 +549,8 @@ public class HybridCreatorScreen extends Screen {
         result.add(btnImport);
         result.add(btnExportPreset);
         result.add(btnImportPreset);
+        result.add(btnExportSlice);
+        result.add(btnImportSlice);
         result.add(btnClose);
         return result;
     }
@@ -442,7 +608,7 @@ public class HybridCreatorScreen extends Screen {
         }
 
         public void enter() {
-            minecraft.setScreen(new HybridSliceTaskScreen(task, key, HybridCreatorScreen.this));
+            minecraft.setScreen(new HybridSliceTaskScreen(task, key, HybridCreatorScreen.this, schemes));
         }
 
         public void updateName(String name) {

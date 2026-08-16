@@ -41,6 +41,10 @@ import java.util.stream.Stream;
 public class HybridCreatorJsonIO {
 
     private static final String DIR_NAME = "hybrid_creator";
+    /** 方案预设子目录：hybrid_creator/schemes/，与任务预设（根目录）隔离 */
+    public static final String SCHEME_DIR = "schemes";
+    /** 切片预设子目录：hybrid_creator/slices/（单个任务的导出/导入） */
+    public static final String SLICE_DIR = "slices";
     /** 1.20.1 的 GsonHelper 无 toStableJson（1.20.3+ 才有），直接用 Gson 序列化。
      *  紧凑输出（无换行空格）：配置要复制到剪贴板分享，压缩后更短 */
     private static final Gson COMPACT_GSON = new GsonBuilder().disableHtmlEscaping().create();
@@ -58,8 +62,13 @@ public class HybridCreatorJsonIO {
      * 文件名做安全过滤：非法路径字符替换为下划线、去「..」防路径穿越。
      */
     public static String write(CompoundTag tasksTag, String fileName) throws IOException {
+        return write(tasksTag, fileName, null);
+    }
+
+    /** 同 {@link #write(CompoundTag, String)}，subDir 非空时写入 hybrid_creator/<subDir>/ 子目录（如方案预设） */
+    public static String write(CompoundTag tasksTag, String fileName, String subDir) throws IOException {
         final String safe = fileName == null ? "hybrid_creator" : fileName.trim().replaceAll("[\"*/:<>?\\\\|]", "_").replace("..", "_");
-        final Path dir = Minecraft.getInstance().gameDirectory.toPath().resolve(DIR_NAME);
+        final Path dir = presetDir(subDir);
         Files.createDirectories(dir);
         final Path path = dir.resolve((safe.isEmpty() ? "hybrid_creator" : safe) + ".json");
         Files.writeString(path, COMPACT_GSON.toJson(tagToJson(tasksTag)), StandardCharsets.UTF_8);
@@ -68,7 +77,12 @@ public class HybridCreatorJsonIO {
 
     /** 列出预设文件夹下全部 JSON 文件名（按修改时间新的在前）；文件夹不存在时返回空列表 */
     public static List<String> listJsonFiles() throws IOException {
-        final Path dir = Minecraft.getInstance().gameDirectory.toPath().resolve(DIR_NAME);
+        return listJsonFiles(null);
+    }
+
+    /** 同 {@link #listJsonFiles()}，列出 hybrid_creator/<subDir>/ 下的文件 */
+    public static List<String> listJsonFiles(String subDir) throws IOException {
+        final Path dir = presetDir(subDir);
         if (!Files.isDirectory(dir)) return List.of();
         try (Stream<Path> stream = Files.list(dir)) {
             return stream.filter(path -> path.toString().endsWith(".json"))
@@ -80,10 +94,21 @@ public class HybridCreatorJsonIO {
 
     /** 读取指定文件名的 JSON 并解析为 tasks 复合标签；文件不存在或解析失败时返回 null */
     public static CompoundTag read(String fileName) throws IOException {
-        final Path dir = Minecraft.getInstance().gameDirectory.toPath().resolve(DIR_NAME);
+        return read(fileName, null);
+    }
+
+    /** 同 {@link #read(String)}，从 hybrid_creator/<subDir>/ 子目录读取 */
+    public static CompoundTag read(String fileName, String subDir) throws IOException {
+        final Path dir = presetDir(subDir);
         final Path path = dir.resolve(fileName).normalize();
         if (!path.startsWith(dir) || !Files.isRegularFile(path)) return null;
         return parse(Files.readString(path, StandardCharsets.UTF_8));
+    }
+
+    /** 预设目录：subDir 为 null/空时用根目录 hybrid_creator/，否则用其子目录 */
+    private static Path presetDir(String subDir) {
+        final Path dir = Minecraft.getInstance().gameDirectory.toPath().resolve(DIR_NAME);
+        return subDir == null || subDir.isEmpty() ? dir : dir.resolve(subDir);
     }
 
     /** 解析 JSON 文本为 tasks 复合标签；非法 JSON 返回 null（供「粘贴 JSON 导入」使用） */
@@ -93,6 +118,33 @@ public class HybridCreatorJsonIO {
             final Tag tag = jsonToTag(element);
             return tag instanceof CompoundTag compoundTag ? compoundTag : null;
         } catch (IllegalArgumentException | com.google.gson.JsonSyntaxException e) {
+            return null;
+        }
+    }
+
+    /* ===================== 混合方案单独导出/导入（跨任务复用） ===================== */
+
+    /**
+     * 导出单个混合方案为 JSON 文本（剪贴板分享用；结构 = 任务 JSON 中 schemes 的单个条目）。
+     * 方块名 + 属性串与任务数据同策略（完整名 + 属性串），跨 MC 版本稳定。
+     */
+    public static String schemeToJson(HybridScheme scheme) {
+        return COMPACT_GSON.toJson(tagToJson(scheme.toCompoundTag()));
+    }
+
+    /**
+     * 解析单个混合方案 JSON 文本；非法 JSON 或结构不符返回 null。
+     * 方案条目里的方块名可被手改，畸形名抛异常在此统一拦截（不向上抛）。
+     */
+    public static HybridScheme parseScheme(String json) {
+        try {
+            final JsonElement element = JsonParser.parseString(json);
+            final Tag tag = jsonToTag(element);
+            if (!(tag instanceof CompoundTag compoundTag) || !compoundTag.contains(HybridScheme.TAG_ENTRIES)) {
+                return null;
+            }
+            return HybridScheme.fromCompoundTag(compoundTag);
+        } catch (IllegalArgumentException | com.google.gson.JsonSyntaxException | ClassCastException e) {
             return null;
         }
     }

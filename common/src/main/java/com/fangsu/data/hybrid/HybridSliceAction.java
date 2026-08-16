@@ -64,6 +64,8 @@ import java.util.UUID;
 public class HybridSliceAction extends Rail.RailActions {
 
     private final HybridSliceTask task;
+    /** 构建级混合方案列表（物品 NBT 顶层，不随任务数据存储） */
+    private final List<HybridScheme> schemes;
     /** 父类 RailActions 的 rail 字段是 private，build() 里取不到，这里自己存一份 */
     private final Rail rail;
     /** 切片位置序列（升序）：每组 = 厚度 N 个连续切片（组内第 k 片用第 k 个独立矩阵），
@@ -96,12 +98,13 @@ public class HybridSliceAction extends Rail.RailActions {
     /** 区间弧长小于此值强制收敛（防御浮点不收敛） */
     private static final double MIN_SEGMENT = 0.05;
 
-    public HybridSliceAction(Level level, Player player, Rail rail, HybridSliceTask task) {
+    public HybridSliceAction(Level level, Player player, Rail rail, HybridSliceTask task, List<HybridScheme> schemes) {
         super(level, player, Rail.RailActionType.BRIDGE, rail, 0, 0, null);
         this.level = level;
         this.uuid = player.getUUID();
         this.playerName = player.getName().getString();
         this.task = task;
+        this.schemes = schemes;
         this.rail = rail;
         width = task.width;
         height = task.height;
@@ -202,9 +205,11 @@ public class HybridSliceAction extends Rail.RailActions {
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
                 final HybridSliceTask.HybridCreatorLump lump = task.lumps.get(groupBase + i * width + j);
-                if (lump.blockState == null) continue;
+                // 普通格返回自身方块、方案格按权重确定性随机抽选；null = 空/悬空引用/无效方案 → 跳过
+                BlockState state = resolveState(lump);
+                if (state == null) continue;
                 final double columnOffset = j - (width - 1) / 2.0;
-                final BlockState state = rotateState(lump.blockState, nx, nz, tx, tz);
+                state = rotateState(state, nx, nz, tx, tz);
                 final CellPlacement placement = computePlacement(lump, state, center.add(nx * columnOffset, centerRow - i, nz * columnOffset));
                 grid[i][j] = placement.pos;
                 states[i][j] = placement.state;
@@ -243,6 +248,35 @@ public class HybridSliceAction extends Rail.RailActions {
     }
 
     /**
+     * 解析一个格子最终要放置的方块：
+     * <ul>
+     *   <li>普通格（schemeIndex < 0）：返回格内自身方块（可能为 null → 调用方跳过）</li>
+     *   <li>混合方案格：按权重随机抽选一个条目。确定性随机——种子由「轨道位置取整 + 切片索引 +
+     *       格坐标」构成：同格每次构建结果一致（细分重建/重复构建稳定），不同格/不同轨道各异</li>
+     *   <li>悬空引用（方案已删/索引越界）、空方案、全零权重 → null（调用方跳过该格）</li>
+     * </ul>
+     */
+    private BlockState resolveState(HybridSliceTask.HybridCreatorLump lump) {
+        if (lump.schemeIndex < 0) return lump.blockState;
+        if (lump.schemeIndex >= schemes.size()) return null; // 悬空引用（数据损坏/方案被删）
+        final HybridScheme scheme = schemes.get(lump.schemeIndex);
+        long total = 0;
+        for (HybridScheme.SchemeEntry entry : scheme.entries) {
+            if (entry.blockState != null && entry.weight > 0) total += entry.weight;
+        }
+        if (total <= 0) return null; // 空方案或全零权重
+        // 每格一个独立 Random 实例：格间互不影响；不固定种子，重复放置/重新构建
+        // 同一格结果不同（不做确定性缓存——用户要求每次随机）
+        long remaining = new java.util.Random().nextInt((int) Math.min(total, Integer.MAX_VALUE));
+        for (HybridScheme.SchemeEntry entry : scheme.entries) {
+            if (entry.blockState == null || entry.weight <= 0) continue;
+            remaining -= entry.weight;
+            if (remaining < 0) return entry.blockState;
+        }
+        return null; // 防御：total > 0 时不可达
+    }
+
+    /**
      * 相邻两个切片是否「不连贯」（需细分补缝）：
      * <ul>
      *   <li>中心列间距 > 1.5 格（用户设了间隔，interval ≥1）：<b>不细分</b>——
@@ -275,7 +309,18 @@ public class HybridSliceAction extends Rail.RailActions {
             boolean hasSlab = false;
             for (int i = 0; i < height && !hasSlab; i++) {
                 final HybridSliceTask.HybridCreatorLump lump = task.lumps.get(groupBase + i * width + j);
-                if (lump.blockState != null && lump.blockState.getBlock() instanceof SlabBlock) hasSlab = true;
+                if (lump.schemeIndex >= 0 && lump.schemeIndex < schemes.size()) {
+                    // 混合方案格：任一条目含台阶 → 保守判定该列为台阶列（细分逻辑照常生效，
+                    // 半砖条目与普通方块混排时也不会在半格处留缝）
+                    for (HybridScheme.SchemeEntry entry : schemes.get(lump.schemeIndex).entries) {
+                        if (entry.blockState != null && entry.blockState.getBlock() instanceof SlabBlock) {
+                            hasSlab = true;
+                            break;
+                        }
+                    }
+                } else if (lump.blockState != null && lump.blockState.getBlock() instanceof SlabBlock) {
+                    hasSlab = true;
+                }
             }
             if (hasSlab && Math.abs(c2.y - c1.y) >= 0.5) return true;
             final double off = j - (width - 1) / 2.0;
@@ -528,8 +573,8 @@ public class HybridSliceAction extends Rail.RailActions {
      * 优先走 mixin 接口（Fabric 端）；Forge 端不加载 mixin（mods.toml 无声明），
      * 回退到反射操作 {@code railActions} 字段 + 静态广播。
      */
-    public static void attach(Level level, Player player, RailwayData railwayData, Rail rail, HybridSliceTask task) {
-        final HybridSliceAction action = new HybridSliceAction(level, player, rail, task);
+    public static void attach(Level level, Player player, RailwayData railwayData, Rail rail, HybridSliceTask task, List<HybridScheme> schemes) {
+        final HybridSliceAction action = new HybridSliceAction(level, player, rail, task, schemes);
         final RailwayDataRailActionsModule module = railwayData.railwayDataRailActionsModule;
         if (module instanceof RailActionsModuleExtraSupplier supplier) {
             supplier.getRailActions().add(action);

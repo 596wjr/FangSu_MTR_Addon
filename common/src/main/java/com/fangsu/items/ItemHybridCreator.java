@@ -1,5 +1,6 @@
 package com.fangsu.items;
 
+import com.fangsu.data.hybrid.HybridScheme;
 import com.fangsu.data.hybrid.HybridSliceAction;
 import com.fangsu.data.hybrid.HybridSliceTask;
 import com.fangsu.data.hybrid.RailActionsModuleExtraSupplier;
@@ -48,6 +49,8 @@ public class ItemHybridCreator extends ItemNodeModifierSelectableBlockBase {
      * NBT 键：任务列表（客户端编辑器写、服务端构建时读）
      */
     public static final String TAG_TASKS = "tasks";
+    /** 构建级混合方案列表（物品 NBT 顶层键，与 tasks 并列；lumps 的 schemeIndex 引用此列表） */
+    public static final String TAG_SCHEMES = "schemes";
 
     public ItemHybridCreator() {
         // MTR3 构造无 ItemSettings；width=1 → radius=0（宽度为 1 的桥梁构建）
@@ -127,9 +130,17 @@ public class ItemHybridCreator extends ItemNodeModifierSelectableBlockBase {
         //#else
         //$$ final Level level = player.level;
         //#endif
+        // 构建级混合方案列表（物品 NBT 顶层，与 tasks 并列）：所有任务共用，
+        // lumps 里的 schemeIndex 引用此列表；缺失/空 = 旧数据或未建方案，引用悬空跳过
+        final List<HybridScheme> schemes = new ArrayList<>();
+        if (tag.contains(TAG_SCHEMES)) {
+            for (net.minecraft.nbt.Tag t : tag.getList(TAG_SCHEMES, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+                schemes.add(HybridScheme.fromCompoundTag((net.minecraft.nbt.CompoundTag) t));
+            }
+        }
         for (HybridSliceTask task : tasks) {
             // 逐个挂载；RailwayDataRailActionsModule.tick() 一次只处理队头，按 order 串行执行
-            HybridSliceAction.attach(level, player, railwayData, rail, task);
+            HybridSliceAction.attach(level, player, railwayData, rail, task, schemes);
         }
         return true;
     }

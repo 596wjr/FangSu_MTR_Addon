@@ -224,11 +224,12 @@ public class HybridSliceTask {
         for (String name : names) namesTag.add(StringTag.valueOf(name));
         compoundTag.put(TAG_BLOCK_NAMES, namesTag);
         compoundTag.putByteArray(TAG_LUMPS, HybridCreatorLump.toByteArray(lumps, names));
+        // 混合方案：空则不写键（旧版导出的 JSON 形态保持最小差异）
         return compoundTag;
     }
 
     /** 方块 → 完整名字（如 minecraft:stone），跨 MC 版本稳定（不 import，用全限定名保证多版本可编译） */
-    private static String getBlockName(Block block) {
+    static String getBlockName(Block block) {
         //#if MC_VERSION >= 11903
         return net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(block).toString();
         //#else
@@ -237,7 +238,7 @@ public class HybridSliceTask {
     }
 
     /** 名字 → 方块；未注册（mod 缺失/名字变更）返回 null，调用方置空处理 */
-    private static Block getBlockByName(String name) {
+    static Block getBlockByName(String name) {
         //#if MC_VERSION >= 11903
         return net.minecraft.core.registries.BuiltInRegistries.BLOCK.get(new ResourceLocation(name));
         //#else
@@ -246,25 +247,39 @@ public class HybridSliceTask {
     }
 
     /**
-     * 矩阵中的一个格子：方块状态 + 是否替换模式（照 ANTE CompoundCreator.Lump）。
+     * 矩阵中的一个格子：方块状态 + 是否替换模式 + 混合方案引用（照 ANTE CompoundCreator.Lump）。
+     * <p>
+     * schemeIndex >= 0 = 引用构建级（物品 NBT 顶层）{@code schemes} 列表的索引
+     * （构建时按权重随机抽选方块）；-1 = 普通方块格（blockState 存自身方块，可为 null = 空）。
      */
     public static class HybridCreatorLump {
         public BlockState blockState;
         public boolean replacement;
+        /** 混合方案引用索引（≥0 = 引用构建级 schemes 列表），-1 = 普通方块格 */
+        public int schemeIndex = -1;
 
         public HybridCreatorLump(HybridCreatorLump other) {
-            this(other.blockState, other.replacement);
+            this(other.blockState, other.replacement, other.schemeIndex);
         }
 
         public HybridCreatorLump(BlockState blockState, boolean replacement) {
+            this(blockState, replacement, -1);
+        }
+
+        public HybridCreatorLump(BlockState blockState, boolean replacement, int schemeIndex) {
             this.blockState = blockState;
             this.replacement = replacement;
+            this.schemeIndex = schemeIndex;
         }
 
         /**
-         * 序列化（新格式，配合 {@code names} 名字表）：每格 = has + 名字表索引 + 属性串 + replacement。
-         * 属性串（如 "type=bottom,facing=north"，键按状态属性集合顺序）保留完整状态，
-         * 朝向等属性不用在 UI 里手选也不会丢。
+         * 序列化（新格式，配合 {@code names} 名字表）：每格 = type 字节 + 内容 + replacement。
+         * <p>
+         * type 字节兼容旧格式：旧版 writeBoolean(false/true) 写 0x00/0x01，
+         * 新格式 0=空、1=普通方块（旧 true）、2=混合方案引用（后跟 writeInt 方案索引），
+         * 旧数据 readByte 读出 0/1 语义完全等价，无需迁移。
+         * 普通方块内容 = 名字表索引 + 属性串（如 "type=bottom,facing=north"，键按状态属性集合顺序）
+         * 保留完整状态，朝向等属性不用在 UI 里手选也不会丢。
          */
         public static byte[] toByteArray(List<HybridCreatorLump> lumps, List<String> names) {
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -272,22 +287,26 @@ public class HybridSliceTask {
             try {
                 dos.writeInt(lumps.size());
                 for (HybridCreatorLump lump : lumps) {
-                    boolean hasBlockState = lump.blockState != null;
-                    dos.writeBoolean(hasBlockState);
-                    if (hasBlockState) {
+                    if (lump.schemeIndex >= 0) {
+                        dos.writeByte(2);                // 混合方案引用（新）
+                        dos.writeInt(lump.schemeIndex);
+                    } else if (lump.blockState != null) {
+                        dos.writeByte(1);                // 普通方块（旧 writeBoolean(true) 亦写 0x01）
                         // 先分配名字索引再引用（参照原版合成表模式），跨 MC 版本稳定
                         dos.writeInt(names.indexOf(HybridSliceTask.getBlockName(lump.blockState.getBlock())));
                         dos.writeUTF(serializeProps(lump.blockState));
+                    } else {
+                        dos.writeByte(0);                // 空（旧 writeBoolean(false) 亦写 0x00）
                     }
                     dos.writeBoolean(lump.replacement);
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                com.fangsu.Main.LOGGER.error("[HybridCreator] 写入 lumps 失败", e);
             }
             return bos.toByteArray();
         }
 
-        /** 读取新格式：名字表索引 + 属性串 → 完整方块状态 */
+        /** 读取新格式：type 字节 + 名字表索引 + 属性串 → 完整方块状态；0x02 = 方案引用 */
         public static List<HybridCreatorLump> fromByteArray(byte[] bytes, List<String> names) {
             ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
             DataInputStream dis = new DataInputStream(bis);
@@ -295,22 +314,30 @@ public class HybridSliceTask {
             try {
                 int size = dis.readInt();
                 for (int i = 0; i < size; i++) {
-                    boolean hasBlockState = dis.readBoolean();
+                    // 类型字节：0x00/0x01 与旧 writeBoolean(false/true) 逐字节等价，旧数据免迁移；
+                    // 0x02 = 方案引用（新格式）
+                    final byte type = dis.readByte();
                     BlockState blockState = null;
-                    if (hasBlockState) {
+                    int schemeIndex = -1;
+                    if (type == 1) {
                         final int index = dis.readInt();
-                        // 防御：索引越界（数据损坏）时置空该格，保证构建不崩溃
                         if (index >= 0 && index < names.size()) {
                             blockState = parseState(names.get(index), dis.readUTF());
                         } else {
-                            dis.readUTF();
+                            dis.readUTF();               // 对齐流，防御索引越界
                         }
+                    } else if (type == 2) {
+                        schemeIndex = dis.readInt();
+                        if (schemeIndex < 0) schemeIndex = -1;  // 防御负数；≥ schemes.size() 的悬空引用由构建/UI 侧跳过
+                    } else if (type != 0) {
+                        // 未知类型（未来扩展/损坏）：后续字段布局未知，中止 → 上层 size 校验重建空矩阵
+                        throw new IOException("未知的混合方块格类型: " + type);
                     }
                     boolean replacement = dis.readBoolean();
-                    lumps.add(new HybridCreatorLump(blockState, replacement));
+                    lumps.add(new HybridCreatorLump(blockState, replacement, schemeIndex));
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                com.fangsu.Main.LOGGER.error("[HybridCreator] 读取 lumps 失败", e);
             }
             return lumps;
         }
@@ -339,7 +366,7 @@ public class HybridSliceTask {
         }
 
         /** 完整状态 → 属性串（"key1=value1,key2=value2"，按状态属性集合顺序稳定） */
-        private static String serializeProps(BlockState state) {
+        static String serializeProps(BlockState state) {
             final StringBuilder sb = new StringBuilder();
             for (Map.Entry<Property<?>, Comparable<?>> entry : state.getValues().entrySet()) {
                 if (sb.length() > 0) sb.append(',');
@@ -348,8 +375,9 @@ public class HybridSliceTask {
             return sb.toString();
         }
 
-        /** 名字 + 属性串 → 完整状态；方块未注册返回 null，跨版本缺失的属性跳过 */
-        private static BlockState parseState(String name, String props) {
+        /** 名字 + 属性串 → 完整状态；方块未注册返回 null，跨版本缺失的属性跳过。
+         *  注意：name 非法（空串/畸形 ResourceLocation）会抛异常，调用方（如解析手改 JSON）须自行捕获 */
+        static BlockState parseState(String name, String props) {
             final Block block = HybridSliceTask.getBlockByName(name);
             if (block == null) return null;
             BlockState state = block.defaultBlockState();
