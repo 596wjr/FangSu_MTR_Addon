@@ -166,12 +166,12 @@ public abstract class BaseObjBlockEntity extends BlockEntity {
 
         public void drawModel(ModelCluster model, Matrices poseStack) {
             if (model.isClosed()) return;
-            this.scriptResultWriting.addModel(model, poseStack == null ? Matrix4f.IDENTITY : poseStack.last().copy());
+            this.scriptResultWriting.addModel(model, poseStack == null ? Matrix4f.IDENTITY : poseStack.last());
         }
 
         public void drawModel(DynamicModelHolder model, Matrices poseStack) {
             if (model == null || model.getUploadedModel() == null || model.getUploadedModel().isClosed()) return;
-            this.scriptResultWriting.addModel(model, poseStack == null ? Matrix4f.IDENTITY : poseStack.last().copy());
+            this.scriptResultWriting.addModel(model, poseStack == null ? Matrix4f.IDENTITY : poseStack.last());
         }
 
         public void playSound(ResourceLocation sound, float volume, float pitch) {

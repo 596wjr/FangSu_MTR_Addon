@@ -4,12 +4,15 @@ import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.utils.PathGenerationStatusManager;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import mtr.data.Depot;
-import mtr.data.NameColorDataBase;
+import mtr.data.TransportMode;
+import mtr.screen.DashboardScreen;
 import mtr.screen.EditDepotScreen;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * 车厂编辑界面状态文本：MTR3 原版生成中用 {@code gui.mtr.generating_path}（固定文案
@@ -21,20 +24,27 @@ import org.spongepowered.asm.mixin.injection.At;
  * 失败：  [黄]车厂名 [红]线路刷新失败：| [红]原因 | [红]> 在 [黄]A [红]与 [黄]B [红] 之间找不到路径
  * </pre>
  * <p>
- * {@code getSuccessfulSegmentsText()} 是实例方法，{@code data} 为父类
- * {@code EditNameColorScreenBase} 的泛型字段（字节码擦除为 {@code NameColorDataBase}，
- * 实际对象为 {@code Depot}）。渲染处 {@code getString().split("\\|")} 后以固定
+ * 实现说明：{@code getSuccessfulSegmentsText()} 是实例方法，内部依赖父类泛型字段
+ * {@code EditNameColorScreenBase<T>.data}。mixins 无法对该泛型继承字段做 {@code @Shadow}
+ * （类加载时 @Shadow 字段解析失败，会直接打不开仪表板），故改为在构造函数 {@code RETURN}
+ * 用 {@code @Inject} 把构造参数 {@code Depot} 存入 {@code @Unique} 字段，再于方法返回处
+ * {@code @ModifyReturnValue} 替换返回文本。渲染处 {@code getString().split("\\|")} 后以固定
  * ARGB_WHITE 绘制，故多行用 {@code |} 分隔、颜色用 § 码内嵌（literal 的
  * {@code getString()} 保留 § 码，font 渲染会解析）。
  */
 @Mixin(value = EditDepotScreen.class, remap = false)
 public abstract class EditDepotScreenMixin {
 
-    @Shadow
-    protected NameColorDataBase data;
+    @Unique
+    private Depot fangsu$depot;
+
+    @Inject(method = "<init>", at = @At("RETURN"))
+    private void fangsu$captureDepot(Depot depot, TransportMode transportMode, DashboardScreen dashboardScreen, CallbackInfo ci) {
+        this.fangsu$depot = depot;
+    }
 
     @ModifyReturnValue(method = "getSuccessfulSegmentsText", at = @At("RETURN"))
     private Component fangsu$dashboardText(Component original) {
-        return ComponentHelper.literal(PathGenerationStatusManager.getDashboardText((Depot) data, original.getString()));
+        return ComponentHelper.literal(PathGenerationStatusManager.getDashboardText(fangsu$depot, original.getString()));
     }
 }

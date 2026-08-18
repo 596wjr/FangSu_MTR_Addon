@@ -60,4 +60,15 @@ public class Matrices {
         stack.pop();
         stack.push(new Matrix4f());
     }
+
+    /**
+     * 就地重置栈顶矩阵为单位矩阵（复用现有对象，避免分配）。
+     */
+    public void identity() {
+        //#if MC_VERSION >= "11903"
+        stack.peek().asMoj().identity();
+        //#else
+        //$$ stack.peek().asMoj().setIdentity();
+        //#endif
+    }
 }

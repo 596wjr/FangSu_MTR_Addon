@@ -162,8 +162,8 @@ public final class PathGenerationStatusManager {
         if (route == null || route.platformIds.isEmpty()) {
             return null;
         }
-        final Platform platform = ClientData.DATA_CACHE.platformIdMap.get(route.platformIds.get(0));
-        final Station station = platform == null ? null : platform.area;
+        final Platform platform = ClientData.DATA_CACHE.platformIdMap.get(route.platformIds.get(0).platformId);
+        final Station station = platform == null ? null : MtrUtil.getStationByPlatform(platform);
         return station == null ? null : IGui.formatStationName(station.name);
     }
 

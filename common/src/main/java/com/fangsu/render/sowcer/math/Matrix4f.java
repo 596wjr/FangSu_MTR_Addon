@@ -28,6 +28,21 @@ public class Matrix4f {
         return new Matrix4f(this);
     }
 
+    /**
+     * 就地拷贝 other 的矩阵值到本对象（供对象池复用，避免每次新建）。
+     */
+    public void set(Matrix4f other) {
+        //#if MC_VERSION >= "11903"
+        this.impl.set(other.impl);
+        //#else
+        //$$ float[] vals = new float[16];
+        //$$ FloatBuffer buf = FloatBuffer.wrap(vals);
+        //$$ other.impl.store(buf);
+        //$$ buf.rewind();
+        //$$ this.impl.load(buf);
+        //#endif
+    }
+
     public org.joml.Matrix4f asMoj() {
         return impl;
     }

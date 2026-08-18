@@ -60,6 +60,9 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
 
     private DynamicModelHolder mainDmh;
     private TicketBarrierDoorRenderInfo subInfo;
+
+    /** 复用的临时矩阵，避免每帧为每个门子模型分配新的 Matrices。 */
+    private final Matrices scratchMatrices = new Matrices();
     private CollisionBoxUtil.CollisionBox shape, collisionShape, doorCloseShape, doorCloseCollisionShape;
     private String shapeSerialized = "";
     private String collisionShapeSerialized = "";
@@ -155,16 +158,16 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
 
         if (subInfo != null) {
             for (TicketBarrierDoorRenderInfo.Door door : subInfo.doors) {
-                Matrices mat = new Matrices();
-                mat.translate(door.pos[0], door.pos[1], door.pos[2]);
+                scratchMatrices.identity();
+                scratchMatrices.translate(door.pos[0], door.pos[1], door.pos[2]);
                 if (subInfo.doorType == 1) {
-                    mat.rotateZ((float) (door.step * doorAngle * Math.PI));
+                    scratchMatrices.rotateZ((float) (door.step * doorAngle * Math.PI));
                 }
                 if (subInfo.doorType == 2) {
-                    if (door.side == 0) mat.rotateY((float) (0.5 * doorAngle * Math.PI));
-                    else if (door.side == 1) mat.rotateY((float) (0.5 * doorAngle * Math.PI * -1));
+                    if (door.side == 0) scratchMatrices.rotateY((float) (0.5 * doorAngle * Math.PI));
+                    else if (door.side == 1) scratchMatrices.rotateY((float) (0.5 * doorAngle * Math.PI * -1));
                 }
-                ctx.drawModel(door.dmh, mat);
+                ctx.drawModel(door.dmh, scratchMatrices);
             }
         }
     }

@@ -27,6 +27,14 @@ public abstract class AbstractDrawCalls {
             this.pose = pose;
         }
 
+        /** 对象池复用：重置引用字段（pose 由调用方负责入池）。 */
+        public ClusterDrawCall set(ModelCluster model, DynamicModelHolder modelHolder, Matrix4f pose) {
+            this.model = model;
+            this.modelHolder = modelHolder;
+            this.pose = pose;
+            return this;
+        }
+
         public void commit(DrawScheduler drawScheduler, Matrix4f basePose, int light) {
             // pose 为 IDENTITY 时直接使用 basePose，避免每帧矩阵复制
             final Matrix4f finalPose;

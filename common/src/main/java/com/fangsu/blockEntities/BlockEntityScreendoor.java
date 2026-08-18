@@ -70,6 +70,9 @@ public class BlockEntityScreendoor extends FunctionalObjBlockEntity implements I
 
     private List<DoorRenderInfo> infos;
 
+    /** 复用的临时矩阵，避免每帧为每个门子模型分配新的 Matrices。 */
+    private final Matrices scratchMatrices = new Matrices();
+
     protected String mainModel;
     protected String subModel;
 
@@ -157,9 +160,9 @@ public class BlockEntityScreendoor extends FunctionalObjBlockEntity implements I
         ObjBlockScriptContext ctx = this.scriptContext;
         if (infos != null) {
             for (DoorRenderInfo info : infos) {
-                Matrices mat = new Matrices();
-                mat.translate(-dispDoorValue * info.step, 0, 0);
-                ctx.drawModel(info.model, mat);
+                scratchMatrices.identity();
+                scratchMatrices.translate(-dispDoorValue * info.step, 0, 0);
+                ctx.drawModel(info.model, scratchMatrices);
             }
         }
 
