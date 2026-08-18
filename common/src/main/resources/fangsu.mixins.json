@@ -8,7 +8,9 @@
     "LiftClientMixin",
     "LiftCustomizationScreenMixin",
     "RenderTrainsMixin",
-    "ClientDataMixin"
+    "ClientDataMixin",
+    "PacketTrainDataGuiClientMixin",
+    "EditDepotScreenMixin"
   ],
   "mixins": [
     "CustomResourcesMixin",

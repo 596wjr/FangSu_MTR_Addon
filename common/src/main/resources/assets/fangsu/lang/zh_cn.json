@@ -262,5 +262,16 @@
   "ui.fangsu.hybrid_creator.confirm.title": "提示",
   "ui.fangsu.hybrid_creator.slice.export_schemes_confirm": "是否同步导出切片使用的混合方块预设？",
   "ui.fangsu.hybrid_creator.slice.import_schemes_confirm": "是否同步导入切片引用的混合方块预设？",
-  "msg.fangsu.hybrid_creator.import_slice_with_schemes": "已导入切片，含 %d 个混合方案预设"
+  "msg.fangsu.hybrid_creator.import_slice_with_schemes": "已导入切片，含 %d 个混合方案预设",
+  "gui.fangsu.depot.refreshing": "刷新线路中（已用时 %s）...",
+  "msg.fangsu.depot.refresh_success": "线路刷新成功！",
+  "msg.fangsu.depot.refresh_failed": "线路刷新失败：",
+  "msg.fangsu.depot.fail.between": "在 %s 与 %s 之间找不到路径",
+  "gui.fangsu.depot.fail.no_sidings": "没有侧线",
+  "gui.fangsu.depot.fail.two_platforms": "至少需要两个站台",
+  "gui.fangsu.depot.fail.path_not_found": "路径未找到",
+  "gui.fangsu.depot.fail.generic": "无法生成路径",
+  "gui.fangsu.time.hours": "%s小时",
+  "gui.fangsu.time.minutes": "%s分",
+  "gui.fangsu.time.seconds": "%s秒"
 }
