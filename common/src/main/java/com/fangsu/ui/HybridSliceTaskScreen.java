@@ -1409,7 +1409,11 @@ public class HybridSliceTaskScreen extends Screen {
                 }
                 entries.sort(Comparator.comparingInt(e -> -e.weight));
                 final long total = scheme.totalWeight();
+                //#if MC_VERSION >= 12000
                 final PoseStack pose = matrices.pose();
+                //#else
+                //$$ final PoseStack pose = matrices;
+                //#endif
                 for (int k = 0; k < Math.min(4, entries.size()); k++) {
                     final HybridScheme.SchemeEntry entry = entries.get(k);
                     final int ix = x + 2 + k * 18;

@@ -151,6 +151,17 @@ public class Matrix4f {
 //$$        return impl;
 //$$    }
 //$$
+//$$    /**
+//$$     * 就地拷贝 other 的矩阵值到本对象（供对象池复用，避免每次新建）。
+//$$     */
+//$$    public void set(Matrix4f other) {
+//$$        float[] vals = new float[16];
+//$$        FloatBuffer buf = FloatBuffer.wrap(vals);
+//$$        other.impl.store(buf);
+//$$        buf.rewind();
+//$$        this.impl.load(buf);
+//$$    }
+//$$
 //$$    public static Matrix4f translation(float x, float y, float z) {
 //$$        Matrix4f result = new Matrix4f();
 //$$        result.impl.translate(new com.mojang.math.Vector3f(x, y, z));
