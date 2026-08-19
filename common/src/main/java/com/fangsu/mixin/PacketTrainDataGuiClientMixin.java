@@ -20,8 +20,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * 随后会在同一个 {@code packet} 上用顺序 readLong/readInt 重读同样的值，若此处
  * 先消费掉字节会让原逻辑读到越界（FriendlyByteBuf 为流式顺序读取）。
  * S2C 包处理在 netty 线程，通知内部切主线程。
+ * <p>
+ * 注意：这里不能加 {@code remap = false}。MTR 是 compileOnly 依赖、方法名/类名
+ * 不会被重映射，但注入描述符里的 Minecraft 参数类型（{@code Minecraft}、
+ * {@code FriendlyByteBuf}）在 1.18.2 与 1.20.1 的运行时（Yarn）名字不同
+ * （1.18.2 为 {@code MinecraftClient}/{@code PacketByteBuf}）。必须让 Loom 经
+ * refmap 把描述符重映射到中间名（{@code class_310}/{@code class_2540}），否则在
+ * 1.18.2 下会因找不到 {@code generatePathS2C} 目标而崩溃。与 {@code ClientDataMixin}
+ * 保持同一写法。
  */
-@Mixin(value = PacketTrainDataGuiClient.class, remap = false)
+@Mixin(PacketTrainDataGuiClient.class)
 public abstract class PacketTrainDataGuiClientMixin {
 
     @Inject(method = "generatePathC2S(J)V", at = @At("HEAD"))
@@ -29,7 +37,11 @@ public abstract class PacketTrainDataGuiClientMixin {
         PathGenerationStatusManager.onGenerationStarted(sidingId);
     }
 
-    @Inject(method = "generatePathS2C(Lnet/minecraft/client/Minecraft;Lnet/minecraft/network/FriendlyByteBuf;)V", at = @At("HEAD"))
+    // method 用名字而非完整描述符：Minecraft/FriendlyByteBuf 的运行时（Yarn）名字在
+    // 1.18.2（MinecraftClient/PacketByteBuf）与 1.20.1（Minecraft/FriendlyByteBuf）不同，
+    // 交由 Loom 生成的 refmap 把 handler 签名映射到中间名（class_310/class_2540）后，
+    // 两个版本都能正确命中。generatePathS2C 在类中唯一，名字匹配无歧义。
+    @Inject(method = "generatePathS2C", at = @At("HEAD"))
     private static void fangsu$onGenerationResult(Minecraft minecraftClient, FriendlyByteBuf packet, CallbackInfo ci) {
         // 绝对索引读取，不推进 readerIndex，避免原逻辑顺序读取越界
         final int readerIndex = packet.readerIndex();

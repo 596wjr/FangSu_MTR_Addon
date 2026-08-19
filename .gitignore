@@ -7,3 +7,7 @@ build/
 .idea/
 
 /.venv/
+
+publish.md
+publish_en.md
+publish_zh.md
