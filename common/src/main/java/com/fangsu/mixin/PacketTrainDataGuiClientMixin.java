@@ -21,20 +21,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * 先消费掉字节会让原逻辑读到越界（FriendlyByteBuf 为流式顺序读取）。
  * S2C 包处理在 netty 线程，通知内部切主线程。
  * <p>
- * 注意：注入目标的书写方式见类内两个 {@code @Inject} 前的注释——必须用
- * 方法名字、不能用完整描述符（MTR 为 compileOnly、未重映射）。
+ * 注意：本 mixin 必须 {@code remap = false} 且注入目标只用方法名、不带完整描述符。
+ * MTR 是 compileOnly 依赖、不在 Loom 的重映射表里——写任何完整描述符
+ * （如 {@code generatePathC2S(J)V}）编译期都会报
+ * "Unable to locate obfuscation mapping"；而 Minecraft 参数类型的运行时（Yarn）名在
+ * 1.18.2（{@code MinecraftClient}/{@code PacketByteBuf}）与 1.20.1
+ * （{@code Minecraft}/{@code FriendlyByteBuf}）不同，若带完整描述符还会导致 1.18.2
+ * 运行时命中失败。纯名字匹配（两方法在类中各唯一）则绑定与版本无关、都能命中。
+ * <p>
+ * handler 形参（Minecraft / FriendlyByteBuf）是按位置与目标方法参数绑定的，仅用于
+ * 声明签名，不参与目标解析，因此两个版本下 handler 里的 {@code packet} 都能正确拿到
+ * 缓冲；参数里的 net.minecraft 类型本身也会由编译期反混淆回 Yarn 名，与目标一致。
  */
-@Mixin(PacketTrainDataGuiClient.class)
+@Mixin(value = PacketTrainDataGuiClient.class, remap = false)
 public abstract class PacketTrainDataGuiClientMixin {
 
-    // 注入目标的 method 一律用名字、不带完整描述符。原因：
-    // (1) MTR 类是 compileOnly 依赖，未被 Loom 重映射——若写完整描述符
-    //     （如 generatePathC2S(J)V），编译期 Loom 会因在混淆映射里找不到 MTR 方法而
-    //     报 "Unable to locate obfuscation mapping"；采用名字匹配即无此问题。
-    // (2) Minecraft 参数类型运行时（Yarn）名在 1.18.2（MinecraftClient/PacketByteBuf）
-    //     与 1.20.1（Minecraft/FriendlyByteBuf）不同，handler 签名由 Loom 生成的
-    //     refmap 映射到中间名（class_310/class_2540）后两个版本都能正确命中。
-    // （generatePathC2S/generatePathS2C 在类中各唯一，名字匹配无歧义。）
     @Inject(method = "generatePathC2S", at = @At("HEAD"))
     private static void fangsu$onGenerationStarted(long sidingId, CallbackInfo ci) {
         PathGenerationStatusManager.onGenerationStarted(sidingId);
