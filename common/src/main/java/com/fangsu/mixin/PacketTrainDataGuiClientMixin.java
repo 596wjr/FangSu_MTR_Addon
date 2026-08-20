@@ -21,26 +21,25 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * 先消费掉字节会让原逻辑读到越界（FriendlyByteBuf 为流式顺序读取）。
  * S2C 包处理在 netty 线程，通知内部切主线程。
  * <p>
- * 注意：这里不能加 {@code remap = false}。MTR 是 compileOnly 依赖、方法名/类名
- * 不会被重映射，但注入描述符里的 Minecraft 参数类型（{@code Minecraft}、
- * {@code FriendlyByteBuf}）在 1.18.2 与 1.20.1 的运行时（Yarn）名字不同
- * （1.18.2 为 {@code MinecraftClient}/{@code PacketByteBuf}）。必须让 Loom 经
- * refmap 把描述符重映射到中间名（{@code class_310}/{@code class_2540}），否则在
- * 1.18.2 下会因找不到 {@code generatePathS2C} 目标而崩溃。与 {@code ClientDataMixin}
- * 保持同一写法。
+ * 注意：注入目标的书写方式见类内两个 {@code @Inject} 前的注释——必须用
+ * 方法名字、不能用完整描述符（MTR 为 compileOnly、未重映射）。
  */
 @Mixin(PacketTrainDataGuiClient.class)
 public abstract class PacketTrainDataGuiClientMixin {
 
-    @Inject(method = "generatePathC2S(J)V", at = @At("HEAD"))
+    // 注入目标的 method 一律用名字、不带完整描述符。原因：
+    // (1) MTR 类是 compileOnly 依赖，未被 Loom 重映射——若写完整描述符
+    //     （如 generatePathC2S(J)V），编译期 Loom 会因在混淆映射里找不到 MTR 方法而
+    //     报 "Unable to locate obfuscation mapping"；采用名字匹配即无此问题。
+    // (2) Minecraft 参数类型运行时（Yarn）名在 1.18.2（MinecraftClient/PacketByteBuf）
+    //     与 1.20.1（Minecraft/FriendlyByteBuf）不同，handler 签名由 Loom 生成的
+    //     refmap 映射到中间名（class_310/class_2540）后两个版本都能正确命中。
+    // （generatePathC2S/generatePathS2C 在类中各唯一，名字匹配无歧义。）
+    @Inject(method = "generatePathC2S", at = @At("HEAD"))
     private static void fangsu$onGenerationStarted(long sidingId, CallbackInfo ci) {
         PathGenerationStatusManager.onGenerationStarted(sidingId);
     }
 
-    // method 用名字而非完整描述符：Minecraft/FriendlyByteBuf 的运行时（Yarn）名字在
-    // 1.18.2（MinecraftClient/PacketByteBuf）与 1.20.1（Minecraft/FriendlyByteBuf）不同，
-    // 交由 Loom 生成的 refmap 把 handler 签名映射到中间名（class_310/class_2540）后，
-    // 两个版本都能正确命中。generatePathS2C 在类中唯一，名字匹配无歧义。
     @Inject(method = "generatePathS2C", at = @At("HEAD"))
     private static void fangsu$onGenerationResult(Minecraft minecraftClient, FriendlyByteBuf packet, CallbackInfo ci) {
         // 绝对索引读取，不推进 readerIndex，避免原逻辑顺序读取越界
