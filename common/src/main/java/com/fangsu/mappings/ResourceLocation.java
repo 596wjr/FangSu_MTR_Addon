@@ -24,4 +24,9 @@ public class ResourceLocation extends SimpleMappings<net.minecraft.resources.Res
     public String getNamespace() {
         return raw.getNamespace();
     }
+
+    @Override
+    public String toString() {
+        return raw.toString();
+    }
 }

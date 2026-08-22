@@ -15,6 +15,7 @@ import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
 import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.scripting.ModelHelper;
 import com.fangsu.drawing.sign.SignDrawContext;
+import com.fangsu.drawing.sign.SignFaceData;
 import com.fangsu.drawing.sign.SignItem;
 import com.fangsu.drawing.sign.SignItemFactory;
 import com.fangsu.utils.CollisionBoxUtil;
@@ -67,6 +68,7 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
     private boolean isMtrTheme = false;
     private double mtrPoleOffset = 0d;
     private int defaultBgColor = -1;
+    private int bgColorFront = 0, bgColorBack = 0; // 用户背景色 ARGB, 0 = 透明
 
     private boolean requiresRedraw = true;
 
@@ -80,8 +82,7 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
     @Override
     public void whenLoading() {
         ensureExtraConfig("length", "2");
-        ensureExtraConfig("itemsFront", "{}");
-        ensureExtraConfig("itemsBack", "{}");
+        ensureExtraConfig("faces", "[]");
         ensureExtraConfig("showLeftPole", "true");
         ensureExtraConfig("leftPolePos", "8");
         ensureExtraConfig("showRightPole", "true");
@@ -99,8 +100,7 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
         // 服务端不需要加载模型和形状，跳过客户端专属操作（initItems会触发SignItemFactory加载客户端类）
         if (level == null || !level.isClientSide) return;
 
-        itemsFront = initItems(extraConfigs.get("itemsFront"));
-        itemsBack = initItems(extraConfigs.get("itemsBack"));
+        loadFaces();
 
         // 服务端不需要加载模型和形状，跳过客户端专属操作
         if (level == null || !level.isClientSide) return;
@@ -157,11 +157,12 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
                     rawMeshBuilderBack = new RawMeshBuilder(4, "lighttranslucent", new ResourceLocation("fangsu:sign/def_face1.png"));
             RawModel dispRawModelFront = new RawModel(),
                     dispRawModelBack = new RawModel();
-            List<?> texZone = displayInfo.tex();
-            double y1 = (double) ((List<?>) texZone.get(0)).get(0),
-                    z1 = (double) ((List<?>) texZone.get(0)).get(1);
-            double y2 = (double) ((List<?>) texZone.get(1)).get(0),
-                    z2 = (double) ((List<?>) texZone.get(1)).get(1);
+            List<?> frontTex = displayInfo.texPoint("front");
+            List<?> backTex = displayInfo.texPoint("back");
+            double y1 = ((Number) frontTex.get(0)).doubleValue(),
+                    z1 = ((Number) frontTex.get(1)).doubleValue();
+            double y2 = ((Number) backTex.get(0)).doubleValue(),
+                    z2 = ((Number) backTex.get(1)).doubleValue();
             List<List<Double>> finalSlotFront = List.of(
                     List.of(-0.5 * unit * length / 16, y2, z2),
                     List.of(-0.5 * unit * length / 16, y1, z1),
@@ -200,8 +201,7 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
     public void whenRendering() {
         ObjBlockScriptContext ctx = this.scriptContext;
         if (requiresRedraw) {
-            itemsFront = initItems(extraConfigs.get("itemsFront"));
-            itemsBack = initItems(extraConfigs.get("itemsBack"));
+            loadFaces();
 
             if (gtFront != null) gtFront.closeLater();
             if (gtBack != null) gtBack.closeLater();
@@ -225,6 +225,7 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
                     g.setColor(new Color(defaultBgColor));
                     g.fillRect(0, 0, gtFront.width, gtFront.height);
                 }
+                fillBg(g, gtFront, bgColorFront, frontIsEmpty);
                 if (itemsFront != null) {
                     if (itemsFront.containsKey("left")) {
                         if (checkAllReady(gtFront.graphics, gtFront.height * 0.8f, itemsFront.get("left")))
@@ -259,6 +260,7 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
                     g.setColor(new Color(defaultBgColor));
                     g.fillRect(0, 0, gtFront.width, gtFront.height);
                 }
+                fillBg(g, gtBack, bgColorBack, backIsEmpty);
                 if (itemsBack != null) {
                     if (itemsBack.containsKey("left"))
                         if (checkAllReady(gtBack.graphics, gtBack.height * 0.8f, itemsBack.get("left")))
@@ -319,6 +321,25 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
         } else mat.popPose();
     }
 
+    private void fillBg(Graphics2D g, GraphicsTexture gt, int userColor, boolean isEmpty) {
+        if (userColor != 0) {
+            // 用户指定背景色优先（覆盖模型默认背景色）
+            g.setComposite(AlphaComposite.Clear);
+            g.fillRect(0, 0, gt.width, gt.height);
+            g.setComposite(AlphaComposite.SrcOver);
+            g.setColor(new Color(userColor));
+            g.fillRect(0, 0, gt.width, gt.height);
+        } else if (defaultBgColor != -1 && !isEmpty) {
+            g.setColor(new Color(defaultBgColor));
+            g.fillRect(0, 0, gt.width, gt.height);
+        } else {
+            // 透明背景
+            g.setComposite(AlphaComposite.Clear);
+            g.fillRect(0, 0, gt.width, gt.height);
+            g.setComposite(AlphaComposite.SrcOver);
+        }
+    }
+
     private boolean checkAllReady(Graphics2D g, float unit, List<SignItem> items) {
         boolean allReady = true;
         for (SignItem item : items) {
@@ -343,11 +364,15 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
     @Override
     public InteractionResult whenUseWithBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (!level.isClientSide) return InteractionResult.SUCCESS;
-        ClientHooks.openSignConfigScreen(2, List.of(itemsFront, itemsBack), (saveItems) -> {
-            itemsFront = saveItems.get(0);
-            itemsBack = saveItems.get(1);
-            extraConfigs.put("itemsFront", toItemsJson(itemsFront).toString());
-            extraConfigs.put("itemsBack", toItemsJson(itemsBack).toString());
+        ClientHooks.openSignConfigScreen(List.of(
+                new SignFaceData("front", itemsFront, bgColorFront),
+                new SignFaceData("back", itemsBack, bgColorBack)
+        ), (saveItems) -> {
+            itemsFront = saveItems.get(0).getLanes();
+            itemsBack = saveItems.get(1).getLanes();
+            bgColorFront = saveItems.get(0).getBgColor();
+            bgColorBack = saveItems.get(1).getBgColor();
+            extraConfigs.put("faces", toFacesJson(saveItems).toString());
             requiresRedraw = true;
             sendUpdateC2S();
         });
@@ -484,11 +509,15 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
         infos.add(new SubModelMethodInfo(ComponentHelper.translatable("ui.fangsu.sign.editSign"), () -> {
             if (itemsFront == null) itemsFront = new HashMap<>();
             if (itemsBack == null) itemsBack = new HashMap<>();
-            ClientHooks.openSignConfigScreen(2, List.of(itemsFront, itemsBack), (saveItems) -> {
-                itemsFront = saveItems.get(0);
-                itemsBack = saveItems.get(1);
-                extraConfigs.put("itemsFront", toItemsJson(itemsFront).toString());
-                extraConfigs.put("itemsBack", toItemsJson(itemsBack).toString());
+            ClientHooks.openSignConfigScreen(List.of(
+                    new SignFaceData("front", itemsFront, bgColorFront),
+                    new SignFaceData("back", itemsBack, bgColorBack)
+            ), (saveItems) -> {
+                itemsFront = saveItems.get(0).getLanes();
+                itemsBack = saveItems.get(1).getLanes();
+                bgColorFront = saveItems.get(0).getBgColor();
+                bgColorBack = saveItems.get(1).getBgColor();
+                extraConfigs.put("faces", toFacesJson(saveItems).toString());
                 requiresRedraw = true;
                 sendUpdateC2S();
             });
@@ -532,8 +561,7 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
 
         requiresRedraw = true;
 
-        itemsFront = initItems(extraConfigs.get("itemsFront"));
-        itemsBack = initItems(extraConfigs.get("itemsBack"));
+        loadFaces();
 
     }
 
@@ -556,6 +584,113 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
         if (items.containsKey("center")) json.add("center", toItemsJsonArray(items.get("center")));
         if (items.containsKey("right")) json.add("right", toItemsJsonArray(items.get("right")));
         return json;
+    }
+
+    /* ===================== 新版 faces 存储（兼容旧版） ===================== */
+
+    /** 加载 faces，兼容旧版 itemsFront/itemsBack 存储（自动转换为新版并写回）。 */
+    private void loadFaces() {
+        List<SignFaceData> faces = parseFaces(extraConfigs.getOrDefault("faces", "[]"));
+        if (faces.size() < 2 && (extraConfigs.containsKey("itemsFront") || extraConfigs.containsKey("itemsBack"))) {
+            faces = List.of(
+                    new SignFaceData("front", initItems(extraConfigs.getOrDefault("itemsFront", "{}")),
+                            parseIntSafe(extraConfigs.getOrDefault("bgColorFront", "0"))),
+                    new SignFaceData("back", initItems(extraConfigs.getOrDefault("itemsBack", "{}")),
+                            parseIntSafe(extraConfigs.getOrDefault("bgColorBack", "0")))
+            );
+            // 自动转换为新版存储并写回
+            extraConfigs.put("faces", toFacesJson(faces).toString());
+        }
+        while (faces.size() < 2) faces.add(new SignFaceData(faceNameFor(faces.size()), new HashMap<>(), 0));
+        itemsFront = faces.get(0).getLanes();
+        itemsBack = faces.get(1).getLanes();
+        bgColorFront = faces.get(0).getBgColor();
+        bgColorBack = faces.get(1).getBgColor();
+    }
+
+    /**
+     * 解析 faces 配置。
+     * 新版：数组内元素为 {name, items, bgColor}；
+     * 旧扩展包写法：数组内元素为三列对象 {left,center,right}，按位置第一个 front、第二个 back。
+     */
+    private List<SignFaceData> parseFaces(String src) {
+        List<SignFaceData> result = new ArrayList<>();
+        if (src == null || src.isBlank()) return result;
+        try {
+            JsonArray arr = Main.JSON_PARSER.parse(src).getAsJsonArray();
+            int index = 0;
+            for (JsonElement e : arr) {
+                if (!e.isJsonObject()) continue;
+                JsonObject obj = e.getAsJsonObject();
+                String name;
+                Map<String, List<SignItem>> lanes;
+                int bg;
+                if (obj.has("items") && obj.get("items").isJsonObject()) {
+                    // 新版：{name, items, bgColor}
+                    name = obj.has("name") && !obj.get("name").getAsString().isEmpty()
+                            ? obj.get("name").getAsString() : faceNameFor(index);
+                    lanes = initItems(obj.get("items").getAsJsonObject().toString());
+                    bg = readBgColor(obj.get("bgColor"));
+                } else if (obj.has("left") || obj.has("center") || obj.has("right")) {
+                    // 旧扩展包数组形式：元素即三列对象
+                    name = faceNameFor(index);
+                    lanes = initItems(obj.toString());
+                    bg = 0;
+                } else {
+                    name = faceNameFor(index);
+                    lanes = new HashMap<>();
+                    bg = 0;
+                }
+                result.add(new SignFaceData(name, lanes, bg));
+                index++;
+            }
+        } catch (Exception e) {
+            Main.LOGGER.warn("解析指示牌 faces 配置失败: " + src);
+        }
+        return result;
+    }
+
+    /** 序列化为新版 faces 数组：[{name, items, bgColor}, ...] */
+    private JsonArray toFacesJson(List<SignFaceData> faces) {
+        JsonArray arr = new JsonArray();
+        if (faces == null) return arr;
+        for (SignFaceData face : faces) {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("name", face.getName() == null || face.getName().isEmpty() ? faceNameFor(arr.size()) : face.getName());
+            obj.add("items", toItemsJson(face.getLanes()));
+            obj.addProperty("bgColor", face.getBgColor());
+            arr.add(obj);
+        }
+        return arr;
+    }
+
+    private String faceNameFor(int index) {
+        return switch (index) {
+            case 0 -> "front";
+            case 1 -> "back";
+            default -> "face" + (index + 1);
+        };
+    }
+
+    private int readBgColor(JsonElement e) {
+        if (e == null || e.isJsonNull()) return 0;
+        try {
+            if (e.isJsonPrimitive() && e.getAsJsonPrimitive().isNumber()) return e.getAsInt();
+            String s = e.getAsString().trim();
+            if (s.startsWith("0x") || s.startsWith("0X")) return Integer.parseUnsignedInt(s.substring(2), 16);
+            if (s.startsWith("#")) return Integer.parseUnsignedInt(s.substring(1), 16);
+            return Integer.parseInt(s);
+        } catch (Exception ignored) {
+            return 0;
+        }
+    }
+
+    private int parseIntSafe(String s) {
+        try {
+            return Integer.parseInt(s);
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     private JsonArray toItemsJsonArray(List<SignItem> items) {

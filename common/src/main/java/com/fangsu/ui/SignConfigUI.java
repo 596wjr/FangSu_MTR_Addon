@@ -1,6 +1,8 @@
 package com.fangsu.ui;
 
+import com.fangsu.Main;
 import com.fangsu.drawing.sign.*;
+import com.fangsu.extraConfig.ConfigEntry;
 import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.utils.GraphicContext;
@@ -15,7 +17,9 @@ import net.minecraft.client.gui.screens.Screen;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -24,20 +28,21 @@ import static com.fangsu.drawing.sign.SignItemFactory.EDITOR_ITEMS;
 
 public class SignConfigUI extends Screen {
 
-    private static final int ROW_COUNT = 6;
+    private static final int ROW_COUNT = 6; // 可视行数（2 个面 × 3 列），多于 2 个面时纵向滚动
     private static final int G2D_SCALE = 4;
 
-    private final List<Map<String, List<SignItem>>> dispItems;
-    private final Consumer<List<Map<String, List<SignItem>>>> setter;
+    private final List<SignFaceData> facesData;
+    private final Consumer<List<SignFaceData>> setter;
 
     private int modeFlag = 0;
     private LaneRef inEditingRow = null;
     private LayoutEditRef layoutEditRef = null;
+    private final Deque<LayoutEditRef> layoutStack = new ArrayDeque<>();
     private int sideEditing = -1; // -2 = head insert
-    private float[] rowScroll = new float[ROW_COUNT];
+    private float[] rowScroll = new float[0];
     private float paletteScroll = 0;
     private float editingPreviewScroll = 0;
-    private int faces;
+    private float selectionScroll = 0;
 
     private GraphicsTexture g2dLayer;
     private MouseClickInfo mouseClickInfo;
@@ -48,19 +53,20 @@ public class SignConfigUI extends Screen {
     private int paletteDragOffset = 0;
     private boolean draggingRowScroll = false;
     private int draggingRowIndex = -1;
+    private boolean draggingSelectionScroll = false;
+    private int selectionDragOffset = 0;
 
-    public SignConfigUI(int faces, List<Map<String, List<SignItem>>> items, Consumer<List<Map<String, List<SignItem>>>> setter) {
+    public SignConfigUI(List<SignFaceData> facesData, Consumer<List<SignFaceData>> setter) {
         super(ComponentHelper.translatable("ui.fangsu.sign.title"));
-        this.faces = faces;
-        this.dispItems = items;
+        this.facesData = facesData;
         this.setter = setter;
     }
 
     @Override
     protected void init() {
         super.init();
-        if (rowScroll.length != ROW_COUNT) {
-            rowScroll = new float[ROW_COUNT];
+        if (rowScroll.length != facesData.size() * 3) {
+            rowScroll = new float[facesData.size() * 3];
         }
         recreateG2dLayer();
     }
@@ -87,7 +93,9 @@ public class SignConfigUI extends Screen {
         } else if (modeFlag == 1) {
             drawEditingScreen(g, mouseX, mouseY);
         } else if (modeFlag == 2) {
-            drawLayoutEditingScreen(g, mouseX, mouseY);
+            drawLayoutRowSelectScreen(g, mouseX, mouseY);
+        } else if (modeFlag == 3) {
+            drawLayoutRowEditScreen(g, mouseX, mouseY);
         }
 
         g.drawString(font, this.title, 10, 2, 0xFFFFFF, false);
@@ -117,18 +125,32 @@ public class SignConfigUI extends Screen {
     }
 
     private void drawSelectionScreen(GraphicContext ctx, int mouseX, int mouseY) {
+        int totalRows = facesData.size() * 3;
         int rowHeight = (height - 12) / ROW_COUNT;
-        int i = 0;
+        int viewportH = height - 12;
         float u = Math.min(30f, rowHeight * 0.65f);
         Graphics2D g2d = g2dLayer.graphics;
 
-        for (int side = 0; side < faces; side++) {
-            Map<String, List<SignItem>> faceLanes = dispItems.get(side);
+        // 多于 2 个面时支持纵向滚动
+        int maxScroll = Math.max(0, totalRows * rowHeight - viewportH);
+        selectionScroll = Math.max(-maxScroll, Math.min(0, selectionScroll));
+
+        int colorBarX = width - 18;
+        int colorBarW = 14;
+        boolean overColorBar = mouseX >= colorBarX && mouseX <= colorBarX + colorBarW;
+
+        for (int side = 0; side < facesData.size(); side++) {
+            SignFaceData face = facesData.get(side);
+            Map<String, List<SignItem>> faceLanes = face.getLanes();
             for (int part = 0; part < 3; part++) {
-                int rowY = 12 + i * rowHeight;
+                int i = side * 3 + part;
+                int rowY = 12 + i * rowHeight + (int) selectionScroll;
                 int rowBottom = rowY + rowHeight;
+                // 跳过屏幕外的行
+                if (rowBottom < 12 || rowY > height) continue;
                 int stripeColor = (i % 2 == 0) ? 0x22ffffff : 0x00ffffff;
-                if (mouseY >= rowY && mouseY <= rowBottom) stripeColor = 0x33ffffff;
+                // 鼠标指向最右侧色条时不高亮该行
+                if (!overColorBar && mouseY >= rowY && mouseY <= rowBottom) stripeColor = 0x33ffffff;
                 ctx.fill(0, rowY, width, rowY + rowHeight, stripeColor);
 
                 ScreenUtil.drawString(ctx.asMinecraft(),
@@ -162,8 +184,38 @@ public class SignConfigUI extends Screen {
                     editingPreviewScroll = 0;
                     sideEditing = lane.isEmpty() ? -2 : -1;
                 }
-                i++;
             }
+
+            // 每个面最右侧的色条，点击进入颜色选择 UI
+            int barTop = 12 + side * 3 * rowHeight + (int) selectionScroll;
+            int barBottom = barTop + 3 * rowHeight;
+            if (barBottom >= 12 && barTop <= height) {
+                boolean barHover = overColorBar && mouseY >= barTop && mouseY <= barBottom;
+                int border = barHover ? 0xFFFFFFFF : 0xFF888888;
+                int barFill = face.hasBgColor() ? face.getBgColor() : 0x00000000;
+                ctx.fill(colorBarX, barTop, colorBarX + colorBarW, barBottom, barFill);
+                ctx.fill(colorBarX, barTop, colorBarX + colorBarW, barTop + 1, border);
+                ctx.fill(colorBarX, barBottom - 1, colorBarX + colorBarW, barBottom, border);
+                ctx.fill(colorBarX, barTop, colorBarX + 1, barBottom, border);
+                ctx.fill(colorBarX + colorBarW - 1, barTop, colorBarX + colorBarW, barBottom, border);
+                // 透明背景画斜线提示
+                if (!face.hasBgColor()) {
+                    for (int k = 0; k < 3 * rowHeight; k += 4) {
+                        int lx = colorBarX + 1 + (k % (colorBarW - 2));
+                        int ly = barTop + k;
+                        if (ly < barBottom && lx < colorBarX + colorBarW - 1) ctx.fill(lx, ly, lx + 1, ly + 1, 0xFFFFFFFF);
+                    }
+                }
+            }
+        }
+
+        // 纵向滚动条
+        if (maxScroll > 0) {
+            int sbX = width - 4, sbW = 4;
+            ctx.fill(sbX, 12, sbX + sbW, 12 + viewportH, 0x30FFFFFF);
+            int thumbH = Math.max(10, (int) (viewportH * (float) viewportH / (totalRows * rowHeight)));
+            int thumbY = 12 + (int) ((float) (-selectionScroll) / maxScroll * (viewportH - thumbH));
+            ctx.fill(sbX, thumbY, sbX + sbW, thumbY + thumbH, 0x99FFFFFF);
         }
     }
 
@@ -201,6 +253,161 @@ public class SignConfigUI extends Screen {
         editingPreviewScroll = Math.max(minPreviewScroll, Math.min(maxPreviewScroll, editingPreviewScroll));
         float x = baseX + editingPreviewScroll;
 
+        drawEditableLane(ctx, mouseX, mouseY, lane, laneRef.part(), u, y, x);
+
+        List<SignItem> finalLane = lane;
+        drawPalette(ctx, mouseX, mouseY, lane, item -> {
+            int insertIndex = sideEditing == -2 ? 0 : (sideEditing >= 0 && sideEditing < finalLane.size() ? sideEditing + 1 : finalLane.size());
+            finalLane.add(insertIndex, item);
+        });
+    }
+
+    /**
+     * 布局容器行选择界面（同选择正面-左侧那个 UI）：列出该布局容器的每一行（子行），
+     * 点击某一行进入该行的编辑页。右上角有容器配置按钮。
+     */
+    private void drawLayoutRowSelectScreen(GraphicContext ctx, int mouseX, int mouseY) {
+        if (layoutEditRef == null) {
+            modeFlag = 1;
+            return;
+        }
+        LayoutItem item = layoutEditRef.layoutItem;
+        List<String> laneKeys = item.getLaneKeys();
+
+        int boxTop = 24;
+        int rowH = 46;
+        int boxBottom = boxTop + laneKeys.size() * (rowH + 6) + 8;
+        ctx.fill(12, boxTop, width - 12, boxBottom, 0x441E1E1E);
+        ctx.drawString(font, ComponentHelper.translatable("ui.fangsu.sign.layout_title"), 16, 32, 0xFFFFFF, false);
+        drawLayoutConfigButton(ctx, mouseX, mouseY);
+
+        Graphics2D g = g2dLayer.graphics;
+        int rowX = 20;
+        int rowW = width - 40;
+        for (int i = 0; i < laneKeys.size(); i++) {
+            String key = laneKeys.get(i);
+            int rowY = boxTop + 12 + i * (rowH + 6);
+            List<SignItem> lane = item.getLane(key);
+            boolean hover = mouseX >= rowX && mouseX <= rowX + rowW && mouseY >= rowY && mouseY <= rowY + rowH;
+            ctx.fill(rowX, rowY, rowX + rowW, rowY + rowH, hover ? 0x33336699 : 0x22000000);
+            ctx.drawString(font, ComponentHelper.translatable("ui.fangsu.sign.layout_row", i + 1), rowX + 8, rowY + 8, 0xFFFFFF, false);
+
+            // 行内容预览
+            float unit = rowH * 0.5f;
+            float drawX = rowX + 8 + 70;
+            float ty = rowY + (rowH - unit) / 2f;
+            for (SignItem token : lane) {
+                float tw = token.getWidth(g, unit);
+                drawTokenG2D(g, token, drawX, ty, unit, 0, false);
+                drawX += tw + unit * 0.2f;
+            }
+
+            if (mouseClickInfo != null && mouseClickInfo.button == 0 && hover) {
+                mouseClickInfo = null;
+                replaceTopLayout(new LayoutEditRef(layoutEditRef.parentLane, layoutEditRef.itemIndex, layoutEditRef.layoutItem, key, true));
+                modeFlag = 3;
+                sideEditing = -1;
+                editingPreviewScroll = 0;
+                return;
+            }
+        }
+    }
+
+    /**
+     * 布局容器单行编辑界面（与编辑指示牌内容相同），额外提供 上一行/下一行/容器配置 按钮。
+     */
+    private void drawLayoutRowEditScreen(GraphicContext ctx, int mouseX, int mouseY) {
+        if (layoutEditRef == null) {
+            modeFlag = 2;
+            return;
+        }
+        LayoutItem item = layoutEditRef.layoutItem;
+        List<String> laneKeys = item.getLaneKeys();
+        String laneKey = layoutEditRef.selectedLaneKey;
+        int laneIndex = Math.max(0, laneKeys.indexOf(laneKey));
+        List<SignItem> lane = item.getLane(laneKey);
+
+        ctx.fill(12, 24, width - 12, 78, 0x441E1E1E);
+        ctx.drawString(font, ComponentHelper.translatable("ui.fangsu.sign.layout_edit_title",
+                ComponentHelper.translatable("ui.fangsu.sign.layout_row", laneIndex + 1).getString()), 16, 32, 0xFFFFFF, false);
+        drawLayoutRowNav(ctx, mouseX, mouseY, laneIndex, laneKeys);
+
+        float u = 24;
+        float y = 50;
+
+        float totalWidth = 0;
+        for (SignItem token : lane) totalWidth += getTokenWidth(g2dLayer.graphics, token, u) + u * 0.35f;
+
+        float baseX = 24;
+        float minPreviewScroll = Math.min(0, width - 24 - (baseX + totalWidth));
+        float maxPreviewScroll = Math.max(0, 24 - baseX);
+        editingPreviewScroll = Math.max(minPreviewScroll, Math.min(maxPreviewScroll, editingPreviewScroll));
+        float x = baseX + editingPreviewScroll;
+
+        drawEditableLane(ctx, mouseX, mouseY, lane, 0, u, y, x);
+
+        List<SignItem> finalLane = lane;
+        drawPalette(ctx, mouseX, mouseY, lane, item2 -> finalLane.add(item2));
+    }
+
+    private void drawLayoutRowNav(GraphicContext ctx, int mouseX, int mouseY, int laneIndex, List<String> laneKeys) {
+        int btnH = 18;
+        int y = 32;
+        int cfgW = 70;
+        int cfgX = width - 90;
+        int navW = 60;
+        int nextX = cfgX - navW - 6;
+        int prevX = nextX - navW - 6;
+
+        drawNavButton(ctx, mouseX, mouseY, cfgX, y, cfgW, btnH, "ui.fangsu.sign.layout_config", () -> {
+            List<ConfigEntry<?>> configs = layoutEditRef.layoutItem.getConfigs();
+            if (configs != null && !configs.isEmpty()) {
+                mouseClickInfo = null;
+                Minecraft.getInstance().setScreen(new ConfigScreen(ComponentHelper.translatable("ui.fangsu.common.config"), configs, this));
+            }
+        });
+        drawNavButton(ctx, mouseX, mouseY, nextX, y, navW, btnH, "ui.fangsu.sign.layout_next", () -> {
+            if (laneIndex < laneKeys.size() - 1) {
+                mouseClickInfo = null;
+                switchLane(laneKeys.get(laneIndex + 1));
+            }
+        });
+        drawNavButton(ctx, mouseX, mouseY, prevX, y, navW, btnH, "ui.fangsu.sign.layout_prev", () -> {
+            if (laneIndex > 0) {
+                mouseClickInfo = null;
+                switchLane(laneKeys.get(laneIndex - 1));
+            }
+        });
+    }
+
+    private void drawNavButton(GraphicContext ctx, int mouseX, int mouseY, int x, int y, int w, int h, String langKey, Runnable onClick) {
+        boolean hover = mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
+        ctx.fill(x, y, x + w, y + h, hover ? 0x66FFFFFF : 0x33FFFFFF);
+        ctx.drawString(font, ComponentHelper.translatable(langKey), x + 4, y + 5, 0xFFFFFF, false);
+        if (mouseClickInfo != null && mouseClickInfo.button == 0 && hover) {
+            onClick.run();
+        }
+    }
+
+    private void drawLayoutConfigButton(GraphicContext ctx, int mouseX, int mouseY) {
+        if (layoutEditRef == null) return;
+        List<ConfigEntry<?>> configs = layoutEditRef.layoutItem.getConfigs();
+        if (configs == null || configs.isEmpty()) return;
+        int btnX = width - 90, btnY = 32, btnW = 70, btnH = 18;
+        boolean btnHover = mouseX >= btnX && mouseX <= btnX + btnW && mouseY >= btnY && mouseY <= btnY + btnH;
+        ctx.fill(btnX, btnY, btnX + btnW, btnY + btnH, btnHover ? 0x66FFFFFF : 0x33FFFFFF);
+        ctx.drawString(font, ComponentHelper.translatable("ui.fangsu.sign.layout_config"), btnX + 4, btnY + 5, 0xFFFFFF, false);
+        if (mouseClickInfo != null && mouseClickInfo.button == 0 && btnHover) {
+            mouseClickInfo = null;
+            Minecraft.getInstance().setScreen(new ConfigScreen(ComponentHelper.translatable("ui.fangsu.common.config"), configs, this));
+        }
+    }
+
+    /**
+     * 绘制一条可编辑的内容行（横向 token + 头部插入指示 + 逐个 token 的悬停/删除/配置/嵌套进入）。
+     * 供指示牌内容编辑（mode 1）与布局容器单行编辑（mode 3）共用。
+     */
+    private void drawEditableLane(GraphicContext ctx, int mouseX, int mouseY, List<SignItem> lane, int align, float u, float y, float x) {
         boolean blink = (System.currentTimeMillis() / 400) % 2 == 0;
         float headIndicatorX = x - u * 0.25f;
         if (lane.isEmpty() || sideEditing == -2) {
@@ -215,7 +422,7 @@ public class SignConfigUI extends Screen {
             SignItem token = lane.get(idx);
             float tokenW = getTokenWidth(g, token, u);
 
-            drawTokenG2D(g, token, x, y, u, laneRef.part(), false);
+            drawTokenG2D(g, token, x, y, u, align, false);
 
             boolean addHover = mouseX >= x + tokenW && mouseX <= x + tokenW + u * 0.5f && mouseY >= y && mouseY <= y + u;
             if (addHover || (sideEditing == idx && blink)) drawAddIndicator(ctx, x + tokenW, y, u);
@@ -233,9 +440,8 @@ public class SignConfigUI extends Screen {
                     sideEditing = -1;
                     break;
                 } else if (mouseClickInfo.button == 0 && token instanceof LayoutItem layoutItem) {
-                    modeFlag = 2;
-                    layoutEditRef = new LayoutEditRef(lane, idx, layoutItem, layoutItem.getLane("top").isEmpty() ? "top" : "bottom");
-                    paletteScroll = 0;
+                    mouseClickInfo = null;
+                    enterLayout(layoutItem, lane, idx);
                     break;
                 } else if (token.getConfigs() != null && !token.getConfigs().isEmpty()) {
                     mouseClickInfo = null;
@@ -246,72 +452,60 @@ public class SignConfigUI extends Screen {
             }
             x += tokenW + u * 0.35f;
         }
-
-        List<SignItem> finalLane = lane;
-        drawPalette(ctx, mouseX, mouseY, lane, item -> {
-            int insertIndex = sideEditing == -2 ? 0 : (sideEditing >= 0 && sideEditing < finalLane.size() ? sideEditing + 1 : finalLane.size());
-            finalLane.add(insertIndex, item);
-        });
     }
 
-    private void drawLayoutEditingScreen(GraphicContext ctx, int mouseX, int mouseY) {
+    private void enterLayout(LayoutItem layoutItem, List<SignItem> parentLane, int itemIndex) {
+        boolean multi = countNonEmptyLanes(layoutItem) > 1;
+        pushLayout(new LayoutEditRef(parentLane, itemIndex, layoutItem, defaultLaneKey(layoutItem), multi));
+        modeFlag = multi ? 2 : 3;
+    }
+
+    private void pushLayout(LayoutEditRef ref) {
+        layoutStack.push(ref);
+        layoutEditRef = ref;
+        paletteScroll = 0;
+        sideEditing = -1;
+        editingPreviewScroll = 0;
+    }
+
+    private void replaceTopLayout(LayoutEditRef ref) {
+        layoutStack.pop();
+        layoutStack.push(ref);
+        layoutEditRef = ref;
+    }
+
+    private void switchLane(String key) {
+        LayoutEditRef ref = layoutEditRef;
+        replaceTopLayout(new LayoutEditRef(ref.parentLane, ref.itemIndex, ref.layoutItem, key, ref.selectShown()));
+        sideEditing = -1;
+        editingPreviewScroll = 0;
+    }
+
+    private void popLayoutToParent() {
+        layoutStack.pop();
+        layoutEditRef = layoutStack.peek();
+        sideEditing = -1;
+        editingPreviewScroll = 0;
         if (layoutEditRef == null) {
             modeFlag = 1;
-            return;
+        } else {
+            modeFlag = 3;
         }
-
-        LayoutItem layoutItem = layoutEditRef.layoutItem;
-        ctx.fill(12, 24, width - 12, 140, 0x441E1E1E);
-        ctx.drawString(font, ComponentHelper.translatable("ui.fangsu.sign.layout_title"), 16, 32, 0xFFFFFF, false);
-        ctx.drawString(font, ComponentHelper.translatable("ui.fangsu.sign.layout_hint"), 16, 45, 0xCCCCCC, false);
-
-        int boxX = 20;
-        int boxW = width - 40;
-        int topY = 62;
-        int rowH = 28;
-
-        drawSubLaneEditor(ctx, layoutItem, "top", boxX, topY, boxW, rowH, mouseX, mouseY);
-        drawSubLaneEditor(ctx, layoutItem, "bottom", boxX, topY + rowH + 8, boxW, rowH, mouseX, mouseY);
-
-        drawPalette(ctx, mouseX, mouseY, layoutItem.getLane(layoutEditRef.selectedLaneKey), item ->
-                layoutItem.getLane(layoutEditRef.selectedLaneKey).add(item)
-        );
     }
 
-    private void drawSubLaneEditor(GraphicContext ctx, LayoutItem layoutItem, String laneKey, int x, int y, int w, int h, int mouseX, int mouseY) {
-        boolean selectedLane = layoutEditRef != null && laneKey.equals(layoutEditRef.selectedLaneKey);
-        ctx.fill(x, y, x + w, y + h, selectedLane ? 0x33336699 : 0x22000000);
-
-        List<SignItem> lane = layoutItem.getLane(laneKey);
-        Graphics2D g = g2dLayer.graphics;
-        float unit = h;
-        float drawX = x + 8;
-        for (int i = 0; i < lane.size(); i++) {
-            SignItem token = lane.get(i);
-            float tokenW = token.getWidth(g, unit);
-            drawTokenG2D(g, token, drawX, y, unit, 0, false);
-
-            boolean hover = mouseX >= drawX && mouseX <= drawX + tokenW && mouseY >= y && mouseY <= y + h;
-            if (hover && mouseClickInfo != null) {
-                if (mouseClickInfo.button == 1) {
-                    lane.remove(i);
-                    break;
-                } else if (mouseClickInfo.button == 0 && token.getConfigs() != null && !token.getConfigs().isEmpty()) {
-                    mouseClickInfo = null;
-                    Minecraft.getInstance().setScreen(new ConfigScreen(ComponentHelper.translatable("ui.fangsu.common.config"), token.getConfigs(), this));
-                    return;
-                }
-            }
-            drawX += tokenW + unit * 0.2f;
+    private int countNonEmptyLanes(LayoutItem item) {
+        int c = 0;
+        for (String key : item.getLaneKeys()) {
+            if (!item.getLane(key).isEmpty()) c++;
         }
+        return c;
+    }
 
-        if (lane.isEmpty() && selectedLane) {
-            drawDashedRect(g, x + 8, y + 3, w - 16, h - 6, new Color(255, 255, 255, 200));
+    private String defaultLaneKey(LayoutItem item) {
+        for (String key : item.getLaneKeys()) {
+            if (!item.getLane(key).isEmpty()) return key;
         }
-
-        if (mouseClickInfo != null && mouseClickInfo.button == 0 && mouseClickInfo.mouseX >= x && mouseClickInfo.mouseX <= x + w && mouseClickInfo.mouseY >= y && mouseClickInfo.mouseY <= y + h) {
-            layoutEditRef = new LayoutEditRef(layoutEditRef.parentLane, layoutEditRef.itemIndex, layoutEditRef.layoutItem, laneKey);
-        }
+        return item.getLaneKeys().get(0);
     }
 
     private void drawPalette(GraphicContext ctx, int mouseX, int mouseY, List<SignItem> targetLane, Consumer<SignItem> inserter) {
@@ -399,7 +593,8 @@ public class SignConfigUI extends Screen {
             String type = json.get("type").getAsString();
             json.remove("type");
             return SignItemFactory.get(type).apply(deepCopy(json));
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            Main.LOGGER.warn("[FangSu] SignConfigUI.copySignItem failed, type={}, json={}", item == null ? null : item.getType(), item == null ? null : item.toJson(), e);
             return null;
         }
     }
@@ -433,14 +628,6 @@ public class SignConfigUI extends Screen {
     private void drawTokenG2D(Graphics2D g, SignItem token, float x, float y, float unit, int align, boolean selected) {
         SignDrawContext ctx = new SignDrawContext(g, getG2dX(x), getG2dY(y), getG2dU(unit), align, selected);
         token.draw(ctx);
-    }
-
-    private void drawDashedRect(Graphics2D g, int x, int y, int w, int h, Color color) {
-        Stroke original = g.getStroke();
-        g.setColor(color);
-        g.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 1f, new float[]{4f, 4f}, 0));
-        g.drawRect(getG2dX(x), getG2dY(y), getG2dU(w), getG2dU(h));
-        g.setStroke(original);
     }
 
     @Override
@@ -483,17 +670,20 @@ public class SignConfigUI extends Screen {
             }
             // 检查选择模式下行水平滚动条点击
             if (modeFlag == 0) {
+                int totalRows = facesData.size() * 3;
                 int rowHeight = (height - 12) / ROW_COUNT;
+                int viewportH = height - 12;
+                int maxScroll = Math.max(0, totalRows * rowHeight - viewportH);
                 float u = Math.min(30f, rowHeight * 0.65f);
-                for (int i = 0; i < ROW_COUNT; i++) {
-                    int rowY = 12 + i * rowHeight;
+                for (int i = 0; i < totalRows; i++) {
+                    int rowY = 12 + i * rowHeight + (int) selectionScroll;
                     int rowBottom = rowY + rowHeight;
                     if (mouseY >= rowBottom - 6 && mouseY <= rowBottom) {
                         // 计算该行人lane总宽度
                         int side = i / 3;
                         int part = i % 3;
-                        if (side < faces) {
-                            Map<String, List<SignItem>> faceLanes = dispItems.get(side);
+                        if (side < facesData.size()) {
+                            Map<String, List<SignItem>> faceLanes = facesData.get(side).getLanes();
                             List<SignItem> lane = faceLanes.get(partName(part));
                             if (lane != null && !lane.isEmpty()) {
                                 float totalLaneWidth = 0;
@@ -512,6 +702,28 @@ public class SignConfigUI extends Screen {
                         }
                     }
                 }
+                // 色条点击 -> 打开颜色选择 UI
+                int colorBarX = width - 18, colorBarW = 14;
+                for (int side = 0; side < facesData.size(); side++) {
+                    int barTop = 12 + side * 3 * rowHeight + (int) selectionScroll;
+                    int barBottom = barTop + 3 * rowHeight;
+                    if (mouseX >= colorBarX && mouseX <= colorBarX + colorBarW && mouseY >= barTop && mouseY <= barBottom) {
+                        SignFaceData face = facesData.get(side);
+                        mouseClickInfo = null;
+                        Minecraft.getInstance().setScreen(new SignColorPickerUI(this, face.getBgColor(), c -> face.setBgColor(c)));
+                        return true;
+                    }
+                }
+                // 纵向滚动条
+                if (maxScroll > 0 && mouseX >= width - 4 && mouseX <= width) {
+                    int thumbH = Math.max(10, (int) (viewportH * (float) viewportH / (totalRows * rowHeight)));
+                    int thumbY = 12 + (int) ((float) (-selectionScroll) / maxScroll * (viewportH - thumbH));
+                    if (mouseY >= thumbY && mouseY <= thumbY + thumbH) {
+                        draggingSelectionScroll = true;
+                        selectionDragOffset = (int) (mouseY - thumbY);
+                        return true;
+                    }
+                }
             }
         }
         mouseClickInfo = new MouseClickInfo(mouseX, mouseY, button);
@@ -523,6 +735,7 @@ public class SignConfigUI extends Screen {
         draggingPaletteScroll = false;
         draggingRowScroll = false;
         draggingRowIndex = -1;
+        draggingSelectionScroll = false;
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
@@ -544,13 +757,26 @@ public class SignConfigUI extends Screen {
             }
             return true;
         }
+        if (draggingSelectionScroll && button == 0) {
+            int totalRows = facesData.size() * 3;
+            int rowHeight = (height - 12) / ROW_COUNT;
+            int viewportH = height - 12;
+            int maxScroll = Math.max(0, totalRows * rowHeight - viewportH);
+            if (maxScroll > 0) {
+                int thumbH = Math.max(10, (int) (viewportH * (float) viewportH / (totalRows * rowHeight)));
+                float ratio = (float) (mouseY - 12 - selectionDragOffset) / (viewportH - thumbH);
+                ratio = Math.max(0, Math.min(1, ratio));
+                selectionScroll = -ratio * maxScroll;
+            }
+            return true;
+        }
         if (draggingRowScroll && draggingRowIndex >= 0 && button == 0) {
             int rowHeight = (height - 12) / ROW_COUNT;
             float u = Math.min(30f, rowHeight * 0.65f);
             int side = draggingRowIndex / 3;
             int part = draggingRowIndex % 3;
-            if (side < faces) {
-                Map<String, List<SignItem>> faceLanes = dispItems.get(side);
+            if (side < facesData.size()) {
+                Map<String, List<SignItem>> faceLanes = facesData.get(side).getLanes();
                 List<SignItem> lane = faceLanes.get(partName(part));
                 if (lane != null && !lane.isEmpty()) {
                     float totalLaneWidth = 0;
@@ -570,16 +796,24 @@ public class SignConfigUI extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         if (modeFlag == 0) {
+            int totalRows = facesData.size() * 3;
             int rowHeight = (height - 12) / ROW_COUNT;
-            for (int i = 0; i < ROW_COUNT; i++) {
-                int rowY = 12 + i * rowHeight;
+            int viewportH = height - 12;
+            int maxScroll = Math.max(0, totalRows * rowHeight - viewportH);
+            // 多于 2 个面：优先纵向滚动
+            if (maxScroll > 0) {
+                selectionScroll += (float) (delta * 16f);
+                return true;
+            }
+            for (int i = 0; i < totalRows; i++) {
+                int rowY = 12 + i * rowHeight + (int) selectionScroll;
                 if (mouseY >= rowY && mouseY <= rowY + rowHeight) {
                     rowScroll[i] += (float) (delta * 8f);
                     return true;
                 }
             }
         } else {
-            if (modeFlag == 1 && mouseY >= 24 && mouseY <= 78) {
+            if ((modeFlag == 1 || modeFlag == 3) && mouseY >= 24 && mouseY <= 78) {
                 editingPreviewScroll += (float) (delta * 10f);
                 return true;
             }
@@ -594,9 +828,18 @@ public class SignConfigUI extends Screen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == 256) {
+            if (modeFlag == 3) {
+                if (layoutEditRef != null && layoutEditRef.selectShown()) {
+                    modeFlag = 2;
+                    sideEditing = -1;
+                    editingPreviewScroll = 0;
+                } else {
+                    popLayoutToParent();
+                }
+                return true;
+            }
             if (modeFlag == 2) {
-                modeFlag = 1;
-                layoutEditRef = null;
+                popLayoutToParent();
                 return true;
             }
             modeFlag--;
@@ -616,12 +859,15 @@ public class SignConfigUI extends Screen {
         this.modeFlag--;
         if (modeFlag == 1) {
             layoutEditRef = null;
+            layoutStack.clear();
         } else if (modeFlag == 0) {
             inEditingRow = null;
             editingPreviewScroll = 0;
             sideEditing = -1;
         } else if (this.modeFlag < 0) {
-            setter.accept(dispItems);
+            layoutStack.clear();
+            layoutEditRef = null;
+            setter.accept(facesData);
             g2dLayer.close();
             super.onClose();
         }
@@ -640,7 +886,7 @@ public class SignConfigUI extends Screen {
         return switch (index) {
             case 0 -> "front";
             case 1 -> "back";
-            default -> "unknown";
+            default -> "face" + (index + 1);
         };
     }
 
@@ -652,7 +898,7 @@ public class SignConfigUI extends Screen {
     }
 
     private record LayoutEditRef(List<SignItem> parentLane, int itemIndex, LayoutItem layoutItem,
-                                 String selectedLaneKey) {
+                                 String selectedLaneKey, boolean selectShown) {
     }
 
     private record MouseClickInfo(double mouseX, double mouseY, int button) {

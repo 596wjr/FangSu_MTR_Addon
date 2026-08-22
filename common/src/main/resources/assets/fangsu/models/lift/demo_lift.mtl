@@ -1,0 +1,15 @@
+newmtl floor_color
+Kd 0.4 0.4 0.4
+d 1.0
+
+newmtl wall_color
+Kd 0.7 0.7 0.75
+d 1.0
+
+newmtl ceiling_color
+Kd 0.9 0.9 0.9
+d 1.0
+
+newmtl door_color
+Kd 0.3 0.5 0.8
+d 1.0

@@ -56,7 +56,9 @@ public class CustomMtrLifts {
                 }
                 JsonObject liftObject = liftElement.getAsJsonObject();
                 LiftSelectInfo current;
-                if (liftObject.has("model")) {
+                if (liftObject.has("properties")) {
+                    current = (new AssembledLiftSelectInfo(liftObject));
+                } else if (liftObject.has("model")) {
                     current = (new ModeledLiftSelectInfo(liftObject));
                 } else {
                     current = (new TexturedLiftSelectInfo(liftObject));
@@ -103,6 +105,16 @@ public class CustomMtrLifts {
         return defaultInfo;
     }
 
+    /** 返回指定 key 对应的拼装电梯信息；若不是拼装电梯则返回 null。 */
+    @Nullable
+    public AssembledLiftSelectInfo getAssembledLiftSelectInfo(String key) {
+        LiftSelectInfo info = getInfo(key);
+        if (info instanceof AssembledLiftSelectInfo a) {
+            return a;
+        }
+        return null;
+    }
+
     public static abstract class LiftSelectInfo extends BasicModelSelectInfo {
         private LiftSelectInfo(@Nullable String text, @Nullable String content, @Nullable String contentText, @Nullable JsonObject defaultItem) {
             super(text, content, contentText, defaultItem);
@@ -146,6 +158,41 @@ public class CustomMtrLifts {
             }
         }
 
+        public ResourceLocation getTexture() {
+            return texture;
+        }
+    }
+
+    /**
+     * 拼装电梯：由一个 properties.json 定义部位与拼装，真正切换电梯几何模型
+     * （与"只改贴图"的 {@link TexturedLiftSelectInfo} 相对）。
+     */
+    public static class AssembledLiftSelectInfo extends LiftSelectInfo {
+        private final ResourceLocation properties;
+        private final ResourceLocation model;
+        private final ResourceLocation texture;
+
+        private AssembledLiftSelectInfo(JsonObject json) {
+            super(json.getAsJsonPrimitive("name").getAsString(), json.getAsJsonPrimitive("id").getAsString(),
+                    json.has("description") ? json.getAsJsonPrimitive("description").getAsString()
+                            : ComponentHelper.translatable("ui.fangsu.block.no_detail").toString(), null);
+            properties = new ResourceLocation(json.getAsJsonPrimitive("properties").getAsString());
+            model = json.has("model") ? new ResourceLocation(json.getAsJsonPrimitive("model").getAsString()) : null;
+            texture = json.has("texture") ? new ResourceLocation(json.getAsJsonPrimitive("texture").getAsString()) : null;
+        }
+
+        public ResourceLocation getProperties() {
+            return properties;
+        }
+
+        /** 模型源：.obj（纹理由 mtl 关联）或 .bbmodel。可能为 null（此时用 properties.json 里的 model）。 */
+        @Nullable
+        public ResourceLocation getModel() {
+            return model;
+        }
+
+        /** 贴图：obj 时为 .mtl，bbmodel 时为 .png。可能为 null。 */
+        @Nullable
         public ResourceLocation getTexture() {
             return texture;
         }

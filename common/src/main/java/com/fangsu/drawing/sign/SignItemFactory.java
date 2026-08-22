@@ -72,6 +72,10 @@ public final class SignItemFactory {
                 }
             }
         }
+
+    }
+
+    public static void loadMtrItems() {
         JsonElement mtrItem = ResourceUtil.loadAsJSON(new ResourceLocation("mtr:mtr_custom_resources.json").getRaw());
         Map<String, SignItem> mtrItems = getMtrItems(mtrItem);
         for (Map.Entry<String, SignItem> entry : mtrItems.entrySet()) {

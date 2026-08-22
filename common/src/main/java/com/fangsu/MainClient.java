@@ -115,6 +115,7 @@ public class MainClient {
 
             try {
                 CustomMtrLifts customMtrLifts = CustomMtrLifts.getInstance();
+                com.fangsu.render.lift.CustomLiftModel.clearCache();
                 customMtrLifts.load();
                 {
                     JsonObject defaultLift = new JsonObject();
@@ -151,6 +152,12 @@ public class MainClient {
                 } catch (Exception e) {
                     Main.LOGGER.error("failed to run resource runnable", e);
                 }
+            }
+
+            try {
+                SignItemFactory.loadMtrItems();
+            } catch (Exception e) {
+                Main.LOGGER.error("failed to load mtr sign items", e);
             }
 
             Main.LOGGER.info("[FangSu] initResources completed successfully");

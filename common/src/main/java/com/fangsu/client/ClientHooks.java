@@ -4,6 +4,7 @@ import com.fangsu.Main;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.blockEntities.BlockEntityScreendoorCentralControl;
 import com.fangsu.blockEntities.FunctionalObjBlockEntity;
+import com.fangsu.drawing.sign.SignFaceData;
 import com.fangsu.drawing.sign.SignItem;
 import com.fangsu.ui.RouteSelectInfo;
 import net.minecraft.core.BlockPos;
@@ -24,7 +25,7 @@ public final class ClientHooks {
         Main.LOGGER.error("打开方法没有被替换!");
     };
     public static SignScreenConsumer OPEN_OBJ_SIGN_SCREEN
-            = ((faces, items, onSave) -> {
+            = ((faces, onSave) -> {
         Main.LOGGER.error("打开方法没有被替换!");
     });
     public static TicketMachineConsumer OPEN_TICKET_MACHINE_SCREEN
@@ -61,9 +62,9 @@ public final class ClientHooks {
     }
 
     public static void openSignConfigScreen(
-            int faces, List<Map<String, List<SignItem>>> items, Consumer<List<Map<String, List<SignItem>>>> setter
+            List<SignFaceData> faces, Consumer<List<SignFaceData>> setter
     ) {
-        OPEN_OBJ_SIGN_SCREEN.accept(faces, items, setter);
+        OPEN_OBJ_SIGN_SCREEN.accept(faces, setter);
     }
 
     public static void openTicketMachineScreen(Component title, BlockPos pos) {
@@ -93,7 +94,7 @@ public final class ClientHooks {
     @FunctionalInterface
     public interface SignScreenConsumer {
 
-        void accept(int faces, List<Map<String, List<SignItem>>> items, Consumer<List<Map<String, List<SignItem>>>> setter);
+        void accept(List<SignFaceData> faces, Consumer<List<SignFaceData>> setter);
     }
 
     @FunctionalInterface

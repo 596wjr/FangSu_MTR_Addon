@@ -1,7 +1,13 @@
 package com.fangsu.mixin;
 
+import com.fangsu.customItem.CustomMtrLifts;
+import com.fangsu.data.LiftExtraSupplier;
 import com.fangsu.mtr.ModernTexturedLift;
+import com.fangsu.render.lift.CustomLiftModel;
+import com.fangsu.render.sowcer.math.Matrix4f;
+import com.fangsu.render.sowcerext.model.integration.BufferSourceProxy;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import mtr.client.ClientData;
 import mtr.data.Lift;
 import mtr.data.LiftClient;
@@ -46,7 +52,50 @@ public class RenderTrainsMixin {
             UtilitiesClient.rotateXDegrees(matrices, 180);
             UtilitiesClient.rotateYDegrees(matrices, 180 + lift.facing.toYRot());
             final int light = LightTexture.pack(world.getBrightness(LightLayer.BLOCK, posAverage), world.getBrightness(LightLayer.SKY, posAverage));
-            new ModernTexturedLift(lift, lift.liftHeight, lift.liftWidth, lift.liftDepth, lift.isDoubleSided).render(matrices, vertexConsumers, lift, light, frontDoorValue, backDoorValue);
+
+            // 自定义拼装电梯：真正切换几何模型；否则回退到默认几何（仅换贴图）
+            final CustomMtrLifts.AssembledLiftSelectInfo assembled =
+                    CustomMtrLifts.getInstance().getAssembledLiftSelectInfo(((LiftExtraSupplier) lift).fangsu$getModelKey());
+            if (assembled != null) {
+                final Matrix4f pose = new Matrix4f(matrices.last().pose());
+                final BufferSourceProxy proxy = new BufferSourceProxy(vertexConsumers);
+                final com.fangsu.render.lift.LiftModelAssembler.LiftConditionContext cond =
+                        new com.fangsu.render.lift.LiftModelAssembler.LiftConditionContext(
+                                lift.getLiftDirection() == Lift.LiftDirection.UP,
+                                lift.getLiftDirection() == Lift.LiftDirection.DOWN,
+                                lift.getLiftDirection() == Lift.LiftDirection.NONE);
+                final com.fangsu.render.lift.CustomLiftModel customLift =
+                        CustomLiftModel.get(assembled.getProperties(), assembled.getModel(), assembled.getTexture());
+                customLift.renderWithSize(proxy, pose, light, frontDoorValue, lift.liftWidth, lift.liftDepth, lift.liftHeight, cond);
+                proxy.commit();
+
+                // 自定义 DISPLAY / LIGHT 部位：文字楼层号 / 上下行箭头
+                if (!customLift.getDisplays().isEmpty()) {
+                    final String floorText = ClientData.DATA_CACHE.requestLiftFloorText(lift.getCurrentFloorBlockPos())[0];
+                    final MultiBufferSource.BufferSource immediate = MultiBufferSource.immediate(Tesselator.getInstance().getBuilder());
+                    for (com.fangsu.render.lift.LiftModelAssembler.DisplayInfo disp : customLift.getDisplays()) {
+                        matrices.pushPose();
+                        matrices.translate(disp.position.x / 16F, disp.position.y / 16F, disp.position.z / 16F);
+                        if (disp.light) {
+                            final boolean up = "GOING_UP".equalsIgnoreCase(disp.condition);
+                            mtr.client.IDrawing.drawTexture(matrices,
+                                    vertexConsumers.getBuffer(mtr.render.MoreRenderLayers.getLight(
+                                            new net.minecraft.resources.ResourceLocation("mtr:textures/block/sign/lift_arrow.png"), true)),
+                                    -0.1875F / 6, 0, 0.1875F / 3, 0.1875F / 3, 0,
+                                    up ? 0 : 1, 1, up ? 1 : 0, net.minecraft.core.Direction.UP,
+                                    0xFF0000, mtr.data.IGui.MAX_LIGHT_GLOWING);
+                        } else if ("FLOOR".equalsIgnoreCase(disp.displayType)) {
+                            mtr.client.IDrawing.drawStringWithFont(matrices, net.minecraft.client.Minecraft.getInstance().font, immediate,
+                                    floorText, mtr.data.IGui.HorizontalAlignment.CENTER, mtr.data.IGui.VerticalAlignment.BOTTOM,
+                                    0, 0.3125F, 0.1875F, -1, 18F / 0.1875F, 0xFF0000, false, mtr.data.IGui.MAX_LIGHT_GLOWING, null);
+                        }
+                        matrices.popPose();
+                    }
+                    immediate.endBatch();
+                }
+            } else {
+                new ModernTexturedLift(lift, lift.liftHeight, lift.liftWidth, lift.liftDepth, lift.isDoubleSided).render(matrices, vertexConsumers, lift, light, frontDoorValue, backDoorValue);
+            }
 
             for (int i = 0; i < (lift.isDoubleSided ? 2 : 1); i++) {
                 UtilitiesClient.rotateYDegrees(matrices, 180);

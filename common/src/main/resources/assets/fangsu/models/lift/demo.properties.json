@@ -1,0 +1,38 @@
+{
+  "id": "demo_lift",
+  "name": "示例自定义电梯",
+  "description": "演示自定义电梯模型（MTR4 列车 properties 风格）：部位引用系统自动生成的命名位置。",
+  "cell_size": 8,
+  "min_width": 2,
+  "min_height": 2.5,
+  "min_depth": 2,
+
+  "parts": [
+    { "names": ["floor_corner"],   "positionDefinitions": ["floor_corner"],   "condition": "NORMAL", "type": "NORMAL" },
+    { "names": ["floor_edge"],     "positionDefinitions": ["floor_edge"],     "condition": "NORMAL", "type": "NORMAL" },
+    { "names": ["floor_middle"],   "positionDefinitions": ["floor_middle"],   "condition": "NORMAL", "type": "NORMAL" },
+
+    { "names": ["ceiling_corner"], "positionDefinitions": ["ceiling_corner"], "condition": "NORMAL", "type": "NORMAL" },
+    { "names": ["ceiling_edge"],   "positionDefinitions": ["ceiling_edge"],   "condition": "NORMAL", "type": "NORMAL" },
+    { "names": ["ceiling_middle"], "positionDefinitions": ["ceiling_middle"], "condition": "NORMAL", "type": "NORMAL" },
+
+    { "names": ["wall_corner"],    "positionDefinitions": ["wall_corner"],    "condition": "NORMAL", "type": "NORMAL" },
+    { "names": ["wall_edge"],      "positionDefinitions": ["wall_edge"],      "condition": "NORMAL", "type": "NORMAL" },
+    { "names": ["wall_middle"],    "positionDefinitions": ["wall_middle"],    "condition": "NORMAL", "type": "NORMAL" },
+
+    { "names": ["door_corner"],    "positionDefinitions": ["door_corner"],    "condition": "NORMAL", "type": "NORMAL" },
+    { "names": ["door_panel_left"],  "positionDefinitions": ["door_left"],    "condition": "NORMAL", "type": "NORMAL" },
+    { "names": ["door_panel_right"], "positionDefinitions": ["door_right"],   "condition": "NORMAL", "type": "NORMAL" },
+
+    {
+      "names": ["disp"],
+      "positionDefinitions": [{ "pos": "door_top", "distance": 0.5 }],
+      "condition": "GOING_UP",
+      "renderStage": "EXTERIOR",
+      "type": "DISPLAY",
+      "displayType": "FLOOR",
+      "displayColor": "FF0000",
+      "displayDefaultText": ""
+    }
+  ]
+}

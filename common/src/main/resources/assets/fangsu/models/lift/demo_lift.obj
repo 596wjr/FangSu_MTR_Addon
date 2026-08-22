@@ -1,0 +1,113 @@
+# 示例自定义电梯模型（演示用）。每个 g 组对应 properties.json 里的一个部位。
+# 材质用纯色 Kd（见 demo_lift.mtl），无需贴图即可预览拼装效果。
+mtllib demo_lift.mtl
+
+# 单位：Minecraft 块（1 格 = 16）。每个部位是一个边长为 8 的薄方块（cell_size=8）。
+
+g floor_middle
+usemtl floor_color
+v 0 0 0
+v 8 0 0
+v 8 0 8
+v 0 0 8
+f 1 2 3
+f 1 3 4
+
+g floor_edge
+usemtl floor_color
+v 0 0 0
+v 8 0 0
+v 8 0 8
+v 0 0 8
+f 1 2 3
+f 1 3 4
+
+g floor_corner
+usemtl floor_color
+v 0 0 0
+v 8 0 0
+v 8 0 8
+v 0 0 8
+f 1 2 3
+f 1 3 4
+
+g wall_middle
+usemtl wall_color
+v 0 0 0
+v 8 0 0
+v 8 8 0
+v 0 8 0
+f 1 2 3
+f 1 3 4
+
+g wall_edge
+usemtl wall_color
+v 0 0 0
+v 8 0 0
+v 8 8 0
+v 0 8 0
+f 1 2 3
+f 1 3 4
+
+g wall_corner
+usemtl wall_color
+v 0 0 0
+v 8 0 0
+v 8 8 0
+v 0 8 0
+f 1 2 3
+f 1 3 4
+
+g ceiling_middle
+usemtl ceiling_color
+v 0 0 0
+v 8 0 0
+v 8 0 8
+v 0 0 8
+f 1 2 3
+f 1 3 4
+
+g ceiling_edge
+usemtl ceiling_color
+v 0 0 0
+v 8 0 0
+v 8 0 8
+v 0 0 8
+f 1 2 3
+f 1 3 4
+
+g ceiling_corner
+usemtl ceiling_color
+v 0 0 0
+v 8 0 0
+v 8 0 8
+v 0 0 8
+f 1 2 3
+f 1 3 4
+
+g door_corner
+usemtl door_color
+v 0 0 0
+v 4 0 0
+v 4 8 0
+v 0 8 0
+f 1 2 3
+f 1 3 4
+
+g door_panel_left
+usemtl door_color
+v 0 0 0
+v 8 0 0
+v 8 8 0
+v 0 8 0
+f 1 2 3
+f 1 3 4
+
+g door_panel_right
+usemtl door_color
+v 0 0 0
+v 8 0 0
+v 8 8 0
+v 0 8 0
+f 1 2 3
+f 1 3 4

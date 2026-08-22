@@ -3,6 +3,7 @@ package com.fangsu.client;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.blockEntities.BlockEntityScreendoorCentralControl;
 import com.fangsu.blockEntities.FunctionalObjBlockEntity;
+import com.fangsu.drawing.sign.SignFaceData;
 import com.fangsu.drawing.sign.SignItem;
 import com.fangsu.ui.*;
 import com.fangsu.ui.ticketMachine.TicketMachineMainScreen;
@@ -51,9 +52,9 @@ public final class ClientHooksImpl {
     }
 
     public static void openSignConfigScreen(
-            int faces, List<Map<String, List<SignItem>>> items, Consumer<List<Map<String, List<SignItem>>>> setter
+            List<SignFaceData> faces, Consumer<List<SignFaceData>> setter
     ) {
-        Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new SignConfigUI(faces, items, setter)));
+        Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new SignConfigUI(faces, setter)));
     }
 
     public static void openTicketMachineScreen(Component title, BlockPos pos) {

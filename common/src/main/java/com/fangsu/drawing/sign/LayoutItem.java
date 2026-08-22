@@ -20,7 +20,7 @@ public abstract class LayoutItem extends SignItem {
         }
     }
 
-    protected abstract List<String> getLaneKeys();
+    public abstract List<String> getLaneKeys();
 
     public List<SignItem> getLane(String key) {
         return childLanes.computeIfAbsent(key, k -> new ArrayList<>());
