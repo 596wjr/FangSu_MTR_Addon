@@ -28,7 +28,12 @@ public final class ConfigTypes {
         register("number_input", ConfigTypes::numberInputConfig);
         register("string", ConfigTypes::stringConfig);
         register("str", ConfigTypes::stringConfig);   // 鍖椾含鍖呬娇锟?"str" 鑰岄潪 "string"
-        register("list", ConfigTypes::listConfig);        register("resource", ConfigTypes::resourceConfig);    }
+        register("list", ConfigTypes::listConfig);
+        register("resource", ConfigTypes::resourceConfig);
+        register("routeConfig", ConfigTypes::routeConfig);
+        register("platConfig", ConfigTypes::platConfig);
+        register("stnConfig", ConfigTypes::stnConfig);
+    }
 
     private static <T> void register(String type, Factory<T> factory) {
         REGISTRY.put(type, factory);
@@ -165,6 +170,33 @@ public final class ConfigTypes {
         }
         return new ResourceConfig(title, spec, getter, setter, suffixes);
     }
+    private static ConfigEntry<Long> routeConfig(
+            Component title,
+            ConfigSpec spec,
+            Supplier<Long> getter,
+            Consumer<Long> setter
+    ) {
+        return new RouteConfig(title, spec, getter, setter);
+    }
+
+    private static ConfigEntry<Long> platConfig(
+            Component title,
+            ConfigSpec spec,
+            Supplier<Long> getter,
+            Consumer<Long> setter
+    ) {
+        return new PlatConfig(title, spec, getter, setter);
+    }
+
+    private static ConfigEntry<Long> stnConfig(
+            Component title,
+            ConfigSpec spec,
+            Supplier<Long> getter,
+            Consumer<Long> setter
+    ) {
+        return new StnConfig(title, spec, getter, setter);
+    }
+
     /* ================= 鍐呴儴鎺ュ彛 ================= */
 
     @FunctionalInterface

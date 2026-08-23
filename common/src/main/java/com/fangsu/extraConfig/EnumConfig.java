@@ -4,7 +4,9 @@ import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.mappings.LocalComponent;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -29,11 +31,15 @@ public class EnumConfig extends ConfigEntry<Integer> {
     public static EnumConfig fromLocal(
             LocalComponent title,
             ConfigSpec spec,
-            List<? extends Component> entries,
+            List<? extends LocalComponent> entries,
             Supplier<Integer> getter,
             Consumer<Integer> setter
     ) {
-        return new EnumConfig(title.getRaw(), spec, entries, getter, setter);
+        List<MutableComponent> comps = new ArrayList<>(entries.size());
+        for (LocalComponent e : entries) {
+            comps.add(e.getRaw());
+        }
+        return new EnumConfig(title.getRaw(), spec, comps, getter, setter);
     }
 
     @Override

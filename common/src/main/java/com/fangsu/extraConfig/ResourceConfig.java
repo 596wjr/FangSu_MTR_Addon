@@ -1,6 +1,7 @@
 package com.fangsu.extraConfig;
 
 import com.fangsu.mappings.ComponentHelper;
+import com.fangsu.mappings.LocalComponent;
 import com.fangsu.ui.ResourceSelectionScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
@@ -48,6 +49,16 @@ public class ResourceConfig extends ConfigEntry<String> {
         this.namespace = spec.getString("namespace", null);
         this.suffixes = suffixes != null ? suffixes : Collections.emptyList();
         this.maxSelect = spec.getInt("maxSelect", 1);
+    }
+
+    public static ResourceConfig fromLocal(
+            LocalComponent title,
+            ConfigSpec spec,
+            Supplier<String> getter,
+            Consumer<String> setter,
+            List<String> suffixes
+    ) {
+        return new ResourceConfig(title.getRaw(), spec, getter, setter, suffixes);
     }
 
     @Override

@@ -125,59 +125,60 @@ public class SignConfigUI extends Screen {
     }
 
     private void drawSelectionScreen(GraphicContext ctx, int mouseX, int mouseY) {
-        int totalRows = facesData.size() * 3;
         int rowHeight = (height - 12) / ROW_COUNT;
         int viewportH = height - 12;
         float u = Math.min(30f, rowHeight * 0.65f);
         Graphics2D g2d = g2dLayer.graphics;
 
-        // 多于 2 个面时支持纵向滚动
-        int maxScroll = Math.max(0, totalRows * rowHeight - viewportH);
+        // 4 面分两列避免滚动；其余单列（>4 面才纵向滚动）
+        int maxScroll = selMaxScroll();
         selectionScroll = Math.max(-maxScroll, Math.min(0, selectionScroll));
-
-        int colorBarX = width - 18;
         int colorBarW = 14;
-        boolean overColorBar = mouseX >= colorBarX && mouseX <= colorBarX + colorBarW;
 
         for (int side = 0; side < facesData.size(); side++) {
+            int colX = selColX(side);
+            int colW = selColW();
+            int colorBarX = colX + colW - 18;
+            boolean overColorBar = mouseX >= colorBarX && mouseX <= colorBarX + colorBarW;
             SignFaceData face = facesData.get(side);
             Map<String, List<SignItem>> faceLanes = face.getLanes();
             for (int part = 0; part < 3; part++) {
                 int i = side * 3 + part;
-                int rowY = 12 + i * rowHeight + (int) selectionScroll;
+                int rowY = selRowY(side, part);
                 int rowBottom = rowY + rowHeight;
                 // 跳过屏幕外的行
                 if (rowBottom < 12 || rowY > height) continue;
                 int stripeColor = (i % 2 == 0) ? 0x22ffffff : 0x00ffffff;
                 // 鼠标指向最右侧色条时不高亮该行
                 if (!overColorBar && mouseY >= rowY && mouseY <= rowBottom) stripeColor = 0x33ffffff;
-                ctx.fill(0, rowY, width, rowY + rowHeight, stripeColor);
+                ctx.fill(colX, rowY, colX + colW, rowY + rowHeight, stripeColor);
 
                 ScreenUtil.drawString(ctx.asMinecraft(),
-                        ComponentHelper.translatable("ui.fangsu.sign." + faceName(side)).getString() + " - " + ComponentHelper.translatable("ui.fangsu.sign." + partName(part)).getString(),
-                        16, rowY + rowHeight / 8, 0xffffffff, rowHeight / 8, false);
+                        faceLabel(side) + " - " + ComponentHelper.translatable("ui.fangsu.sign." + partName(part)).getString(),
+                        colX + 16, rowY + rowHeight / 8, 0xffffffff, rowHeight / 8, false);
 
                 List<SignItem> lane = faceLanes.computeIfAbsent(partName(part), k -> new ArrayList<>());
-                float laneStartX = part == 2 ? width + rowScroll[i] : rowScroll[i];
+                float laneStartX = part == 2 ? (colX + colW) + rowScroll[i] : colX + rowScroll[i];
                 drawLane(g2d, lane, laneStartX, rowY + rowHeight * 0.3f, part, u, false);
 
-                // 水平滚动条
+                // 水平滚动条（宽度为该列宽）
                 if (lane != null && !lane.isEmpty()) {
                     float totalLaneWidth = 0;
                     for (SignItem token : lane) totalLaneWidth += getTokenWidth(g2d, token, u) + u * 0.1f;
                     int scrollbarY = rowBottom - 4;
-                    int scrollbarH = 4;
-                    int scrollbarW = width;
+                    int scrollbarW = colW;
                     if (totalLaneWidth > scrollbarW) {
-                        ctx.fill(0, scrollbarY, scrollbarW, scrollbarY + scrollbarH, 0x30FFFFFF);
+                        ctx.fill(colX, scrollbarY, colX + scrollbarW, scrollbarY + 4, 0x30FFFFFF);
                         float ratio = -rowScroll[i] / Math.max(1, totalLaneWidth - scrollbarW);
                         int thumbW = Math.max(10, (int) (scrollbarW * (float) scrollbarW / totalLaneWidth));
-                        int thumbX = (int) (ratio * (scrollbarW - thumbW));
-                        ctx.fill(thumbX, scrollbarY, thumbX + thumbW, scrollbarY + scrollbarH, 0x99FFFFFF);
+                        int thumbX = colX + (int) (ratio * (scrollbarW - thumbW));
+                        ctx.fill(thumbX, scrollbarY, thumbX + thumbW, scrollbarY + 4, 0x99FFFFFF);
                     }
                 }
 
-                if (mouseClickInfo != null && mouseClickInfo.button == 0 && mouseClickInfo.mouseY >= rowY && mouseClickInfo.mouseY <= rowBottom) {
+                if (mouseClickInfo != null && mouseClickInfo.button == 0
+                        && mouseClickInfo.mouseX >= colX && mouseClickInfo.mouseX <= colX + colW
+                        && mouseClickInfo.mouseY >= rowY && mouseClickInfo.mouseY <= rowBottom) {
                     modeFlag = 1;
                     inEditingRow = new LaneRef(side, part, lane);
                     paletteScroll = 0;
@@ -187,7 +188,7 @@ public class SignConfigUI extends Screen {
             }
 
             // 每个面最右侧的色条，点击进入颜色选择 UI
-            int barTop = 12 + side * 3 * rowHeight + (int) selectionScroll;
+            int barTop = 12 + selFaceInCol(side) * 3 * rowHeight + (int) selectionScroll;
             int barBottom = barTop + 3 * rowHeight;
             if (barBottom >= 12 && barTop <= height) {
                 boolean barHover = overColorBar && mouseY >= barTop && mouseY <= barBottom;
@@ -209,11 +210,11 @@ public class SignConfigUI extends Screen {
             }
         }
 
-        // 纵向滚动条
+        // 纵向滚动条（仅单列且超出视口时显示）
         if (maxScroll > 0) {
             int sbX = width - 4, sbW = 4;
             ctx.fill(sbX, 12, sbX + sbW, 12 + viewportH, 0x30FFFFFF);
-            int thumbH = Math.max(10, (int) (viewportH * (float) viewportH / (totalRows * rowHeight)));
+            int thumbH = Math.max(10, (int) (viewportH * (float) viewportH / (facesData.size() * 3 * rowHeight)));
             int thumbY = 12 + (int) ((float) (-selectionScroll) / maxScroll * (viewportH - thumbH));
             ctx.fill(sbX, thumbY, sbX + sbW, thumbY + thumbH, 0x99FFFFFF);
         }
@@ -233,7 +234,7 @@ public class SignConfigUI extends Screen {
 
         ctx.fill(12, 24, width - 12, 78, 0x441E1E1E);
         ctx.drawString(font,
-                ComponentHelper.translatable("ui.fangsu.sign.tooltip1", ComponentHelper.translatable("ui.fangsu.sign." + faceName(laneRef.face)).getString() + " - " + ComponentHelper.translatable("ui.fangsu.sign." + partName(laneRef.part)).getString()),
+                ComponentHelper.translatable("ui.fangsu.sign.tooltip1", faceLabel(laneRef.face) + " - " + ComponentHelper.translatable("ui.fangsu.sign." + partName(laneRef.part)).getString()),
                 16, 32, 0xFFFFFF, false);
         ctx.drawString(font, ComponentHelper.translatable("ui.fangsu.sign.tooltip2"), width - 80, 32, 0xCCCCCC, false);
 
@@ -673,39 +674,42 @@ public class SignConfigUI extends Screen {
                 int totalRows = facesData.size() * 3;
                 int rowHeight = (height - 12) / ROW_COUNT;
                 int viewportH = height - 12;
-                int maxScroll = Math.max(0, totalRows * rowHeight - viewportH);
+                int maxScroll = selMaxScroll();
                 float u = Math.min(30f, rowHeight * 0.65f);
                 for (int i = 0; i < totalRows; i++) {
-                    int rowY = 12 + i * rowHeight + (int) selectionScroll;
+                    int side = i / 3;
+                    int part = i % 3;
+                    if (side >= facesData.size()) break;
+                    int colX = selColX(side);
+                    int colW = selColW();
+                    int rowY = selRowY(side, part);
                     int rowBottom = rowY + rowHeight;
-                    if (mouseY >= rowBottom - 6 && mouseY <= rowBottom) {
+                    if (mouseX >= colX && mouseX <= colX + colW && mouseY >= rowBottom - 6 && mouseY <= rowBottom) {
                         // 计算该行人lane总宽度
-                        int side = i / 3;
-                        int part = i % 3;
-                        if (side < facesData.size()) {
-                            Map<String, List<SignItem>> faceLanes = facesData.get(side).getLanes();
-                            List<SignItem> lane = faceLanes.get(partName(part));
-                            if (lane != null && !lane.isEmpty()) {
-                                float totalLaneWidth = 0;
-                                for (SignItem token : lane) totalLaneWidth += getTokenWidth(g2dLayer.graphics, token, u) + u * 0.1f;
-                                if (totalLaneWidth > width) {
-                                    float ratio = -rowScroll[i] / Math.max(1, totalLaneWidth - width);
-                                    int thumbW = Math.max(10, (int) (width * (float) width / totalLaneWidth));
-                                    int thumbX = (int) (ratio * (width - thumbW));
-                                    if (mouseX >= thumbX && mouseX <= thumbX + thumbW) {
-                                        draggingRowScroll = true;
-                                        draggingRowIndex = i;
-                                        return true;
-                                    }
+                        Map<String, List<SignItem>> faceLanes = facesData.get(side).getLanes();
+                        List<SignItem> lane = faceLanes.get(partName(part));
+                        if (lane != null && !lane.isEmpty()) {
+                            float totalLaneWidth = 0;
+                            for (SignItem token : lane) totalLaneWidth += getTokenWidth(g2dLayer.graphics, token, u) + u * 0.1f;
+                            if (totalLaneWidth > colW) {
+                                float ratio = -rowScroll[i] / Math.max(1, totalLaneWidth - colW);
+                                int thumbW = Math.max(10, (int) (colW * (float) colW / totalLaneWidth));
+                                int thumbX = colX + (int) (ratio * (colW - thumbW));
+                                if (mouseX >= thumbX && mouseX <= thumbX + thumbW) {
+                                    draggingRowScroll = true;
+                                    draggingRowIndex = i;
+                                    return true;
                                 }
                             }
                         }
                     }
                 }
                 // 色条点击 -> 打开颜色选择 UI
-                int colorBarX = width - 18, colorBarW = 14;
+                int colorBarW = 14;
                 for (int side = 0; side < facesData.size(); side++) {
-                    int barTop = 12 + side * 3 * rowHeight + (int) selectionScroll;
+                    int colX = selColX(side);
+                    int colorBarX = colX + selColW() - 18;
+                    int barTop = 12 + selFaceInCol(side) * 3 * rowHeight + (int) selectionScroll;
                     int barBottom = barTop + 3 * rowHeight;
                     if (mouseX >= colorBarX && mouseX <= colorBarX + colorBarW && mouseY >= barTop && mouseY <= barBottom) {
                         SignFaceData face = facesData.get(side);
@@ -779,12 +783,14 @@ public class SignConfigUI extends Screen {
                 Map<String, List<SignItem>> faceLanes = facesData.get(side).getLanes();
                 List<SignItem> lane = faceLanes.get(partName(part));
                 if (lane != null && !lane.isEmpty()) {
+                    int colX = selColX(side);
+                    int colW = selColW();
                     float totalLaneWidth = 0;
                     for (SignItem token : lane) totalLaneWidth += getTokenWidth(g2dLayer.graphics, token, u) + u * 0.1f;
-                    if (totalLaneWidth > width) {
-                        float ratio = (float) mouseX / width;
+                    if (totalLaneWidth > colW) {
+                        float ratio = (float) (mouseX - colX) / colW;
                         ratio = Math.max(0, Math.min(1, ratio));
-                        rowScroll[draggingRowIndex] = -ratio * (totalLaneWidth - width);
+                        rowScroll[draggingRowIndex] = -ratio * (totalLaneWidth - colW);
                     }
                 }
             }
@@ -796,20 +802,23 @@ public class SignConfigUI extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         if (modeFlag == 0) {
-            int totalRows = facesData.size() * 3;
             int rowHeight = (height - 12) / ROW_COUNT;
-            int viewportH = height - 12;
-            int maxScroll = Math.max(0, totalRows * rowHeight - viewportH);
-            // 多于 2 个面：优先纵向滚动
+            int maxScroll = selMaxScroll();
+            // 单列且超出视口：优先纵向滚动
             if (maxScroll > 0) {
                 selectionScroll += (float) (delta * 16f);
                 return true;
             }
-            for (int i = 0; i < totalRows; i++) {
-                int rowY = 12 + i * rowHeight + (int) selectionScroll;
-                if (mouseY >= rowY && mouseY <= rowY + rowHeight) {
-                    rowScroll[i] += (float) (delta * 8f);
-                    return true;
+            for (int side = 0; side < facesData.size(); side++) {
+                int colX = selColX(side);
+                int colW = selColW();
+                for (int part = 0; part < 3; part++) {
+                    int i = side * 3 + part;
+                    int rowY = selRowY(side, part);
+                    if (mouseX >= colX && mouseX <= colX + colW && mouseY >= rowY && mouseY <= rowY + rowHeight) {
+                        rowScroll[i] += (float) (delta * 8f);
+                        return true;
+                    }
                 }
             }
         } else {
@@ -888,6 +897,56 @@ public class SignConfigUI extends Screen {
             case 1 -> "back";
             default -> "face" + (index + 1);
         };
+    }
+
+    /** 面的显示名：优先用该面保存的名字（front_upper 等），并按语言键 ui.fangsu.sign.<name> 尝试翻译，找不到则显示原名。 */
+    private String faceLabel(int index) {
+        if (index < 0 || index >= facesData.size()) return "";
+        String name = facesData.get(index).getName();
+        if (name == null || name.isEmpty()) {
+            return ComponentHelper.translatable("ui.fangsu.sign." + faceName(index)).getString();
+        }
+        String key = "ui.fangsu.sign." + name;
+        String resolved = ComponentHelper.translatable(key).getString();
+        return resolved.equals(key) ? name : resolved;
+    }
+
+    /* ===================== 选择页布局（4 面分两列，>4 面才纵向滚动） ===================== */
+
+    /** 4 个面时分成左右两列，避免滚动；其余单列。 */
+    private int selColumns() {
+        return facesData.size() == 4 ? 2 : 1;
+    }
+
+    private int selColW() {
+        return width / selColumns();
+    }
+
+    private int selFacesPerCol() {
+        return (facesData.size() + selColumns() - 1) / selColumns();
+    }
+
+    private int selCol(int side) {
+        return selColumns() == 2 ? (side >= selFacesPerCol() ? 1 : 0) : 0;
+    }
+
+    private int selFaceInCol(int side) {
+        return selColumns() == 2 ? (side >= selFacesPerCol() ? side - selFacesPerCol() : side) : side;
+    }
+
+    private int selColX(int side) {
+        return selCol(side) * selColW();
+    }
+
+    private int selRowY(int side, int part) {
+        int rowHeight = (height - 12) / ROW_COUNT;
+        return 12 + (selFaceInCol(side) * 3 + part) * rowHeight + (int) selectionScroll;
+    }
+
+    private int selMaxScroll() {
+        if (selColumns() == 2) return 0;
+        int rowHeight = (height - 12) / ROW_COUNT;
+        return Math.max(0, facesData.size() * 3 * rowHeight - (height - 12));
     }
 
     private JsonObject deepCopy(JsonObject input) {
