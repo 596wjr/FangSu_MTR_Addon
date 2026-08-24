@@ -189,6 +189,306 @@
                 "text": "禁止进入|No Entry",
                 "img": "mtr:textures/block/sign/cross.png"
             }
+        },
+        {
+            "type": "mtr_platform",
+            "icon": "mtr:textures/block/sign/platform.png",
+            "content": {
+                "plat": 0
+            }
+        },
+        {
+            "type": "mtr_exit",
+            "icon": "mtr:textures/block/sign/exit_letter.png",
+            "content": {
+                "stn": 0,
+                "exits": []
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/arrow.png",
+            "content": {
+                "text": "左转|Turn Left",
+                "img": "mtr:textures/block/sign/arrow.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/arrow_up.png",
+            "content": {
+                "text": "直行|Straight",
+                "img": "mtr:textures/block/sign/arrow_up.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/arrow_down.png",
+            "content": {
+                "text": "下行|Down",
+                "img": "mtr:textures/block/sign/arrow_down.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/arrow_up_left.png",
+            "content": {
+                "img": "mtr:textures/block/sign/arrow_up_left.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/arrow_down_left.png",
+            "content": {
+                "img": "mtr:textures/block/sign/arrow_down_left.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/arrow_turn_back.png",
+            "content": {
+                "text": "掉头|Turn Back",
+                "img": "mtr:textures/block/sign/arrow_turn_back.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/exit_2.png",
+            "content": {
+                "img": "mtr:textures/block/sign/exit_2.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/exit_3.png",
+            "content": {
+                "img": "mtr:textures/block/sign/exit_3.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/escalator.png",
+            "content": {
+                "text": "扶梯|Escalator",
+                "img": "mtr:textures/block/sign/escalator.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/stairs_up.png",
+            "content": {
+                "text": "上行楼梯|Stairs Up",
+                "img": "mtr:textures/block/sign/stairs_up.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/stairs_down.png",
+            "content": {
+                "text": "下行楼梯|Stairs Down",
+                "img": "mtr:textures/block/sign/stairs_down.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/lift_1.png",
+            "content": {
+                "text": "直梯|Lift",
+                "img": "mtr:textures/block/sign/lift_1.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/lift_2.png",
+            "content": {
+                "text": "直梯|Lift",
+                "img": "mtr:textures/block/sign/lift_2.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/wheelchair.png",
+            "content": {
+                "text": "无障碍|Wheelchair",
+                "img": "mtr:textures/block/sign/wheelchair.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/airport_express.png",
+            "content": {
+                "img": "mtr:textures/block/sign/airport_express.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/light_rail_1.png",
+            "content": {
+                "img": "mtr:textures/block/sign/light_rail_1.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/light_rail_2.png",
+            "content": {
+                "img": "mtr:textures/block/sign/light_rail_2.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/light_rail_3.png",
+            "content": {
+                "img": "mtr:textures/block/sign/light_rail_3.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/light_rail_4.png",
+            "content": {
+                "img": "mtr:textures/block/sign/light_rail_4.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/xrl_1.png",
+            "content": {
+                "img": "mtr:textures/block/sign/xrl_1.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/xrl_2.png",
+            "content": {
+                "img": "mtr:textures/block/sign/xrl_2.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/sp1900.png",
+            "content": {
+                "img": "mtr:textures/block/sign/sp1900.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/yellow_head_1.png",
+            "content": {
+                "img": "mtr:textures/block/sign/yellow_head_1.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/yellow_head_2.png",
+            "content": {
+                "img": "mtr:textures/block/sign/yellow_head_2.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/boat.png",
+            "content": {
+                "text": "轮渡|Ferry",
+                "img": "mtr:textures/block/sign/boat.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/cable_car.png",
+            "content": {
+                "text": "缆车|Cable Car",
+                "img": "mtr:textures/block/sign/cable_car.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/airplane.png",
+            "content": {
+                "text": "机场|Airport",
+                "img": "mtr:textures/block/sign/airplane.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/airplane_left.png",
+            "content": {
+                "img": "mtr:textures/block/sign/airplane_left.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/airplane_up_left.png",
+            "content": {
+                "img": "mtr:textures/block/sign/airplane_up_left.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/airplane_down_left.png",
+            "content": {
+                "img": "mtr:textures/block/sign/airplane_down_left.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/logo.png",
+            "content": {
+                "img": "mtr:textures/block/sign/logo.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/baggage_claim.png",
+            "content": {
+                "text": "行李提取|Baggage Claim",
+                "img": "mtr:textures/block/sign/baggage_claim.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/customer_service_centre.png",
+            "content": {
+                "text": "客服中心|Customer Service",
+                "img": "mtr:textures/block/sign/customer_service_centre.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/tickets.png",
+            "content": {
+                "text": "售票|Tickets",
+                "img": "mtr:textures/block/sign/tickets.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/wifi.png",
+            "content": {
+                "text": "WiFi|WiFi",
+                "img": "mtr:textures/block/sign/wifi.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/emergency_exit.png",
+            "content": {
+                "text": "紧急出口|Emergency Exit",
+                "img": "mtr:textures/block/sign/emergency_exit.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/airport_transfer.png",
+            "content": {
+                "img": "mtr:textures/block/sign/airport_transfer.png"
+            }
+        },
+        {
+            "type": "img",
+            "icon": "mtr:textures/block/sign/check_in.png",
+            "content": {
+                "text": "值机|Check-in",
+                "img": "mtr:textures/block/sign/check_in.png"
+            }
         }
     ]
 }

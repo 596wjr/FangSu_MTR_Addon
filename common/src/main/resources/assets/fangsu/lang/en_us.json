@@ -56,6 +56,7 @@
   "ui.fangsu.common.selectStn": "Select Station",
   "ui.fangsu.common.selectPlat": "Select Platform",
   "ui.fangsu.common.selectRoute": "Select Route",
+  "ui.fangsu.common.selectExit": "Select Exit",
   "ui.fangsu.common.selected": "Selected",
   "ui.fangsu.common.width": "Width",
   "ui.fangsu.common.height": "Height",
@@ -281,15 +282,9 @@
   "ui.fangsu.hybrid_creator.slice.export_schemes_confirm": "Also export the mixed block scheme presets used by this slice?",
   "ui.fangsu.hybrid_creator.slice.import_schemes_confirm": "Also import the mixed block scheme presets referenced by this slice?",
   "msg.fangsu.hybrid_creator.import_slice_with_schemes": "Imported slice with %d scheme preset(s)",
-  "gui.fangsu.depot.refreshing": "Refreshing path (%s elapsed)...",
-  "msg.fangsu.depot.refresh_success": "Path refreshed successfully!",
-  "msg.fangsu.depot.refresh_failed": "Path refresh failed:",
-  "msg.fangsu.depot.fail.between": "No path found between %s and %s",
-  "gui.fangsu.depot.fail.no_sidings": "No sidings",
-  "gui.fangsu.depot.fail.two_platforms": "At least two platforms required",
-  "gui.fangsu.depot.fail.path_not_found": "Path not found",
-  "gui.fangsu.depot.fail.generic": "Failed to generate path",
-  "gui.fangsu.time.hours": "%s h",
-  "gui.fangsu.time.minutes": "%s m",
-  "gui.fangsu.time.seconds": "%s s"
+  "ui.fangsu.mtrplatform.direction": "Direction",
+  "ui.fangsu.mtrplatform.dirNone": "None",
+  "ui.fangsu.mtrplatform.dirLeft": "Left",
+  "ui.fangsu.mtrplatform.dirRight": "Right",
+  "ui.fangsu.mtrplatform.showDest": "Show Destination"
 }

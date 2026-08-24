@@ -31,6 +31,8 @@ public final class SignItemFactory {
         REGISTRY.put("destination", DestinationItem::new);
         REGISTRY.put("destination_route", RouteDestinationItem::new);
         REGISTRY.put("trainicon", TrainIconItem::new);
+        REGISTRY.put("mtr_platform", MtrPlatformItem::new);
+        REGISTRY.put("mtr_exit", MtrExitItem::new);
     }
 
     public static void add(String type, Function<JsonObject, SignItem> factory) {

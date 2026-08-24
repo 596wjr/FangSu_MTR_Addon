@@ -50,6 +50,7 @@
   "ui.fangsu.common.selectStn": "選擇車站",
   "ui.fangsu.common.selectPlat": "選擇月台",
   "ui.fangsu.common.selectRoute": "選擇線路",
+  "ui.fangsu.common.selectExit": "選擇出入口",
   "ui.fangsu.common.selected": "已選擇",
   "msg.fangsu.ticketbarrier.fareOnce": "扣費 %s - 餘額 %s",
   "tab.fangsu.main": "方速 · 核心",
@@ -254,15 +255,9 @@
   "item.fangsu.ic_card.desc": "可重複使用的儲值卡。手持 IC 卡在閘機正面右鍵刷卡進出閘，按區間計費，餘額不足時無法出閘",
   "item.fangsu.wrench.desc": "方速方塊配置工具。對方塊右鍵即可打開配置介面（模型選擇、偏移旋轉、額外配置）",
   "item.fangsu.hybrid_creator.desc": "軌道批量構建工具。右鍵打開任務列表編輯器配置切片任務，再依次左鍵點擊軌道兩端節點即可按任務批量構建軌道",
-  "gui.fangsu.depot.refreshing": "正在刷新路線（已用時 %s）...",
-  "msg.fangsu.depot.refresh_success": "路線刷新成功！",
-  "msg.fangsu.depot.refresh_failed": "路線刷新失敗：",
-  "msg.fangsu.depot.fail.between": "在 %s 與 %s 之間找不到路徑",
-  "gui.fangsu.depot.fail.no_sidings": "沒有側線",
-  "gui.fangsu.depot.fail.two_platforms": "至少需要兩個月台",
-  "gui.fangsu.depot.fail.path_not_found": "路徑未找到",
-  "gui.fangsu.depot.fail.generic": "無法生成路徑",
-  "gui.fangsu.time.hours": "%s小時",
-  "gui.fangsu.time.minutes": "%s分鐘",
-  "gui.fangsu.time.seconds": "%s秒"
+  "ui.fangsu.mtrplatform.direction": "方向",
+  "ui.fangsu.mtrplatform.dirNone": "無",
+  "ui.fangsu.mtrplatform.dirLeft": "左",
+  "ui.fangsu.mtrplatform.dirRight": "右",
+  "ui.fangsu.mtrplatform.showDest": "顯示終點"
 }
