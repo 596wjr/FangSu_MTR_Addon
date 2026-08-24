@@ -64,11 +64,8 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
 //        if (prop == null) return;
 
         if (blockEntity instanceof FunctionalObjBlockEntity functional) {
-            if (functional.tryBeginRendering()) {
-                // whenRendering 已在后台线程执行
-                // 等待异步 whenRendering 完成，确保 scriptResult 已填充
-                functional.awaitRenderingTask();
-            }
+            // 非阻塞：提交后台 whenRendering，绝不等待；GL 线程复用上一帧已就绪结果。
+            functional.tryBeginRendering();
         } else {
             // BlockEntityRotatingRail 等非 FunctionalObjBlockEntity
             // 也使用单次后台线程提交 whenRendering
@@ -105,6 +102,8 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
             // whenRendering 在后台可能已开始，需要完成渲染周期
             if (blockEntity instanceof FunctionalObjBlockEntity functional) {
                 functional.finishRendering();
+                // 消费已就绪标记，避免卡住后续重新提交
+                functional.consumeRenderResultIfReady();
             }
             return;
         }
@@ -139,9 +138,15 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
 
         if (blockEntity instanceof FunctionalObjBlockEntity functional) {
             functional.finishRendering();
+            // 仅当后台 whenRendering 已完成时才交换双缓冲，避免读到半写入内容；
+            // 未就绪时沿用上一帧结果，GL 线程绝不阻塞等待。
+            if (functional.consumeRenderResultIfReady()) {
+                blockEntity.scriptContext.renderFunctionFinished();
+            }
+        } else {
+            // 非 FunctionalObjBlockEntity（同步等待完成），始终交换
+            blockEntity.scriptContext.renderFunctionFinished();
         }
-        // 非 FunctionalObjBlockEntity 无需调用 finishRendering
-        blockEntity.scriptContext.renderFunctionFinished();
     }
 
     @Override

@@ -77,18 +77,17 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
     private volatile boolean loadingComplete = false;
 
     /**
-     * 上一次 whenRendering 的异步执行状态。
-     * 渲染器在调用 whenRendering 前会检查此 future 是否已完成，
-     * 避免在渲染线程堆积未完成的渲染调用。
-     */
-    private CompletableFuture<Void> renderingFuture;
-
-    /**
      * 异步渲染任务。当 {@link #tryBeginRendering()} 返回 true 时，
      * {@link #whenRendering()} 被提交到此 future 在后台线程执行，
      * 渲染线程可继续处理其他方块实体的渲染收集阶段。
      */
     private CompletableFuture<Void> renderingTask;
+
+    /**
+     * 最近一次后台 whenRendering 是否已把结果填充进 scriptResultWriting。
+     * 渲染线程只在结果为 true 时才交换双缓冲并提交，避免 GL 线程阻塞等待。
+     */
+    private volatile boolean renderResultReady = false;
 
     public FunctionalObjBlockEntity(BlockEntityType<?> blockEntityType, BlockPos blockPos, BlockState blockState) {
         super(blockEntityType, blockPos, blockState);
@@ -335,62 +334,58 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
     // ==================== whenRendering 异步化辅助 ====================
 
     /**
-     * 尝试开始一次 whenRendering 调用。
+     * 尝试在后台线程执行一次 whenRendering，绝不阻塞 GL 渲染线程。
      * <p>
-     * 该方法会返回 true 确保渲染流程正常进行。
-     * 如果异步加载（whenLoading）尚未完成，则提交一个空任务（不执行实际渲染），
-     * 等待加载完成后下一帧再正常渲染。
-     * 如果上一次 whenRendering 仍在执行，也返回 false 避免堆积。
-     * <p>
-     * 调用此方法后，渲染器应调用 {@link #awaitRenderingTask()} 等待
-     * 后台任务完成，再执行提交操作。
+     * 若加载未完成、上一次 whenRendering 仍在执行、或上一次结果尚未被交换提交，
+     * 则不重复提交（直接复用上一帧已就绪的结果）。
      *
-     * @return 是否可以安全提交到后台线程
+     * @return 是否提交了新的后台渲染任务
      */
     public final boolean tryBeginRendering() {
-        if (renderingFuture != null && !renderingFuture.isDone()) return false;
-        renderingFuture = new CompletableFuture<>();
-        if (!loadingComplete) {
-            // 加载未完成，提交空任务，下一帧加载完成后再渲染
-            renderingTask = CompletableFuture.runAsync(() -> {}, RENDERING_EXECUTOR);
-            return true;
-        }
-        // 将 whenRendering 提交到后台线程执行，不阻塞渲染线程
+        if (!loadingComplete) return false;
+        if (renderResultReady) return false;
+        if (renderingTask != null && !renderingTask.isDone()) return false;
+        renderResultReady = false;
         renderingTask = CompletableFuture.runAsync(() -> {
             try {
                 this.whenRendering();
             } catch (Exception e) {
                 Main.LOGGER.error("Async whenRendering error for {} at {}: {}",
                         getClass().getSimpleName(), getBlockPos(), e.getMessage());
+            } finally {
+                renderResultReady = true;
             }
         }, RENDERING_EXECUTOR);
         return true;
     }
 
     /**
-     * 等待异步 whenRendering 任务完成。
-     * 渲染器应在渲染提交（scriptResult.commit/renderDirect）前调用此方法，
-     * 确保 whenRendering 已填充完 scriptResult。
+     * 后台 whenRendering 是否已把结果填充进 scriptResultWriting（可交换提交）。
      */
-    public final void awaitRenderingTask() {
-        if (renderingTask != null && !renderingTask.isDone()) {
-            try {
-                renderingTask.get();
-            } catch (Exception ignored) {
-            }
-        }
+    public final boolean isRenderResultReady() {
+        return renderResultReady;
     }
 
     /**
-     * 标记当帧渲染已完成。
-     * 应在 whenRendering + scriptResult 提交完成后调用，
-     * 以允许下一帧继续触发渲染。
+     * 若后台结果已就绪则消费该标记并返回 true（此时渲染线程应执行双缓冲交换），
+     * 否则返回 false（复用上一帧结果，不交换，避免读到半写入缓冲）。
+     */
+    public final boolean consumeRenderResultIfReady() {
+        if (renderResultReady) {
+            renderResultReady = false;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 标记当帧渲染已完成，允许下一帧继续触发渲染。
+     * 仅当后台任务已完成才清空引用，避免与仍在执行的 whenRendering 冲突。
      */
     public final void finishRendering() {
-        if (renderingFuture != null && !renderingFuture.isDone()) {
-            renderingFuture.complete(null);
+        if (renderingTask != null && renderingTask.isDone()) {
+            renderingTask = null;
         }
-        renderingTask = null;
     }
 
     public abstract void whenLoading();
