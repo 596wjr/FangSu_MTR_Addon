@@ -40,6 +40,34 @@ public final class TicketBarrierHandler {
 
         ItemStack stack = player.getItemInHand(hand);
 
+        // 手持 Metropolis 车票/交通卡（反射检测，Metropolis 非方速前置）：按其 NBT 计费规则进出站
+        if (MetropolisTicketUtil.isMetropolisItem(stack)) {
+            String metroName;
+            int metroZone;
+            if (useCustomZone) {
+                metroZone = Integer.parseInt(extraConfigs.getOrDefault("customZone", "0"));
+                metroName = extraConfigs.getOrDefault("customDisplayName", "");
+            } else {
+                Station station = MtrTicketSystem.getStation(level, pos);
+                if (station == null) {
+                    player.displayClientMessage(
+                            ComponentHelper.translatable("msg.fangsu.ticketbarrier.noStationArea"),
+                            true
+                    );
+                    return false;
+                }
+                metroName = station.name;
+                metroZone = station.zone;
+            }
+            boolean metroSuccess = isExit
+                    ? MetropolisTicketUtil.exit(level, player, stack, metroName, metroZone)
+                    : MetropolisTicketUtil.enter(level, player, stack, metroName, metroZone);
+            if (!metroSuccess) return false;
+            extraConfigs.put("isOpen", "true");
+            sendUpdateC2S.run();
+            return true;
+        }
+
         switch (fareType) {
             case 0:
                 String dispName = "";

@@ -53,6 +53,9 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
     DynamicModelHolder dhmLeft, dhmRight;
     CollisionBoxUtil.CollisionBox shapeLeft, shapeRight;
 
+    // 门灯模型（原生渲染，替代旧版 JS script 注入的 doorlight.js）
+    DynamicModelHolder dhmDoorLightLeft, dhmDoorLightRight;
+
     // auto 寤惰繜 / 閲嶇畻鎺у埗
     private boolean pendingAuto = false;
 
@@ -250,6 +253,28 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
         if (right.get("shape") instanceof List<?> l) {
             shapeRight = new CollisionBoxUtil.CollisionBox(l);
         }
+
+        // 门灯模型：从各自子模型配置读取 doorlight（model / subModel），复用主模型的 parted dmh
+        dhmDoorLightLeft = loadDoorLightModel(left, models, modelInfo);
+        dhmDoorLightRight = loadDoorLightModel(right, models, modelInfo);
+    }
+
+    /** 根据子模型配置中的 doorlight 段加载门灯 DynamicModelHolder；无配置时返回 null。 */
+    private DynamicModelHolder loadDoorLightModel(Map<String, Object> entry, Map<String, DynamicModelHolder> mainModels, ScreendoorGlassContent.MainModelInfo modelInfo) {
+        Object dlModel = entry.get("doorlightModel");
+        Object dlSub = entry.get("doorlightSubModel");
+        if (!(dlModel instanceof String dlm) || !(dlSub instanceof String dls)) return null;
+        try {
+            if (dlm.equals(modelInfo.model())) {
+                // 门灯模型与主模型相同，直接复用已加载的 parted dmh
+                return mainModels.get(dls);
+            }
+            Map<String, DynamicModelHolder> dlModels = ResourceUtil.loadPartedDmh(new ResourceLocation(dlm), modelInfo.flipV());
+            return dlModels.get(dls);
+        } catch (Exception e) {
+            Main.LOGGER.warn("Failed to load screendoor doorlight model: {}", e.getMessage());
+            return null;
+        }
     }
 
     // 锟?閭诲眳閫氱煡锛堝彧宸﹀彸锟?
@@ -279,6 +304,37 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
         ObjBlockScriptContext ctx = this.scriptContext;
         if (dhmLeft != null) ctx.drawModel(dhmLeft, null);
         if (dhmRight != null) ctx.drawModel(dhmRight, null);
+
+        // 门灯：左侧灯看左邻门，右侧灯看右邻门；开门/关门过程中闪烁，全开后常亮（还原旧版 doorlight.js）
+        if (dhmDoorLightLeft != null && isDoorLightOn(adjacentDoorValue(true))) {
+            ctx.drawModel(dhmDoorLightLeft, null);
+        }
+        if (dhmDoorLightRight != null && isDoorLightOn(adjacentDoorValue(false))) {
+            ctx.drawModel(dhmDoorLightRight, null);
+        }
+    }
+
+    /**
+     * 读取相邻屏蔽门（门块）的平滑开门进度。left=true 取左邻块，否则取右邻块；
+     * 邻居不是屏蔽门门块时视为关门（0）。
+     */
+    private float adjacentDoorValue(boolean left) {
+        Level level = getLevel();
+        if (level == null) return 0f;
+        BlockState state = getBlockState();
+        BlockPos pos = getWorldPos();
+        BlockEntity be = left
+                ? FacingBlockUtil.getLeftBlockEntity(level, pos, state)
+                : FacingBlockUtil.getRightBlockEntity(level, pos, state);
+        if (be instanceof BlockEntityScreendoor d) {
+            return d.getDispDoorValue();
+        }
+        return 0f;
+    }
+
+    /** 门灯闪烁逻辑：开门/关门过程中（0.2~0.4、0.6~0.8）闪烁，全开（≥1）常亮。 */
+    private static boolean isDoorLightOn(float doorVal) {
+        return (doorVal >= 0.2f && doorVal <= 0.4f) || (doorVal >= 0.6f && doorVal <= 0.8f) || doorVal >= 1f;
     }
 
     @Override

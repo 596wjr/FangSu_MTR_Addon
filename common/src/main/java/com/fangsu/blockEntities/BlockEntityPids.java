@@ -15,6 +15,10 @@ import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.integration.RawMeshBuilder;
 import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.scripting.ModelHelper;
+import com.fangsu.shape.RawShape;
+import com.fangsu.shape.RotatableShapeHelper;
+import com.fangsu.shape.ShapeCollection;
+import com.fangsu.shape.ShapeUtil;
 import com.fangsu.extraConfig.*;
 import com.fangsu.utils.*;
 import com.google.gson.JsonElement;
@@ -47,7 +51,7 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
     protected String subModel;
 
     private DynamicModelHolder dmhMain, dmhDisp = new DynamicModelHolder();
-    private CollisionBoxUtil.CollisionBox shape;
+    private ShapeCollection shape;
     private Map<String, JsonElement> userExtraConfigs;
 
     private volatile BasePidsDrawing pidsDrawing;
@@ -90,37 +94,47 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
                 if (level != null && level.isClientSide) markedError = true;
                 return;
             }
-            List<Integer> texSize = content.getTexSize();
-            texW = texSize.size() > 0 ? texSize.get(0) : 128;
-            texH = texSize.size() > 1 ? texSize.get(1) : 128;
-            Main.LOGGER.info("texW={}, texH={}", texW, texH);
             if (!content.getScript().isEmpty()) {
                 drawScriptKey = content.getScript();
-                initDrawingAsync();
             }
             boolean flipV = content.isFlipV();
             String model = content.getModel();
-            dmhMain = ResourceUtil.loadDmh(new ResourceLocation(model), flipV);
-            if (!content.getSlots().isEmpty()) {
-                RawMeshBuilder builder = new RawMeshBuilder(4, "light", new ResourceLocation("fangsu:pids/black.png"));
-                for (List<List<Double>> currentSlot : content.getSlots()) {
-                    List<List<Double>> finalList = new ArrayList<>();
-                    for (List<Double> point : currentSlot) {
-                        if (point.size() == 3) finalList.add(point);
+
+            if (content.isShouldSpilt()) {
+                // ===== 拼接（shouldSpilt）模式：宽度/高度网格拼接，参照 AdvBoard =====
+                int width = getExtraConfigInt("width", 3);
+                int height = getExtraConfigInt("height", 2);
+                loadSpiltContent(content, flipV, width, height);
+            } else {
+                List<Integer> texSize = content.getTexSize();
+                texW = texSize.size() > 0 ? texSize.get(0) : 128;
+                texH = texSize.size() > 1 ? texSize.get(1) : 128;
+                Main.LOGGER.info("texW={}, texH={}", texW, texH);
+                dmhMain = ResourceUtil.loadDmh(new ResourceLocation(model), flipV);
+                if (!content.getSlots().isEmpty()) {
+                    RawMeshBuilder builder = new RawMeshBuilder(4, "light", new ResourceLocation("fangsu:pids/black.png"));
+                    for (List<List<Double>> currentSlot : content.getSlots()) {
+                        List<List<Double>> finalList = new ArrayList<>();
+                        for (List<Double> point : currentSlot) {
+                            if (point.size() == 3) finalList.add(point);
+                        }
+                        if (finalList.size() != 4) {
+                            Main.LOGGER.warn("Invalid slot quad data: {}", currentSlot);
+                            continue;
+                        }
+                        ModelHelper.addQuad(builder, finalList, false);
                     }
-                    if (finalList.size() != 4) {
-                        Main.LOGGER.warn("Invalid slot quad data: {}", currentSlot);
-                        continue;
-                    }
-                    ModelHelper.addQuad(builder, finalList, false);
+                    RawModel dispRawModel = new RawModel();
+                    dispRawModel.append(builder.getMesh());
+                    dispRawModel.generateNormals();
+                    dmhDisp.uploadLater(dispRawModel);
                 }
-                RawModel dispRawModel = new RawModel();
-                dispRawModel.append(builder.getMesh());
-                dispRawModel.generateNormals();
-                dmhDisp.uploadLater(dispRawModel);
+                if (!content.getShape().isEmpty()) {
+                    this.shape = buildShapeCollection(content.getShape());
+                }
             }
-            if (!content.getShape().isEmpty()) {
-                this.shape = new CollisionBoxUtil.CollisionBox(content.getShape());
+            if (drawScriptKey != null) {
+                initDrawingAsync();
             }
         } catch (Exception e) {
             Main.LOGGER.warn(e.getMessage());
@@ -131,6 +145,117 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
         }
     }
 
+    /**
+     * 拼接（shouldSpilt）模式：从 parted 模型加载 9 个子模型，按 宽×高 网格拼接出完整模型、
+     * 显示面与碰撞形状。移植自旧版 pids.js 的宽度/高度拼接功能，实现参照 AdvBoard。
+     */
+    private void loadSpiltContent(PidsContent content, boolean flipV, int width, int height) throws Exception {
+        String model = content.getModel();
+
+        // dmhMain 字段默认未初始化（声明时仅 dmhDisp 赋值），拼接路径需在此创建
+        dmhMain = new DynamicModelHolder();
+
+        var rawModelMap = ResourceUtil.loadPartedModel(new ResourceLocation(model), flipV);
+        var subModelKeyMap = content.getSubModels();
+        RawModel[] models = new RawModel[PidsContent.MODEL_KEYS.length];
+        for (int i = 0; i < PidsContent.MODEL_KEYS.length; i++) {
+            String key = PidsContent.MODEL_KEYS[i];
+            String subKey = subModelKeyMap.getOrDefault(key, key);
+            RawModel m = rawModelMap.get(subKey);
+            if (m == null) {
+                throw new RuntimeException("Submodel " + subKey + " not found in " + model);
+            }
+            models[i] = m.copy();
+        }
+
+        RawModel spiltModel = ModelHelper.buildSpiltModel(
+                models[0], models[1], models[2],
+                models[3], models[4], models[5],
+                models[6], models[7], models[8],
+                width, height, content.getWidthUnit(), content.getHeightUnit()
+        );
+        if (content.getOffset() != null) {
+            spiltModel.applyTranslation(content.getOffset()[0], content.getOffset()[1], content.getOffset()[2]);
+        }
+        dmhMain.uploadLater(spiltModel);
+
+        // 显示面：跨越整个拼接网格的前/后面板，尺寸由 bar 边框决定（参照 AdvBoard）
+        double x1 = -0.5 * content.getWidthUnit() * width + content.getBars().getOrDefault(PidsContent.BAR_KEYS[0], 0d); // 左
+        double x2 = 0.5 * content.getWidthUnit() * width - content.getBars().getOrDefault(PidsContent.BAR_KEYS[1], 0d); // 右
+        double y1 = content.getHeightUnit() * height - content.getBars().getOrDefault(PidsContent.BAR_KEYS[2], 0d);   // 上
+        double y2 = content.getBars().getOrDefault(PidsContent.BAR_KEYS[3], 0d);                                        // 下
+
+        RawModel dispRawModel = new RawModel();
+        for (Map.Entry<String, Double> side : content.getFaces().entrySet()) {
+            boolean isBack = !(side.getKey().toLowerCase().contains("front") || side.getKey().equalsIgnoreCase("front"));
+            double z = side.getValue();
+            RawMeshBuilder builder = new RawMeshBuilder(4, "light", new ResourceLocation("fangsu:pids/black.png"));
+
+            double[] pos1 = new double[]{isBack ? -x1 : x1, y1, z};
+            double[] pos2 = new double[]{isBack ? -x1 : x1, y2, z};
+            double[] pos3 = new double[]{isBack ? -x2 : x2, y2, z};
+            double[] pos4 = new double[]{isBack ? -x2 : x2, y1, z};
+
+            ModelHelper.addQuad(builder, new double[][]{pos1, pos2, pos3, pos4}, false);
+            RawModel faceModel = new RawModel();
+            faceModel.append(builder.getMesh());
+            faceModel.generateNormals();
+            if (content.getOffset() != null) {
+                faceModel.applyTranslation(content.getOffset()[0], content.getOffset()[1], content.getOffset()[2]);
+            }
+            dispRawModel.append(faceModel);
+        }
+        dmhDisp.uploadLater(dispRawModel);
+
+        // 拼接模式下显示纹理分辨率随宽/高放大（与旧版 pids.js 一致：150 * 宽/高）
+        texW = 150 * width;
+        texH = 150 * height;
+        Main.LOGGER.info("PIDS spilt texW={}, texH={}", texW, texH);
+
+        // 拼接碰撞形状：把 9 个子模型的碰撞盒按网格拼接
+        var shapeRawMap = content.getShapes();
+        ShapeCollection[] shapes = new ShapeCollection[PidsContent.MODEL_KEYS.length];
+        for (int i = 0; i < PidsContent.MODEL_KEYS.length; i++) {
+            String key = PidsContent.MODEL_KEYS[i];
+            List<List<Double>> boxes = shapeRawMap.get(key);
+            ShapeCollection sc = new ShapeCollection();
+            if (boxes != null) {
+                for (List<Double> box : boxes) {
+                    if (box.size() >= 6) sc.add(new RawShape(box));
+                }
+            }
+            shapes[i] = sc;
+        }
+        ShapeCollection spiltShape = ShapeUtil.buildSpiltShape(
+                shapes[0], shapes[1], shapes[2],
+                shapes[3], shapes[4], shapes[5],
+                shapes[6], shapes[7], shapes[8],
+                width, height, content.getWidthUnit(), content.getHeightUnit()
+        );
+        if (content.getOffset() != null) {
+            spiltShape.moveAll(content.getOffset()[0], content.getOffset()[1], content.getOffset()[2]);
+        }
+        this.shape = spiltShape;
+    }
+
+    /**
+     * 将 content 中定义的像素坐标碰撞盒（0~16）转换为 ShapeCollection（世界单位 0~1），
+     * 与 AdvBoardContent 的碰撞盒约定一致。
+     */
+    private static ShapeCollection buildShapeCollection(List<List<Double>> pixelBoxes) {
+        ShapeCollection sc = new ShapeCollection();
+        if (pixelBoxes == null) return sc;
+        for (List<Double> box : pixelBoxes) {
+            if (box == null || box.size() < 6) continue;
+            double[] world = new double[6];
+            for (int i = 0; i < 6; i++) {
+                world[i] = box.get(i) / 16d;
+            }
+            sc.add(new RawShape(world));
+        }
+        return sc;
+    }
+
 
     /**
      * 涓婃娉ㄥ唽缁樺埗鐨勬爣璇嗭紝閬垮厤閲嶅娉ㄥ唽
@@ -139,6 +264,8 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
 
     private void initDrawingAsync() {
         if (drawScriptKey == null || drawScriptKey.isEmpty()) return;
+        // 拼接/加载未就绪时 texW/texH 可能仍为 0，跳过注册避免创建无效纹理
+        if (texW <= 0 || texH <= 0) return;
 
         GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
 
@@ -153,6 +280,11 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
         // 鍘婚噸锛氬鏋滅粯鍒舵爣璇嗘湭鍙樺寲锛岃鏄庢暟鎹湭鏇存柊锛屾棤闇€閲嶆柊娉ㄥ唽
         String extraConfigStr = userExtraConfigs != null ? userExtraConfigs.toString() : "";
         String drawInfoId = "PIDS_" + scriptKey + "_" + plats + "_" + extraConfigStr;
+        // 拼接模式：把宽度/高度并入绘制 ID，避免不同尺寸的拼接屏误共享纹理
+        PidsContent idContent = ContentInfoUtil.getPidsContent(mainModel, subModel);
+        if (idContent != null && idContent.isShouldSpilt()) {
+            drawInfoId = drawInfoId + "_w" + getExtraConfigInt("width", 3) + "_h" + getExtraConfigInt("height", 2);
+        }
         if (drawInfoId.equals(lastRegisteredDrawInfoId)) return;
         lastRegisteredDrawInfoId = drawInfoId;
 
@@ -186,6 +318,7 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
     public void whenDisposing() {
         drawState.clear();
         pidsDrawing = null;
+        RotatableShapeHelper.getInstance().removeCache(getWorldPos());
         GraphicsTextureHelper.getInstance().removeDrawGraphic(getBlockPos());
     }
 
@@ -328,32 +461,60 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
     }
 
     @Override
+    public VoxelShape setCollisionShape(BlockState state) {
+        if (markedError || shape == null || shape.isEmpty()) return Shapes.empty();
+        // 与形状一致
+        return setShape(state);
+    }
+
+    @Override
     public VoxelShape setShape(BlockState state) {
-        if (markedError || shape == null) return Shapes.block();
+        if (markedError || shape == null || shape.isEmpty()) return Shapes.block();
         Direction facing = state.getValue(BaseObjBlock.FACING);
         Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
         float rotX = this.rotateX;
         float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
         float rotZ = this.rotateZ;
-        long posLong = worldPosition.asLong();
 
-        VoxelShape finalShape = Shapes.empty();
-        if (shape != null) {
-            VoxelShape thisShape = CollisionBoxUtil.cachedRotatedShape(posLong, shape, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
-            finalShape = Shapes.or(finalShape, thisShape.move(trans.x, trans.y, trans.z));
+        RotatableShapeHelper helper = RotatableShapeHelper.getInstance();
+        VoxelShape rotated = helper.getShapeForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
+        if (rotated == null) {
+            // 首次调用时缓存尚未初始化，直接基于原始形状构建
+            helper.initForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ, this.shape);
+            rotated = helper.getShapeForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
         }
-        return finalShape;
-    }
-
-    @Override
-    public VoxelShape setCollisionShape(BlockState state) {
-        if (markedError || shape == null) return Shapes.empty();
-        return setShape(state);
+        return rotated.move(trans.x, trans.y, trans.z).optimize();
     }
 
     @Override
     public List<ConfigEntry<?>> getConfigs() {
         List<ConfigEntry<?>> configs = new ArrayList<>();
+        // 拼接（shouldSpilt）模式下提供宽度/高度配置，参照 AdvBoard
+        try {
+            String currentSubModel0 = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
+            PidsContent spiltCheck = ContentInfoUtil.getPidsContent(mainModel, currentSubModel0);
+            if (spiltCheck != null && spiltCheck.isShouldSpilt()) {
+                configs.add(new NumberInputConfig(
+                        ComponentHelper.translatable("ui.fangsu.common.width"),
+                        new ConfigSpec("int").setParam("isInt", new com.google.gson.JsonPrimitive(true)),
+                        () -> (float) getExtraConfigInt("width", 3),
+                        (f) -> {
+                            setExtraConfig("width", String.valueOf(f.intValue()));
+                            sendUpdateC2S();
+                        }
+                ));
+                configs.add(new NumberInputConfig(
+                        ComponentHelper.translatable("ui.fangsu.common.height"),
+                        new ConfigSpec("int").setParam("isInt", new com.google.gson.JsonPrimitive(true)),
+                        () -> (float) getExtraConfigInt("height", 2),
+                        (f) -> {
+                            setExtraConfig("height", String.valueOf(f.intValue()));
+                            sendUpdateC2S();
+                        }
+                ));
+            }
+        } catch (Exception ignored) {
+        }
         // 锟?content 锟?extraConfig 瀹氫箟鍔ㄦ€佺敓鎴愰厤缃」
         try {
             // 姣忔閲嶆柊璇诲彇 subModel锛岄伩鍏嶅垏鎹富妯″瀷鍚庡瓧娈垫湭鍚屾

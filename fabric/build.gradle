@@ -63,7 +63,14 @@ dependencies {
     modImplementation "org.graalvm.js:js-scriptengine:$rootProject.graaljsVersion"
 
     include "org.graalvm.sdk:graal-sdk:$rootProject.graaljsVersion"
+    include "org.graalvm.sdk:collections:$rootProject.graaljsVersion"
+    include "org.graalvm.sdk:nativeimage:$rootProject.graaljsVersion"
+    include "org.graalvm.sdk:word:$rootProject.graaljsVersion"
+    include "org.graalvm.polyglot:polyglot:$rootProject.graaljsVersion"
     include "org.graalvm.truffle:truffle-api:$rootProject.graaljsVersion"
+    include "org.graalvm.regex:regex:$rootProject.graaljsVersion"
+    include "org.graalvm.shadowed:icu4j:$rootProject.graaljsVersion"
+    include "org.graalvm.shadowed:xz:$rootProject.graaljsVersion"
     include "org.graalvm.js:js-language:$rootProject.graaljsVersion"
     include "org.graalvm.js:js-scriptengine:$rootProject.graaljsVersion"
 }
@@ -85,9 +92,9 @@ processResources {
 
     filesMatching('fabric.mod.json') {
         expand version: inputs.properties.version,
-               minecraft_dependency: inputs.properties.minecraft_dependency,
-               fabric_loader_dependency: inputs.properties.fabric_loader_dependency,
-               architectury_dependency: inputs.properties.architectury_dependency
+                minecraft_dependency: inputs.properties.minecraft_dependency,
+                fabric_loader_dependency: inputs.properties.fabric_loader_dependency,
+                architectury_dependency: inputs.properties.architectury_dependency
     }
 }
 

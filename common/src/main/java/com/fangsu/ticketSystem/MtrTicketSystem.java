@@ -89,7 +89,7 @@ public class MtrTicketSystem {
 
     /* ===================== 内部工具 ===================== */
 
-    protected static Station getStation(Level world, BlockPos pos) {
+    public static Station getStation(Level world, BlockPos pos) {
         RailwayData data = RailwayData.getInstance(world);
         if (data == null) return null;
         return RailwayData.getStation(data.stations, data.dataCache, pos);

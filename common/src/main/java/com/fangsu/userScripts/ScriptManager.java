@@ -169,6 +169,7 @@ public class ScriptManager {
         bindings.putMember("MinecraftClient", JsStaticBridge.fromStaticClass(MinecraftClientUtil.class));
         bindings.putMember("Resources", JsStaticBridge.fromStaticClass(JsResources.class));
         bindings.putMember("MtrUtil", JsStaticBridge.fromStaticClass(MtrUtil.class));
+        bindings.putMember("G2dTextHelper", JsStaticBridge.fromStaticClass(G2dTextHelper.class));
 
         // 数学类
         bindings.putMember("Vector3f", JsStaticBridge.fromStaticClass(Vector3f.class));

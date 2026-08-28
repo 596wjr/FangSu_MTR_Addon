@@ -3,6 +3,7 @@ package com.fangsu.utils;
 import com.fangsu.Main;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcerext.model.RawModel;
+import com.fangsu.render.sowcerext.model.loader.BlockbenchModelLoader;
 import com.fangsu.render.sowcerext.model.loader.ObjModelLoader;
 import com.fangsu.scripting.GraphicsTexture;
 import com.google.gson.*;
@@ -180,8 +181,7 @@ public class ResourceUtil {
         if (resourceManager == null) {
             throw new IOException("ResourceManager is null");
         }
-        RawModel model = ObjModelLoader.loadModel(resourceManager, location, null);
-        if (flipV) model.applyUVMirror(false, true);
+        RawModel model = loadModelByExtension(location, flipV);
         register.put(GlobalRegisterKey, model);
         return model;
     }
@@ -194,13 +194,36 @@ public class ResourceUtil {
         if (resourceManager == null) {
             throw new IOException("ResourceManager is null");
         }
-        Map<String, RawModel> models = ObjModelLoader.loadModels(resourceManager, location, null);
+        Map<String, RawModel> models = loadPartedModelByExtension(location, flipV);
+        register.put(GlobalRegisterKey, models);
+        return models;
+    }
+
+    /** 按扩展名分发模型加载：.bbmodel 走 Blockbench，其余走 OBJ。 */
+    private static RawModel loadModelByExtension(ResourceLocation location, Boolean flipV) throws IOException {
+        RawModel model;
+        if (location.getPath().endsWith(".bbmodel")) {
+            model = BlockbenchModelLoader.loadModel(resourceManager, location, null);
+        } else {
+            model = ObjModelLoader.loadModel(resourceManager, location, null);
+        }
+        if (flipV) model.applyUVMirror(false, true);
+        return model;
+    }
+
+    /** 按扩展名分发分组模型加载：.bbmodel 按 bbmodel 分组，其余按 OBJ 分组。 */
+    private static Map<String, RawModel> loadPartedModelByExtension(ResourceLocation location, Boolean flipV) throws IOException {
+        Map<String, RawModel> models;
+        if (location.getPath().endsWith(".bbmodel")) {
+            models = BlockbenchModelLoader.loadModels(resourceManager, location, null);
+        } else {
+            models = ObjModelLoader.loadModels(resourceManager, location, null);
+        }
         if (flipV)
             for (Map.Entry<String, RawModel> entry : models.entrySet()) {
                 RawModel model = entry.getValue();
                 model.applyUVMirror(false, true);
             }
-        register.put(GlobalRegisterKey, models);
         return models;
     }
 

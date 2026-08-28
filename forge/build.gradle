@@ -2,6 +2,13 @@ plugins {
     id 'com.gradleup.shadow'
 }
 
+//repositories {
+//    maven {
+//        url = 'https://repo.sleeping.town/'
+//        content { includeGroup 'folk.sisby' }
+//    }
+//}
+
 loom {
     accessWidenerPath = project(":common").loom.accessWidenerPath
     forge {
@@ -41,18 +48,37 @@ dependencies {
     shadowBundle project(path: ':common', configuration: 'transformProductionForge')
 
     modImplementation "maven.modrinth:minecraft-transit-railway:$rootProject.mtr_version_forge"
+    // Loom does not expose JCM's nested Kaleido jar to Forge development runs.
+    // cannot connect to source, use JCM jar in runtime instead
+//    runtimeOnly("folk.sisby:kaleido-config:0.3.3+1.3.2")
+    // Mixin Extras（@ModifyExpressionValue/@Local 注入器）。Fabric 端由 fabric-loader 自带；
+    // Forge 端 Mixin 0.8.5 不含 Extras：编译期 implementation，运行时以 jar-in-jar 内嵌
+    // （shadowJar 打进 META-INF/jarjar/，玩家无需单独安装；MixinExtras 通过
+    // IMixinServiceBootstrap SPI 自动注册，无需显式 mixin 配置）
+//    implementation "io.github.llamalad7:mixinextras-forge:0.4.1"
+//    jarInJar("io.github.llamalad7:mixinextras-forge:0.4.1")
+    implementation(annotationProcessor("io.github.llamalad7:mixinextras-common:0.4.1"))
+    include(implementation("io.github.llamalad7:mixinextras-forge:0.4.1"))
 //    if (rootProject.require_nte) {
 //        modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
 //    }
 //    modImplementation("me.shedaniel.cloth:cloth-config-forge:11.1.136")
-    runtimeOnly("org.graalvm.sdk:graal-sdk:${rootProject.graaljsVersion}")
-    runtimeOnly("org.graalvm.truffle:truffle-api:${rootProject.graaljsVersion}")
-    runtimeOnly("org.graalvm.js:js-language:${rootProject.graaljsVersion}")
-    runtimeOnly("org.graalvm.js:js-scriptengine:${rootProject.graaljsVersion}")
-    shadowBundle("org.graalvm.sdk:graal-sdk:${rootProject.graaljsVersion}")
-    shadowBundle("org.graalvm.truffle:truffle-api:${rootProject.graaljsVersion}")
-    shadowBundle("org.graalvm.js:js-language:${rootProject.graaljsVersion}")
-    shadowBundle("org.graalvm.js:js-scriptengine:${rootProject.graaljsVersion}")
+    // runtimeOnly is not visible from Forge's transforming module layer.
+    forgeRuntimeLibrary("org.graalvm.sdk:graal-sdk:${rootProject.graaljsVersion}")
+    forgeRuntimeLibrary("org.graalvm.truffle:truffle-api:${rootProject.graaljsVersion}")
+    forgeRuntimeLibrary("org.graalvm.js:js-language:${rootProject.graaljsVersion}")
+    forgeRuntimeLibrary("org.graalvm.js:js-scriptengine:${rootProject.graaljsVersion}")
+    include("org.graalvm.sdk:graal-sdk:${rootProject.graaljsVersion}")
+    include("org.graalvm.sdk:collections:${rootProject.graaljsVersion}")
+    include("org.graalvm.sdk:nativeimage:${rootProject.graaljsVersion}")
+    include("org.graalvm.sdk:word:${rootProject.graaljsVersion}")
+    include("org.graalvm.polyglot:polyglot:${rootProject.graaljsVersion}")
+    include("org.graalvm.truffle:truffle-api:${rootProject.graaljsVersion}")
+    include("org.graalvm.regex:regex:${rootProject.graaljsVersion}")
+    include("org.graalvm.shadowed:icu4j:${rootProject.graaljsVersion}")
+    include("org.graalvm.shadowed:xz:${rootProject.graaljsVersion}")
+    include("org.graalvm.js:js-language:${rootProject.graaljsVersion}")
+    include("org.graalvm.js:js-scriptengine:${rootProject.graaljsVersion}")
 }
 
 processResources {
@@ -64,9 +90,9 @@ processResources {
 
     filesMatching('META-INF/mods.toml') {
         expand version: inputs.properties.version,
-               minecraft_dependency: inputs.properties.minecraft_dependency,
-               forge_loader_dependency: inputs.properties.forge_loader_dependency,
-               architectury_dependency: inputs.properties.architectury_dependency
+                minecraft_dependency: inputs.properties.minecraft_dependency,
+                forge_loader_dependency: inputs.properties.forge_loader_dependency,
+                architectury_dependency: inputs.properties.architectury_dependency
     }
     filesMatching('pack.mcmeta') {
         expand pack_format: inputs.properties.pack_format
@@ -82,6 +108,13 @@ shadowJar {
 
     mergeServiceFiles()
     zip64 true
+
+    // MixinExtras 以 jar-in-jar 内嵌：META-INF/jarjar/ 下的整 jar 由 FML 自动加载。
+    // 注意：shadowJar 块内裸 `configurations` 是 task 自己的属性（上面赋值的 shadowBundle
+    // 集合），取声明在 Project 上的配置必须显式写 project.configurations
+//    into('META-INF/jarjar/') {
+//        from project.configurations.jarInJar
+//    }
 
 //    relocate("org.graalvm", "com.fangsu.shadow.org.graalvm")
 //    relocate("com.oracle.truffle", "com.fangsu.shadow.com.oracle.truffle")

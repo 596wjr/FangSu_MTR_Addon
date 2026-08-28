@@ -8,6 +8,7 @@ import com.fangsu.render.sowcer.vertex.VertAttrType;
 import com.fangsu.render.sowcerext.model.ModelCluster;
 import com.fangsu.render.sowcerext.model.RawMesh;
 import com.fangsu.render.sowcerext.model.RawModel;
+import com.fangsu.render.sowcerext.model.loader.BlockbenchModelLoader;
 import com.fangsu.render.sowcerext.model.loader.CsvModelLoader;
 import com.fangsu.render.sowcerext.model.loader.ObjModelLoader;
 import net.minecraft.resources.ResourceLocation;
@@ -77,6 +78,9 @@ public class ModelManager {
             case "obj":
                 result = ObjModelLoader.loadModel(resourceManager, objLocation, atlasManager);
                 break;
+            case "bbmodel":
+                result = BlockbenchModelLoader.loadModel(resourceManager, objLocation, atlasManager);
+                break;
             case "csv":
                 result = CsvModelLoader.loadModel(resourceManager, objLocation, atlasManager);
                 break;
@@ -100,6 +104,9 @@ public class ModelManager {
         switch (crntStatExt) {
             case "obj":
                 result = ObjModelLoader.loadModels(resourceManager, objLocation, atlasManager);
+                break;
+            case "bbmodel":
+                result = BlockbenchModelLoader.loadModels(resourceManager, objLocation, atlasManager);
                 break;
             case "csv":
             case "nmb":

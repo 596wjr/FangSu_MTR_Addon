@@ -14,7 +14,8 @@
     "CustomResourcesMixin",
     "LiftMixin",
     "TrainMixin",
-    "RailwayDataRailActionsModuleMixin"
+    "RailwayDataRailActionsModuleMixin",
+    "MetropolisTurnstileMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -14,7 +14,7 @@ apply from: "build_dep_ver.gradle"
 architectury {
     minecraft = project.minecraft_version
 }
-
+3
 allprojects {
     group = rootProject.maven_group
     version = rootProject.mod_version
@@ -98,6 +98,7 @@ subprojects {
                 includeGroup "maven.modrinth"
             }
         }
+//        maven { url 'https://repo.sleeping.town/' }
 
         maven {
             url = "https://maven.fabricmc.net/"
@@ -141,6 +142,8 @@ subprojects {
         minecraft "net.minecraft:minecraft:$rootProject.minecraft_version"
         mappings loom.officialMojangMappings()
 
+        compileOnly 'javax.annotation:javax.annotation-api:1.3.2'
+
 //        if (rootProject.require_nte == true) {
 //            if (rootProject.build_for_ante == true) {
 //                modImplementation "maven.modrinth:mtr-ante:$rootProject.ante_version"
@@ -152,6 +155,7 @@ subprojects {
 //
 //        }
 //        modImplementation "maven.modrinth:mtr-nte:$rootProject.nte_version"
+//        compileOnly 'javax.annotation:javax.annotation-api:1.3.2'
 
         compileOnly "maven.modrinth:minecraft-transit-railway:${rootProject.mtr_version_forge}"
 
@@ -170,6 +174,15 @@ subprojects {
     tasks.withType(JavaCompile).configureEach {
         it.options.release = 17
     }
+
+//    // Minecraft 1.20.1 / Forge 47 的 ModLauncher 使用 ASM 9.5，无法读取
+//    // Java 22+ 的运行时类（class file major 66+）。Gradle/Loom 可以运行在
+//    // 较新的 JDK 上，但游戏进程必须固定为 Minecraft 1.20.1 所需的 Java 17。
+//    tasks.withType(JavaExec).configureEach {
+//        javaLauncher.set(javaToolchains.launcherFor {
+//            languageVersion = JavaLanguageVersion.of(17)
+//        })
+//    }
 
     tasks.matching { it.name == "sourcesJar" }.configureEach {
         dependsOn(tasks.named("processConditionalSources"))
@@ -256,12 +269,4 @@ subprojects {
         }
     }
 
-    configurations {
-        shadowBundle
-    }
-
-    dependencies {
-        shadowBundle("org.graalvm.sdk:graal-sdk:${rootProject.graaljsVersion}")
-        shadowBundle("org.graalvm.js:js:${rootProject.graaljsVersion}")
-    }
 }

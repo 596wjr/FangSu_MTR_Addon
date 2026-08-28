@@ -247,6 +247,11 @@ public class BlockEntityScreendoor extends FunctionalObjBlockEntity implements I
         }
     }
 
+    /** 返回用于渲染的平滑开门进度（0~1），供相邻屏蔽门玻璃块的门灯使用。 */
+    public float getDispDoorValue() {
+        return (float) dispDoorValue;
+    }
+
     @Override
     public boolean isLocked() {
         return isolation;

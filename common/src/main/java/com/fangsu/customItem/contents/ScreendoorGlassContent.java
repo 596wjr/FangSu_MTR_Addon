@@ -8,6 +8,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ScreendoorGlassContent extends BaseContent {
     private final String text;
@@ -16,6 +18,10 @@ public class ScreendoorGlassContent extends BaseContent {
     private final String subModel;
     private final List<List<Double>> shape;
     private final String auto;
+
+    // 门灯配置（原生实现，替代旧版 JS script 注入）：doorlight: { model, subModel }
+    private final String doorlightModel;
+    private final String doorlightSubModel;
 
     // ── static storage: data per mainModel path ──
     private static final Map<String, List<JsonObject>> AUTO_COMMANDS = new HashMap<>();
@@ -34,6 +40,48 @@ public class ScreendoorGlassContent extends BaseContent {
         this.subModel = getOrDefault(json, "subModel", (String) null, JsonElement::getAsString);
         this.auto = getOrDefault(json, "auto", (String) null, JsonElement::getAsString);
         this.shape = parseShapeFromJson(json);
+        // 优先原生 doorlight 对象：{ "model": "...", "subModel": "..." }
+        if (json.has("doorlight") && json.get("doorlight").isJsonObject()) {
+            JsonObject dl = json.getAsJsonObject("doorlight");
+            this.doorlightModel = getOrDefault(dl, "model", (String) null, JsonElement::getAsString);
+            this.doorlightSubModel = getOrDefault(dl, "subModel", (String) null, JsonElement::getAsString);
+        } else {
+            // 兼容旧版 JSON：从 script 段识别 doorlight.js（仅此脚本有效，其余脚本一律忽略、不执行）
+            String[] legacy = parseDoorlightFromLegacyScript(json);
+            this.doorlightModel = legacy[0];
+            this.doorlightSubModel = legacy[1];
+        }
+    }
+
+    // ── 旧版 doorlight.js 兼容解析 ──
+
+    private static final Pattern LEGACY_DL_MODEL_PATTERN = Pattern.compile("doorLightModel\\s*=\\s*\"([^\"]*)\"");
+    private static final Pattern LEGACY_DL_SUBMODEL_PATTERN = Pattern.compile("doorLightSubModel\\s*=\\s*\"([^\"]*)\"");
+
+    /**
+     * 兼容旧版 JSON 中直接嵌入的 script 段：仅当 scriptFile 以 doorlight.js 结尾时，
+     * 从 scriptText 中提取 doorLightModel / doorLightSubModel 作为门灯配置。
+     * 其余任何内嵌脚本（非 doorlight.js）都被视为无效并忽略，且不会执行任何 JS。
+     *
+     * @return [model, subModel]；未识别到有效 doorlight.js 时两者均为 null
+     */
+    private static String[] parseDoorlightFromLegacyScript(JsonObject json) {
+        if (!json.has("script") || !json.get("script").isJsonArray()) return new String[]{null, null};
+        for (JsonElement elem : json.getAsJsonArray("script")) {
+            if (elem == null || !elem.isJsonObject()) continue;
+            JsonObject script = elem.getAsJsonObject();
+            if (!script.has("scriptFile")) continue;
+            String scriptFile = script.get("scriptFile").getAsString();
+            if (scriptFile == null || !scriptFile.endsWith("doorlight.js")) continue;
+            String scriptText = script.has("scriptText") ? script.get("scriptText").getAsString() : "";
+            String model = null, subModel = null;
+            Matcher mm = LEGACY_DL_MODEL_PATTERN.matcher(scriptText);
+            if (mm.find()) model = mm.group(1);
+            Matcher sm = LEGACY_DL_SUBMODEL_PATTERN.matcher(scriptText);
+            if (sm.find()) subModel = sm.group(1);
+            return new String[]{model, subModel};
+        }
+        return new String[]{null, null};
     }
 
     // ── getters ──
@@ -60,6 +108,14 @@ public class ScreendoorGlassContent extends BaseContent {
 
     public String getAuto() {
         return auto;
+    }
+
+    public String getDoorlightModel() {
+        return doorlightModel;
+    }
+
+    public String getDoorlightSubModel() {
+        return doorlightSubModel;
     }
 
     // ── static helpers for callers ──
@@ -90,6 +146,8 @@ public class ScreendoorGlassContent extends BaseContent {
             if (gc.subModel != null) entry.put("subModel", gc.subModel);
             if (gc.shape != null && !gc.shape.isEmpty()) entry.put("shape", gc.shape);
             if (gc.auto != null) entry.put("auto", gc.auto);
+            if (gc.doorlightModel != null) entry.put("doorlightModel", gc.doorlightModel);
+            if (gc.doorlightSubModel != null) entry.put("doorlightSubModel", gc.doorlightSubModel);
             result.put(id, entry);
         }
         return result;

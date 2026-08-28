@@ -297,12 +297,10 @@
                         12
                     ]
                 ],
-                "script": [
-                    {
-                        "scriptFile": "fangsu:screendoor/doorlight.js",
-                        "scriptText": "var doorSide=false;var doorLightModel=\"fangsu:screendoor/mtr_screendoor_bg_2.obj\";var doorLightSubModel=\"l\";"
-                    }
-                ]
+                "doorlight": {
+                    "model": "fangsu:screendoor/mtr_screendoor_bg_2.obj",
+                    "subModel": "l"
+                }
             },
             {
                 "id": "glassdoor",
@@ -390,12 +388,10 @@
                         12
                     ]
                 ],
-                "script": [
-                    {
-                        "scriptFile": "fangsu:screendoor/doorlight.js",
-                        "scriptText": "var doorSide=true;var doorLightModel=\"fangsu:screendoor/mtr_screendoor_bg_2.obj\";var doorLightSubModel=\"r\";"
-                    }
-                ]
+                "doorlight": {
+                    "model": "fangsu:screendoor/mtr_screendoor_bg_2.obj",
+                    "subModel": "r"
+                }
             },
             {
                 "id": "glassdoor",
