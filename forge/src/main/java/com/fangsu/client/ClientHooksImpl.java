@@ -1,4 +1,4 @@
-package com.fangsu.client;
+﻿package com.fangsu.client;
 
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.blockEntities.BlockEntityScreendoorCentralControl;
@@ -95,4 +95,9 @@ public final class ClientHooksImpl {
             Minecraft.getInstance().setScreen(new ScreendoorCentralControlScreen(ctrl));
         });
     }
+
+    public static void openModularEditor(java.util.function.Supplier<String> getter, java.util.function.Consumer<String> setter) {
+        Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new com.fangsu.ui.ModularEditingScreen(getter, setter)));
+    }
 }
+

@@ -234,6 +234,8 @@ public class ResourceUtil {
             return existing;
         }
         DynamicModelHolder dmh = new DynamicModelHolder();
+        // 该 holder 由缓存共享（可能被多个方块实例同时引用），方块销毁时不得关闭
+        dmh.markShared();
         existing = (DynamicModelHolder) register.putIfAbsent(GlobalRegisterKey, dmh);
         if (existing != null) {
             return existing;
@@ -259,16 +261,19 @@ public class ResourceUtil {
         if (existing != null) {
             return existing;
         }
-        Map<String, DynamicModelHolder> map = new HashMap<>();
         Map<String, RawModel> models = loadPartedModel(location, flipV);
+        Map<String, DynamicModelHolder> map = new HashMap<>();
         for (Map.Entry<String, RawModel> entry : models.entrySet()) {
             RawModel model = entry.getValue();
             DynamicModelHolder dmh = new DynamicModelHolder();
+            // 同 loadDmh：缓存共享的 holder 由缓存统一管理，方块销毁时不得关闭
+            dmh.markShared();
             dmh.uploadLater(model);
             map.put(entry.getKey(), dmh);
         }
-        register.put(GlobalRegisterKey, map);
-        return map;
+        @SuppressWarnings("unchecked")
+        Map<String, DynamicModelHolder> raced = (Map<String, DynamicModelHolder>) register.putIfAbsent(GlobalRegisterKey, map);
+        return raced != null ? raced : map;
     }
 
     public static Font loadFont(ResourceLocation location) {
@@ -613,6 +618,10 @@ public class ResourceUtil {
 
     public static void init(ResourceManager mgr) {
         resourceManager = mgr;
+        // 注意：这里只清引用，不主动 close 缓存中的 DynamicModelHolder。
+        // 已放置的方块仍直接持有这些共享 holder，强行 close 会让它们立刻丢失几何；
+        // 而 orphaned holder 的回收需要引用计数，属后续工作。共享 holder 的内存增长量级
+        // 与"模型种类数"而非"方块数量"相关，远小于逐方块泄漏。
         register.clear();
     }
 }

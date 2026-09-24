@@ -51,6 +51,12 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
     protected String subModel;
 
     private DynamicModelHolder dmhMain, dmhDisp = new DynamicModelHolder();
+
+    /**
+     * PIDS 拼接模式的纹理分辨率（像素/格）。详见 {@code loadSpiltContent} 中的说明。
+     * 可用 {@code -Dfangsu.pidsTextureUnit=<n>} 覆盖。
+     */
+    private static final int PIDS_TEX_UNIT = Integer.getInteger("fangsu.pidsTextureUnit", 100);
     private ShapeCollection shape;
     private Map<String, JsonElement> userExtraConfigs;
 
@@ -207,9 +213,14 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
         }
         dmhDisp.uploadLater(dispRawModel);
 
-        // 拼接模式下显示纹理分辨率随宽/高放大（与旧版 pids.js 一致：150 * 宽/高）
-        texW = 150 * width;
-        texH = 150 * height;
+        // 拼接模式下显示纹理分辨率随宽/高放大。
+        // 旧值是 150 像素/格：一个 3×2 的屏幕就是 450×300 = 0.51 MiB/层，
+        // 而 GraphicsTexture 同时持有堆内 BufferedImage + 堆外 NativeImage + 显存三份，
+        // 单块约 1.5 MiB，且每块内容（站名/线路）不同、无法共享。
+        // 100 像素/格 已明显高于屏幕实际采样率，内存降到约 1/2.25。
+        // 可用 -Dfangsu.pidsTextureUnit=<n> 覆盖。
+        texW = PIDS_TEX_UNIT * width;
+        texH = PIDS_TEX_UNIT * height;
         Main.LOGGER.info("PIDS spilt texW={}, texH={}", texW, texH);
 
         // 拼接碰撞形状：把 9 个子模型的碰撞盒按网格拼接
@@ -318,8 +329,11 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
     public void whenDisposing() {
         drawState.clear();
         pidsDrawing = null;
-        RotatableShapeHelper.getInstance().removeCache(getWorldPos());
-        GraphicsTextureHelper.getInstance().removeDrawGraphic(getBlockPos());
+        // dmhMain 在拼接模式下是本实例独占的，在非拼接模式下来自 ResourceUtil 共享缓存；
+        // closeIfOwned 只在独占时释放，避免牵连其他方块。
+        if (dmhMain != null) dmhMain.closeIfOwned();
+        // 形状缓存 / 动态纹理 / dmhDisp 由父类统一释放
+        super.whenDisposing();
     }
 
     @Override
@@ -477,11 +491,11 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
         float rotZ = this.rotateZ;
 
         RotatableShapeHelper helper = RotatableShapeHelper.getInstance();
-        VoxelShape rotated = helper.getShapeForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
+        VoxelShape rotated = helper.getShapeForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
         if (rotated == null) {
             // 首次调用时缓存尚未初始化，直接基于原始形状构建
-            helper.initForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ, this.shape);
-            rotated = helper.getShapeForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
+            helper.initForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ, this.shape);
+            rotated = helper.getShapeForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
         }
         return rotated.move(trans.x, trans.y, trans.z).optimize();
     }

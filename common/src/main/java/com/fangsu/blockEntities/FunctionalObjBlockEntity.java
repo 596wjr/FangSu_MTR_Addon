@@ -52,20 +52,6 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
     });
 
     /**
-     * 渲染专用后台线程池，用于将 {@link #whenRendering()} 中的
-     * 模型变换、Java2D 绘制等 CPU 密集型操作从渲染线程移走，
-     * 避免阻塞主线程的帧率。
-     * <p>
-     * 注意：不涉及 OpenGL 调用的操作（如矩阵变换、drawModel 入队）
-     * 可以安全地在后台线程执行。涉及 GL 的操作仍必须在渲染线程执行。
-     */
-    private static final ExecutorService RENDERING_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "fangsu-rendering-async");
-        t.setDaemon(true);
-        return t;
-    });
-
-    /**
      * 进行中的异步加载任务，用于 whenLoading 异步化以及 whenDisposing 时取消。
      */
     private CompletableFuture<Void> loadingFuture;
@@ -75,19 +61,6 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
      * 在 {@link #whenRendering()} 中检查此标记，未完成时直接 return。
      */
     private volatile boolean loadingComplete = false;
-
-    /**
-     * 异步渲染任务。当 {@link #tryBeginRendering()} 返回 true 时，
-     * {@link #whenRendering()} 被提交到此 future 在后台线程执行，
-     * 渲染线程可继续处理其他方块实体的渲染收集阶段。
-     */
-    private CompletableFuture<Void> renderingTask;
-
-    /**
-     * 最近一次后台 whenRendering 是否已把结果填充进 scriptResultWriting。
-     * 渲染线程只在结果为 true 时才交换双缓冲并提交，避免 GL 线程阻塞等待。
-     */
-    private volatile boolean renderResultReady = false;
 
     public FunctionalObjBlockEntity(BlockEntityType<?> blockEntityType, BlockPos blockPos, BlockState blockState) {
         super(blockEntityType, blockPos, blockState);
@@ -249,7 +222,7 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
         int size = Math.min(buf.readInt(), 256);
         for (int i = 0; i < size; i++) {
             String key = buf.readUtf(64);
-            String value = buf.readUtf(1024);
+            String value = buf.readUtf(32767);
             if (key != null && !key.isEmpty()) {
                 extraConfigs.put(key, value != null ? value : "");
             }
@@ -258,7 +231,7 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
         size = Math.min(buf.readInt(), 256);
         for (int i = 0; i < size; i++) {
             String key = buf.readUtf(64);
-            String value = buf.readUtf(1024);
+            String value = buf.readUtf(32767);
             if (key != null && !key.isEmpty()) {
                 subModels.put(key, value != null ? value : "");
             }
@@ -334,58 +307,12 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
     // ==================== whenRendering 异步化辅助 ====================
 
     /**
-     * 尝试在后台线程执行一次 whenRendering，绝不阻塞 GL 渲染线程。
-     * <p>
-     * 若加载未完成、上一次 whenRendering 仍在执行、或上一次结果尚未被交换提交，
-     * 则不重复提交（直接复用上一帧已就绪的结果）。
-     *
-     * @return 是否提交了新的后台渲染任务
+     * 子类渲染就绪条件：必须等 whenLoading 完成。
+     * 具体的异步渲染调度逻辑已下沉到 {@link BaseObjBlockEntity}，所有方块实体共用。
      */
-    public final boolean tryBeginRendering() {
-        if (!loadingComplete) return false;
-        if (renderResultReady) return false;
-        if (renderingTask != null && !renderingTask.isDone()) return false;
-        renderResultReady = false;
-        renderingTask = CompletableFuture.runAsync(() -> {
-            try {
-                this.whenRendering();
-            } catch (Exception e) {
-                Main.LOGGER.error("Async whenRendering error for {} at {}: {}",
-                        getClass().getSimpleName(), getBlockPos(), e.getMessage());
-            } finally {
-                renderResultReady = true;
-            }
-        }, RENDERING_EXECUTOR);
-        return true;
-    }
-
-    /**
-     * 后台 whenRendering 是否已把结果填充进 scriptResultWriting（可交换提交）。
-     */
-    public final boolean isRenderResultReady() {
-        return renderResultReady;
-    }
-
-    /**
-     * 若后台结果已就绪则消费该标记并返回 true（此时渲染线程应执行双缓冲交换），
-     * 否则返回 false（复用上一帧结果，不交换，避免读到半写入缓冲）。
-     */
-    public final boolean consumeRenderResultIfReady() {
-        if (renderResultReady) {
-            renderResultReady = false;
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * 标记当帧渲染已完成，允许下一帧继续触发渲染。
-     * 仅当后台任务已完成才清空引用，避免与仍在执行的 whenRendering 冲突。
-     */
-    public final void finishRendering() {
-        if (renderingTask != null && renderingTask.isDone()) {
-            renderingTask = null;
-        }
+    @Override
+    protected boolean isRenderReady() {
+        return loadingComplete;
     }
 
     public abstract void whenLoading();
@@ -401,11 +328,7 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
         if (!disposed) {
             whenDisposing();
             cancelPendingAsyncLoading();
-            // 取消进行中的异步渲染任务
-            if (renderingTask != null && !renderingTask.isDone()) {
-                renderingTask.cancel(true);
-                renderingTask = null;
-            }
+            // 进行中的异步渲染任务由 BaseObjBlockEntity.setRemoved() 统一取消
         }
         super.setRemoved();
     }

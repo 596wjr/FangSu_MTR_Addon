@@ -18,9 +18,11 @@ import com.fangsu.drawing.sign.SignDrawContext;
 import com.fangsu.drawing.sign.SignFaceData;
 import com.fangsu.drawing.sign.SignItem;
 import com.fangsu.drawing.sign.SignItemFactory;
+import com.fangsu.shape.RotatableShapeHelper;
 import com.fangsu.utils.CollisionBoxUtil;
 import com.fangsu.utils.ContentInfoUtil;
 import com.fangsu.utils.CustomItemHelper;
+import com.fangsu.utils.GraphicsTextureHelper;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.*;
 import net.minecraft.core.BlockPos;
@@ -69,6 +71,19 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
     private int defaultBgColor = -1;
 
     private boolean requiresRedraw = true;
+
+    /**
+     * 标志面纹理的分辨率倍率（相对 {@code unit}）。
+     * <p>
+     * 历史值是 {@code 72}，会把一个约 1 格宽的面画成 1153×577 的动态纹理 ——
+     * 即每格约 1150 像素，是原版方块贴图（16 px/格）的 70 倍以上，而
+     * {@link GraphicsTexture} 同时持有堆内 BufferedImage、堆外 NativeImage 与显存三份拷贝，
+     * 单面就要约 7.6 MiB。降到 24 后约为 385×193，文字分辨率仍远高于屏幕实际采样率，
+     * 内存降到约 1/9。
+     * <p>
+     * 可用 {@code -Dfangsu.signTextureUnit=<n>} 覆盖（值越大越清晰、越占内存）。
+     */
+    private static final int TEX_UNIT_SCALE = Integer.getInteger("fangsu.signTextureUnit", 24);
 
     private List<FaceDisplay> displays = new ArrayList<>();
 
@@ -167,6 +182,8 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
             defaultBgColor = displayInfo.defaultBgColor();
 
             // 按 tex 枚举面，构建每个面的显示四边形与模型
+            // 先释放上一轮的面资源：whenLoading 会被 C2S 同步重复触发，不释放会逐个泄漏纹理与 VAO
+            releaseFaceResources();
             displays = new ArrayList<>();
             List<String> texFaces = displayInfo.texFaces();
             List<SignFaceData> cfgFaces = loadFaceData();
@@ -218,6 +235,37 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
         }
     }
 
+    /**
+     * 释放所有显示面独占的纹理与模型。
+     * <p>
+     * 这些 {@link GraphicsTexture} / {@code DynamicModelHolder} 是逐方块创建的（不是共享缓存），
+     * 若不释放，每拆一个标志就会永久泄漏一张 {@code 1153×577} 级别的动态纹理（堆内 + 堆外 + 显存）。
+     * whenLoading 重建面列表之前与 whenDisposing 都要调用。
+     */
+    private void releaseFaceResources() {
+        if (displays == null) return;
+        for (FaceDisplay fd : displays) {
+            if (fd.dmh != null) {
+                fd.dmh.closeIfOwned();
+                fd.dmh = null;
+            }
+            if (fd.gt != null) {
+                // 延迟两帧释放，避免当前帧仍在引用该纹理
+                fd.gt.closeLater();
+                fd.gt = null;
+            }
+        }
+    }
+
+    @Override
+    public void whenDisposing() {
+        releaseFaceResources();
+        if (displays != null) displays.clear();
+        RotatableShapeHelper.getInstance().removeCache(getLevel(), getWorldPos());
+        GraphicsTextureHelper.getInstance().removeDrawGraphic(getBlockPos());
+        super.whenDisposing();
+    }
+
     @Override
     public void whenRendering() {
         ObjBlockScriptContext ctx = this.scriptContext;
@@ -235,7 +283,7 @@ public class BlockEntitySign extends FunctionalObjBlockEntity {
             boolean allCompleted = true;
             for (FaceDisplay fd : displays) {
                 if (fd.gt != null) fd.gt.closeLater();
-                fd.gt = new GraphicsTexture((int) (unit * 72 * length + 1), unit * 72 + 1);
+                fd.gt = new GraphicsTexture((int) (TEX_UNIT_SCALE * unit * length + 1), TEX_UNIT_SCALE * unit + 1);
                 drawFace(fd);
                 allCompleted &= fd.completed;
                 if (fd.completed) fd.gt.upload();

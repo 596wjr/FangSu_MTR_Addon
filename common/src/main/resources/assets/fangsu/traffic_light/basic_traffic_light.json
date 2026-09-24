@@ -1,0 +1,60 @@
+{
+    "traffic_light": [
+        {
+            "id": "trafficlight_3",
+            "text": "trafficlight_3",
+            "model": "fangsu:traffic_light/trafficlight_3.obj",
+            "flipV": false,
+            "displayMirrorX": true,
+            "shape": {},
+            "subModels": {
+                "main": "main",
+                "red": "r",
+                "yellow": "y",
+                "green": "g"
+            },
+            "displays": {
+                "red":
+                    [
+                        {
+                            "a":"digit_r_1_a",
+                            "b": "digit_r_1_b",
+                            "c": "digit_r_1_c",
+                            "d": "digit_r_1_d",
+                            "e": "digit_r_1_e",
+                            "f": "digit_r_1_f",
+                            "g": "digit_r_1_g"
+                        },
+                        {
+                            "a": "digit_r_2_a",
+                            "b": "digit_r_2_b",
+                            "c": "digit_r_2_c",
+                            "d": "digit_r_2_d",
+                            "e": "digit_r_2_e",
+                            "f": "digit_r_2_f",
+                            "g": "digit_r_2_g"
+                        }
+                    ],
+                "green": [
+                    {
+                        "a":"digit_g_1_a",
+                        "b": "digit_g_1_b",
+                        "c": "digit_g_1_c",
+                        "d": "digit_g_1_d",
+                        "e": "digit_g_1_e",
+                        "f": "digit_g_1_f",
+                        "g": "digit_g_1_g"
+                    },
+                    {
+                        "a": "digit_g_2_a",
+                        "b": "digit_g_2_b",
+                        "c": "digit_g_2_c",
+                        "d": "digit_g_2_d",
+                        "e": "digit_g_2_e",
+                        "f": "digit_g_2_f",
+                        "g": "digit_g_2_g"
+                    }]
+            }
+        }
+    ]
+}

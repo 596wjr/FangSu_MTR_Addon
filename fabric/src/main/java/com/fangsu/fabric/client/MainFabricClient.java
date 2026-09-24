@@ -41,6 +41,7 @@ public final class MainFabricClient implements ClientModInitializer {
         ClientHooks.OPEN_SCREENDOOR_CENTRAL_CONTROL_SCREEN = ClientHooksImpl::openScreendoorCentralControlScreen;
         ClientHooks.OPEN_ROTATING_RAIL_CONFIG_SCREEN = ClientHooksImpl::openRotatingRailConfigScreen;
         ClientHooks.OPEN_ROTATING_RAIL_MODEL_SELECT_SCREEN = ClientHooksImpl::openRotatingRailModelSelectScreen;
+        ClientHooks.OPEN_MODULAR_EDITOR = ClientHooksImpl::openModularEditor;
     }
 
     private void initResources(ResourceManager resourceManager) {

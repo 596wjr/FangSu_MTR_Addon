@@ -82,6 +82,14 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
             content = ContentInfoUtil.getAdvBoardContent(mainModel, subModel);
             if (content == null) throw new RuntimeException("Content is null: " + mainModel + "=" + subModel);
 
+            // 关闭上一轮的模型：whenLoading 会被 C2S 同步重复触发，直接覆盖会逐个泄漏 VAO/VBO
+            if (dmhDispMap != null) {
+                for (DynamicModelHolder old : dmhDispMap.values()) {
+                    if (old != null) old.closeIfOwned();
+                }
+            }
+            if (dmhMain != null) dmhMain.closeIfOwned();
+
             dmhDispMap = new HashMap<>();
             currentTextures = new HashMap<>();
             gifBindings = new HashMap<>();
@@ -217,18 +225,25 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
         float rotZ = this.rotateZ;
 
         RotatableShapeHelper helper = RotatableShapeHelper.getInstance();
-        VoxelShape rotated = helper.getShapeForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
+        VoxelShape rotated = helper.getShapeForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
         if (rotated == null) {
             // 棣栨璋冪敤鏃剁紦瀛樺皻鏈垵濮嬪寲锛岀洿鎺ュ熀浜庡師濮嬪舰鐘舵瀯锟?
-            helper.initForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ, this.shape);
-            rotated = helper.getShapeForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
+            helper.initForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ, this.shape);
+            rotated = helper.getShapeForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
         }
         return rotated.move(trans.x, trans.y, trans.z).optimize();
     }
 
     @Override
     public void whenDisposing() {
-        RotatableShapeHelper.getInstance().removeCache(getWorldPos());
+        RotatableShapeHelper.getInstance().removeCache(getLevel(), getWorldPos());
+        // 释放本实例独占的模型（主拼接模型 + 各面显示模型），否则每拆一个广告板就漏一组 VAO/VBO
+        if (dmhMain != null) dmhMain.closeIfOwned();
+        if (dmhDispMap != null) {
+            for (DynamicModelHolder old : dmhDispMap.values()) {
+                if (old != null) old.closeIfOwned();
+            }
+        }
         // 解绑所有 GIF（根据 gifBindings 中记录的 GIF ID 来解绑）
         if (gifBindings != null) {
             for (String gifId : gifBindings.values()) {

@@ -98,6 +98,9 @@
     "fangsu.item.ticketbarrier.1.text": "MTR Style Ticket Barrier 1",
     "fangsu.item.ticketbarrier.contentText": "MTR Style Ticket Barrier\nUsed in MTR\n\nModel & Code by 596wjr",
 
+    "fangsu.item.traffic_light.text": "Basic Traffic Light",
+    "fangsu.item.traffic_light.contentText": "Basic Traffic Light\n\nCustom light program not yet available (coming soon)",
+
     "fangsu.item.sis.mtr_1.text": "Station Name (High, Wall Mounted)",
     "fangsu.item.diaoban.text": "MTR Style Hanging Panel",
     "fangsu.item.ris.mtr": "MTR Style Route Information Board",

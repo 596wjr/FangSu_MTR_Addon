@@ -7,7 +7,9 @@ import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.contents.DuanmenContent;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcer.math.Matrices;
-import com.fangsu.utils.CollisionBoxUtil;
+import com.fangsu.shape.RawShape;
+import com.fangsu.shape.RotatableShapeHelper;
+import com.fangsu.shape.ShapeCollection;
 import com.fangsu.utils.ContentInfoUtil;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.ResourceUtil;
@@ -47,7 +49,9 @@ public class BlockEntityDuanmen extends FunctionalObjBlockEntity {
     private DynamicModelHolder dmhDlOn;
     private DynamicModelHolder dmhDlOff;
 
-    private CollisionBoxUtil.CollisionBox shapeClose, shapeOpen;
+    private ShapeCollection shapeClose, shapeOpen;
+    /** 上一次构建碰撞箱缓存时使用的开关状态，切换开/关时形状集合不同，需要重建缓存 */
+    private Boolean cachedOpenState = null;
 
     private DuanmenContent content;
     private double[] doorPos;
@@ -93,12 +97,10 @@ public class BlockEntityDuanmen extends FunctionalObjBlockEntity {
             else doorPos = new double[]{content.getDoorPos()[0], content.getDoorPos()[1], content.getDoorPos()[2]};
             if (content.getShape() != null) {
                 if (content.getShape().containsKey("open")) {
-                    List<List<Integer>> shape = content.getShape().get("open");
-                    shapeOpen = new CollisionBoxUtil.CollisionBox(shape);
+                    shapeOpen = buildShapeCollection(content.getShape().get("open"));
                 }
                 if (content.getShape().containsKey("close")) {
-                    List<List<Integer>> shape = content.getShape().get("close");
-                    shapeClose = new CollisionBoxUtil.CollisionBox(shape);
+                    shapeClose = buildShapeCollection(content.getShape().get("close"));
                 }
             }
             hitPoint = content.getHitPos();
@@ -191,34 +193,68 @@ public class BlockEntityDuanmen extends FunctionalObjBlockEntity {
         }
     }
 
+    /**
+     * 将 content 中定义的像素坐标碰撞盒（0~16）转换为 ShapeCollection（世界单位 0~1），
+     * 与 PIDS / 广告板等的碰撞盒约定一致。
+     */
+    private static ShapeCollection buildShapeCollection(List<List<Integer>> pixelBoxes) {
+        ShapeCollection collection = new ShapeCollection();
+        if (pixelBoxes == null) return collection;
+        for (List<Integer> box : pixelBoxes) {
+            if (box == null || box.size() < 6) continue;
+            double[] world = new double[6];
+            for (int i = 0; i < 6; i++) {
+                world[i] = box.get(i) / 16d;
+            }
+            collection.add(new RawShape(world));
+        }
+        return collection;
+    }
+
     @Override
     public VoxelShape setShape(BlockState state) {
         if (markedError) return Shapes.block();
+
         boolean isOpen = getExtraConfigBool("isOpen", false);
+        ShapeCollection shape = isOpen ? shapeOpen : shapeClose;
+        if (shape == null || shape.isEmpty()) return Shapes.block();
 
         Direction facing = state.getValue(BaseObjBlock.FACING);
         Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
         float rotX = this.rotateX;
         float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
         float rotZ = this.rotateZ;
-        long posLong = worldPosition.asLong();
-        if (isOpen) {
-            if (shapeOpen != null) {
-                return CollisionBoxUtil.cachedRotatedShape(posLong, shapeOpen, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
-            }
-        } else {
-            if (shapeClose != null) {
-                return CollisionBoxUtil.cachedRotatedShape(posLong, shapeClose, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
-            }
+
+        BlockPos shapePos = getWorldPos();
+        RotatableShapeHelper helper = RotatableShapeHelper.getInstance();
+        // 开/关状态的形状集合不同，切换后必须重建缓存，否则会一直沿用旧形状的旋转结果
+        if (cachedOpenState == null || cachedOpenState != isOpen) {
+            helper.removeCache(getLevel(), shapePos);
+            cachedOpenState = isOpen;
         }
-        return Shapes.block();
+        VoxelShape rotated = helper.getShapeForBlock(getLevel(), shapePos, translateX, translateY, translateZ, rotX, rotY, rotZ);
+        if (rotated == null) {
+            // 首次调用时缓存尚未初始化，直接基于原始形状构建
+            helper.initForBlock(getLevel(), shapePos, translateX, translateY, translateZ, rotX, rotY, rotZ, shape);
+            rotated = helper.getShapeForBlock(getLevel(), shapePos, translateX, translateY, translateZ, rotX, rotY, rotZ);
+        }
+        // 位移（扳手平移）必须叠加在旋转结果之上，否则碰撞箱会留在原位不随模型移动
+        return rotated.move(trans.x, trans.y, trans.z).optimize();
     }
 
     @Override
     public VoxelShape setCollisionShape(BlockState state) {
         if (markedError) return Shapes.empty();
-        if (shapeOpen == null || shapeClose == null) return Shapes.empty();
+        boolean isOpen = getExtraConfigBool("isOpen", false);
+        ShapeCollection shape = isOpen ? shapeOpen : shapeClose;
+        if (shape == null || shape.isEmpty()) return Shapes.empty();
         return setShape(state);
+    }
+
+    @Override
+    public void whenDisposing() {
+        RotatableShapeHelper.getInstance().removeCache(getLevel(), getWorldPos());
+        cachedOpenState = null;
     }
 
     @Override

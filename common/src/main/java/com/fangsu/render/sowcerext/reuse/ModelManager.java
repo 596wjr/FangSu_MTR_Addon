@@ -122,9 +122,11 @@ public class ModelManager {
 
     public Model uploadModel(RawModel rawModel) {
         if (rawModel.sourceLocation == null) {
+            // 匿名模型（动态生成、按方块实例上传）由调用方 ModelCluster 独占持有并负责释放。
+            // 不再登记进 uploadedModels：否则该表会随放置的方块数量无界增长且永不回收
+            // （旧实现每次 uploadLater 都塞一条随机 UUID 记录，只有 clear() 能清，而 clear() 从未被调用）。
             Model result = rawModel.upload(DEFAULT_MAPPING);
             vboCount += result.meshList.size();
-            uploadedModels.put(new ResourceLocation("sowcerext-anonymous:model/" + UUID.randomUUID()), result);
             return result;
         } else {
             if (uploadedModels.containsKey(rawModel.sourceLocation)) return uploadedModels.get(rawModel.sourceLocation);

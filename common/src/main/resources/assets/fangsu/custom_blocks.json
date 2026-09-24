@@ -6,6 +6,13 @@
             "contentText": "fangsu.item.ticketbarrier.contentText"
         }
     ],
+    "traffic_light": [
+        {
+            "text": "fangsu.item.traffic_light.text",
+            "content": "fangsu:traffic_light/basic_traffic_light.json",
+            "contentText": "fangsu.item.traffic_light.contentText"
+        }
+    ],
     "screendoor": [
         {
             "text": "fangsu.item.screendoor_qg1.text",

@@ -29,6 +29,7 @@ public class ContentManager {
         loaders = new HashMap<>();
 
         registerContent("ticketBarrier", TicketBarrierContent.TicketBarrierLoader::load);
+        registerContent("traffic_light", TrafficLightContent.TrafficLightLoader::load);
         registerContent("diaoban", DiaobanContent.DiaobanLoader::load);
         registerContent("pids", PidsContent.PidsLoader::load);
         registerContent("duanmen", DuanmenContent.DuanmenLoader::load);

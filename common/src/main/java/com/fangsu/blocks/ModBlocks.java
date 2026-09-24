@@ -77,6 +77,11 @@ public class ModBlocks {
 
     public static final RegistrySupplier<Item> ITEM_ROTATING_RAIL = RegisterUtil.addBlockItem("rotating_rail", BLOCK_ROTATING_RAIL);
 
+    public static final RegistrySupplier<Block> BLOCK_TRAFFIC_LIGHT = RegisterUtil.addBlock("traffic_light", BlockTrafficLight::new);
+    public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_TRAFFIC_LIGHT =
+            RegisterUtil.addBlockEntity("block_entity_traffic_light", BLOCK_TRAFFIC_LIGHT, BlockEntityTrafficLight::new);
+    public static final RegistrySupplier<Item> ITEM_TRAFFIC_LIGHT = RegisterUtil.addBlockItem("traffic_light", BLOCK_TRAFFIC_LIGHT);
+
     public static final RegistrySupplier<Block> BLOCK_COLLISION_COMPENSATOR =
             RegisterUtil.addBlock("collision_compensation_block", BlockCollisionCompensator::new);
     public static final RegistrySupplier<Item> ITEM_COLLISION_COMPENSATOR =

@@ -99,7 +99,7 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
         markedError = false;
 
         // whenLoading 可能改变 shape（长度/模型变化），清除形状缓存使 setShape 重新计算
-        RotatableShapeHelper.getInstance().removeCache(getWorldPos());
+        RotatableShapeHelper.getInstance().removeCache(getLevel(), getWorldPos());
 
         ensureExtraConfig("extraConfig", "{}");
 
@@ -162,6 +162,15 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
 
             // 门灯模型
             Map<String, String> doorlightMap = content.getDoorlight();
+            // 关闭上一轮的门灯模型：whenLoading 会被 C2S 同步重复触发，不关就会逐个泄漏 VAO/VBO
+            if (dmhDlOn != null) {
+                dmhDlOn.closeIfOwned();
+                dmhDlOn = null;
+            }
+            if (dmhDlOff != null) {
+                dmhDlOff.closeIfOwned();
+                dmhDlOff = null;
+            }
             if (!doorlightMap.isEmpty()) {
                 if (doorlightMap.get("on") != null) {
                     String dk = doorlightMap.get("on");
@@ -524,6 +533,20 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
 
     @Override
     public void whenDisposing() {
+        // 释放本实例独占的模型（预拼接主模型 + 门灯模型）。
+        // 不关的话每拆一个方块就漏一组 VAO/VBO。
+        if (dmhStitched != null) dmhStitched.closeIfOwned();
+        if (dmhDlOn != null) {
+            dmhDlOn.closeIfOwned();
+            dmhDlOn = null;
+        }
+        if (dmhDlOff != null) {
+            dmhDlOff.closeIfOwned();
+            dmhDlOff = null;
+        }
+        // modelStitched 是 dmhStitched 的共享副本（不拥有 GL 资源），丢掉引用即可
+        modelStitched = null;
+        stitchedLoaded = false;
         super.whenDisposing();
     }
 }

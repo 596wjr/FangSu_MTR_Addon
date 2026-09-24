@@ -81,6 +81,15 @@ public class MainClient {
             ResourceUtil.init(resourceManager);
             Main.LOGGER.info("[FangSu] ResourceUtil initialized, starting CustomItems.init...");
 
+            // 资源重载时释放旧的模型 / 图集缓存（对齐 ANTE 的 CustomResources 行为）。
+            // 注意顺序：必须晚于 ResourceUtil.init，早于各内容注册重新加载。
+            try {
+                modelManager.clear();
+                atlasManager.clear();
+            } catch (Exception e) {
+                Main.LOGGER.error("[FangSu] modelManager/atlasManager clear failed", e);
+            }
+
             try {
                 CustomItems.getInstance().init();
             } catch (Exception e) {

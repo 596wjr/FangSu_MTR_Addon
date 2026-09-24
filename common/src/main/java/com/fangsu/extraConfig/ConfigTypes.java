@@ -33,6 +33,7 @@ public final class ConfigTypes {
         register("routeConfig", ConfigTypes::routeConfig);
         register("platConfig", ConfigTypes::platConfig);
         register("stnConfig", ConfigTypes::stnConfig);
+        register("program", ConfigTypes::programConfig);
     }
 
     private static <T> void register(String type, Factory<T> factory) {
@@ -195,6 +196,15 @@ public final class ConfigTypes {
             Consumer<Long> setter
     ) {
         return new StnConfig(title, spec, getter, setter);
+    }
+
+    private static ConfigEntry<String> programConfig(
+            Component title,
+            ConfigSpec spec,
+            Supplier<String> getter,
+            Consumer<String> setter
+    ) {
+        return new ProgramConfig(title, spec, getter, setter);
     }
 
     /* ================= 鍐呴儴鎺ュ彛 ================= */

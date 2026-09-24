@@ -1,5 +1,6 @@
 package com.fangsu.blockEntities;
 
+import com.fangsu.Main;
 import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.customItem.CustomItems;
@@ -185,6 +186,105 @@ public abstract class BaseObjBlockEntity extends BlockEntity {
 
     public abstract void whenRendering();
 
+    // ==================== whenRendering 异步化 ====================
+
+    /**
+     * 渲染专用后台线程池，全方块实体共享的单线程。
+     * <p>
+     * 之前在 {@code FunctionalObjBlockEntity} 里另有一份同名的池，且非 Functional 的方块实体
+     * （如 {@code BlockEntityRotatingRail}）会在渲染线程上阻塞等待该池 —— 那是一条每帧硬卡顿的路径。
+     * 现在所有方块实体统一走这里的"非阻塞 + 上一帧结果兜底"模型。
+     */
+    private static final java.util.concurrent.ExecutorService RENDERING_EXECUTOR =
+            java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "fangsu-rendering-async");
+                t.setDaemon(true);
+                return t;
+            });
+
+    /**
+     * 进行中的异步渲染任务。
+     */
+    private java.util.concurrent.CompletableFuture<Void> renderingTask;
+
+    /**
+     * 最近一次后台 whenRendering 是否已把结果填充进 scriptResultWriting。
+     * 渲染线程只在为 true 时交换双缓冲，避免读到半写入内容。
+     */
+    private volatile boolean renderResultReady = false;
+
+    /**
+     * 是否允许提交新的后台 whenRendering。子类可覆盖（例如等待异步加载完成）。
+     */
+    protected boolean isRenderReady() {
+        return true;
+    }
+
+    /**
+     * 尝试在后台线程执行一次 whenRendering，绝不阻塞 GL 渲染线程。
+     * <p>
+     * 若尚未就绪、上一次 whenRendering 仍在执行、或上一次结果尚未被交换提交，
+     * 则不重复提交（直接复用上一帧已就绪的结果）。
+     *
+     * @return 是否提交了新的后台渲染任务
+     */
+    public final boolean tryBeginRendering() {
+        if (!isRenderReady()) return false;
+        if (renderResultReady) return false;
+        if (renderingTask != null && !renderingTask.isDone()) return false;
+        renderResultReady = false;
+        renderingTask = java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                this.whenRendering();
+            } catch (Exception e) {
+                Main.LOGGER.error("Async whenRendering error for {} at {}: {}",
+                        getClass().getSimpleName(), getBlockPos(), e.getMessage());
+            } finally {
+                renderResultReady = true;
+            }
+        }, RENDERING_EXECUTOR);
+        return true;
+    }
+
+    /**
+     * 后台 whenRendering 是否已把结果填充进 scriptResultWriting（可交换提交）。
+     */
+    public final boolean isRenderResultReady() {
+        return renderResultReady;
+    }
+
+    /**
+     * 若后台结果已就绪则消费该标记并返回 true（此时渲染线程应执行双缓冲交换），
+     * 否则返回 false（复用上一帧结果，不交换，避免读到半写入缓冲）。
+     */
+    public final boolean consumeRenderResultIfReady() {
+        if (renderResultReady) {
+            renderResultReady = false;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 标记当帧渲染已完成，允许下一帧继续触发渲染。
+     * 仅当后台任务已完成才清空引用，避免与仍在执行的 whenRendering 冲突。
+     */
+    public final void finishRendering() {
+        if (renderingTask != null && renderingTask.isDone()) {
+            renderingTask = null;
+        }
+    }
+
+    /**
+     * 取消进行中的异步渲染任务。在实体被移除时调用。
+     */
+    protected final void cancelPendingRendering() {
+        if (renderingTask != null && !renderingTask.isDone()) {
+            renderingTask.cancel(true);
+            renderingTask = null;
+        }
+    }
+
     public InteractionResult whenUseWithBrush(Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         return InteractionResult.PASS;
     }
@@ -286,6 +386,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity {
     @Override
     public void setRemoved() {
         disposed = true;
+        cancelPendingRendering();
         super.setRemoved();
     }
 

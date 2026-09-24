@@ -1,12 +1,16 @@
 package com.fangsu.shape;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 import net.minecraft.world.phys.shapes.BooleanOp;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -15,6 +19,19 @@ public class RotatableShapeHelper {
     private static final RotatableShapeHelper instance = new RotatableShapeHelper();
     private static final double DEFAULT_STEP_SIZE = 0.25d;
     private static final int MAX_SUB_BOXES = 4096;
+
+    /**
+     * 缓存条目上限。超过后按 LRU 淘汰最久未被访问的条目。
+     * <p>
+     * 因为每个条目最多只有一个在飞计算任务（见 {@link #initForBlock} 的去重），
+     * 该上限同时限制了计算线程的排队长度 —— 旧实现允许同一位置被反复重复提交，
+     * 队列可以无界增长。
+     * <p>
+     * 单条目的内存与形状复杂度相关（单位立方体在 0.25 步长下最多切 64 盒，跨多方块的
+     * 原始形状最多 4096 盒），所以默认值取 512 而非更大；确实需要时可放宽：
+     * {@code -Dfangsu.shapeCacheSize=<n>}。
+     */
+    private static final int MAX_CACHE_ENTRIES = Integer.getInteger("fangsu.shapeCacheSize", 512);
 
     // 异步计算线程池：单线程守护线程，不会阻止 JVM 退出
     private static final ExecutorService COMPUTATION_THREAD = Executors.newSingleThreadExecutor(r -> {
@@ -29,25 +46,63 @@ public class RotatableShapeHelper {
 
     // ======== 缓存 ========
 
-    private final Map<BlockPos, ShapeCacheEntry> cache = new LinkedHashMap<>() {
+    /**
+     * 真正的 LRU：accessOrder = true 才会在 get 时刷新访问顺序。
+     * 之前的 {@code new LinkedHashMap<>()} 是插入顺序（FIFO），刚更新过的条目仍可能被当作"最老"淘汰。
+     */
+    private final Map<ShapeKey, ShapeCacheEntry> cache = new LinkedHashMap<>(256, 0.75f, true) {
         @Override
-        protected boolean removeEldestEntry(Map.Entry<BlockPos, ShapeCacheEntry> eldest) {
-            return size() > 256;
+        protected boolean removeEldestEntry(Map.Entry<ShapeKey, ShapeCacheEntry> eldest) {
+            if (size() <= MAX_CACHE_ENTRIES) return false;
+            // 淘汰时取消在飞计算，避免计算线程队列无界增长
+            eldest.getValue().cancelPending();
+            return true;
         }
     };
+
+    /**
+     * 缓存键：维度 + 方块坐标。
+     * 旧实现只按 BlockPos 缓存，不同维度同坐标的方块会互相顶掉形状。
+     */
+    private record ShapeKey(@Nullable ResourceKey<Level> dimension, long posLong) {
+        static ShapeKey of(@Nullable Level level, BlockPos pos) {
+            return new ShapeKey(level == null ? null : level.dimension(), pos.asLong());
+        }
+    }
 
     private static class ShapeCacheEntry {
         final PosInfo posInfo;
         final ShapeCollection shapeCollection;
-        final CompletableFuture<VoxelShape> futureShape; // 异步旋转计算结果
-        final VoxelShape originalShape;                  // 未旋转的原始碰撞箱，异步未完成时返回
+        volatile Future<VoxelShape> futureShape; // 异步旋转计算结果
+        final VoxelShape originalShape;          // 未旋转的原始碰撞箱，异步未完成时返回
 
         ShapeCacheEntry(PosInfo posInfo, ShapeCollection shapeCollection,
-                        CompletableFuture<VoxelShape> futureShape, VoxelShape originalShape) {
+                        Future<VoxelShape> futureShape, VoxelShape originalShape) {
             this.posInfo = posInfo;
             this.shapeCollection = shapeCollection;
             this.futureShape = futureShape;
             this.originalShape = originalShape;
+        }
+
+        /**
+         * 取消尚未开始执行的计算任务。
+         * 使用 {@link FutureTask}（ExecutorService.submit 的返回值）而非 CompletableFuture，
+         * 因为只有 FutureTask.cancel 会把任务从执行队列里真正移除。
+         */
+        void cancelPending() {
+            Future<VoxelShape> f = futureShape;
+            if (f != null && !f.isDone()) {
+                f.cancel(true);
+            }
+        }
+
+        /**
+         * 提交新的旋转计算任务。
+         */
+        void submitRotation(ShapeCollection collection, float rx, float ry, float rz) {
+            // 显式声明为 Callable，避免 Runnable / Callable 重载歧义
+            futureShape = COMPUTATION_THREAD.submit(
+                    (Callable<VoxelShape>) () -> buildRotatedShape(collection, rx, ry, rz));
         }
     }
 
@@ -56,20 +111,36 @@ public class RotatableShapeHelper {
     /**
      * 初始化指定方块位置的碰撞箱（异步计算）。
      * 立即存入未旋转原始形状作为降级，旋转计算在后台线程执行，绝不阻塞调用线程。
+     * <p>
+     * 去重：若同一位置已有参数完全一致且尚未完成的计算任务，则直接复用，不重复提交
+     * （避免密集摆放时把计算线程的队列撑爆）。
      */
-    public void initForBlock(BlockPos pos, float tx, float ty, float tz, float rx, float ry, float rz, ShapeCollection shape) {
-        VoxelShape original = shape.asVoxelShape();
-        CompletableFuture<VoxelShape> future = CompletableFuture.supplyAsync(
-                () -> buildRotatedShape(shape, rx, ry, rz),
-                COMPUTATION_THREAD
-        );
+    public void initForBlock(@Nullable Level level, BlockPos pos,
+                             float tx, float ty, float tz, float rx, float ry, float rz,
+                             ShapeCollection shape) {
+        ShapeKey key = ShapeKey.of(level, pos);
         synchronized (cacheLock) {
-            cache.put(pos, new ShapeCacheEntry(
+            ShapeCacheEntry existing = cache.get(key);
+            if (existing != null
+                    && existing.shapeCollection == shape
+                    && existing.posInfo.matches(tx, ty, tz, rx, ry, rz)
+                    && existing.futureShape != null
+                    && !existing.futureShape.isDone()) {
+                // 参数未变且计算仍在排队/执行中：复用，不重复提交
+                return;
+            }
+            if (existing != null) {
+                existing.cancelPending();
+            }
+
+            ShapeCacheEntry entry = new ShapeCacheEntry(
                     new PosInfo(tx, ty, tz, rx, ry, rz),
                     shape,
-                    future,
-                    original
-            ));
+                    null,
+                    shape.asVoxelShape()
+            );
+            entry.submitRotation(shape, rx, ry, rz);
+            cache.put(key, entry);
         }
     }
 
@@ -78,64 +149,63 @@ public class RotatableShapeHelper {
      * 获取指定方块位置缓存的碰撞箱。
      * 若异步旋转计算尚未完成，则返回未旋转的原始碰撞箱，防止阻塞主线程。
      */
-    public VoxelShape getShapeForBlock(BlockPos pos, float tx, float ty, float tz, float rx, float ry, float rz) {
-        ShapeCacheEntry entry;
+    @Nullable
+    public VoxelShape getShapeForBlock(@Nullable Level level, BlockPos pos,
+                                       float tx, float ty, float tz, float rx, float ry, float rz) {
+        ShapeKey key = ShapeKey.of(level, pos);
         synchronized (cacheLock) {
-            entry = cache.get(pos);
-        }
-        if (entry == null) return null;
+            ShapeCacheEntry entry = cache.get(key); // accessOrder 会在此刷新 LRU 顺序
+            if (entry == null) return null;
 
-        boolean changed = entry.posInfo.checkAndUpdate(tx, ty, tz, rx, ry, rz);
-        if (changed) {
-            // 参数有变化：先返回旧碰撞箱（旧异步已完成则返回旧旋转结果，否则返回旧原始形状）
-            VoxelShape previousShape;
-            if (entry.futureShape.isDone()) {
-                try {
-                    previousShape = entry.futureShape.get();
-                } catch (InterruptedException | ExecutionException e) {
-                    previousShape = entry.originalShape;
-                }
-            } else {
-                previousShape = entry.originalShape;
+            boolean changed = entry.posInfo.checkAndUpdate(tx, ty, tz, rx, ry, rz);
+            if (changed) {
+                // 参数有变化：先返回旧碰撞箱（旧异步已完成则返回旧旋转结果，否则返回旧原始形状）
+                VoxelShape previousShape = readFinishedShape(entry);
+                // 取消旧任务并提交新的异步任务（同一位置始终最多一个在飞任务）
+                entry.cancelPending();
+                entry.submitRotation(entry.shapeCollection, rx, ry, rz);
+                return previousShape;
             }
 
-            // 提交新的异步任务
-            VoxelShape original = entry.shapeCollection.asVoxelShape();
-            CompletableFuture<VoxelShape> future = CompletableFuture.supplyAsync(
-                    () -> buildRotatedShape(entry.shapeCollection, rx, ry, rz),
-                    COMPUTATION_THREAD
-            );
-            synchronized (cacheLock) {
-                cache.put(pos, new ShapeCacheEntry(
-                        entry.posInfo,
-                        entry.shapeCollection,
-                        future,
-                        original
-                ));
-            }
-            return previousShape;
+            return readFinishedShape(entry);
         }
+    }
 
-        // 参数未变化：检查异步计算是否已完成
-        if (entry.futureShape.isDone()) {
+    /**
+     * 读取条目已完成的旋转结果；未完成（或失败）时降级返回原始未旋转形状，绝不阻塞。
+     */
+    private static VoxelShape readFinishedShape(ShapeCacheEntry entry) {
+        Future<VoxelShape> future = entry.futureShape;
+        if (future != null && future.isDone()) {
             try {
-                return entry.futureShape.get(); // 立即返回，不会阻塞
-            } catch (InterruptedException | ExecutionException e) {
-                // 计算失败，降级返回原始形状
+                return future.get(); // 已完成，立即返回，不会阻塞
+            } catch (InterruptedException | ExecutionException | CancellationException e) {
+                // 被取消或计算失败，降级返回原始形状
                 return entry.originalShape;
             }
         }
-
-        // 异步计算尚未完成，返回原始未旋转形状作为降级
         return entry.originalShape;
     }
 
     /**
-     * 清除指定方块位置的缓存。
+     * 清除指定方块位置的缓存（同时取消在飞计算）。
      */
-    public void removeCache(BlockPos pos) {
+    public void removeCache(@Nullable Level level, BlockPos pos) {
         synchronized (cacheLock) {
-            cache.remove(pos);
+            ShapeCacheEntry removed = cache.remove(ShapeKey.of(level, pos));
+            if (removed != null) removed.cancelPending();
+        }
+    }
+
+    /**
+     * 清空全部缓存并取消所有在飞计算。用于维度切换 / 断线 / 资源重载。
+     */
+    public void clearAll() {
+        synchronized (cacheLock) {
+            for (ShapeCacheEntry entry : cache.values()) {
+                entry.cancelPending();
+            }
+            cache.clear();
         }
     }
 
@@ -388,10 +458,17 @@ public class RotatableShapeHelper {
             this.rz = rz;
         }
 
+        /**
+         * 只读比较，不修改任何状态。用于 initForBlock 的去重判断。
+         */
+        public boolean matches(float tx, float ty, float tz, float rx, float ry, float rz) {
+            return floatEquals(this.tx, tx) && floatEquals(this.ty, ty)
+                    && floatEquals(this.tz, tz) && floatEquals(this.rx, rx)
+                    && floatEquals(this.ry, ry) && floatEquals(this.rz, rz);
+        }
+
         public boolean checkAndUpdate(float tx, float ty, float tz, float rx, float ry, float rz) {
-            boolean changed = !floatEquals(this.tx, tx) || !floatEquals(this.ty, ty)
-                    || !floatEquals(this.tz, tz) || !floatEquals(this.rx, rx)
-                    || !floatEquals(this.ry, ry) || !floatEquals(this.rz, rz);
+            boolean changed = !matches(tx, ty, tz, rx, ry, rz);
 
             this.tx = tx;
             this.ty = ty;

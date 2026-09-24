@@ -521,8 +521,13 @@ public abstract class BaseDisplayBlockEntity extends FunctionalObjBlockEntity {
 
     @Override
     public void whenDisposing() {
-        RotatableShapeHelper.getInstance().removeCache(getWorldPos());
+        RotatableShapeHelper.getInstance().removeCache(getLevel(), getWorldPos());
         GraphicsTextureHelper.getInstance().removeDrawGraphic(getBlockPos());
+        // 释放本实例独占的显示面模型（共享缓存的 holder 会被 closeIfOwned 自动跳过）。
+        // 保留 holder 对象本身：chunk 重新加载时 load()/whenLoading() 会复用同一实例再次 uploadLater。
+        if (dmhDisp != null) {
+            dmhDisp.closeIfOwned();
+        }
     }
 
     @Override
@@ -582,10 +587,10 @@ public abstract class BaseDisplayBlockEntity extends FunctionalObjBlockEntity {
         float rotZ = this.rotateZ;
 
         RotatableShapeHelper helper = RotatableShapeHelper.getInstance();
-        VoxelShape rotated = helper.getShapeForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
+        VoxelShape rotated = helper.getShapeForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
         if (rotated == null) {
-            helper.initForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ, shape);
-            rotated = helper.getShapeForBlock(getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
+            helper.initForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ, shape);
+            rotated = helper.getShapeForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
         }
         return rotated.move(trans.x, trans.y, trans.z).optimize();
     }

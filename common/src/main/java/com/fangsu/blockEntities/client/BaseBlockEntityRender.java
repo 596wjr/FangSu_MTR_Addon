@@ -1,6 +1,5 @@
 package com.fangsu.blockEntities.client;
 
-import com.fangsu.Main;
 import com.fangsu.MainClient;
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.blockEntities.FunctionalObjBlockEntity;
@@ -13,7 +12,6 @@ import com.fangsu.render.sowcerext.reuse.DrawScheduler;
 import com.mojang.blaze3d.vertex.PoseStack;
 import mtr.RegistryObject;
 import mtr.block.IBlock;
-import mtr.mappings.BlockEntityRendererMapper;
 import mtr.mappings.BlockEntityRendererMapper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LightTexture;
@@ -36,14 +34,11 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
     private static final RegistryObject<ItemStack> BARRIER_ITEM_STACK = new RegistryObject<>(() -> new ItemStack(net.minecraft.world.item.Items.BARRIER, 1));
 
     /**
-     * 共享后台线程池，用于非 FunctionalObjBlockEntity 的 whenRendering 异步化。
+     * 方块实体渲染距离上限（格）。超出直接跳过，避免为远处方块白白提交异步渲染任务与 draw call。
+     * 可用系统属性覆盖：{@code -Dfangsu.blockEntityRenderDistance=<格数>}；设为 0 或负数表示不剔除。
      */
-    private static final java.util.concurrent.ExecutorService OTHER_RENDER_EXECUTOR =
-            java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
-                Thread t = new Thread(r, "fangsu-other-render-async");
-                t.setDaemon(true);
-                return t;
-            });
+    private static final int MAX_RENDER_DISTANCE = Integer.getInteger("fangsu.blockEntityRenderDistance", 128);
+    private static final double MAX_RENDER_DISTANCE_SQ = (double) MAX_RENDER_DISTANCE * MAX_RENDER_DISTANCE;
 
     public BaseBlockEntityRender(BlockEntityRenderDispatcher dispatcher) {
         super();
@@ -63,25 +58,9 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
 
 //        if (prop == null) return;
 
-        if (blockEntity instanceof FunctionalObjBlockEntity functional) {
-            // 非阻塞：提交后台 whenRendering，绝不等待；GL 线程复用上一帧已就绪结果。
-            functional.tryBeginRendering();
-        } else {
-            // BlockEntityRotatingRail 等非 FunctionalObjBlockEntity
-            // 也使用单次后台线程提交 whenRendering
-            final java.util.concurrent.CompletableFuture<Void> renderTask =
-                    java.util.concurrent.CompletableFuture.runAsync(() -> {
-                        try {
-                            blockEntity.whenRendering();
-                        } catch (Exception e) {
-                            Main.LOGGER.error(e.getMessage());
-                        }
-                    }, OTHER_RENDER_EXECUTOR);
-            try {
-                renderTask.get();
-            } catch (Exception ignored) {
-            }
-        }
+        // 统一走"非阻塞提交 + 上一帧结果兜底"：无论是 FunctionalObjBlockEntity 还是
+        // BlockEntityRotatingRail 之类的普通方块实体，渲染线程都不再阻塞等待后台任务。
+        blockEntity.tryBeginRendering();
 
         final BlockPos pos = blockEntity.getBlockPos();
         final Direction facing = IBlock.getStatePropertySafe(world, pos, BaseObjBlock.FACING);
@@ -100,11 +79,9 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
             //#endif
             matrices.popPose();
             // whenRendering 在后台可能已开始，需要完成渲染周期
-            if (blockEntity instanceof FunctionalObjBlockEntity functional) {
-                functional.finishRendering();
-                // 消费已就绪标记，避免卡住后续重新提交
-                functional.consumeRenderResultIfReady();
-            }
+            blockEntity.finishRendering();
+            // 消费已就绪标记，避免卡住后续重新提交
+            blockEntity.consumeRenderResultIfReady();
             return;
         }
 
@@ -136,15 +113,10 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
 //            prop.script.tryCallRenderFunctionAsync(blockEntity.scriptContext);
 //        }
 
-        if (blockEntity instanceof FunctionalObjBlockEntity functional) {
-            functional.finishRendering();
-            // 仅当后台 whenRendering 已完成时才交换双缓冲，避免读到半写入内容；
-            // 未就绪时沿用上一帧结果，GL 线程绝不阻塞等待。
-            if (functional.consumeRenderResultIfReady()) {
-                blockEntity.scriptContext.renderFunctionFinished();
-            }
-        } else {
-            // 非 FunctionalObjBlockEntity（同步等待完成），始终交换
+        blockEntity.finishRendering();
+        // 仅当后台 whenRendering 已完成时才交换双缓冲，避免读到半写入内容；
+        // 未就绪时沿用上一帧结果，GL 线程绝不阻塞等待。
+        if (blockEntity.consumeRenderResultIfReady()) {
             blockEntity.scriptContext.renderFunctionFinished();
         }
     }
@@ -156,6 +128,11 @@ public class BaseBlockEntityRender<T extends BaseObjBlockEntity> implements Bloc
 
     @Override
     public boolean shouldRender(@NotNull T blockEntity, @NotNull Vec3 vec3) {
-        return true;
+        if (MAX_RENDER_DISTANCE <= 0) return true;
+        BlockPos pos = blockEntity.getBlockPos();
+        double dx = pos.getX() + 0.5 - vec3.x;
+        double dy = pos.getY() + 0.5 - vec3.y;
+        double dz = pos.getZ() + 0.5 - vec3.z;
+        return dx * dx + dy * dy + dz * dz <= MAX_RENDER_DISTANCE_SQ;
     }
 }

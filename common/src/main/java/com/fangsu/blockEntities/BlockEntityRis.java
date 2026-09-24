@@ -59,7 +59,7 @@ public class BlockEntityRis extends BaseDisplayBlockEntity implements RouteDrawe
         markedError = false;
 
         // whenLoading 可能改变 shape，清除形状缓存使 setShape 重新计算
-        RotatableShapeHelper.getInstance().removeCache(getWorldPos());
+        RotatableShapeHelper.getInstance().removeCache(getLevel(), getWorldPos());
 
         ensureExtraConfig("extraConfig", "{}");
 
@@ -162,6 +162,9 @@ public class BlockEntityRis extends BaseDisplayBlockEntity implements RouteDrawe
     @Override
     public void whenDisposing() {
         risDrawing = null;
+        // dmhMain 来自 ResourceUtil 共享缓存，closeIfOwned 会自动跳过；
+        // 若将来改为独占持有，此处也能正确释放。
+        if (dmhMain != null) dmhMain.closeIfOwned();
         super.whenDisposing();
     }
 

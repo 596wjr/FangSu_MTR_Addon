@@ -53,7 +53,7 @@ public class BlockEntitySis extends BaseDisplayBlockEntity {
         markedError = false;
 
         // whenLoading 可能改变 shape，清除形状缓存使 setShape 重新计算
-        RotatableShapeHelper.getInstance().removeCache(getWorldPos());
+        RotatableShapeHelper.getInstance().removeCache(getLevel(), getWorldPos());
 
         ensureExtraConfig("extraConfig", "{}");
         ensureExtraConfig("station", "0");
@@ -173,6 +173,8 @@ public class BlockEntitySis extends BaseDisplayBlockEntity {
     @Override
     public void whenDisposing() {
         sisDrawing = null;
+        // dmhMain 来自 ResourceUtil 共享缓存，closeIfOwned 会自动跳过
+        if (dmhMain != null) dmhMain.closeIfOwned();
         super.whenDisposing();
     }
 

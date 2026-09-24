@@ -100,6 +100,8 @@
     "fangsu.item.ticketbarrier.text": "MTR风格闸机",
     "fangsu.item.ticketbarrier.1.text": "MTR风格闸机1",
     "fangsu.item.ticketbarrier.contentText": "MTR风格闸机\n用于港铁\n\nModel & Code by 596wjr",
+    "fangsu.item.traffic_light.text": "基础交通灯",
+    "fangsu.item.traffic_light.contentText": "基础交通灯\n\n自定义灯控程序暂未实现（即将推出）",
     "fangsu.item.diaoban.text": "MTR风格吊板",
     "fangsu.item.ris.mtr": "MTR风格线路信息版",
     "fangsu.diaoban.blank": "空",

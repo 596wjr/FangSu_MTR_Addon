@@ -29,6 +29,7 @@ public class ModCreativeTabs {
             ModBlocks.ITEM_SIS,
             ModBlocks.ITEM_ADV_BOARD,
             ModBlocks.ITEM_SCREENDOOR_CENTRAL_CONTROL,
+            ModBlocks.ITEM_TRAFFIC_LIGHT,
 //            ModBlocks.ITEM_ROTATING_RAIL,
             ModBlocks.ITEM_COLLISION_COMPENSATOR
     );

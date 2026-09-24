@@ -2,6 +2,7 @@ package com.fangsu.utils;
 
 import com.fangsu.Main;
 import com.fangsu.scripting.GraphicsTexture;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 
 import java.awt.*;
@@ -89,7 +90,52 @@ public class GraphicsTextureHelper {
         }
     }
 
+    /**
+     * 上一次 tick 时客户端是否处于"无世界"状态。
+     */
+    private volatile boolean lastLevelWasNull = true;
+
+    /**
+     * 检测世界关闭（退出存档 / 断开连接 / 返回主菜单）。
+     * <p>
+     * 旧实现只在方块实体的 whenDisposing 里释放纹理，而世界关闭时并非所有方块实体都会走
+     * 到 setRemoved；同时 {@code loadGts}/{@code idToDrawInfoId} 与
+     * {@code GraphicsTexture.ACTIVE_TEXTURES} 都是静态强引用，于是每切换一次世界就泄漏一批
+     * 大尺寸动态纹理（堆内 BufferedImage + 堆外 NativeImage + 显存）。
+     * <p>
+     * 只在"从有世界变为无世界"时清理，因此不会误删刚进入新世界后注册的纹理。
+     */
+    private void checkLevelUnload() {
+        boolean nowNull = Minecraft.getInstance().level == null;
+        if (nowNull && !lastLevelWasNull) {
+            Main.LOGGER.info("[FangSu] world unloaded, releasing {} graphics textures", loadGts.size());
+            clearAll();
+        }
+        lastLevelWasNull = nowNull;
+    }
+
+    /**
+     * 释放并清空全部动态纹理。仅在确定没有任何方块还会引用它们时调用（世界关闭）。
+     * <p>
+     * 注意：不提供"按容量 LRU 淘汰"是因为方块侧对已注册内容做了去重
+     * （{@code lastRegisteredDrawInfoId} 命中即 return），单方面淘汰会让 PIDS / RIS / SIS
+     * 的显示面永久不再重建。容量回收需要方块侧配合（淘汰事件 + 重置注册状态），
+     * 属于后续工作；当前通过"降低纹理分辨率 + 世界关闭全清 + 逐方块释放"控制占用。
+     */
+    public synchronized void clearAll() {
+        for (GTInfo info : loadGts.values()) {
+            if (!info.isClosed && info.gt != null) {
+                info.gt.close();
+            }
+            info.isClosed = true;
+        }
+        loadGts.clear();
+        idToDrawInfoId.clear();
+    }
+
     private void tick() {
+        checkLevelUnload();
+
         for (GTInfo info : loadGts.values()) {
             if (info.needsUpload) {
                 info.gt.upload();

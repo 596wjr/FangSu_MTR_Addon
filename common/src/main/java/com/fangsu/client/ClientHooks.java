@@ -13,6 +13,7 @@ import net.minecraft.network.chat.Component;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public final class ClientHooks {
 
@@ -54,6 +55,12 @@ public final class ClientHooks {
         Main.LOGGER.error("打开方法没有被替换!");
     };
 
+    /** 打开图形化积木编辑器（客户端注入；服务器端或未注入时报错提示）。 */
+    public static ModularEditorConsumer OPEN_MODULAR_EDITOR
+            = ((getter, setter) -> {
+        Main.LOGGER.error("打开方法没有被替换!");
+    });
+
     private ClientHooks() {
     }
 
@@ -91,6 +98,11 @@ public final class ClientHooks {
         OPEN_ROTATING_RAIL_MODEL_SELECT_SCREEN.accept(be);
     }
 
+    /** 打开图形化积木编辑器。 */
+    public static void openModularEditor(Supplier<String> getter, Consumer<String> setter) {
+        OPEN_MODULAR_EDITOR.accept(getter, setter);
+    }
+
     @FunctionalInterface
     public interface SignScreenConsumer {
 
@@ -119,5 +131,11 @@ public final class ClientHooks {
     public interface StationSelectConsumer {
 
         void accept(Component component, List<Long> defaultValue, Consumer<List<Long>> setter, BlockPos pos, int maxSelect);
+    }
+
+    @FunctionalInterface
+    public interface ModularEditorConsumer {
+
+        void accept(Supplier<String> getter, Consumer<String> setter);
     }
 }

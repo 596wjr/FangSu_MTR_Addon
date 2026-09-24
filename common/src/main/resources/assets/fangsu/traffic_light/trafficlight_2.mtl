@@ -1,0 +1,10 @@
+# Made in Blockbench 4.12.5
+newmtl m_29277e77-8020-c336-d54a-82a6c504688a
+map_Kd tfl_black.png
+newmtl m_2d1d051e-1b1f-e850-6118-36c7b6ffa9d6
+map_Kd tfl_gray.png
+newmtl m_a132d23a-e616-e7c4-808f-60cf7f1026ba
+map_Kd r.png
+newmtl m_a112b053-66d5-4382-b008-c6c795b1f438
+map_Kd g.png
+newmtl none
