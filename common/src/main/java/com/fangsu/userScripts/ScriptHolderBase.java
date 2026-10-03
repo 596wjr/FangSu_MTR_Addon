@@ -1,6 +1,7 @@
 package com.fangsu.userScripts;
 
 import com.fangsu.Main;
+import com.fangsu.scripting.ScriptFailTimeoutException;
 import com.fangsu.utils.ResourceUtil;
 import net.minecraft.resources.ResourceLocation;
 import org.graalvm.polyglot.Context;
@@ -124,9 +125,15 @@ public abstract class ScriptHolderBase {
         if (!isValid) {
             throw new RuntimeException("Script " + scriptName + " is not valid");
         }
-        // 失败超时中：抛出异常让调用者重试
-        if (duringFailTimeout(name)) {
-            throw new RuntimeException("Script function " + name + " in " + scriptName + " is in fail timeout, will retry later");
+        // 失败冷却中：抛出专用异常并带上剩余冷却时间，让调用者"稍后"再重试。
+        // 注意不能抛普通 RuntimeException：绘制线程会把任何异常都算作一次失败，
+        // 于是 5 次重试会在 4 秒冷却期内被瞬间耗尽（每次都秒抛），脚本实际只执行了一次。
+        long remainingFailMs = remainingFailTimeout(name);
+        if (remainingFailMs > 0) {
+            throw new ScriptFailTimeoutException(
+                    "Script function " + name + " in " + scriptName + " is in fail timeout, will retry in "
+                            + remainingFailMs + "ms",
+                    remainingFailMs);
         }
 
         Value fn = functions.get(name);
@@ -222,8 +229,17 @@ public abstract class ScriptHolderBase {
      * 检查是否在失败超时中
      */
     private boolean duringFailTimeout(String name) {
+        return remainingFailTimeout(name) > 0;
+    }
+
+    /**
+     * 失败冷却剩余时间（毫秒）。0 表示当前不在冷却期。
+     */
+    private long remainingFailTimeout(String name) {
         Long t = failTime.get(name);
-        return t != null && (System.currentTimeMillis() - t) < ScriptManager.getFailTimeoutMs();
+        if (t == null) return 0;
+        long remaining = ScriptManager.getFailTimeoutMs() - (System.currentTimeMillis() - t);
+        return remaining > 0 ? remaining : 0;
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.fangsu.shape;
 
+import com.fangsu.config.FangSuConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
@@ -17,7 +18,6 @@ import java.util.concurrent.*;
 // 弧度制
 public class RotatableShapeHelper {
     private static final RotatableShapeHelper instance = new RotatableShapeHelper();
-    private static final double DEFAULT_STEP_SIZE = 0.25d;
     private static final int MAX_SUB_BOXES = 4096;
 
     /**
@@ -98,6 +98,9 @@ public class RotatableShapeHelper {
 
         /**
          * 提交新的旋转计算任务。
+         * <p>
+         * 无论 {@code highQualityShape} 如何都会执行旋转：关闭时只是不做细分，
+         * 方块朝向（90° 整数倍）等旋转仍然照常生效。
          */
         void submitRotation(ShapeCollection collection, float rx, float ry, float rz) {
             // 显式声明为 Callable，避免 Runnable / Callable 重载歧义
@@ -141,6 +144,34 @@ public class RotatableShapeHelper {
             );
             entry.submitRotation(shape, rx, ry, rz);
             cache.put(key, entry);
+        }
+    }
+
+    /**
+     * 传入形状集合并直接取得旋转后的碰撞箱：形状实例或变换参数变化时会自动重新初始化缓存。
+     * <p>
+     * 与 {@link #getShapeForBlock} 相比，本方法会校验 {@code shape} 是否为缓存中的同一实例，
+     * 因此适合形状随方块状态（开门、换模型等）变化的方块，避免读到过期形状。
+     */
+    public VoxelShape getOrInitShapeForBlock(@Nullable Level level, BlockPos pos, ShapeCollection shape,
+                                             float tx, float ty, float tz, float rx, float ry, float rz) {
+        if (shape == null || shape.isEmpty()) return Shapes.empty();
+
+        ShapeKey key = ShapeKey.of(level, pos);
+        synchronized (cacheLock) {
+            ShapeCacheEntry entry = cache.get(key);
+            if (entry != null
+                    && entry.shapeCollection == shape
+                    && entry.posInfo.matches(tx, ty, tz, rx, ry, rz)) {
+                return readFinishedShape(entry);
+            }
+        }
+
+        initForBlock(level, pos, tx, ty, tz, rx, ry, rz, shape);
+
+        synchronized (cacheLock) {
+            ShapeCacheEntry entry = cache.get(key);
+            return entry == null ? Shapes.empty() : readFinishedShape(entry);
         }
     }
 
@@ -214,9 +245,15 @@ public class RotatableShapeHelper {
     /**
      * 对 ShapeCollection 中的所有 RawShape 执行旋转，合并为一个 VoxelShape。
      * 每个 RawShape 的坐标是像素值（0~16），旋转时以方块中心 (8, 0, 8) 为枢轴。
+     * <p>
+     * 是否细分取自 {@code config/fangsu.properties} 的 {@code highQualityShape}，
+     * 细分步长取自 {@code shapeStep}；90° 整数倍（方块朝向）始终整块旋转、不细分。
      */
     private static VoxelShape buildRotatedShape(ShapeCollection shapeCollection, float rx, float ry, float rz) {
         if (shapeCollection == null || shapeCollection.isEmpty()) return Shapes.empty();
+
+        boolean subdivide = FangSuConfig.highQualityShape();
+        double stepSize = FangSuConfig.shapeStep();
 
         VoxelShape result = Shapes.empty();
         for (RawShape raw : shapeCollection.getShapes()) {
@@ -226,7 +263,7 @@ public class RotatableShapeHelper {
                     box.minX, box.minY, box.minZ,
                     box.maxX, box.maxY, box.maxZ
             );
-            VoxelShape part = rotatedShape(normalizedBox, rx, ry, rz, DEFAULT_STEP_SIZE);
+            VoxelShape part = rotatedShape(normalizedBox, rx, ry, rz, stepSize, subdivide);
             result = Shapes.joinUnoptimized(result, part, BooleanOp.OR);
         }
         return result.optimize();
@@ -235,8 +272,19 @@ public class RotatableShapeHelper {
     /**
      * 对单个 AABB（世界坐标）应用旋转，返回旋转后的 VoxelShape。
      * 枢轴为方块中心 (0.5, 0, 0.5)。
+     * <p>
+     * 两种情况不需要细分（整块旋转即可）：
+     * <ul>
+     *     <li>旋转角全部是 90° 的整数倍 —— 典型来源就是方块朝向（东西南北），
+     *     此时 AABB 旋转后仍是 AABB，整块变换是精确结果；</li>
+     *     <li>{@code highQualityShape=false} —— 统一走粗粒度整块旋转，
+     *     保留朝向等信息但不做细分。</li>
+     * </ul>
+     *
+     * @param subdivide 是否允许按 {@code stepSize} 细分（即 highQualityShape）
      */
-    private static VoxelShape rotatedShape(AABB localBox, float rx, float ry, float rz, double stepSize) {
+    private static VoxelShape rotatedShape(AABB localBox, float rx, float ry, float rz,
+                                           double stepSize, boolean subdivide) {
         if (localBox == null) return Shapes.empty();
 
         // 枢轴：方块中心 (0.5, 0, 0.5)
@@ -251,6 +299,16 @@ public class RotatableShapeHelper {
         // 无旋转特判
         if (rx == 0f && ry == 0f && rz == 0f) {
             return Shapes.create(workingLocal.move(pivotWorld)).optimize();
+        }
+
+        // 90° 整数倍（方块自带朝向）不需要细分；关闭高质量时所有旋转都不细分
+        boolean rightAngle = isRightAngle(rx) && isRightAngle(ry) && isRightAngle(rz);
+        if (rightAngle || !subdivide) {
+            AABB world = transformBox(new LocalBox(
+                    new Vec3(workingLocal.minX, workingLocal.minY, workingLocal.minZ),
+                    new Vec3(workingLocal.maxX, workingLocal.maxY, workingLocal.maxZ)
+            ), pivotWorld, rx, ry, rz);
+            return Shapes.create(world).optimize();
         }
 
         boolean xRot = rx != 0f;
@@ -281,6 +339,16 @@ public class RotatableShapeHelper {
     }
 
     // ======== 内部结构 ========
+
+    /**
+     * 判断旋转角是否为 90° 的整数倍（弧度制，带浮点容差）。
+     * 方块朝向（FACING）产生的就是这类角度，AABB 旋转后仍是 AABB。
+     */
+    private static boolean isRightAngle(float rad) {
+        double quarter = Math.PI / 2.0;
+        double q = rad / quarter;
+        return Math.abs(q - Math.round(q)) < 1e-4;
+    }
 
     private record LocalBox(Vec3 min, Vec3 max) {
     }

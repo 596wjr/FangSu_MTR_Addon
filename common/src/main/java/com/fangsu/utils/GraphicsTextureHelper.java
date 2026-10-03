@@ -2,6 +2,7 @@ package com.fangsu.utils;
 
 import com.fangsu.Main;
 import com.fangsu.scripting.GraphicsTexture;
+import com.fangsu.scripting.ScriptFailTimeoutException;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 
@@ -11,6 +12,12 @@ import java.util.List;
 import java.util.concurrent.*;
 
 public class GraphicsTextureHelper {
+
+    /**
+     * 脚本侧失败冷却结束后额外等待的余量（毫秒）。
+     * 避免因时钟误差刚好卡在冷却边界上，被同一次冷却再拦一次。
+     */
+    private static final long RETRY_AFTER_MARGIN_MS = 50;
 
     /* =========================
        单例
@@ -155,6 +162,10 @@ public class GraphicsTextureHelper {
                 if (info.drawing) continue;        // 正在绘制中，跳过
                 if (!info.flameCompleted) continue; // 本帧尚未完成，等待下一帧
 
+                // 脚本侧失败冷却中：等到冷却结束再重试。
+                // 冷却期的调用根本没执行脚本，因此不消耗重试次数（见 exceptionally 分支）
+                if (System.currentTimeMillis() < info.retryAfterMs) continue;
+
                 if (info.waitUntilDraw) {
                     info.waitUntilDraw = false;
                     continue;
@@ -181,13 +192,25 @@ public class GraphicsTextureHelper {
                             info.available = true;
                             info.needsUpload = true;
                             info.retryCount = 0; // 成功绘制后重置重试计数
+                            info.retryAfterMs = 0;
                         }, drawExecutor).orTimeout(200, TimeUnit.MILLISECONDS)
                         .exceptionally(t -> {
                             // 超时或报错：重置 flameCompleted 使下次 tick 可重试
                             info.flameCompleted = true;
-                            info.retryCount++;
-                            Main.LOGGER.warn("Draw failed (attempt {}/{}) for {}: {}",
-                                    info.retryCount, GTInfo.MAX_RETRIES, info.ids, t.getMessage());
+                            ScriptFailTimeoutException failTimeout = findFailTimeout(t);
+                            if (failTimeout != null) {
+                                // 脚本失败冷却：本次调用被冷却拦下，脚本根本没有执行，
+                                // 不算一次重试；等冷却结束（+余量）后再真正重试。
+                                // 否则 5 次重试会在冷却期内被"秒抛"耗尽，脚本实际只执行一次就放弃。
+                                info.retryAfterMs = System.currentTimeMillis()
+                                        + failTimeout.getRemainingMs() + RETRY_AFTER_MARGIN_MS;
+                                Main.debug("Draw throttled by script fail timeout for {}, retry in {}ms",
+                                        info.ids, failTimeout.getRemainingMs());
+                            } else {
+                                info.retryCount++;
+                                Main.LOGGER.warn("Draw failed (attempt {}/{}) for {}: {}",
+                                        info.retryCount, GTInfo.MAX_RETRIES, info.ids, t.getMessage());
+                            }
                             return null;
                         })
                         .thenRun(() -> info.drawing = false);
@@ -196,6 +219,22 @@ public class GraphicsTextureHelper {
                 Main.LOGGER.warn("Error when running draw function: {}", t.getLocalizedMessage());
             }
         }
+    }
+
+    /**
+     * 在异常链中查找脚本失败冷却异常。
+     * 绘制任务抛出的异常通常被 {@link java.util.concurrent.CompletionException} 包装，需要逐层解开。
+     *
+     * @return 找到的冷却异常（携带剩余冷却时间）；不是冷却异常时返回 null
+     */
+    private static ScriptFailTimeoutException findFailTimeout(Throwable t) {
+        for (int depth = 0; t != null && depth < 8; depth++) {
+            if (t instanceof ScriptFailTimeoutException e) return e;
+            Throwable cause = t.getCause();
+            if (cause == t) break;
+            t = cause;
+        }
+        return null;
     }
 
     /* =========================
@@ -256,6 +295,7 @@ public class GraphicsTextureHelper {
 
         info.drawFunction = drawFunction;
         info.retryCount = 0;
+        info.retryAfterMs = 0;
         // 标记需要重绘，使 tick 循环能跳过静态纹理跳过检查
         info.redrawNeeded = true;
         // 重置帧完成标记，使 tick 循环通过 !flameCompleted 检查（非首次时的保护）
@@ -586,6 +626,13 @@ public class GraphicsTextureHelper {
          * 当前绘制失败/超时的重试次数
          */
         volatile int retryCount = 0;
+        /**
+         * 早于该时间戳（{@link System#currentTimeMillis()}）不做任何绘制尝试。
+         * <p>
+         * 用于脚本侧失败冷却期间让路：冷却期的调用根本没有执行脚本，
+         * 既不应该消耗 {@link #retryCount}，也不应该每 tick 空转。
+         */
+        volatile long retryAfterMs = 0;
         /**
          * 最大重试次数
          */

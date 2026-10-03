@@ -6,7 +6,9 @@ import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.customItem.ModelSelectInfo;
 import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.contents.ScreendoorGlassContent;
-import com.fangsu.utils.CollisionBoxUtil;
+import com.fangsu.shape.RotatableShapeHelper;
+import com.fangsu.shape.ShapeCollection;
+import com.fangsu.shape.ShapeUtil;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.FacingBlockUtil;
 import com.fangsu.utils.ResourceUtil;
@@ -51,7 +53,9 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
     protected BlockRelation blockRelation = new BlockRelation();
 
     DynamicModelHolder dhmLeft, dhmRight;
-    CollisionBoxUtil.CollisionBox shapeLeft, shapeRight;
+    ShapeCollection shapeLeft, shapeRight;
+    /** 左右子模型碰撞盒合并后的形状集合，供 shape 包统一做旋转/缓存 */
+    private ShapeCollection glassShape;
 
     // 门灯模型（原生渲染，替代旧版 JS script 注入的 doorlight.js）
     DynamicModelHolder dhmDoorLightLeft, dhmDoorLightRight;
@@ -244,15 +248,20 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
             dhmLeft = models.get(left.get("subModel"));
         }
         if (left.get("shape") instanceof List<?> l) {
-            shapeLeft = new CollisionBoxUtil.CollisionBox(l);
+            shapeLeft = ShapeUtil.fromPixelBoxes(l);
         }
 
         if (right.containsKey("subModel") && models.containsKey(right.get("subModel"))) {
             dhmRight = models.get(right.get("subModel"));
         }
         if (right.get("shape") instanceof List<?> l) {
-            shapeRight = new CollisionBoxUtil.CollisionBox(l);
+            shapeRight = ShapeUtil.fromPixelBoxes(l);
         }
+
+        ShapeCollection merged = new ShapeCollection();
+        if (shapeLeft != null) merged.addAll(shapeLeft);
+        if (shapeRight != null) merged.addAll(shapeRight);
+        glassShape = merged;
 
         // 门灯模型：从各自子模型配置读取 doorlight（model / subModel），复用主模型的 parted dmh
         dhmDoorLightLeft = loadDoorLightModel(left, models, modelInfo);
@@ -396,18 +405,22 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
     }
 
     private VoxelShape getFinalShape(BlockState state) {
+        if (glassShape == null || glassShape.isEmpty()) return Shapes.empty();
         Direction facing = state.getValue(BaseObjBlock.FACING);
         Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
         float rotX = this.rotateX;
         float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
         float rotZ = this.rotateZ;
-        long posLong = worldPosition.asLong();
-        VoxelShape shape = Shapes.empty();
-        if (shapeLeft != null)
-            shape = Shapes.or(shape, CollisionBoxUtil.cachedRotatedShape(posLong, shapeLeft, Vec3.ZERO, rotX, rotY, rotZ, 0.1f).move(trans.x, trans.y, trans.z));
-        if (shapeRight != null)
-            shape = Shapes.or(shape, CollisionBoxUtil.cachedRotatedShape(posLong, shapeRight, Vec3.ZERO, rotX, rotY, rotZ, 0.1f).move(trans.x, trans.y, trans.z));
-        return shape;
+
+        VoxelShape shape = RotatableShapeHelper.getInstance().getOrInitShapeForBlock(
+                getLevel(), getWorldPos(), glassShape,
+                translateX, translateY, translateZ, rotX, rotY, rotZ);
+        return shape.move(trans.x, trans.y, trans.z).optimize();
+    }
+
+    @Override
+    public void whenDisposing() {
+        RotatableShapeHelper.getInstance().removeCache(getLevel(), getWorldPos());
     }
 
     @Override

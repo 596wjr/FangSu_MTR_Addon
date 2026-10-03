@@ -9,7 +9,9 @@ import com.fangsu.customItem.contents.ScreendoorDoorContent;
 import com.fangsu.extraConfig.*;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcer.math.Matrices;
-import com.fangsu.utils.CollisionBoxUtil;
+import com.fangsu.shape.RotatableShapeHelper;
+import com.fangsu.shape.ShapeCollection;
+import com.fangsu.shape.ShapeUtil;
 import com.fangsu.utils.ContentInfoUtil;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.FacingBlockUtil;
@@ -69,6 +71,9 @@ public class BlockEntityScreendoor extends FunctionalObjBlockEntity implements I
     protected boolean pendingAutoDoorSide = false;
 
     private List<DoorRenderInfo> infos;
+
+    /** 所有门子模型碰撞盒合并后的形状集合，供 shape 包统一做旋转/缓存 */
+    private ShapeCollection doorShape;
 
     /** 复用的临时矩阵，避免每帧为每个门子模型分配新的 Matrices。 */
     private final Matrices scratchMatrices = new Matrices();
@@ -190,9 +195,13 @@ public class BlockEntityScreendoor extends FunctionalObjBlockEntity implements I
             Map<String, DynamicModelHolder> models = ResourceUtil.loadPartedDmh(new ResourceLocation(modelKey), flipV);
 
             infos = new ArrayList<>();
+            ShapeCollection merged = new ShapeCollection();
             for (ScreendoorDoorContent.DoorInfo door : doorContent.getDoors()) {
-                infos.add(new DoorRenderInfo(door, models));
+                DoorRenderInfo info = new DoorRenderInfo(door, models);
+                infos.add(info);
+                merged.addAll(info.shape);
             }
+            doorShape = merged;
         } catch (Exception e) {
             Main.LOGGER.warn(e.getMessage());
         }
@@ -362,33 +371,33 @@ public class BlockEntityScreendoor extends FunctionalObjBlockEntity implements I
     }
 
     private VoxelShape getFinalShape(BlockState state) {
-        if (infos == null) return Shapes.empty();
+        if (doorShape == null || doorShape.isEmpty()) return Shapes.empty();
         Direction facing = state.getValue(BaseObjBlock.FACING);
         Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
         float rotX = this.rotateX;
         float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
         float rotZ = this.rotateZ;
-        long posLong = worldPosition.asLong();
 
-        VoxelShape shape = Shapes.empty();
-        for (DoorRenderInfo info : infos) {
-            if (info.shape != null) {
-                VoxelShape thisShape = CollisionBoxUtil.cachedRotatedShape(posLong, info.shape, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
-                shape = Shapes.or(shape, thisShape.move(trans.x, trans.y, trans.z));
-            }
-        }
-        return shape;
+        VoxelShape shape = RotatableShapeHelper.getInstance().getOrInitShapeForBlock(
+                getLevel(), getWorldPos(), doorShape,
+                translateX, translateY, translateZ, rotX, rotY, rotZ);
+        return shape.move(trans.x, trans.y, trans.z).optimize();
+    }
+
+    @Override
+    public void whenDisposing() {
+        RotatableShapeHelper.getInstance().removeCache(getLevel(), getWorldPos());
     }
 
     private static class DoorRenderInfo {
         DynamicModelHolder model;
-        CollisionBoxUtil.CollisionBox shape;
+        ShapeCollection shape;
         float step;
 
         private DoorRenderInfo(ScreendoorDoorContent.DoorInfo info, Map<String, DynamicModelHolder> models) {
             step = info.step();
             model = models.get(info.subModel());
-            shape = new CollisionBoxUtil.CollisionBox(info.shape());
+            shape = ShapeUtil.fromPixelBoxes(info.shape());
         }
     }
 

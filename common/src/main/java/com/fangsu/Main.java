@@ -1,6 +1,7 @@
 package com.fangsu;
 
 import com.fangsu.blocks.ModBlocks;
+import com.fangsu.config.FangSuConfig;
 import com.fangsu.creativeTabs.ModCreativeTabs;
 import com.fangsu.events.ModEvents;
 import com.fangsu.items.ModItems;
@@ -26,6 +27,9 @@ public final class Main {
     public static void init() {
         // Write common init code here.
         isClient = Platform.getEnv().name().equals("CLIENT");
+
+        // 读取 config/fangsu.properties（缺失时自动写出默认值）
+        FangSuConfig.init();
 
         //#if MC_VERSION >= 12000
         // 游戏版本>=1.20.0
