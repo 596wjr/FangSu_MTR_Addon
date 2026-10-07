@@ -1,4 +1,4 @@
-﻿package com.fangsu.client;
+package com.fangsu.client;
 
 import com.fangsu.blockEntities.BaseObjBlockEntity;
 import com.fangsu.blockEntities.BlockEntityScreendoorCentralControl;
@@ -54,6 +54,11 @@ public final class ClientHooksImpl {
                 Minecraft.getInstance().screen,
                 rail::reloadModel
         ));
+    }
+
+    /** 打开万向节点角度配置界面。 */
+    public static void openMultiDirectionNodeScreen(com.fangsu.blockEntities.BlockEntityMultiDirectionNode node) {
+        Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new NodeAngleScreen(node)));
     }
 
     public static void openSignConfigScreen(

@@ -55,6 +55,12 @@ public final class ClientHooks {
         Main.LOGGER.error("打开方法没有被替换!");
     };
 
+    /** 万向节点角度配置界面（客户端注入；服务器端或未注入时报错提示）。 */
+    public static Consumer<com.fangsu.blockEntities.BlockEntityMultiDirectionNode> OPEN_MULTI_DIRECTION_NODE_SCREEN
+            = be -> {
+        Main.LOGGER.error("打开方法没有被替换!");
+    };
+
     /** 打开图形化积木编辑器（客户端注入；服务器端或未注入时报错提示）。 */
     public static ModularEditorConsumer OPEN_MODULAR_EDITOR
             = ((getter, setter) -> {
@@ -96,6 +102,11 @@ public final class ClientHooks {
 
     public static void openRotatingRailModelSelectScreen(com.fangsu.blockEntities.BlockEntityRotatingRail be) {
         OPEN_ROTATING_RAIL_MODEL_SELECT_SCREEN.accept(be);
+    }
+
+    /** 打开万向节点角度配置界面。 */
+    public static void openMultiDirectionNodeScreen(com.fangsu.blockEntities.BlockEntityMultiDirectionNode be) {
+        OPEN_MULTI_DIRECTION_NODE_SCREEN.accept(be);
     }
 
     /** 打开图形化积木编辑器。 */

@@ -27,6 +27,7 @@ public class MainForgeClient {
             ClientHooks.OPEN_SCREENDOOR_CENTRAL_CONTROL_SCREEN = ClientHooksImpl::openScreendoorCentralControlScreen;
             ClientHooks.OPEN_ROTATING_RAIL_CONFIG_SCREEN = ClientHooksImpl::openRotatingRailConfigScreen;
             ClientHooks.OPEN_ROTATING_RAIL_MODEL_SELECT_SCREEN = ClientHooksImpl::openRotatingRailModelSelectScreen;
+            ClientHooks.OPEN_MULTI_DIRECTION_NODE_SCREEN = ClientHooksImpl::openMultiDirectionNodeScreen;
             ClientHooks.OPEN_MODULAR_EDITOR = ClientHooksImpl::openModularEditor;
             hooksInitialized = true;
         }

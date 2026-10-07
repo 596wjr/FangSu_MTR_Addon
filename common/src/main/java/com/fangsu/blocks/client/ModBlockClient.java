@@ -56,6 +56,10 @@ public class ModBlockClient {
                 ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
         );
         BlockEntityRendererRegistry.register(
+                ModBlocks.BLOCK_ENTITY_MULTI_DIRECTION_NODE.get(),
+                ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
+        );
+        BlockEntityRendererRegistry.register(
                 ModBlocks.BLOCK_ENTITY_TRAFFIC_LIGHT.get(),
                 ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
         );

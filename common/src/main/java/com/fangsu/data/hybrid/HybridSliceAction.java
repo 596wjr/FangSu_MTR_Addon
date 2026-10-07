@@ -513,7 +513,7 @@ public class HybridSliceAction extends Rail.RailActions {
         final BlockState existing = level.getBlockState(placePos);
         if (replacement) {
             // 替换模式：除轨道节点（MTR 节点）外全部替换，包括方块实体
-            // （MTR3 版无万向节点方块，无需像 MTR4 版那样额外判 BlockMultiDirectionNode）
+            // （万向节点 BlockMultiDirectionNode 继承 MTR BlockNode，已被此判定覆盖）
             final net.minecraft.world.level.block.Block block = existing.getBlock();
             if (block instanceof BlockNode) return;
         } else if (!existing.isAir() || level.getBlockEntity(placePos) != null) {

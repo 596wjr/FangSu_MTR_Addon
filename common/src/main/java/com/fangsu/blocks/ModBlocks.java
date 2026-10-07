@@ -77,6 +77,15 @@ public class ModBlocks {
 
     public static final RegistrySupplier<Item> ITEM_ROTATING_RAIL = RegisterUtil.addBlockItem("rotating_rail", BLOCK_ROTATING_RAIL);
 
+    // 万向节点：轨道方向可为任意角度（不受 MTR 16×22.5° 限制）且可由玩家绑定/改绑
+    public static final RegistrySupplier<Block> BLOCK_MULTI_DIRECTION_NODE =
+            RegisterUtil.addBlock("multi_direction_node", BlockMultiDirectionNode::new);
+    public static final RegistrySupplier<Item> ITEM_MULTI_DIRECTION_NODE =
+            RegisterUtil.addBlockItem("multi_direction_node", BLOCK_MULTI_DIRECTION_NODE);
+    public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_MULTI_DIRECTION_NODE =
+            RegisterUtil.addBlockEntity("block_entity_multi_direction_node",
+                    BLOCK_MULTI_DIRECTION_NODE, BlockEntityMultiDirectionNode::new);
+
     public static final RegistrySupplier<Block> BLOCK_TRAFFIC_LIGHT = RegisterUtil.addBlock("traffic_light", BlockTrafficLight::new);
     public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_TRAFFIC_LIGHT =
             RegisterUtil.addBlockEntity("block_entity_traffic_light", BLOCK_TRAFFIC_LIGHT, BlockEntityTrafficLight::new);

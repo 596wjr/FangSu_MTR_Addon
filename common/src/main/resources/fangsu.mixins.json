@@ -15,7 +15,10 @@
     "LiftMixin",
     "TrainMixin",
     "RailwayDataRailActionsModuleMixin",
-    "MetropolisTurnstileMixin"
+    "MetropolisTurnstileMixin",
+    "RailAngleMixin",
+    "ItemNodeModifierBaseMixin",
+    "ItemRailModifierMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -31,6 +31,7 @@ public class ModCreativeTabs {
             ModBlocks.ITEM_SCREENDOOR_CENTRAL_CONTROL,
             ModBlocks.ITEM_TRAFFIC_LIGHT,
 //            ModBlocks.ITEM_ROTATING_RAIL,
+            ModBlocks.ITEM_MULTI_DIRECTION_NODE,
             ModBlocks.ITEM_COLLISION_COMPENSATOR
     );
     //#elseif MC_VERSION >= 11903
@@ -55,6 +56,7 @@ public class ModCreativeTabs {
     //$$         ModBlocks.ITEM_ADV_BOARD,
     //$$         ModBlocks.ITEM_SCREENDOOR_CENTRAL_CONTROL,
     //         ModBlocks.ITEM_ROTATING_RAIL,
+    //$$         ModBlocks.ITEM_MULTI_DIRECTION_NODE,
     //$$         ModBlocks.ITEM_COLLISION_COMPENSATOR
     //$$ );
     //#else

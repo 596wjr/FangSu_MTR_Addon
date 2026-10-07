@@ -51,6 +51,11 @@ public final class ClientHooksImpl {
         ));
     }
 
+    /** 打开万向节点角度配置界面。 */
+    public static void openMultiDirectionNodeScreen(com.fangsu.blockEntities.BlockEntityMultiDirectionNode node) {
+        Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new NodeAngleScreen(node)));
+    }
+
     public static void openSignConfigScreen(
             List<SignFaceData> faces, Consumer<List<SignFaceData>> setter
     ) {

@@ -41,7 +41,7 @@ import java.util.Map;
  * 查轨回调链——点击两端节点后基类回调 {@link #onConnect}，posStart=后点、posEnd=先点
  * （由 {@code ItemNodeModifierBase.onEndClick} 传参顺序决定），与 MTR 轨道表存储方向一致
  * （照 ItemBridgeCreator → markRailForBridge 的 {@code rails.get(posStart).get(posEnd)} 实证）。
- * MTR3 版无万向节点方块（BlockMultiDirectionNode 是 MTR4 版方速独有），无需额外兼容。
+ * 万向节点（BlockMultiDirectionNode）继承 MTR BlockNode，因此本类无需为其额外兼容。
  */
 public class ItemHybridCreator extends ItemNodeModifierSelectableBlockBase {
 
