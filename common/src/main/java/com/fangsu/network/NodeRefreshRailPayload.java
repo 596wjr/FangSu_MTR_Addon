@@ -47,9 +47,10 @@ import java.util.List;
  * 服务端按名字解析出 {@code RailType} 后，用与建轨完全相同的规则重建两条方向，
  * 属性（限速 / 站台 / 侧线 / 折返 / 加速 / 信号）自然全部保持一致。
  * <p>
- * 逐轨道超高的五个字段是<b>相位 5-5 的接口预留</b>：相位 5-2 还没有逐轨道编辑界面，
- * 生产路径恒写 {@link RailTiltCarry#NONE}（{@code hasRailTilt = false}），服务端据此保持
- * 节点派生的滚转与半轨距。协议先落地，5-5 接界面时不必再改线格式。
+ * 逐轨道超高的五个字段由 {@code NodeConnector.carryRailTilt} 从客户端轨道姿态里读出：
+ * 相位 5-2 落地了协议但生产路径恒写 {@link RailTiltCarry#NONE}，相位 5-5 的逐轨道超高界面
+ * 接上之后这里才真的会带上作者授权值（{@code hasRailTilt = true}），服务端据此在重建时保留
+ * 三点剖面与半轨距 —— 否则「改一下节点翻滚角，逐轨道超高就没了」。
  */
 public final class NodeRefreshRailPayload {
 

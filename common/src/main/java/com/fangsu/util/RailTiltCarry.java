@@ -73,6 +73,31 @@ public record RailTiltCarry(
     }
 
     /**
+     * 把随行数据换成<b>反向参考帧</b>（参考帧 = 另一端 → 本端）。
+     * <p>
+     * 用途：{@code NodeConnector.refreshNodeRail} 一次重建<b>两个方向</b>的两条轨道，
+     * 而随行数据只有一份、参考帧是「本节点 → 另一端」。反向轨道的 {@code position1} 是另一端，
+     * 所以它的三点剖面 start/end 必须对调、中间控制点位置镜像成 {@code 1 - f}
+     * （控制点在物理上没有移动）。不做这一步，节点重建后反向轨道的超高会左右颠倒 ——
+     * 两条方向都会被渲染，用户看到的就是一个扭结。
+     * <p>
+     * <b>MTR3 独有</b>：MTR4 版 {@code RailTiltCarry} 没有本方法（那边的重建路径形状不同）。
+     * 本文件其余部分仍与 MTR4 版逐字对应；新增方法不影响任何线格式与存档格式。
+     * <p>
+     * 换算与 {@link #fromPose} 的 {@code reversed} 分支完全一致，因此
+     * {@code c.reversed().reversed()} 逐字段等于 {@code c}（见 P5-5 探针）。
+     */
+    public RailTiltCarry reversed() {
+        if (!hasRailTilt) {
+            // 未授权：两侧都必须是「完全跟随节点派生值」，反转没有意义
+            return this;
+        }
+        return new RailTiltCarry(true,
+                endDegrees, middleDegrees, startDegrees,
+                1.0D - middleFraction, halfGauge);
+    }
+
+    /**
      * 把随行的授权值合并进服务端<b>刚派生</b>的节点姿态。
      * <p>
      * 未授权时原样返回 {@code nodePose}：此刻服务端必须完全按当前节点值走

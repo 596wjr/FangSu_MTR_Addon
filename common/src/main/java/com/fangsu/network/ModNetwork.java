@@ -49,6 +49,14 @@ public class ModNetwork {
      */
     public static final ResourceLocation NODE_REFRESH_RAIL =
             new ResourceLocation("fangsu", "node_refresh_rail");
+    /**
+     * 逐轨道超高编辑（C2S → 服务端校验后落库 + 显式重播）。
+     * <p>
+     * 对应 MTR4 版的同名通道 {@code RAIL_TILT_EDIT}：与 {@link #NODE_REFRESH_RAIL} 的分工是
+     * 「节点姿态 → 相连轨道全部重建」对「单条轨道的三个倾斜控制点 + 半轨距」。
+     * 载荷布局与校验见 {@link RailTiltPayload} / {@link RailTiltPackets}。
+     */
+    public static final ResourceLocation RAIL_TILT_EDIT = RailTiltPackets.RAIL_TILT_EDIT;
 
     public static void init() {
         NetworkManager.registerReceiver(
@@ -78,6 +86,8 @@ public class ModNetwork {
         );
         HybridCreatorPackets.registerServer();
         DisplacementToolPackets.registerServer();
+        // 逐轨道超高（P5-5）：注册位置紧挨 NODE_REFRESH_RAIL 的语义位置
+        RailTiltPackets.registerServer();
     }
 
     private static void handleBeSync(

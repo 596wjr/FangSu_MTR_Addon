@@ -56,9 +56,16 @@ public final class ClientHooksImpl {
         ));
     }
 
-    /** 打开万向节点角度配置界面。 */
+    /**
+     * 打开万向节点配置界面。
+     * <p>
+     * P5-5 起指向 {@link MultiDirectionNodeConfigScreen}（MTR4 版布局），旧的全屏
+     * {@code NodeAngleScreen} 已删除。写入路径与原来完全一致：界面内部经
+     * {@code setAnglesAndSync} 发 BE_SYNC、经 {@code refreshConnectedRailsIfNeeded}
+     * 发 NODE_REFRESH_RAIL，因此服务端读到的仍是同一套载荷。
+     */
     public static void openMultiDirectionNodeScreen(com.fangsu.blockEntities.BlockEntityMultiDirectionNode node) {
-        Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new NodeAngleScreen(node)));
+        Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new MultiDirectionNodeConfigScreen(node)));
     }
 
     public static void openSignConfigScreen(

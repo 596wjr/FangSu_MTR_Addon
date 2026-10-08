@@ -7,6 +7,7 @@ import com.fangsu.mappings.rail.RailPoseExtra;
 import com.fangsu.mtr.RailAngleExtra;
 import com.fangsu.mtr.RailCalculator;
 import com.fangsu.mtr.rail.RailPoseExtraHolder;
+import com.fangsu.mtr.rail.RailTiltSupport;
 import mtr.block.BlockNode;
 import mtr.data.Rail;
 import mtr.data.RailAngle;
@@ -117,7 +118,23 @@ public final class NodeConnector {
      * 起点方向若与连线“同向”则保持不变，否则取反；终点方向若与连线“同向”则取反（终点朝向来路）。
      */
     public static double[] alignToConnection(BlockPos posStart, double startDegrees, BlockPos posEnd, double endDegrees) {
-        final double angleDifference = straightAngle(posStart, posEnd);
+        return alignToConnection(posStart, startDegrees, posEnd, endDegrees, straightAngle(posStart, posEnd));
+    }
+
+    /**
+     * 与 {@link #alignToConnection(BlockPos, double, BlockPos, double)} 相同，但<b>显式给出</b>
+     * 用于朝向比较的弦向角。
+     * <p>
+     * 存在的意义：节点有平移时，真正的连线是<b>两个锚点</b>（方块坐标 + 节点平移）之间的连线，
+     * 服务端重建轨道用的就是那条连线（见 {@link #refreshOneDirection} 的 {@code anchorDegrees}）。
+     * 界面做「这个姿态能不能建出轨道」的预检时若不带上平移，就会与服务端实际用的对齐角不一致，
+     * 出现「界面说没问题、服务端建不出来」或反过来。这里把对齐角参数化，让两条路径共用同一段算术。
+     *
+     * @param chordDegrees 用于朝向比较的弦向角（度）；节点有平移时传锚点连线的方位角
+     */
+    public static double[] alignToConnection(BlockPos posStart, double startDegrees, BlockPos posEnd, double endDegrees,
+                                             double chordDegrees) {
+        final double angleDifference = chordDegrees;
         final double start = normalizeDegrees(startDegrees
                 + (RailAngle.similarFacing((float) angleDifference, (float) startDegrees) ? 0 : 180));
         final double end = normalizeDegrees(endDegrees
@@ -713,6 +730,58 @@ public final class NodeConnector {
         }
     }
 
+    /**
+     * 一条「连着某个节点的轨道」：连同它的两个端点一起给出。
+     * <p>
+     * <b>为什么要带上端点</b>：MTR3 的 {@code mtr.data.Rail} <b>不保存</b>自己的方块坐标
+     * （端点信息只存在于 {@code ClientData.RAILS} / {@code RailwayData.rails} 的表键里，
+     * 见 {@code ItemRailModifier#onConnect} 的注册路径）。而逐轨道超高的 C2S 通道必须携带两个端点，
+     * 让服务端<b>自己</b>重算轨道身份（客户端无法用一个伪造的 id 命中别的轨道）。
+     * 因此「解析轨道」在 MTR3 上必须是「解析 (position1, position2, rail) 三元组」，
+     * 不能只返回 {@link Rail}。
+     *
+     * @param position1 轨道的 {@code position1} = 表的<b>外层</b>键 = 构造器的 {@code posStart}
+     * @param position2 轨道的 {@code position2} = 表的<b>内层</b>键 = 构造器的 {@code posEnd}
+     * @param rail      该方向的轨道实例
+     */
+    public record ConnectedRail(BlockPos position1, BlockPos position2, Rail rail) {
+    }
+
+    /**
+     * 客户端：列出所有连接到 {@code nodePos} 的轨道（含各自的端点），顺序<b>确定</b>。
+     * <p>
+     * 排序键是另一端点的 {@code x → y → z} 字典序（{@link #compareXyz}）。MTR3 的表是
+     * {@code HashMap}，迭代顺序不稳定；若界面直接按迭代顺序取「第一条」，
+     * 同一次会话里刷新两次都可能换一条轨道，用户会看到「编辑对象自己跳了」。
+     * 固定排序让「节点连了多条轨道时默认编辑哪一条」在两次打开之间保持一致。
+     * <p>
+     * 只读客户端数据，不发包、不改世界。数据未同步（表里没有本节点）时返回空表。
+     */
+    public static List<ConnectedRail> connectedRails(BlockPos nodePos) {
+        final Map<BlockPos, Rail> connections;
+        synchronized (mtr.client.ClientData.RAILS) {
+            connections = mtr.client.ClientData.RAILS.get(nodePos);
+        }
+        if (connections == null || connections.isEmpty()) {
+            return List.of();
+        }
+        final List<BlockPos> others = new ArrayList<>(connections.size());
+        try {
+            others.addAll(connections.keySet());
+        } catch (ConcurrentModificationException ignored) {
+            return List.of();
+        }
+        others.sort(NodeConnector::compareXyz);
+        final List<ConnectedRail> result = new ArrayList<>(others.size());
+        for (final BlockPos other : others) {
+            final Rail rail = connections.get(other);
+            if (rail != null) {
+                result.add(new ConnectedRail(nodePos, other, rail));
+            }
+        }
+        return result;
+    }
+
     // ==================== 服务端：建轨 / 重建 ====================
 
     /**
@@ -904,10 +973,15 @@ public final class NodeConnector {
         // 服务端读到的就是权威的当前姿态（readRailPose 内部读的是服务端方块实体）
         final RailPoseExtra nodePose = readRailPose(level, nodePos, otherPos);
         final RailPoseExtra otherPose = readRailPose(level, otherPos, nodePos);
+        // 逐轨道超高的参考帧是「nodePos → otherPos」（随行数据就是这么打包的），
+        // 而反向那条轨道的 position1 是 otherPos，所以它的 start/end 必须对调、
+        // 中间控制点位置镜像（控制点在物理上没有移动）。不做这一步，节点重建后
+        // 反向轨道的超高会左右颠倒 —— 两条方向都被渲染，用户看到的就是一个扭结。
+        final RailTiltCarry backwardCarry = tiltCarry == null ? null : tiltCarry.reversed();
         final boolean created = refreshOneDirection(serverLevel, railwayData, nodePos, otherPos,
                 nodeConnections.get(otherPos), anchorDx, anchorDz, nodePose, tiltCarry)
                 | refreshOneDirection(serverLevel, railwayData, otherPos, nodePos,
-                otherConnections.get(nodePos), anchorDx, anchorDz, otherPose, tiltCarry);
+                otherConnections.get(nodePos), anchorDx, anchorDz, otherPose, backwardCarry);
         if (!created) {
             Main.LOGGER.warn("[NodeConnector] refreshNodeRail 无候选几何，旧轨道保留 {}<->{}", nodePos, otherPos);
             return false;
@@ -977,15 +1051,127 @@ public final class NodeConnector {
      * {@code (nodePos, otherPos)} 为 {@code position1/position2}，因此调用方必须按
      * 「旧轨道的 position1 是哪一端」决定是否反转 —— 见 {@link RailTiltCarry#fromPose}。
      * <p>
-     * 相位 5-2 尚未提供逐轨道超高的编辑界面，因此生产路径目前恒为
-     * {@link RailTiltCarry#NONE}（节点派生值）；本方法把协议与换算先落地，
-     * 供相位 5-5 的编辑界面直接调用。
+     * <b>生产路径</b>：客户端 {@code BlockEntityMultiDirectionNode#refreshConnectedRailsIfNeeded}
+     * 用本方法把每条相连轨道当前的逐轨道字段带上（P5-5 起逐轨道超高界面真的会写出这些字段）；
+     * 服务端重建反向轨道时会用 {@code reverseTiltCarry} 把参考帧换过去。
+     * 未授权时得到 {@link RailTiltCarry#NONE}，服务端据此保持节点派生值。
      *
      * @param pose     该轨道当前的附加姿态（{@link RailPoseExtraHolder#peek}）
-     * @param reversed 参考帧是否需要反转（true = 旧轨道的 position1 <b>不是</b>本节点）
+     * @param reversed 参考帧是否需要反转（true = 该轨道的 position1 <b>不是</b>本节点）
      */
     public static RailTiltCarry carryRailTilt(RailPoseExtra pose, boolean reversed) {
         return RailTiltCarry.fromPose(pose, reversed);
+    }
+
+    // ==================== 服务端：逐轨道超高的 C2S 落库（P5-5） ====================
+
+    /**
+     * 服务端：把一次「逐轨道超高」编辑写进<b>服务端已有的那条轨道</b>，并<b>显式重播</b>给所有玩家。
+     * <p>
+     * 这是 {@code RailTiltPackets} 的服务端落库路径。之所以放在 {@link NodeConnector} 而不是
+     * 包类里：轨道身份（两个端点 → 表键）与轨道几何都归 MTR3 的 {@link RailwayData} 所有，
+     * 只有这里能拿到 {@code rails} 表。
+     * <p>
+     * <b>轨道身份不是 id 而是「两个端点」</b>：MTR3 没有 MTR4 的 {@code TwoPositionsBase.getHexId}，
+     * 也没有 {@code Simulator.railIdMap}；它的轨道表就是 {@code rails[position1][position2]}。
+     * 本方法用<b>收到的两个端点</b>去查服务端自己的表，因此客户端无论如何都只能命中
+     * 「自己报出来的那一对端点上的轨道」——伪造 id 这条路在 MTR3 上根本不存在。
+     * 查不到就直接返回 {@code false}（调用方记日志丢弃）。
+     * <p>
+     * <b>写入是「合并」而不是「替换」</b>：底层用
+     * {@link RailPoseExtra#withRailTilt} —— 它只覆盖三个倾斜控制点 + 中间控制点位置 + 半轨距，
+     * 两端的平移 / 俯仰 / <b>节点派生的滚转</b>原样保留。所以一个持有过期节点几何的客户端
+     * <b>不可能</b>把陈旧的节点姿态写回服务端（这也是 MTR4 同款做法的移植）。
+     * <p>
+     * <b>中间控制点由服务端按自己的实时几何算</b>（{@link RailTiltSupport#middleBreakpointFraction}），
+     * 不信任客户端上报的值：曲线轨上的接缝位置是几何量，客户端数据可能已经过期。
+     * <p>
+     * <b>两个方向一起写</b>：MTR3 为每一对端点存<b>两条</b> {@code Rail}（{@code rails[a][b]} 与
+     * {@code rails[b][a]}），渲染器两条都会画。只写一条会出现「一条轨道带倾斜、另一条水平」
+     * 的重叠伪影。反向轨道的三点剖面参考帧与正向相反，因此 start/end 对调
+     * （与 {@link RailTiltCarry#fromPose} 的 {@code reversed} 分支同一条换算）。
+     * <p>
+     * <b>显式重播</b>：MTR3 自己的周期性轨道同步<b>不检测变化</b>（客户端已在
+     * {@code existingRailIds} 里的轨道会被跳过），所以每次写都必须主动广播，
+     * 否则其他玩家永远看不到。重播走 MTR3 自己的 {@code PACKET_CREATE_RAIL}（全维度广播），
+     * 与 {@link #refreshOneDirection} 完全同一条路径；此刻姿态已落在轨道对象上，
+     * 广播出去的载荷自然带着新的逐轨道超高（由 {@code RailPoseExtraMixin} 的
+     * {@code writePacket} TAIL 追加）。
+     *
+     * @param level             服务端世界
+     * @param position1         轨道 {@code position1}（C2S 载荷原样带来的端点 1）
+     * @param position2         轨道 {@code position2}
+     * @param tiltDegrees       三个倾斜控制点（起点 / 中间 / 终点，度）；{@code null} = 清除逐轨道超高
+     * @param requestedHalfGauge 半轨距（米）；非有限值 = 沿用服务端当前值
+     * @return 是否真的写入并重播（false = 服务端表里没有这条轨道 / 非服务端世界）
+     */
+    public static boolean applyRailTilt(Level level, BlockPos position1, BlockPos position2,
+                                        double[] tiltDegrees, double requestedHalfGauge) {
+        if (!(level instanceof ServerLevel)) {
+            return false;
+        }
+        if (position1 == null || position2 == null || position1.equals(position2)) {
+            return false;
+        }
+        final RailwayData railwayData = RailwayData.getInstance(level);
+        if (railwayData == null) {
+            return false;
+        }
+        final Map<BlockPos, Map<BlockPos, Rail>> rails = getRails(railwayData);
+        if (rails == null) {
+            return false;
+        }
+        final Map<BlockPos, Rail> forwardConnections = rails.get(position1);
+        final Rail forward = forwardConnections == null ? null : forwardConnections.get(position2);
+        if (forward == null) {
+            // 服务端自己的表里没有这一对端点 → 客户端数据过期 / 伪造，丢弃
+            return false;
+        }
+        final Map<BlockPos, Rail> backwardConnections = rails.get(position2);
+        final Rail backward = backwardConnections == null ? null : backwardConnections.get(position1);
+
+        // 正向：参考帧 = position1 → position2，与 railTiltStart/Middle/EndDegrees 的约定一致
+        writeOneRailTilt(forward, tiltDegrees, requestedHalfGauge, false);
+        // 反向：参考帧整体反转（它的 position1 就是正向的 position2）
+        if (backward != null && backward != forward) {
+            writeOneRailTilt(backward, tiltDegrees, requestedHalfGauge, true);
+        }
+        // 显式重播：一次写两条（载荷里 rail1 = position1→position2、rail2 = position2→position1）。
+        // 反向轨道缺失（单向轨的常见形态）时按本工程既有做法重复传正向那条，
+        // 见 refreshOneDirection 的 createRailS2C 调用。
+        PacketTrainDataGuiServer.createRailS2C(level, forward.transportMode, position1, position2,
+                forward, backward == null ? forward : backward, 0);
+        return true;
+    }
+
+    /**
+     * 把逐轨道超高合并进<b>一条</b>轨道并落库（{@link #applyRailTilt} 的单方向实现）。
+     * <p>
+     * <b>注意顺序</b>：中间控制点位置必须在改姿态<b>之前</b>读（它来自轨道当前几何），
+     * 而 {@code RailGeometryMixin} 算接缝读的是 {@code Rail} 的 {@code private final}
+     * 几何字段 —— 那些字段不随姿态变化，所以顺序其实不影响正确性；
+     * 之所以仍按「先算后写」写，是为了让「读到的就是客户端点应用那一刻的几何」这一语义显式可见。
+     *
+     * @param reversed true = 该轨道的 position1 是「编辑参考帧」的终点（反向轨道）
+     */
+    private static void writeOneRailTilt(Rail rail, double[] tiltDegrees, double requestedHalfGauge, boolean reversed) {
+        final RailPoseExtra current = RailPoseExtraHolder.peek(rail);
+        final double halfGauge = Double.isFinite(requestedHalfGauge) ? requestedHalfGauge : current.halfGauge;
+        if (tiltDegrees == null) {
+            // 清除：三点剖面回到「未授权」，半轨距按请求（未指定则保持）
+            RailPoseExtraHolder.apply(rail, current.withRailTilt(
+                    null, null, null,
+                    RailPoseExtra.DEFAULT_RAIL_TILT_MIDDLE_FRACTION,
+                    halfGauge));
+            return;
+        }
+        final double middleFraction = RailTiltSupport.middleBreakpointFraction(rail);
+        // 反向轨道：它的 position1 = 编辑参考帧的终点，所以 start/end 对调。
+        // 中间控制点在物理上没有移动，而 middleFraction 是各自参考帧里的位置，因此直接用各自算出的值。
+        final RailPoseExtra updated = reversed
+                ? current.withRailTilt(tiltDegrees[2], tiltDegrees[1], tiltDegrees[0], middleFraction, halfGauge)
+                : current.withRailTilt(tiltDegrees[0], tiltDegrees[1], tiltDegrees[2], middleFraction, halfGauge);
+        RailPoseExtraHolder.apply(rail, updated);
     }
 
     /**
@@ -1042,7 +1228,22 @@ public final class NodeConnector {
      * 从而做到“建轨成功才绑定”，失败不改变节点绑定状态。
      */
     public static boolean isGeometryValid(BlockPos posStart, double startDegrees, BlockPos posEnd, double endDegrees) {
-        final double[] aligned = alignToConnection(posStart, startDegrees, posEnd, endDegrees);
+        return isGeometryValid(posStart, startDegrees, posEnd, endDegrees, straightAngle(posStart, posEnd));
+    }
+
+    /**
+     * 几何预检的锚点感知版本：用于朝向比较的弦向角由调用方给出（节点有平移时是锚点连线的方位角）。
+     * <p>
+     * 与服务端重建（{@link #refreshOneDirection}）用的是同一段对齐算术
+     * （{@link #alignToConnection(BlockPos, double, BlockPos, double, double)}），
+     * 因此界面预检与服务端实际建轨不会出现口径不一致。
+     *
+     * @param chordDegrees 用于朝向比较的弦向角（度）
+     * @see #isGeometryValid(BlockPos, double, BlockPos, double)
+     */
+    public static boolean isGeometryValid(BlockPos posStart, double startDegrees, BlockPos posEnd, double endDegrees,
+                                          double chordDegrees) {
+        final double[] aligned = alignToConnection(posStart, startDegrees, posEnd, endDegrees, chordDegrees);
         final RailAngle facingStart = angleFor(aligned[0]);
         final RailAngle facingEnd = angleFor(aligned[1]);
         final Rail forward = new Rail(posStart, facingStart, posEnd, facingEnd, RailType.IRON, TransportMode.TRAIN);

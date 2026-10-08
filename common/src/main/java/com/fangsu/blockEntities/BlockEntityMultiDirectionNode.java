@@ -5,6 +5,7 @@ import com.fangsu.client.ClientHooks;
 import com.fangsu.blocks.ModBlocks;
 import com.fangsu.mappings.rail.RailPoseExtra;
 import com.fangsu.mtr.RailAngleExtra;
+import com.fangsu.mtr.rail.RailPoseExtraHolder;
 import com.fangsu.network.ModNetwork;
 import com.fangsu.network.NodeRefreshRailPayload;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
@@ -337,6 +338,44 @@ public class BlockEntityMultiDirectionNode extends BaseObjBlockEntity implements
     /** 与 MTR4 版同名的便捷入口（连接器建轨成功后写入实际使用的角度）。 */
     public void setDirectionBonded(double degrees) {
         bind(degrees);
+    }
+
+    /**
+     * <b>只写方向值，不绑定</b>（P5-5 的「旋转绑定：否」分支）。
+     * <p>
+     * 与 {@link #bind(double)} 的唯一区别是 {@code directionBonded} 保持不变（仍为 false）：
+     * 未绑定的万向节点方向只是「一个待用的参考值」，模型继续旋转、相连轨道按自由端求解
+     * （{@link #getRailAngle()} 返回 {@code null}，连接器据此判定自由端）。
+     * <p>
+     * 这是 MTR4 版 {@code setDirectionUnbound} 的对应物：MTR4 的新面板允许「拖一下方向就把节点
+     * 绑死」被修掉，本方法就是那个修复的写入端。与 MTR4 一样，绑定开关在节点**已连接**时被锁定为
+     * 「是」（服务端重建轨道依赖绑定方向），因此本方法只在未连接时被走到。
+     * <p>
+     * 载荷形状不变：方向与绑定标志本来就是 v1 段的两个字段，写值后由
+     * {@link #markChangedAndSync()} 发一次全量 BE_SYNC。
+     */
+    public void setDirectionUnbound(double degrees) {
+        final double normalized = RailAngleExtra.normalizeNodeDegrees(degrees);
+        if (normalized == direction) {
+            return;
+        }
+        this.direction = normalized;
+        markChangedAndSync();
+    }
+
+    /**
+     * <b>只改方向绑定标志</b>（P5-5 的「绑定开关切到否」分支），保留当前方向值。
+     * <p>
+     * 与 {@link #unbind()} 的区别：{@code unbind()} 会把方向清成 0（那是「解绑并复位」），
+     * 而本方法保留方向值 —— 与 MTR4 版同名方法一致，也与界面语义一致
+     * （用户在开关上点一下不该把刚设好的方向丢掉）。
+     */
+    public void setRotationBonded(boolean bonded) {
+        if (this.directionBonded == bonded) {
+            return;
+        }
+        this.directionBonded = bonded;
+        markChangedAndSync();
     }
 
     /**
@@ -684,8 +723,14 @@ public class BlockEntityMultiDirectionNode extends BaseObjBlockEntity implements
             // 逐轨道属性：服务端据此原地重建出「同类型、同单向性」的轨道。
             // MTR3 的 Rail 没有形状 / 样式 / 分端限速（这些是 MTR4 的模型），
             // 因此这里只带 railType 的名字与单向标记，见 NodeRefreshRailPayload.RailEntry。
+            //
+            // 逐轨道超高（P5-5 起真的会出现在生产路径上）：服务端重建用的是「新轨道 + 节点派生姿态」，
+            // 若不把作者授权的三点剖面/半轨距一起带过去，RailPoseExtraHolder.apply 的整份写入
+            // 会把授权值抹掉 —— 表现就是「改一下节点翻滚角，逐轨道超高就没了」。
+            // 轨道表 rails[nodePos][other] 的 position1 就是本节点，所以参考帧不反转（reversed=false）。
             entries.add(new NodeRefreshRailPayload.RailEntry(
-                    other, rail.railType.name(), rail.railType == mtr.data.RailType.NONE, null));
+                    other, rail.railType.name(), rail.railType == mtr.data.RailType.NONE,
+                    NodeConnector.carryRailTilt(RailPoseExtraHolder.peek(rail), false)));
         }
         if (entries.isEmpty()) {
             Main.LOGGER.debug("[MultiDirectionNode] 刷新请求跳过：{} 的相连轨道都不在客户端数据里", worldPosition);

@@ -5,6 +5,8 @@ import com.fangsu.mappings.rail.RailPoseExtra;
 import com.fangsu.mtr.rail.RailGeometryProvider;
 import com.fangsu.mtr.rail.RailGeometrySource;
 import com.fangsu.mtr.rail.RailPoseExtraHolder;
+import com.fangsu.mtr.rail.RailSeamSource;
+import com.fangsu.mtr.rail.RailTiltSupport;
 import mtr.data.Rail;
 import mtr.data.RailAngle;
 import mtr.data.RailType;
@@ -58,13 +60,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * 节点帧 → 轨道帧换算）。
  */
 @Mixin(value = Rail.class, remap = false)
-public abstract class RailGeometryMixin implements RailGeometryProvider, RailPoseExtraHolder {
+public abstract class RailGeometryMixin implements RailGeometryProvider, RailPoseExtraHolder, RailSeamSource {
 
     // ==================== 目标类私有几何字段（@Shadow 只读） ====================
     //
     // 全部已在 5 个真实 3.2.2 jar 上用 javap -p 核实同名同类型（见类注释）。
     // 只读不改：几何字段是 private final，构造器写完就固定。
-    // 只 shadow 真正会被读到的字段（h/k/r/t/reverse/isStraight 不参与 P5-1 的 y 计算，
+    // 只 shadow 真正会被读到的字段（h/k/r/reverse/isStraight 不参与 P5-1 的 y 计算，
     // 需要时再补 —— @Shadow 一个不存在的字段是致命的）。
 
     @Shadow
@@ -77,6 +79,21 @@ public abstract class RailGeometryMixin implements RailGeometryProvider, RailPos
     private RailAngle facingEnd;
     @Shadow
     private RailType railType;
+    /**
+     * 两段圆弧的参数区间端点（P5-5 逐轨道超高才用到）。
+     * <p>
+     * {@code |tEnd1 - tStart1|} 就是 {@code Rail.getPosition(double)} 里分段用的 {@code count1}，
+     * 也就是「两段圆弧的接缝」在弧长参数上的位置 —— 逐轨道超高的中间控制点必须落在那里。
+     * 这四个字段是 {@code private final}，除了 shadow 之外没有别的读法。
+     */
+    @Shadow
+    private double tStart1;
+    @Shadow
+    private double tEnd1;
+    @Shadow
+    private double tStart2;
+    @Shadow
+    private double tEnd2;
 
     @Shadow
     public abstract double getLength();
@@ -188,6 +205,25 @@ public abstract class RailGeometryMixin implements RailGeometryProvider, RailPos
     public void invalidateFangSuRailGeometry() {
         fangsu$geometryCore = null;
         fangsu$geometryCorePose = null;
+    }
+
+    // ==================== RailSeamSource ====================
+
+    /**
+     * 两段圆弧接缝的归一化位置（{@code position1 → position2}）——逐轨道超高的中间控制点位置。
+     * <p>
+     * 直接读 MTR3 自己的几何字段：{@code |tEnd1 - tStart1|} 就是 {@code Rail.getPosition(double)}
+     * 分段用的 {@code count1}，除以 {@code getLength()} 即得归一化位置。算术全部委托给
+     * {@link RailTiltSupport#middleBreakpointFraction(double, double)}（普通类，便于探针直接验证），
+     * 这里只负责把 {@code private final} 字段取出来。
+     * <p>
+     * <b>与 P5-1 内核无关</b>：内核的水平锚点是占位的（见 {@code RailGeometrySource#stubAnchors}），
+     * 它的 {@code getLength1()/getLength2()} 在直线占位上恒退化，<b>不能</b>用来算接缝。
+     * 真正的接缝只有 MTR3 自己的 {@code tStart/tEnd} 里有。
+     */
+    @Override
+    public double getFangSuMiddleBreakpointFraction() {
+        return RailTiltSupport.middleBreakpointFraction(Math.abs(tEnd1 - tStart1), Math.abs(tEnd2 - tStart2));
     }
 
     // ==================== RailPoseExtraHolder ====================
