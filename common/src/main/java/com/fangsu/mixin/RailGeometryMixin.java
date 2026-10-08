@@ -50,6 +50,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * 几何在 {@code RailGeometryMixin}。两者都 <b>必须</b>成功注入，否则 {@code checkcast} 会抛
  * {@code AbstractMethodError}（构造期即炸，不会静默）——这一点已记入 {@link RailGeometrySource}
  * 的诊断注释。
+ * <p>
+ * <b>P5-2 起</b>：构建内核时把姿态两端的<b>竖向</b>平移（{@code offsetY1/offsetY2}）加进锚点 y
+ * （= 方块坐标 + 节点平移，与 MTR4 的 {@code FangSuRailMath} 一致）。水平平移仍不进入内核，
+ * 理由见 {@link RailGeometrySource#stubAnchors}。姿态本身由
+ * {@code NodeConnector.readRailPose} 从万向节点方块实体派生（含俯仰角投影与翻滚角的
+ * 节点帧 → 轨道帧换算）。
  */
 @Mixin(value = Rail.class, remap = false)
 public abstract class RailGeometryMixin implements RailGeometryProvider, RailPoseExtraHolder {
@@ -159,6 +165,9 @@ public abstract class RailGeometryMixin implements RailGeometryProvider, RailPos
         final double length = getLength();
         final RailGeometryCore built = RailGeometrySource.build(
                 length, yStart, yEnd,
+                // 端点竖向平移必须进入内核锚点 y（= 方块坐标 + 节点平移），
+                // 与 MTR4 的 FangSuRailMath 一致；水平平移不进入（P5-2 的水平锚点仍是占位）。
+                pose.offsetY1, pose.offsetY2,
                 railType.railSlopeStyle == RailType.RailSlopeStyle.CABLE
                         ? RailGeometryCore.SHAPE_CABLE
                         : RailGeometryCore.SHAPE_QUADRATIC,

@@ -196,6 +196,23 @@ public final class RailGeometrySource {
      * @return 内核；长度退化（&lt; {@link #MIN_LENGTH}）或姿态为默认时返回 {@code null}
      */
     public static RailGeometryCore build(double length, double yStart, double yEnd, int coreMode, RailPoseExtra pose) {
+        return build(length, yStart, yEnd, 0.0D, 0.0D, coreMode, pose);
+    }
+
+    /**
+     * 由轨道几何字段 + 附加姿态构建内核（带两端节点平移）。
+     * <p>
+     * <b>只有 {@code offsetY} 进入内核</b>：内核锚点的 y 必须等于「方块坐标 + 节点竖向平移」，
+     * 与 MTR4 的 {@code FangSuRailMath} 完全一致（那边写的是
+     * {@code firstPosition.getY() + offsetY1}）。{@code offsetX/offsetZ} 在 P5-2 里仍然不进入内核
+     * （水平锚点是占位，见 {@link #stubAnchors}）；等到 P5-3 重写横断面角点时才会用到。
+     *
+     * @param offsetYAtStart 起点端节点锚点的竖向平移（格，{@code pose.offsetY1}）
+     * @param offsetYAtEnd   终点端节点锚点的竖向平移（格，{@code pose.offsetY2}）
+     */
+    public static RailGeometryCore build(double length, double yStart, double yEnd,
+                                         double offsetYAtStart, double offsetYAtEnd,
+                                         int coreMode, RailPoseExtra pose) {
         if (pose == null || !isActive(pose)) {
             return null;
         }
@@ -203,7 +220,7 @@ public final class RailGeometrySource {
             // 退化轨道：MTR 自己的公式会得 NaN（0/0），内核同样无意义，整条回退
             return null;
         }
-        final double[][] anchors = stubAnchors(length, yStart, yEnd);
+        final double[][] anchors = stubAnchors(length, yStart + offsetYAtStart, yEnd + offsetYAtEnd);
         final RailRollProfile rollProfile = rollProfileFor(pose);
 
         // 竖直剖面：CURVE 用内核的 QUADRATIC 分支（与 MTR 的抛物线分支逐位相同），CABLE 用
@@ -223,18 +240,23 @@ public final class RailGeometrySource {
     }
 
     /**
-     * 水平占位锚点：{@code x1 = -length}、{@code x2 = 0}，两端角度 0°，y 取 MTR 的
-     * {@code yStart / yEnd} 加上该端的 {@code offsetY}。
+     * 水平占位锚点：{@code x1 = -length}、{@code x2 = 0}，两端角度 0°，y 取调用方传入的高度。
      * <p>
-     * <b>为什么水平量可以占位、且平移不进水平锚点</b>：P5-1 只调用内核的 {@code getPositionY}，而
-     * {@code RailGeometryCore} 的竖直剖面（{@code basePositionY} / {@code hermitePositionY} /
-     * {@code rollLift}）<b>只读长度、yStart/yEnd、俯仰角与滚转剖面</b>，一个水平量都不读
-     * （{@code rollLift} 读 yStart 只是为了判断退化，见内核实现）。于是：
+     * <b>调用方传入的 y 已经含该端的节点竖向平移</b>（见 {@link #build} 的
+     * {@code offsetYAtStart/offsetYAtEnd}）：锚点 y 的语义就是「方块坐标 + 节点平移」，
+     * 与 MTR4 的 {@code FangSuRailMath} 一致。{@code offsetY} 就是本特性要表达的
+     * 「节点抬高 / 压低」。
+     * <p>
+     * <b>为什么水平量可以占位、且水平平移不进锚点</b>：P5-1/P5-2 只调用内核的
+     * {@code getPositionY} / {@code rollLift}，而 {@code RailGeometryCore} 的竖直剖面
+     * （{@code basePositionY} / {@code hermitePositionY} / {@code rollLift}）<b>只读长度、
+     * 两端高度、俯仰角与滚转剖面</b>，一个水平量都不读（{@code rollLift} 读 yStart 只是为了判断退化）。
+     * 于是：
      * <ul>
-     *   <li>姿态的 {@code offsetX/offsetZ} 在 P5-1 里<b>没有可观测作用</b>（要等到 P5-3 重写横断面角点
+     *   <li>姿态的 {@code offsetX/offsetZ} 在 P5-2 里<b>没有可观测作用</b>（要等到 P5-3 重写横断面角点
      *       才会用到），因此不去扰动水平锚点 —— 一旦扰动，它就会进入内核 h/k/r/t 的浮点公式、
      *       让长度差几个 ULP，从而让「滚转剖面相位」与 MTR 的长度产生无关漂移；</li>
-     *   <li>{@code offsetY} 则<b>必须</b>进入锚点 y，它就是 P5-1 要表达的「节点抬高 / 压低」。</li>
+     *   <li>{@code offsetY} 则<b>必须</b>进入锚点 y。</li>
      * </ul>
      * <p>
      * <b>为什么不用「真锚点」</b>（已实测，两种反推都失败）：
