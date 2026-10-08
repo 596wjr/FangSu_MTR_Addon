@@ -18,6 +18,7 @@
     "MetropolisTurnstileMixin",
     "RailAngleMixin",
     "RailPoseExtraMixin",
+    "RailGeometryMixin",
     "ItemNodeModifierBaseMixin",
     "ItemRailModifierMixin"
   ],
