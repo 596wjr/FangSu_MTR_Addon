@@ -17,6 +17,7 @@
     "RailwayDataRailActionsModuleMixin",
     "MetropolisTurnstileMixin",
     "RailAngleMixin",
+    "RailPoseExtraMixin",
     "ItemNodeModifierBaseMixin",
     "ItemRailModifierMixin"
   ],
