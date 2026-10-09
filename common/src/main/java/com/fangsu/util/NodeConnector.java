@@ -970,6 +970,9 @@ public final class NodeConnector {
         final double[] otherOffset = readNodeOffset(level, otherPos);
         final double anchorDx = (otherPos.getX() + otherOffset[0]) - (nodePos.getX() + nodeOffset[0]);
         final double anchorDz = (otherPos.getZ() + otherOffset[2]) - (nodePos.getZ() + nodeOffset[2]);
+        // 锚点连线的方位角。注意方向性：它是 nodePos → otherPos 的朝向，
+        // 因此只能喂给「nodePos 为起点」的那一次调用。
+        final double anchorDegrees = Math.toDegrees(Math.atan2(anchorDz, anchorDx));
         // 服务端读到的就是权威的当前姿态（readRailPose 内部读的是服务端方块实体）
         final RailPoseExtra nodePose = readRailPose(level, nodePos, otherPos);
         final RailPoseExtra otherPose = readRailPose(level, otherPos, nodePos);
@@ -978,11 +981,31 @@ public final class NodeConnector {
         // 中间控制点位置镜像（控制点在物理上没有移动）。不做这一步，节点重建后
         // 反向轨道的超高会左右颠倒 —— 两条方向都被渲染，用户看到的就是一个扭结。
         final RailTiltCarry backwardCarry = tiltCarry == null ? null : tiltCarry.reversed();
-        final boolean created = refreshOneDirection(serverLevel, railwayData, nodePos, otherPos,
-                nodeConnections.get(otherPos), anchorDx, anchorDz, nodePose, tiltCarry)
-                | refreshOneDirection(serverLevel, railwayData, otherPos, nodePos,
-                otherConnections.get(nodePos), anchorDx, anchorDz, otherPose, backwardCarry);
-        if (!created) {
+        // 【P5-6 修复】反向那次调用必须用**反向**的弦向角（anchor + 180）。
+        // 原因：alignToConnection 用 RailAngle.similarFacing(弦向, 端点方向) 决定该端点「保持不变还是取反」，
+        // 而 similarFacing(a, d) 与 similarFacing(a + 180, d) 恒为相反结果 —— 所以两个方向
+        // 共用同一个 anchorDegrees 会让反向轨的对齐整整反 180°。
+        // 实测后果（见 .tmp_p5_6_probe）：正向 [0°,180°] 时反向算出 [0°,180°]（与正向完全相同，
+        // 而 MTR 的约定必须是交换后的 [180°,0°]）；斜向连线上反向轨甚至退化成长度 0 的几何。
+        // 这会把 Rail.facingStart/facingEnd 写错，而它正是 mtr.path.PathFinder 用来筛选分支的字段
+        // （PathFinder.java:152/161 用 facingEnd.getOpposite() 与 facingStart 做引用比较），
+        // 于是「给节点设了俯仰 / 翻滚」之后寻路就会失败。
+        // 参考实现（createAndSendRail / rebuildRailsAtNode / MultiDirectionNodeConfigScreen 的预检）
+        // 都用「反向轨的 facingStart/facingEnd = 正向轨的 facingEnd/facingStart」这一交换约定。
+        final Rail forwardExisting = nodeConnections.get(otherPos);
+        final Rail backwardExisting = otherConnections.get(nodePos);
+        // 两个方向都必须重建：不能写成 `A | B` 一次性求值，否则「只成功一个方向」这种
+        // 半刷新状态（两条轨道姿态不一致）就没有任何痕迹。
+        final boolean forwardCreated = refreshOneDirection(serverLevel, railwayData, nodePos, otherPos,
+                forwardExisting, anchorDegrees, nodePose, tiltCarry);
+        final boolean backwardCreated = refreshOneDirection(serverLevel, railwayData, otherPos, nodePos,
+                backwardExisting, normalizeDegrees(anchorDegrees + 180.0D), otherPose, backwardCarry);
+        if (forwardExisting != null && backwardExisting != null && forwardCreated != backwardCreated) {
+            Main.LOGGER.warn("[NodeConnector] refreshNodeRail 只重建了一个方向（正向={} 反向={}）{}<->{}，"
+                    + "另一条继续保持旧几何，两条轨道会不一致",
+                    forwardCreated, backwardCreated, nodePos, otherPos);
+        }
+        if (!forwardCreated && !backwardCreated) {
             Main.LOGGER.warn("[NodeConnector] refreshNodeRail 无候选几何，旧轨道保留 {}<->{}", nodePos, otherPos);
             return false;
         }
@@ -996,18 +1019,25 @@ public final class NodeConnector {
      * 重建并派发<b>一个方向</b>的轨道（{@code posStart → posEnd}）。
      * <p>
      * 角度按 MTR 的朝向语义对齐：起点取 {@code posStart} 的方向、终点取 {@code posEnd} 的方向，
-     * 其中 {@code anchorDx/anchorDz} 是共享的锚点连线向量（两个方向都用同一对锚点，
-     * 因此不需要反向重算）。
+     * 对齐判据是<b>该方向自己</b>的弦向角 {@code anchorDegrees}（{@code posStart → posEnd} 的方位角）。
+     * <p>
+     * <b>{@code anchorDegrees} 是方向敏感的量，调用方必须按本方向给出</b>：反向轨道不是
+     * 「同一个弦向角再算一遍」，而是 {@code anchorDegrees + 180}。两条方向共用同一个值会让反向轨的
+     * {@code facingStart/facingEnd} 整整反 180°（详见 {@link #refreshNodeRail} 里的 P5-6 说明）。
+     * 这也与另外三条建轨路径的约定一致 —— {@code createAndSendRail}、
+     * {@link #rebuildRailsAtNode}、以及 {@code MultiDirectionNodeConfigScreen} 的几何预检都把反向轨
+     * 写成「正向轨 facing 的交换」，而不是重新对齐一次。
      *
      * @param existing  该方向的旧轨道（提供 {@code railType} 与 {@code transportMode}）；
      *                  {@code null} = 该方向不存在，直接跳过
+     * @param anchorDegrees 本方向的锚点连线方位角（度，{@code posStart → posEnd}）
      * @param tiltCarry 作者授权的逐轨道超高（{@code null} / 未授权时保持节点派生值）
      * @return 是否派发了一条轨道
      */
     private static boolean refreshOneDirection(
             ServerLevel level, RailwayData railwayData,
             BlockPos posStart, BlockPos posEnd, Rail existing,
-            double anchorDx, double anchorDz,
+            double anchorDegrees,
             RailPoseExtra nodePose, RailTiltCarry tiltCarry
     ) {
         if (existing == null) {
@@ -1015,7 +1045,6 @@ public final class NodeConnector {
         }
         final double startDegrees = getDirectionDegrees(level, posStart);
         final double endDegrees = getDirectionDegrees(level, posEnd);
-        final double anchorDegrees = Math.toDegrees(Math.atan2(anchorDz, anchorDx));
         final double alignedStart = normalizeDegrees(startDegrees
                 + (RailAngle.similarFacing((float) anchorDegrees, (float) startDegrees) ? 0 : 180));
         final double alignedEnd = normalizeDegrees(endDegrees
