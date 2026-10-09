@@ -6,6 +6,7 @@ import com.fangsu.mtr.rail.RailGeometryProvider;
 import com.fangsu.mtr.rail.RailGeometrySource;
 import com.fangsu.mtr.rail.RailPoseExtraHolder;
 import com.fangsu.mtr.rail.RailSeamSource;
+import com.fangsu.mtr.rail.RailTiltRenderHelper;
 import com.fangsu.mtr.rail.RailTiltSupport;
 import mtr.data.Rail;
 import mtr.data.RailAngle;
@@ -16,13 +17,15 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * 让 MTR3 的轨道中心线几何在有附加姿态时改由版本无关内核
  * {@link RailGeometryCore} 提供（P5-1）。
  * <p>
- * <b>唯一钩子：{@code Rail.getPositionY(double)} 的返回值。</b>它是 {@code Rail} 里 y 的
+ * <b>几何钩子：{@code Rail.getPositionY(double)} 的返回值。</b>它是 {@code Rail} 里 y 的
  * <b>唯一</b>来源（已用 {@code javap -p} 对 5 个真实 3.2.2 jar 核实：1.18.2 Fabric/Forge
  * hotfix-1、1.20.1 Fabric hotfix-1、1.20.1 Forge hotfix-1/hotfix-2），因此
  * <ul>
@@ -58,6 +61,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * 理由见 {@link RailGeometrySource#stubAnchors}。姿态本身由
  * {@code NodeConnector.readRailPose} 从万向节点方块实体派生（含俯仰角投影与翻滚角的
  * 节点帧 → 轨道帧换算）。
+ * <p>
+ * <b>P5-3 / P5-6 起本类还持有两个相位钩子</b>（{@link #fangsu$beginRailRender()} 与
+ * {@link #fangsu$captureSegmentOffset(double)}）：它们的目标类也是 {@code Rail}，
+ * 原本被误写在 {@code @Mixin(RenderTrains.class)} 的 {@code RenderTrainsMixin} 里而从未生效。
+ * 搬过来是<b>唯一</b>能修好它们的做法 —— {@code @Shadow} 四个 {@code private final} 字段
+ * 只有持有目标类的 mixin 读得到。<b>与几何/姿态两条关注点保持可分离</b>：相位钩子只读
+ * 字段、只做算术（全部在 {@link RailTiltRenderHelper} 里），不碰 {@code fangsu$geometryCore}、
+ * 不碰姿态缓存，也不改变 {@link #fangsu$poseAwarePositionY(double, CallbackInfoReturnable)}
+ * 的任何行为。
  */
 @Mixin(value = Rail.class, remap = false)
 public abstract class RailGeometryMixin implements RailGeometryProvider, RailPoseExtraHolder, RailSeamSource {
@@ -85,6 +97,10 @@ public abstract class RailGeometryMixin implements RailGeometryProvider, RailPos
      * {@code |tEnd1 - tStart1|} 就是 {@code Rail.getPosition(double)} 里分段用的 {@code count1}，
      * 也就是「两段圆弧的接缝」在弧长参数上的位置 —— 逐轨道超高的中间控制点必须落在那里。
      * 这四个字段是 {@code private final}，除了 shadow 之外没有别的读法。
+     * <p>
+     * <b>P5-6 起它们还被相位钩子用</b>（见 {@link #fangsu$beginRailRender()}）：
+     * {@link RailSeamSource#getFangSuMiddleBreakpointFraction()} 用 {@code count1/count2} 算接缝，
+     * 相位钩子用同样的两个量算沿轨弧长参数。两处读的是同一对字段，因此接缝与相位不可能互相矛盾。
      */
     @Shadow
     private double tStart1;
@@ -150,6 +166,84 @@ public abstract class RailGeometryMixin implements RailGeometryProvider, RailPos
                 railType.railSlopeStyle == RailType.RailSlopeStyle.CABLE
                         ? RailGeometryCore.SHAPE_CABLE
                         : RailGeometryCore.SHAPE_QUADRATIC));
+    }
+
+    // ==================== P5-3 相位钩子（P5-6 起住在这里） ====================
+    //
+    // 这两个钩子的目标类是 mtr.data.Rail，但 P5-3 把它们写在了 @Mixin(RenderTrains.class)
+    // 的 RenderTrainsMixin 里。后果（用户构建里可见的注解处理器诊断只是其中一条）：
+    //   * method = "render"       → 处理器解析到 RenderTrains 自己的 render 重载上，不报错，
+    //                                但注入点在 Rail 上从未生效；
+    //   * method = "renderSegment" → 处理器完全不校验 @ModifyVariable.method，
+    //                                连一条诊断都没有，钩子一次都没跑过；
+    //   * 四个 @Shadow 字段        → 报「Cannot find target for @Shadow field in mtr.render.RenderTrains」。
+    // 净效果：相位（弧长参数）永远走兜底值，逐轨道超高的三点剖面落错位置。
+    //
+    // 现在它们和四个 @Shadow 字段在同一个目标类（Rail）里，并且：
+    //   * method 全部写完整描述符（RenderTrains / Rail 都有 render 重载，裸名字会静默指错）；
+    //   * 注入点钉在 renderSegment 循环体的 renderRail 调用上，保证「每个截面一次」；
+    //   * index 是 LVT 槽位 11（不是形参序号 5 —— 见 RailTiltRenderHelper 的注释）；
+    //   * 处理器静态性匹配目标方法（render / renderSegment 都是实例方法 ⇒ 处理器非静态）。
+
+    /**
+     * 读取本轨道的两段弧长（滚转剖面的相位来源），交给
+     * {@link RailTiltRenderHelper#prepareRailRender(double, double)}。
+     * <p>
+     * <b>为什么需要弧长</b>：MTR3 给 {@code RenderRail} 回调的 10 个 double 里<b>没有</b>参数值，
+     * 而 {@code renderSegment} 的循环是 {@code increment = count / round(count)}、
+     * {@code value = i + rawValueOffset}，所以「本段起始弧长 + 截面序号 × 步长」才是真实的
+     * 沿轨参数（内核的 {@code getRollRadians} 与 MTR3 的 {@code getPositionY} 共用同一个参数化）。
+     * 相位错了，逐轨道超高的三点剖面就会落在错误的位置。
+     * <p>
+     * 这四个 {@code @Shadow} 字段是 {@code Rail} 的 {@code private final}，只有持有目标类的
+     * mixin 才读得到；读出的纯数据交给 helper，helper 只做算术，
+     * 于是探针可以直接用真实数值驱动。
+     * <p>
+     * {@code render(RenderRail,float,float)} 是 {@code Rail} 里<b>唯一</b>的 {@code render}
+     * 重载（{@code javap -p} 已核实），仍然写完整描述符 —— 目标类一旦多一个同名重载，
+     * 裸名字就会静默指向别处（这正是本钩子上一版的失效方式）。
+     * <p>
+     * <b>处理器非静态</b>：目标方法是实例方法，Mixin 的
+     * {@code Injector.checkTargetModifiers(target, true)} 会强制静态性一致。
+     */
+    @Inject(
+            method = RailTiltRenderHelper.RAIL_RENDER_TARGET,
+            at = @At("HEAD"),
+            require = 0,
+            remap = false
+    )
+    private void fangsu$beginRailRender(CallbackInfo callbackInfo) {
+        RailTiltRenderHelper.prepareRailRender(Math.abs(tEnd1 - tStart1), Math.abs(tEnd2 - tStart2));
+    }
+
+    /**
+     * 记录本截面在整条轨道弧长上的起始参数。
+     * <p>
+     * <b>注入点为什么不是 HEAD</b>：{@code @ModifyVariable} 的 HEAD 每次方法调用只跑一次，
+     * 而 {@code Rail.render} 只调用 {@code renderSegment} 两次（两段圆弧各一次）——
+     * 钉在 HEAD 上就变成「整段圆弧只记一个相位」。钉在循环体里那次
+     * {@code RenderRail.renderRail} 调用（{@code javap -p -c} 核实：{@code renderSegment} 里
+     * 只有这一处 {@code invokeinterface}）才是每个截面一次，与 helper 的计数器语义一致。
+     * <p>
+     * <b>index = 11 而不是 5</b>：{@code renderSegment} 是<b>实例</b>方法（{@code javap} 输出里
+     * 没有 {@code static}），{@code this} 占槽位 0，之后每个 {@code double} 占两格：
+     * {@code h=1,k=3,r=5,tStart=7,tEnd=9,rawValueOffset=11}（{@code javap -p -l} 的
+     * {@code LocalVariableTable} 逐行核实）。写成 5 会落到 {@code r}（圆弧半径）上，
+     * 类型同样是 {@code double}，处理器签名照样匹配 —— 又一个静默错值。
+     * <p>
+     * <b>处理器非静态</b>：目标方法是实例方法。处理器只读不改，原值原样返回。
+     */
+    @ModifyVariable(
+            method = RailTiltRenderHelper.RAIL_RENDER_SEGMENT_TARGET,
+            at = @At(value = "INVOKE", target = RailTiltRenderHelper.RAIL_RENDER_CALLBACK_TARGET),
+            argsOnly = true,
+            index = RailTiltRenderHelper.RAIL_RENDER_SEGMENT_OFFSET_SLOT,
+            require = 0,
+            remap = false
+    )
+    private double fangsu$captureSegmentOffset(double rawValueOffset) {
+        RailTiltRenderHelper.beginRailSegment(rawValueOffset);
+        return rawValueOffset;
     }
 
     // ==================== RailGeometryProvider ====================

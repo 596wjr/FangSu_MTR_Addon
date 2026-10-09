@@ -163,10 +163,19 @@ public class RenderTrainsMixin {
     //
     //  ① @ModifyVariable(index = 1) 捕获「当前正在渲染的轨道」（Rail 在槽位 1）
     //  ② @Inject(RETURN)            结束同步窗口
-    //  ③ Rail.render 的 @Inject     读取两段弧长（滚转剖面的相位）
-    //  ④ renderSegment 的 @ModifyVariable  读取本段弧长起始偏移
     //  ⑤ scheduleRender 的 @Redirect ×2    只包装轨面 / 单行道箭头那两个排队消费者
+    //                                       （注入点是 lambda$renderRailStandard$17 —— 两个
+    //                                        scheduleRender 调用写在那里，$15/$16 是被排队的消费者）
     //  ⑥ drawTexture 的 @Redirect ×4       旋转四角点（每个 lambda 两次调用、正反面各一次）
+    //
+    // ★ 相位钩子（③ Rail.render 的 @Inject、④ Rail.renderSegment 的 @ModifyVariable）
+    //   以及 tStart1/tEnd1/tStart2/tEnd2 的四个 @Shadow <b>已经搬到 RailGeometryMixin</b>：
+    //   它们的目标类是 {@code mtr.data.Rail}，写在这个 {@code @Mixin(RenderTrains.class)}
+    //   的类里时，{@code method = "render"} 被注解处理器解析到 RenderTrains 自己的 render
+    //   重载上（于是不报错），{@code method = "renderSegment"} 因为处理器完全不校验
+    //   {@code @ModifyVariable.method} 而毫无提示，四个 @Shadow 字段则报
+    //   「Cannot find target for @Shadow field in mtr.render.RenderTrains」。
+    //   判据与描述符见 RailTiltRenderHelper 里的相位钩子目标常量。
     //
     // ★ NTE（mtrsteamloco）存在时这些钩子仍是活的，但 MTR 的轨面压根不会被调用：
     //   NTE 在 renderRailStandard 上 @Inject 并 CallbackInfo.cancel()，改用自己的
@@ -183,6 +192,11 @@ public class RenderTrainsMixin {
      * <b>一次都不会触发</b>，而 {@code require = 0} 把失败藏成静默 —— 于是出现
      * 「轨道整体被抬高但完全不倾斜」，排查了好几轮。这里保持 {@code index = 1} 并在 helper 里
      * 做一次性诊断。
+     * <p>
+     * <b>{@code method} 用完整描述符而不是裸名字</b>：{@code RenderTrains} 里
+     * {@code renderRailStandard} 有<b>两个</b>重载（5 参数与 10 参数，{@code javap -p} 已核实），
+     * 裸名字让处理器自己挑一个，解析结果不受控。描述符见
+     * {@link RailTiltRenderHelper#RENDER_RAIL_STANDARD_10_DESCRIPTOR}。
      * <p>
      * 处理器只把原值原样返回（{@code @ModifyVariable} 语义上可以改写参数，这里刻意不改）。
      */
@@ -209,75 +223,20 @@ public class RenderTrainsMixin {
         RailTiltRenderHelper.endRailSection();
     }
 
-    /** 第一段圆弧的参数区间（{@code count1 = |tEnd1 - tStart1|}）。 */
-    @Shadow
-    private double tStart1;
-    @Shadow
-    private double tEnd1;
-    /** 第二段圆弧的参数区间（{@code count2 = |tEnd2 - tStart2|}）。 */
-    @Shadow
-    private double tStart2;
-    @Shadow
-    private double tEnd2;
-
-    /**
-     * 读取本轨道的两段弧长（滚转剖面的相位来源）。
-     * <p>
-     * <b>为什么需要弧长</b>：MTR3 给 {@code RenderRail} 回调的 10 个 double 里<b>没有</b>参数值，
-     * 而 {@code renderSegment} 的循环是 {@code increment = count / round(count)}、
-     * {@code value = i + rawValueOffset}，所以「本段起始弧长 + 截面序号 × 步长」就是真实的
-     * 沿轨参数（内核的 {@code getRollRadians} 与 MTR3 的 {@code getPositionY} 共用同一个参数化）。
-     * 相位错了，逐轨道超高的三点剖面就会落在错误的位置。
-     * <p>
-     * 这四个 {@code @Shadow} 字段是 {@code Rail} 的 {@code private final}，只有持有目标类的
-     * mixin 才读得到；读出的纯数据交给
-     * {@link RailTiltRenderHelper#prepareRailRender(double, double)}，helper 只做算术，
-     * 于是探针可以直接用真实数值驱动。
-     * <p>
-     * {@code render(RenderRail,F,F)} 是公开方法，写 {@code method = "render"} 即可；
-     * 它是 {@code Rail} 里<b>唯一</b>的 {@code render} 重载（{@code javap -p} 已核实）。
-     */
-    @Inject(
-            method = "render",
-            at = @At("HEAD"),
-            require = 0,
-            remap = false
-    )
-    private void fangsu$beginRailRender(CallbackInfo callbackInfo) {
-        RailTiltRenderHelper.prepareRailRender(Math.abs(tEnd1 - tStart1), Math.abs(tEnd2 - tStart2));
-    }
-
-    /**
-     * 记录本段 {@code renderSegment} 的弧长起始偏移。
-     * <p>
-     * {@code javap -p -c} 核实 {@code Rail.render} 的两个调用点：第 1 个传 {@code rawValueOffset = 0}，
-     * 第 2 个传 {@code |tEnd1 - tStart1|}（即第 1 段的弧长）。两处都在同一条指令上，
-     * 因此<b>不需要 ordinal</b>：一次 {@code @ModifyVariable} 两个调用点都会经过。
-     * <p>
-     * 用 {@code @ModifyVariable(argsOnly = true, index = 5)} 而不是 {@code @Redirect}：
-     * {@code renderSegment} 是 {@code private} 方法，跨包不可见，{@code @Redirect} 的处理器
-     * 无法转发调用；而这里只需要读取形参。{@code renderSegment} 是 {@code static}，
-     * 参数序号即槽位：{@code h,k,r,tStart,tEnd,rawValueOffset} → index 5。
-     * 处理器只读不改，原值原样返回。
-     */
-    @ModifyVariable(
-            method = "renderSegment",
-            at = @At("HEAD"),
-            argsOnly = true,
-            index = 5,
-            require = 0,
-            remap = false
-    )
-    private static double fangsu$captureSegmentOffset(double rawValueOffset) {
-        RailTiltRenderHelper.beginRailSegment(rawValueOffset);
-        return rawValueOffset;
-    }
-
     /**
      * 包装单行道箭头（{@code lambda$renderRailStandard$15}）的延迟绘制消费者。
      * <p>
-     * {@code @At} 已把重定向锁死在 {@code renderRailStandard} 自己的两个 lambda 里，因此信号
-     * （{@code renderSignalsStandard} 不用 {@code scheduleRender}）、别处的 4 参数排队天然被排除。
+     * <b>注入点是 {@code lambda$renderRailStandard$17}（宿主 {@code RenderRail} 回调），
+     * 不是 {@code $15}。</b>两个 {@code scheduleRender} 调用都写在这个回调里（源码 :479 / :487），
+     * 而 {@code $15}/{@code $16} 是<b>被排队</b>的消费者，体内只有 {@code IDrawing.drawTexture}。
+     * P5-3 曾把这两个 {@code @Redirect} 挂在 {@code $15}/{@code $16} 上 —— 注入点为零、
+     * {@code require = 0} 静默通过，{@link RailTiltRenderHelper#wrapQuadConsumer} 一次都没跑过。
+     * {@code ordinal} 按字节码顺序区分：{@code 0} = 箭头（{@code if} 分支），
+     * {@code 1} = 轨面（{@code else} 分支）。
+     * <p>
+     * {@code @At} 已把重定向锁死在 {@code $17} 里那两个调用点上，因此信号
+     * （{@code renderSignalsStandard} 走 {@code lambda$renderSignalsStandard$18}、不用
+     * {@code scheduleRender}）、别处的 4 参数排队天然被排除。
      * <b>不在同步窗口内、或轨道没有滚转时，helper 返回原消费者实例</b>，
      * 排队与执行与 MTR 原生逐位一致。
      * <p>
@@ -287,10 +246,11 @@ public class RenderTrainsMixin {
      * synthetic lambda 只能写名字（注解处理器解析不了 synthetic 描述符）。
      */
     @Redirect(
-            method = RailTiltRenderHelper.RAIL_ARROW_SCHEDULE_TARGET,
+            method = RailTiltRenderHelper.RAIL_SCHEDULE_TARGET,
             at = @At(
                     value = "INVOKE",
-                    target = "Lmtr/render/RenderTrains;scheduleRender(Lnet/minecraft/resources/ResourceLocation;ZLmtr/render/RenderTrains$QueuedRenderLayer;Ljava/util/function/BiConsumer;)V"
+                    target = "Lmtr/render/RenderTrains;scheduleRender(Lnet/minecraft/resources/ResourceLocation;ZLmtr/render/RenderTrains$QueuedRenderLayer;Ljava/util/function/BiConsumer;)V",
+                    ordinal = RailTiltRenderHelper.RAIL_ARROW_SCHEDULE_ORDINAL
             ),
             require = 0,
             remap = false
@@ -304,12 +264,13 @@ public class RenderTrainsMixin {
                 RailTiltRenderHelper.wrapQuadConsumer(consumer));
     }
 
-    /** 同上，轨面（{@code lambda$renderRailStandard$16}）。 */
+    /** 同上，轨面（{@code $17} 里第 2 个 {@code scheduleRender}，{@code ordinal = 1}）。 */
     @Redirect(
-            method = RailTiltRenderHelper.RAIL_QUAD_SCHEDULE_TARGET,
+            method = RailTiltRenderHelper.RAIL_SCHEDULE_TARGET,
             at = @At(
                     value = "INVOKE",
-                    target = "Lmtr/render/RenderTrains;scheduleRender(Lnet/minecraft/resources/ResourceLocation;ZLmtr/render/RenderTrains$QueuedRenderLayer;Ljava/util/function/BiConsumer;)V"
+                    target = "Lmtr/render/RenderTrains;scheduleRender(Lnet/minecraft/resources/ResourceLocation;ZLmtr/render/RenderTrains$QueuedRenderLayer;Ljava/util/function/BiConsumer;)V",
+                    ordinal = RailTiltRenderHelper.RAIL_QUAD_SCHEDULE_ORDINAL
             ),
             require = 0,
             remap = false
@@ -334,7 +295,7 @@ public class RenderTrainsMixin {
      * u/v、light、color、{@code Direction} 全部原样透传。
      */
     @Redirect(
-            method = RailTiltRenderHelper.RAIL_ARROW_SCHEDULE_TARGET,
+            method = RailTiltRenderHelper.RAIL_ARROW_DRAW_TARGET,
             at = @At(
                     value = "INVOKE",
                     target = "Lmtr/client/IDrawing;drawTexture(Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/blaze3d/vertex/VertexConsumer;FFFFFFFFFFFFFFFFLnet/minecraft/core/Direction;II)V"
@@ -362,7 +323,7 @@ public class RenderTrainsMixin {
      * 正反面不再重合（z-fighting / 法线反向）。
      */
     @Redirect(
-            method = RailTiltRenderHelper.RAIL_ARROW_SCHEDULE_TARGET,
+            method = RailTiltRenderHelper.RAIL_ARROW_DRAW_TARGET,
             at = @At(
                     value = "INVOKE",
                     target = "Lmtr/client/IDrawing;drawTexture(Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/blaze3d/vertex/VertexConsumer;FFFFFFFFFFFFFFFFLnet/minecraft/core/Direction;II)V",

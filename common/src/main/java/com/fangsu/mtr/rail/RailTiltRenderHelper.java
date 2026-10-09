@@ -25,9 +25,10 @@ import static mtr.data.IGui.SMALL_OFFSET;
  *       → renderRailStandard(…, String, F,F,F,F)                                        【同步】★ 捕获 Rail
  *         → Rail.render(RenderRail, -railWidth, +railWidth)                             【同步】★ 捕获两段弧长
  *           → Rail.renderSegment(...) → callback.renderRail(x1,z1,…,x4,z4,y1,y2)         【每个截面一次】★ 累计弧长
- *             → lambda$renderRailStandard$15（单行道箭头）/ $16（轨面）
+ *             → lambda$renderRailStandard$17   ← renderRailStandard 传进去的 RenderRail 回调
  *               → RenderTrains.scheduleRender(ResourceLocation,Z,QueuedRenderLayer,BiConsumer)  【同步排队】★ 包装消费者
- *                 → …本帧稍后（渲染线程）执行 lambda$renderRailStandard$15 / $16…
+ *                 （ordinal 0 = 单行道箭头、ordinal 1 = 轨面）
+ *                 → …本帧稍后（渲染线程）执行 lambda$renderRailStandard$15（箭头）/ $16（轨面）…
  *                   → IDrawing.drawTexture(PoseStack,VertexConsumer,F×16,Direction,II)   【真正的绘制】★ 旋转四角
  * </pre>
  * <b>为什么必须「捕获当前轨道 + 包装延迟消费者」而不是直接改 {@code renderSegment}</b>：
@@ -39,6 +40,14 @@ import static mtr.data.IGui.SMALL_OFFSET;
  * 因此本类只作用于「10 参数 {@code renderRailStandard} 同步窗口内排队的那两个消费者」，
  * 与 MTR4 的 {@code RenderRailsMixin} 同构（那边也是「捕获 Rail + 包装排队消费者 + 只转轨面」）。
  * <p>
+ * <b>P5-6 修好的三处「钩子从未生效」</b>（每一处都因为 {@code require = 0} + 处理器不校验而静默）：
+ * <ol>
+ *   <li>相位钩子写在 {@code @Mixin(RenderTrains.class)} 里而不是 {@code Rail} 上；</li>
+ *   <li>相位钩子的 {@code index = 5} 其实是 {@code renderSegment} 的 {@code r}（应为 11），
+ *       而且 {@code @At("HEAD")} 让它每段只跑一次（应为循环体的 {@code renderRail} 调用）；</li>
+ *   <li>两个 {@code scheduleRender} 的 {@code @Redirect} 挂在 {@code $15}/{@code $16} 上，
+ *       而这两个调用点在 {@code $17} 里 —— 注入点为零，{@code wrapQuadConsumer} 从未被调用。</li>
+ * </ol>
  * <b>四角点重排的由来（不是随手写的）</b>：{@code lambda$renderRailStandard$16} 的字节码对
  * <b>同一组</b> 16 个 float 调用<b>两次</b> {@code drawTexture}，第二次是同一工艺面、绕序相反的背面。
  * 但第二次的 y 偏移位置与第一次<b>不一致</b>（同一空间点承担的 {@code +SMALL_OFFSET} 在两次之间交换）：
@@ -112,27 +121,113 @@ import static mtr.data.IGui.SMALL_OFFSET;
 public final class RailTiltRenderHelper {
 
     /**
-     * 轨面排队 Lambda 的注入点（MTR3 3.2.2：单行道箭头 = {@code $15}、轨面 = {@code $16}）。
+     * 排队（{@code scheduleRender}）调用点所在的<b>宿主 lambda</b>。
+     * <p>
+     * <b>这里就是 P5-3 的第三个死钩子。</b>箭头与轨面的两个 {@code scheduleRender} 调用都在
+     * {@code renderRailStandard} 传给 {@code rail.render(...)} 的那个 {@code RenderRail} 回调里，
+     * 也就是 {@code lambda$renderRailStandard$17}；{@code $15}/{@code $16} 是<b>被排队的消费者</b>，
+     * 它们里面<b>只有</b> {@code IDrawing.drawTexture}，一次 {@code scheduleRender} 都没有。
+     * P5-3 把两个 {@code scheduleRender} 的 {@code @Redirect} 写在 {@code $15}/{@code $16} 上，
+     * 于是注入点为零 —— {@code require = 0} 让它静默通过，{@link #wrapQuadConsumer} 一次都没被调用，
+     * {@link #ACTIVE_FRAME} 永远为空，{@link #buildTiltedQuad} 永远返回 {@code null}：
+     * <b>即使修好了目标类，轨面也永远不会倾斜。</b>
+     * <p>
+     * 对 5 个真实 3.2.2 jar 逐字节核实（1.18.2 Fabric/Forge hotfix-1、1.20.1 Fabric hotfix-1、
+     * 1.20.1 Forge hotfix-1/hotfix-2）：{@code $17} 里 {@code scheduleRender} 恰好两处
+     * （字节码偏移 112 = 箭头、229 = 轨面），编号与偏移全部相同。
+     * <p>
+     * synthetic lambda 只能写名字（注解处理器解析不了 synthetic 描述符），所以这里用
+     * {@code method} + {@code @At(ordinal)} 而不是描述符。
+     */
+    public static final String RAIL_SCHEDULE_TARGET = "lambda$renderRailStandard$17";
+
+    /** 单行道箭头（{@code one_way_rail_arrow.png}）那次 {@code scheduleRender} 在 {@code $17} 里的 ordinal。 */
+    public static final int RAIL_ARROW_SCHEDULE_ORDINAL = 0;
+
+    /** 轨面（本特性真正的目标）那次 {@code scheduleRender} 在 {@code $17} 里的 ordinal。 */
+    public static final int RAIL_QUAD_SCHEDULE_ORDINAL = 1;
+
+    /**
+     * 单行道箭头的<b>被排队消费者</b> lambda：两个 16-float {@code drawTexture} 在这里。
      * <p>
      * 对 1.18.2 与 1.20.1 的已发布 jar 都用 {@code javap -p} 核实过命名与参数表（逐字节相同）。
      * 1.19.x 的 jar 本地没有缓存，无法核实；因此 {@code @Redirect} 全部带 {@code require = 0}，
      * 失效只降级为「不倾斜」，由本类的一次性诊断报出来（绝不崩游戏）。
      */
-    public static final String RAIL_ARROW_SCHEDULE_TARGET = "lambda$renderRailStandard$15";
-    /** 轨面（本特性真正的目标）。见 {@link #RAIL_ARROW_SCHEDULE_TARGET}。 */
-    public static final String RAIL_QUAD_SCHEDULE_TARGET = "lambda$renderRailStandard$16";
+    public static final String RAIL_ARROW_DRAW_TARGET = "lambda$renderRailStandard$15";
 
-    /**
-     * 轨面绘制的注入点（MTR3 3.2.2：16-float {@code IDrawing.drawTexture}）。
-     * <p>
-     * 箭头的 16-float 调用与轨面在字节码里是<b>同一个</b> {@code invokestatic}（同一个常量池项
-     * {@code #968}），两者只差所在 lambda，而这个重定向已按方法名锁定在 {@code $15}/{@code $16} 上，
-     * 所以两个 lambda 各挂一个同名重定向即可；信号（不走 lambda、也不进同步窗口）天然被排除。
-     */
+    /** 轨面（本特性真正的目标）的<b>被排队消费者</b> lambda：两个 16-float {@code drawTexture} 在这里。 */
     public static final String RAIL_QUAD_DRAW_TARGET = "lambda$renderRailStandard$16";
 
-    /** 10 参数 {@code renderRailStandard}（捕获「当前正在渲染的轨道」的注入点）。 */
-    public static final String RENDER_RAIL_STANDARD_10_DESCRIPTOR = "renderRailStandard";
+    /**
+     * 10 参数 {@code renderRailStandard}（捕获「当前正在渲染的轨道」的注入点）。
+     * <p>
+     * <b>必须写完整描述符</b>：{@code mtr.render.RenderTrains} 里同名方法有<b>两个</b>
+     * （5 参数与 10 参数，{@code javap -p} 已核实），裸名字 {@code "renderRailStandard"} 由
+     * 注解处理器自行挑一个，解析结果不受控。描述符已用 {@code javap -p} 核实为
+     * {@code (Lnet/minecraft/world/level/Level;Lmtr/data/Rail;FZFLjava/lang/String;FFFF)V}。
+     */
+    public static final String RENDER_RAIL_STANDARD_10_DESCRIPTOR =
+            "renderRailStandard(Lnet/minecraft/world/level/Level;Lmtr/data/Rail;FZFLjava/lang/String;FFFF)V";
+
+    // ==================== P5-6：相位钩子的注入点常量（目标类 mtr.data.Rail） ====================
+    //
+    // 这两个钩子曾经被写在 @Mixin(RenderTrains.class) 的类里（用裸名字 "render" / "renderSegment"），
+    // 而 RenderTrains 恰好也有 render 重载、"renderSegment" 一个都没有：注解处理器把
+    // method = "render" 解析到 RenderTrains.render 上（于是不报错），@ModifyVariable 的
+    // method 则根本不做校验 —— 两个钩子一次都没跑过，相位永远是兜底值。
+    // 现在它们住在 @Mixin(Rail.class) 的 RailGeometryMixin 里，并且这里全部写完整描述符：
+    // 目标类一旦多一个同名重载，裸名字就会静默指错，描述符不会。
+
+    /**
+     * {@code Rail.render(RenderRail,float,float)} —— 相位钩子 ③ 的注入点。
+     * <p>
+     * {@code mtr.data.Rail} 里 {@code render} 只有这一个重载（{@code javap -p} 已核实：
+     * {@code public void render(mtr.data.Rail$RenderRail, float, float)}），但仍写完整描述符，
+     * 免得将来 MTR 加一个同名重载就静默指向别处。
+     */
+    public static final String RAIL_RENDER_TARGET = "render(Lmtr/data/Rail$RenderRail;FF)V";
+
+    /**
+     * {@code Rail.renderSegment(...)} —— 相位钩子 ④ 的注入点。
+     * <p>
+     * {@code javap -p} 已核实：{@code private void renderSegment(double,double,double,double,double,double,float,float,boolean,boolean,mtr.data.Rail$RenderRail)}
+     * —— 注意它是<b>实例</b>方法（{@code javap} 输出里没有 {@code static}），不是静态方法。
+     */
+    public static final String RAIL_RENDER_SEGMENT_TARGET =
+            "renderSegment(DDDDDDFFZZLmtr/data/Rail$RenderRail;)V";
+
+    /**
+     * 钩子 ④ 的 {@code @At} 注入点：{@code renderSegment} 循环体里<b>唯一</b>的一次
+     * {@code RenderRail.renderRail} 调用（{@code javap -p -c} 核实：整个
+     * {@code renderSegment} 里只有一处 {@code invokeinterface}，偏移 212）。
+     * <p>
+     * <b>为什么不能用 {@code @At("HEAD")}</b>：{@code @ModifyVariable} 的 HEAD 注入点
+     * <b>每次方法调用只跑一次</b>，而 {@code Rail.render} 只调用 {@code renderSegment} 两次
+     * （两段圆弧各一次）。钉在 HEAD 上就变成「整段圆弧只记一个相位」，
+     * 逐轨道超高（三点剖面）会被采样成两段常数；钉在这个 {@code invokeinterface} 上才是
+     * <b>每个截面一次</b>（循环体每轮都经过它），与 {@link #beginRailSegment} 的计数器语义一致。
+     */
+    public static final String RAIL_RENDER_CALLBACK_TARGET = "Lmtr/data/Rail$RenderRail;renderRail(DDDDDDDDDD)V";
+
+    /**
+     * {@code renderSegment} 里 {@code rawValueOffset} 的<b>局部变量槽位</b>。
+     * <p>
+     * <b>不是形参序号，是 LVT 槽位</b>：Mixin 的 {@code LocalVariableDiscriminator} 拿
+     * {@code index} 去比 {@code Locals.getLocalsAt(...)} 的<b>数组下标</b>（即 slot），
+     * 而 {@code Context.baseArgIndex = isStatic ? 0 : 1}。{@code renderSegment} 是实例方法，
+     * 所以 {@code this} 占槽位 0，其后每个 {@code double} 占两个槽位：
+     * <pre>
+     *   this=0, h=1, k=3, r=5, tStart=7, tEnd=9, rawValueOffset=11,
+     *   offsetRadius1=13, offsetRadius2=14, reverseT=15, isStraight=16, callback=17
+     * </pre>
+     * （{@code javap -p -l} 的 {@code LocalVariableTable} 逐行核实，名字与槽位一一对应。）
+     * <p>
+     * <b>曾经写成 5，那是 {@code r}（圆弧半径）。</b>两个都是 {@code double}，
+     * 处理器签名匹配得上，{@code require = 0} 又不会报错 —— 一旦钩子活过来，
+     * 内核就会拿到「半径」当「弧长起始偏移」，相位全错而日志一片安静。
+     */
+    public static final int RAIL_RENDER_SEGMENT_OFFSET_SLOT = 11;
 
     /**
      * 两条截面之间的最小水平距离（格）：短于它就认为四角点退化（极短轨道的末端采样），
@@ -164,18 +259,33 @@ public final class RailTiltRenderHelper {
 
     /**
      * 每渲染一条轨道的截面累计状态：
-     * {@code {本段起始弧长, 本段 increment, 本段已出截面数, 当前截面起始弧长}}。
+     * {@code {本段起始弧长, 本段 increment, 本段已出截面数, 本段参数累加量 i, 当前段标识}}。
      * <p>
      * 为什么必须自己数截面：MTR3 给回调的 10 个 double 里<b>没有</b>参数值，而滚转剖面
      * （尤其逐轨道超高的三点剖面）以<b>归一化位置</b>为键；相位错了，超高就会落在错误的位置。
-     * {@code renderSegment} 的循环是 {@code i = 0, increment, 2·increment, …}，
-     * 且 {@code increment = count / round(count)}（源码 :424），因此「第 n 个截面」的弧长参数
-     * 就是 {@code n · increment}（{@code n} 为该段内的截面序号），再加上该段的起始偏移。
+     * {@code renderSegment} 的循环是 {@code i = 0; i < count - 0.1; i += increment}，
+     * 且 {@code increment = count / Math.round(count)}（{@code javap -p -c} 核实：偏移 0-33 与
+     * 217-224），它把 {@code i + rawValueOffset} 直接交给 {@code getPositionY}（偏移 141-164）。
+     * <p>
+     * <b>第 4 格刻意做成「累加」而不是「序号 × 步长」</b>：浮点加法不满足结合律，
+     * 只有与 MTR 完全同序地 {@code i += increment}，相位才与 MTR 交给 {@code getPositionY}
+     * 的参数<b>逐位相同</b>（与「零滚转逐位无操作」是同一条纪律）。
+     * <p>
+     * <b>第 5 格（段标识）的用途</b>：{@code Rail.render} 会调用 {@code renderSegment}
+     * <b>两次</b>（两段圆弧），而 {@code beginRailSegment} 是<b>每个截面</b>调一次，
+     * 所以累加量必须在换段时归零 —— 否则第 2 段的相位会多出「第 1 段截面数 × 第 2 段步长」。
+     * 段标识取值 {@code -1} = 未知（窗口刚开）、{@code 0} = 第 1 段、{@code 1} = 第 2 段。
      */
-    private static final ThreadLocal<double[]> QUAD_PROGRESS = ThreadLocal.withInitial(() -> new double[4]);
+    private static final ThreadLocal<double[]> QUAD_PROGRESS = ThreadLocal.withInitial(() -> new double[5]);
 
-    /** {@link #QUAD_PROGRESS} 里「当前截面起始弧长」的下标。 */
-    private static final int PROGRESS_CURRENT_BASE = 3;
+    /** {@link #QUAD_PROGRESS} 里「本段参数累加量 {@code i}」的下标（与 {@code renderSegment} 的循环变量同序）。 */
+    private static final int PROGRESS_PARAM_ACCUM = 3;
+
+    /** {@link #QUAD_PROGRESS} 里「当前段标识」的下标（{@code -1} 未知 / {@code 0} 第 1 段 / {@code 1} 第 2 段）。 */
+    private static final int PROGRESS_SEGMENT_FLAG = 4;
+
+    /** {@link #PROGRESS_SEGMENT_FLAG} 的「未知」取值：{@code prepareRailRender} 写入，强制下一次换段归零。 */
+    private static final double SEGMENT_FLAG_UNKNOWN = -1.0D;
 
     // ==================== 一次性诊断 ====================
     //
@@ -222,7 +332,10 @@ public final class RailTiltRenderHelper {
         captureHookAlive = true;
         sectionSamples++;
         pendingRail = frameFor(rail) == null ? null : rail;
-        QUAD_PROGRESS.get()[2] = 0.0D;
+        // 新轨道 → 截面计数与段标识一起作废（段标识置「未知」，第一次 beginRailSegment 必然归零）
+        final double[] progress = QUAD_PROGRESS.get();
+        progress[2] = 0.0D;
+        progress[PROGRESS_SEGMENT_FLAG] = SEGMENT_FLAG_UNKNOWN;
         if (pendingRail != null) {
             // 只有「真的需要倾斜」的截面才触发活性自检（见 verifyTiltHooksAlive）
             verifyTiltHooksAlive();
@@ -271,6 +384,7 @@ public final class RailTiltRenderHelper {
         progress[0] = 0.0D;
         progress[1] = 0.0D;
         progress[2] = 0.0D;
+        progress[PROGRESS_SEGMENT_FLAG] = SEGMENT_FLAG_UNKNOWN;
     }
 
     // ==================== 钩子 2：捕获两段弧长（滚转剖面的相位） ====================
@@ -293,54 +407,80 @@ public final class RailTiltRenderHelper {
         progress[0] = 0.0D;
         progress[1] = 0.0D;
         progress[2] = 0.0D;
+        // 段标识置「未知」：第一次 beginRailSegment 必然把截面序号归零，本轨道从第 1 段起算
+        progress[PROGRESS_SEGMENT_FLAG] = SEGMENT_FLAG_UNKNOWN;
     }
 
     /** 两段圆弧的弧长（{@link #prepareRailRender} 写入）。 */
     private static final ThreadLocal<double[]> SEGMENT_LENGTHS = ThreadLocal.withInitial(() -> new double[2]);
 
     /**
-     * 开始一段 {@code renderSegment}：{@code rawValueOffset} 是该段在整条轨道弧长上的起始偏移。
+     * 记录「本截面」在整条轨道弧长上的起始参数 —— 由 {@code @ModifyVariable} 在
+     * {@code Rail.renderSegment} 循环体里那次 {@code RenderRail.renderRail} 调用上
+     * <b>每个截面调一次</b>（见 {@link #RAIL_RENDER_CALLBACK_TARGET}）。
      * <p>
-     * {@code javap -p -c} 核实 {@code Rail.render} 的两个调用点：第 1 个传 {@code 0}、
+     * {@code javap -p -c} 核实 {@code Rail.render} 的两个调用点：第 1 个传 {@code rawValueOffset = 0}、
      * 第 2 个传 {@code |tEnd1 - tStart1|}（= 第 1 段的弧长），因此 {@code rawValueOffset}
      * 本身既是「本段起始弧长」，也是「本段是不是第 2 段」的判据。
      * <p>
      * <b>increment 用一个与 {@code renderSegment} 完全相同的公式算</b>：
      * {@code increment = count / Math.round(count)}（源码 :424）。段长来自
-     * {@link #prepareRailRender}。第 1 段的 {@code count1} 为 0 时（退化轨道）两段的 offset 都是 0，
-     * 此时 increment 取 {@code count1} 的步长（退化轨道本来就不会倾斜，差异不可观测）。
+     * {@link #prepareRailRender}；段归属由 {@link #RAIL_RENDER_SEGMENT_OFFSET_SLOT} 那个形参决定：
+     * 第 1 段传 {@code 0}、第 2 段传第 1 段的弧长（{@code javap -p -c} 逐字节核实），
+     * 退化情形（第 1 段弧长为 0，它的循环体一轮都不跑）下所有调用都来自第 2 段，单独判掉。
      * <p>
-     * 本方法是<b>每个截面</b>都会走的（两个 {@code renderSegment} 调用点各一次），所以
-     * 「当前截面的起始弧长」（{@code progress[3]}）在这里<b>取一次就推进一次</b>：
-     * 回调 → 本方法 → 排队 → 固定 base，四步在同一个同步窗口内严格同序。
+     * 本方法是<b>每个截面</b>都会走的（钉在循环体的 {@code renderRail} 调用上），所以
+     * 「本截面的参数累加量」（{@code progress[3]}）在这里<b>取一次就推进一次</b>：
+     * {@code @ModifyVariable} 在 {@code renderRail} 调用前执行 → 回调 → 排队 → 固定 base，
+     * 四步在同一个同步窗口内严格同序。
+     * <p>
+     * <b>换段必须把累加量归零</b>：{@code renderSegment} 两次调用之间没有任何复位点，
+     * 若沿用上一段的值，第 2 段第 n 个截面的相位会变成
+     * {@code count1 + (N1 + n)·increment2}（多出 {@code N1·increment2}）。
      */
     public static void beginRailSegment(double rawValueOffset) {
         segmentHookAlive = true;
         final double[] lengths = SEGMENT_LENGTHS.get();
-        final double count = rawValueOffset != 0.0D ? lengths[1] : lengths[0];
         final double[] progress = QUAD_PROGRESS.get();
+        // 第 2 段 ⇔ 偏移非 0（正常轨道）或第 1 段弧长为 0（退化轨道，那时的 0 偏移属于第 2 段）
+        final boolean secondSegment = rawValueOffset != 0.0D || lengths[0] == 0.0D;
+        final double segmentFlag = secondSegment ? 1.0D : 0.0D;
+        final double count = secondSegment ? lengths[1] : lengths[0];
+        // increment 用一个与 renderSegment 完全相同的公式算（javap -p -c 偏移 10-19）
+        final double increment = count > 0.0D ? count / Math.round(count) : 0.0D;
+        if (progress[PROGRESS_SEGMENT_FLAG] != segmentFlag) {
+            // 换段：本段第 1 个截面，MTR 的循环变量 i 从 0 起
+            progress[PROGRESS_SEGMENT_FLAG] = segmentFlag;
+            progress[2] = 0.0D;
+            progress[PROGRESS_PARAM_ACCUM] = 0.0D;
+        } else {
+            // 同段：与 renderSegment 的 `i += increment`（javap -p -c 偏移 217-222）同序累加
+            progress[PROGRESS_PARAM_ACCUM] += increment;
+        }
         progress[0] = rawValueOffset;
-        progress[1] = count > 0.0D ? count / Math.round(count) : 0.0D;
-        // 第 4 格：当前截面的起始弧长参数（= 本段起始 + 已出截面数 × 步长）
-        progress[PROGRESS_CURRENT_BASE] = progress[0] + progress[2] * progress[1];
+        progress[1] = increment;
         progress[2] += 1.0D;
     }
 
     /**
-     * 当前截面的起始弧长参数（由 {@link #beginRailSegment} 计算）。
+     * 当前截面的沿轨弧长参数 —— 与 {@code renderSegment} 交给 {@code Rail.getPositionY(double)}
+     * 的那个值<b>逐位相同</b>：{@code i + rawValueOffset}（{@code javap -p -c} 偏移 141-164 就是
+     * {@code dload i; dload rawValueOffset; dadd; invokevirtual getPositionY}）。
      * <p>
-     * <b>无副作用</b>：{@link #wrapQuadConsumer} 在排队那一刻把它的值固定进闭包，
-     * 绘制时不再读这个状态（排队与绘制不在同一时刻）。
+     * 由 {@link #beginRailSegment} 在<b>本截面</b>推进，{@link #wrapQuadConsumer} 在排队那一刻
+     * 把它的值固定进闭包，绘制时不再读这个状态（排队与绘制不在同一时刻）。
      */
     public static double quadParameterRange() {
-        return QUAD_PROGRESS.get()[PROGRESS_CURRENT_BASE];
+        final double[] progress = QUAD_PROGRESS.get();
+        // 加法顺序刻意与 renderSegment 一致（dload i; dload rawValueOffset; dadd）
+        return progress[PROGRESS_PARAM_ACCUM] + progress[0];
     }
 
     // ==================== 钩子 3：包装延迟绘制的消费者 ====================
 
     /**
      * {@code @Redirect} 在 {@code RenderTrains.scheduleRender(ResourceLocation,Z,QueuedRenderLayer,BiConsumer)}
-     * 上的处理器（注入点锁定在 {@link #RAIL_ARROW_SCHEDULE_TARGET} / {@link #RAIL_QUAD_SCHEDULE_TARGET}）。
+     * 上的处理器（注入点锁定在 {@link #RAIL_SCHEDULE_TARGET} 的两个 ordinal 上）。
      * <p>
      * <b>安全不变式</b>：不在同步窗口内（= 不是 {@code renderRailStandard} 排的队）、轨道没有滚转、
      * 或内核拒绝构建时，<b>原样返回同一个消费者实例</b> —— 纹理、光照、排队顺序与 MTR 原生逐位一致。
@@ -780,8 +920,8 @@ public final class RailTiltRenderHelper {
             return;
         }
         scheduleMissingWarned = true;
-        Main.LOGGER.warn("[P5-3] 轨面排队包装未生效：{} / {} 上的 scheduleRender @Redirect 未注入。"
+        Main.LOGGER.warn("[P5-3] 轨面排队包装未生效：{} 上 ordinal {} / {} 的 scheduleRender @Redirect 未注入。"
                         + "轨道中心线仍会按 P5-1 抬高，但轨面完全不会倾斜。",
-                RAIL_ARROW_SCHEDULE_TARGET, RAIL_QUAD_SCHEDULE_TARGET);
+                RAIL_SCHEDULE_TARGET, RAIL_ARROW_SCHEDULE_ORDINAL, RAIL_QUAD_SCHEDULE_ORDINAL);
     }
 }
