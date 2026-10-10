@@ -4,6 +4,7 @@ import com.fangsu.customItem.CustomMtrLifts;
 import com.fangsu.data.LiftExtraSupplier;
 import com.fangsu.mtr.ModernTexturedLift;
 import com.fangsu.mtr.rail.RailTiltRenderHelper;
+import com.fangsu.mtr.rail.RailTrainRollHelper;
 import com.fangsu.render.lift.CustomLiftModel;
 import com.fangsu.render.sowcer.math.Matrix4f;
 import com.fangsu.render.sowcerext.model.integration.BufferSourceProxy;
@@ -14,6 +15,7 @@ import mtr.client.ClientData;
 import mtr.data.Lift;
 import mtr.data.LiftClient;
 import mtr.data.Rail;
+import mtr.entity.EntitySeat;
 import mtr.mappings.UtilitiesClient;
 import mtr.render.RenderTrains;
 import mtr.render.TrainRendererBase;
@@ -407,6 +409,41 @@ public class RenderTrainsMixin {
                         : RailTiltRenderHelper.normalizeQuad(secondPass,
                         x1, y1, z1, x2, y2, z2, x3, y3, z3, x4, y4, z4, u1, v1, u2, v2),
                 facing, color, light);
+    }
+
+    // ==================== P5-6：列车车体 / 风挡滚转的帧边界 ====================
+    //
+    // 车体滚转（RailTrainRollHelper）需要一个「每帧一次」的时机来重建「带滚转轨道」的候选表，
+    // 并作为一次性诊断的慢时钟。MTR3 的每帧入口就是这个静态 render。
+    //
+    // ★ 这个钩子与 P5-3 的截面捕获钩子是两个独立关注点：
+    //   * P5-3 的三个钩子决定「轨道带画成什么形状」，装了 NTE 时整条路径被 NTE cancel 掉；
+    //   * 本钩子只服务「列车车体 / 风挡」，装了 NTE 时依然生效（NTE 只接管轨道带）。
+    //   两者失败互不牵连，各自有各自的一次性日志。
+
+    /**
+     * 每帧开头：把「带滚转轨道」的候选表置脏，并推进 {@link RailTrainRollHelper} 的诊断时钟。
+     * <p>
+     * <b>必须写完整描述符</b>：{@code RenderTrains} 里 {@code render} 有<b>两个</b>重载
+     * （{@code javap -p} 核实：静态的 4 参数版 {@code (EntitySeat,float,PoseStack,MultiBufferSource)V}
+     * 与实例的 6 参数版 {@code (EntitySeat,float,float,PoseStack,MultiBufferSource,int)V}），
+     * 裸名字由注解处理器自行挑选，解析结果不受控。
+     * <p>
+     * 处理器是<b>静态</b>方法：目标方法是静态方法，Mixin 强制静态性一致。
+     * {@code require = 0}：将来 MTR 改名只会退化为「候选表按 100 ms TTL 刷新」而不是崩游戏，
+     * 并由 helper 的一次性告警报出来。
+     */
+    @Inject(
+            method = "render(Lmtr/entity/EntitySeat;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;)V",
+            at = @At("HEAD"),
+            require = 0,
+            remap = false
+    )
+    private static void fangsu$beginTrainRollFrame(
+            EntitySeat entity, float tickDelta, PoseStack matrices,
+            MultiBufferSource vertexConsumers, CallbackInfo callbackInfo
+    ) {
+        RailTrainRollHelper.beginRenderFrame();
     }
 
 }
