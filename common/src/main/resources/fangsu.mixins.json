@@ -10,7 +10,9 @@
     "RenderTrainsMixin",
     "ClientDataMixin",
     "TrainClientRollMixin",
-    "JonModelTrainRendererRollMixin"
+    "JonModelTrainRendererRollMixin",
+    "FunctionalTrainRendererRollMixin",
+    "NteBakedRailMixin"
   ],
   "mixins": [
     "CustomResourcesMixin",

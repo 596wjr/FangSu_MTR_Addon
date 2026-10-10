@@ -56,6 +56,18 @@ import java.util.WeakHashMap;
  * 并且天然复刻了 MTR4「按两个转向架处滚转取平均」的平滑效果：车头一端进入超高段时车体就开始倾斜，
  * 而不是等弦中点进入。若只匹配一端（另一端无超高），另一端贡献 0，取平均后与 MTR4 的行为一致。
  * <p>
+ * <b>P5-6 修正：端点「落在中心线上」不等于「最近采样顶点就在中心线上」。</b>匹配用的是 MTR 自己的
+ * {@code Rail.getPosition} 采样折线，旧实现只在<b>采样顶点</b>里取最近者，于是残差不是浮点舍入而是
+ * <b>采样网格的半格</b>（步长 0.5 → 上界 0.25 格，实测最坏 0.2500 格，占掉 71% 的 0.35 水平容差），
+ * 而且参数被量化到采样点、滚转角呈阶梯状；更糟的是「先按横向距离选最优、再单独过竖向门」，
+ * 一旦那个横向最近者竖向对不上就直接返回 0，哪怕旁边还有一条三道门全过的候选。
+ * 现在改为<b>点-线段投影 + 按投影比例插值参数与 y</b>，并在<b>三道门全部通过的候选里取横向最近者</b>，
+ * 残差降到折线弓高（实测最坏 2.1e-3 格）。证据见 {@code .tmp_p5_3_probe/RailTrainRollDropoutProbe.java}。
+ * <p>
+ * <b>抖动的可观测性</b>：匹配失败与「本来就没有超高」在游戏里完全同形，因此
+ * {@link #reportNearMiss} 在「上一帧还在倾斜、本帧突然归零、且确实有一端近失」时打一条点名
+ * 端点 / 门 / 残差的 WARN（整个会话一次）。这是本类对「这一类问题」的定点诊断。
+ * <p>
  * <b>内核来源与 P5-1/P5-3 完全同一个</b>：候选轨道一律经
  * {@link RailTiltRenderHelper#frameFor(Rail)} 取快照，它内部走
  * {@link RailGeometryProvider#getFangSuRailGeometryCore()}（与 {@code getPositionY} 钩子同一个实例）。
@@ -102,16 +114,32 @@ public final class RailTrainRollHelper {
     /**
      * 水平匹配容差（格）。
      * <p>
-     * <b>为什么这么紧</b>：采样点不是「车厢弦中点」而是<b>重建出来的两个车厢端点</b>，它们数学上严格等于
-     * {@code Rail.getPosition(arcLength)}，因此残差只有浮点舍入（~1e-12）与采样折线的离散误差
-     * （≤ 步长 / 2 的弧长 → 横向 ≪ 1e-3）。0.35 已经留了三个数量级的余量。
+     * <b>残差到底有多大（P5-6 修正在此，实测数据见 {@code RailTrainRollDropoutProbe}）</b>：
+     * 车厢两端确实<b>精确</b>落在轨道中心线上（重建是 {@code calculateCar} 的代数逆），但<b>旧实现</b>
+     * 只在折线的<b>采样顶点</b>里取最近者、并且把该顶点的参数当成端点的参数，于是横向残差不是
+     * 浮点舍入，而是<b>「端点落在两个采样点之间」的弦长</b> —— 上界恰好是
+     * {@code SAMPLE_STEP / 2 = 0.25} 格（实测最坏 0.2500，曲线 R=100…15 全部 0.233–0.250，
+     * 即 71% 的容差被采样网格吃掉，只剩 0.10 格余量）。
      * <p>
-     * <b>为什么抓不到邻线</b>：MTR 的平行轨道中心线间距最小也是 1 格（1.0 m）量级，远大于 0.35；
-     * 而且候选<b>只有带滚转的轨道</b>（作者显式写过超高），再加上竖向门与平行度门，
-     * 「匹配到旁边那条普通轨道」在几何上不成立。轨迹在节点处跨两条轨道时两端各自匹配，
-     * 不会互相干扰。
+     * 现在改为<b>端点往折线段上做点-线段投影</b>，并<b>按投影比例插值</b>取该处的 y 与参数，
+     * 残差降到采样折线对真实圆弧的弓高（实测最坏 2.1e-3 格 @ R=15，直线 2.2e-7），
+     * 于是同一道门有 <b>0.35 / 2.1e-3 ≈ 170 倍</b>余量，且参数不再随采样网格跳变
+     * （旧实现的滚转角是阶梯状量化到 0.5 格弧长的，视觉上本身就是一种抖动）。
+     * <p>
+     * <b>为什么仍然是 0.35、不放大</b>：MTR 的平行股道中心线间距最小也是 1 格（1.0 m）量级，
+     * 而候选<b>只有带滚转的轨道</b>（作者显式写过超高），再加上竖向门与平行度门，0.35 与邻线之间
+     * 仍有 0.65 格余量。残差降到 1e-3 量级之后，<b>没有任何理由再动这个数字</b>。
      */
     private static final double MATCH_HORIZONTAL = 0.35D;
+
+    /**
+     * 「近失（near-miss）」诊断的搜索半径（格）：端点周围这个半径内存在带滚转的轨道、却三道门全没过时，
+     * 才认为是一次<b>可疑</b>的匹配失败。它<b>只用于诊断，不参与匹配</b>。
+     * <p>
+     * 取 {@code 2 × MATCH_HORIZONTAL}：既要能看见「被水平门刚好挡掉」的情形，
+     * 又要小到不会把几百米外的轨道算成「附近有超高」（那样诊断会永远在响）。
+     */
+    private static final double DIAGNOSTIC_NEAR_RADIUS = 2.0D * MATCH_HORIZONTAL;
 
     /**
      * 竖向匹配容差（格）。
@@ -170,11 +198,30 @@ public final class RailTrainRollHelper {
      */
     private static final Map<TrainRendererBase, double[][]> CAR_STATES = new WeakHashMap<>();
 
+    /**
+     * {@code 渲染器实例 → 每节车厢的近失诊断}。与 {@link #CAR_STATES} 分开存放：
+     * 状态表每帧被整体覆盖写，而诊断必须<b>跨帧</b>记住「上一帧的滚转角」，才能判定
+     * 「本来在倾斜、这一帧突然归零」这种车体姿态抖动。
+     */
+    private static final Map<TrainRendererBase, CarDiagnostics[]> CAR_DIAGNOSTICS = new WeakHashMap<>();
+
     /** 当前正在 {@code simulateCar} 的车厢（供风挡 / 挡板重定向取用）；{@code simulateCar} RETURN 时清除。 */
     private static final ThreadLocal<CurrentCar> CURRENT_CAR = new ThreadLocal<>();
 
     /** {@code renderCar} HEAD 放进来的本车厢滚转角（度），由同一次调用的 {@code rotateX} 重定向消费。 */
     private static final ThreadLocal<Double> BODY_ROLL = new ThreadLocal<>();
+
+    // ==================== 匹配结果的拒绝原因 ====================
+
+    /** 水平门拒绝（端点周围存在带滚转的轨道，但横向距离超过 {@link #MATCH_HORIZONTAL}）。 */
+    private static final int GATE_HORIZONTAL = 0;
+    /** 竖向门拒绝（横向贴上了，但高度差超过 {@link #MATCH_VERTICAL}）。 */
+    private static final int GATE_VERTICAL = 1;
+    /** 车身纵轴退化（长度为零 / 非有限）—— 数学上无法定义滚转轴。 */
+    private static final int GATE_AXIS = 2;
+
+    /** 近失诊断里「哪道门拒绝的」的中文名，下标就是上面的 GATE_*。 */
+    private static final String[] GATE_NAMES = {"水平", "竖向", "纵轴退化"};
 
     // ==================== 一次性诊断 ====================
     //
@@ -199,6 +246,10 @@ public final class RailTrainRollHelper {
     private static volatile int matchedSamples = 0;
     /** 真正往矩阵上追加了滚转的次数（> 0 即「已生效」）。 */
     private static volatile int tiltAppliedSamples = 0;
+    /** 累计的「近失」端点次数（附近有带滚转的轨道、但三道门全没过）。 */
+    private static volatile int nearMissSamples = 0;
+    /** 累计的「本来在倾斜、这一帧突然归零」次数 —— 也就是用户报告的抖动。 */
+    private static volatile int rollDropoutSamples = 0;
 
     /** 本会话是否见过「客户端确实存在带滚转的轨道」——这是所有告警的证据前提。 */
     private static volatile boolean rolledRailEvidence = false;
@@ -211,6 +262,7 @@ public final class RailTrainRollHelper {
     private static boolean warnedConnection = false;
     private static boolean warnedNeverApplied = false;
     private static boolean warnedNoMatch = false;
+    private static boolean warnedRollDropout = false;
 
     private RailTrainRollHelper() {
     }
@@ -270,6 +322,16 @@ public final class RailTrainRollHelper {
         final double axisLength = Math.sqrt(axisX * axisX + axisY * axisY + axisZ * axisZ);
         final double half = realSpacing * 0.5D;
 
+        // 逐车厢诊断（近失 / 突然归零）。与状态表分开存放：状态表每帧被整体覆盖写，
+        // 诊断需要跨帧记住「上一帧的滚转角」，两者的生命周期不同。
+        final CarDiagnostics diagnostics = carDiagnostics(renderer, carIndex);
+        final EndDiagnostics endA = diagnostics.end0;
+        final EndDiagnostics endB = diagnostics.end1;
+        endA.reset();
+        endB.reset();
+
+        final double[] state = carState(renderer, carIndex);
+        final double previousRoll = state[0];
         final double roll;
         if (!Double.isFinite(axisLength) || axisLength < 1.0E-9D || !Double.isFinite(half) || half <= 0.0D) {
             // 退化（车厢长度为 0 / 姿态非有限）：退回「弦中点单点采样」，
@@ -277,21 +339,22 @@ public final class RailTrainRollHelper {
             axisX = Math.sin(carYaw);
             axisY = 0.0D;
             axisZ = Math.cos(carYaw);
-            roll = rollDegreesAtPoint(carX, carY, carZ, axisX, axisZ, railOffset);
+            roll = rollDegreesAtPoint(carX, carY, carZ, axisX, axisZ, railOffset, endA);
         } else {
             axisX /= axisLength;
             axisY /= axisLength;
             axisZ /= axisLength;
             // 两端点数学上严格等于 positions[i] / positions[i+1]（= 落在中心线上的那两个点）
             final double rollA = rollDegreesAtPoint(
-                    carX + half * axisX, carY + half * axisY, carZ + half * axisZ, axisX, axisZ, railOffset);
+                    carX + half * axisX, carY + half * axisY, carZ + half * axisZ, axisX, axisZ, railOffset, endA);
             final double rollB = rollDegreesAtPoint(
-                    carX - half * axisX, carY - half * axisY, carZ - half * axisZ, axisX, axisZ, railOffset);
+                    carX - half * axisX, carY - half * axisY, carZ - half * axisZ, axisX, axisZ, railOffset, endB);
             roll = (rollA + rollB) * 0.5D;
         }
+        diagnostics.previousRoll = Double.isFinite(previousRoll) ? previousRoll : 0.0D;
+        diagnostics.roll = Double.isFinite(roll) ? roll : 0.0D;
 
-        final double[] state = carState(renderer, carIndex);
-        state[0] = Double.isFinite(roll) ? roll : 0.0D;
+        state[0] = diagnostics.roll;
         state[1] = axisX;
         state[2] = axisY;
         state[3] = axisZ;
@@ -300,6 +363,7 @@ public final class RailTrainRollHelper {
         if (state[0] != 0.0D) {
             matchedSamples++;
         }
+        reportNearMiss(diagnostics, renderer, carIndex);
 
         CURRENT_CAR.set(new CurrentCar(renderer, carIndex));
         reportMissingHooks();
@@ -335,6 +399,14 @@ public final class RailTrainRollHelper {
      * <p>
      * {@code yaw} 用于一致性校验：同一格状态里的 yaw 与本次 {@code renderCar} 收到的 yaw 不同，
      * 说明这个渲染器实例被多列车共享，此时退回 0（安全失败）。
+     * <p>
+     * <b>为什么这个方法是 {@code public} 而不是包私有</b>：装饰器渲染器
+     * {@code com.fangsu.train.FunctionalTrainRenderer}（本模组的「功能车」渲染器，包了一层
+     * {@code TrainRendererBase}）需要在自己的 {@code renderCar} HEAD 里调用它 ——
+     * {@code TrainClient.trainRenderer} 是<b>装饰器</b>实例，而 {@link #captureCar} 是按这个实例登记状态的，
+     * 真正画车体的却是被包住的那一个 {@code JonModelTrainRenderer}。不补这一处调用，
+     * 功能车的查找键就对不上，车体<b>完全不会倾斜</b>。见
+     * {@code mixin/FunctionalTrainRendererRollMixin.java}。
      */
     public static void beginBodyRender(TrainRendererBase renderer, int carIndex, float yaw) {
         bodyBeginHookAlive = true;
@@ -345,6 +417,19 @@ public final class RailTrainRollHelper {
         }
         BODY_ROLL.set(roll);
         reportMissingHooks();
+    }
+
+    /**
+     * 丢弃当前线程尚未被消费的车体滚转角。
+     * <p>
+     * 正常路径上 {@link #applyBodyRoll} 会把它消费掉（取走 + 清除），因此本方法多数时候是空操作。
+     * 它存在是为了让<b>自绘车体的渲染器</b>（{@code com.fangsu.train.FunctionalTrainRenderer}）
+     * 在 {@code finally} 里兜底：万一 {@code rotateX} 的重定向没生效（例如本模组的 mixin 被别的模组
+     * 挤掉），{@link #beginBodyRender} 写下的值就会留在 ThreadLocal 里污染同线程后续的渲染。
+     * 清理在任何情况下都无害，且不产生任何矩阵运算。
+     */
+    public static void clearBodyRoll() {
+        BODY_ROLL.remove();
     }
 
     /**
@@ -495,25 +580,42 @@ public final class RailTrainRollHelper {
      * 正值 = 绕车身局部 {@code +Z} 的右手旋转角（度），即直接交给
      * {@code UtilitiesClient.rotateZDegrees} 的值。
      * <p>
-     * 三道门全部通过才接受候选：
+     * <b>P5-6 修正（车体姿态抖动）</b>：旧实现有两个会「突然不倾斜」的结构性缺陷，本方法现在都修掉了：
      * <ol>
-     *   <li><b>水平</b>：到采样折线的水平距离 &lt; {@link #MATCH_HORIZONTAL}（采样点落在中心线上，所以实际上≈0）；</li>
-     *   <li><b>竖向</b>：轨道高度与「车厢端点 y − {@link #CAR_ORIGIN_ABOVE_RAIL} − {@code railOffset}」之差
-     *       &lt; {@link #MATCH_VERTICAL}（上跨 / 下穿的轨道一律出局）；</li>
-     *   <li><b>平行</b>：车身纵轴的水平投影与轨道切向（= 参数增大方向）的 |cos| ≥ {@link #MATCH_PARALLEL}。</li>
+     *   <li><b>只在采样顶点里找最近者</b>：端点落在两个采样点之间时，横向残差 = 到折线的距离，
+     *       上界是步长的一半（0.25 格），也就是 71% 的水平容差被采样网格吃掉；而且<b>参数被量化</b>
+     *       到最近的采样点（最多 0.25 格的弧长误差），滚转角因此是阶梯状的。现在改为
+     *       <b>点-线段投影</b>并<b>按投影比例插值</b> y 与参数，残差降到折线的弓高（实测 ≈1e-3 格），
+     *       参数也是连续的。</li>
+     *   <li><b>先按横向距离选「最优」、再单独过竖向门</b>：一旦那个横向最近者（可能是节点处的另一条
+     *       轨道、或相邻股道）竖向对不上就直接返回 0 —— 即使旁边还有一条<b>三道门全过</b>的候选。
+     *       现在改成「<b>三道门全部通过的候选里取横向最近者</b>」，这类失败从结构上消失。</li>
      * </ol>
-     * 取水平最近者；非有限量一律按「匹配不上」处理（MTR4 的 D-B 教训：NaN 的每次比较都是 false，
-     * 会穿透 {@code <} 形式的守卫）。
+     * 三道门：
+     * <ol>
+     *   <li><b>水平</b>：到采样折线的水平距离 &lt; {@link #MATCH_HORIZONTAL}；</li>
+     *   <li><b>竖向</b>：该处插值出的轨道高度与「车厢端点 y − {@link #CAR_ORIGIN_ABOVE_RAIL}
+     *       − {@code railOffset}」之差 &lt; {@link #MATCH_VERTICAL}（上跨 / 下穿的轨道一律出局）；</li>
+     *   <li><b>平行</b>：车身纵轴的水平投影与该处轨道切向（= 参数增大方向）的 |cos| ≥
+     *       {@link #MATCH_PARALLEL}。</li>
+     * </ol>
+     * 非有限量一律按「匹配不上」处理（MTR4 的 D-B 教训：NaN 的每次比较都是 false，
+     * 会穿透 &lt; 形式的守卫）。
      *
      * @param axisX 车身局部 +Z 的<b>水平</b> x 分量（不必归一，方法内归一）
      * @param axisZ 车身局部 +Z 的水平 z 分量
+     * @param railOffset {@code transportMode.railOffset}（缆车为 -6，其余为 0）
+     * @param diagnostics 本次端点的近失诊断出口（不可为 {@code null}；只在失败帧写）
      */
     private static double rollDegreesAtPoint(
-            double x, double y, double z, double axisX, double axisZ, double railOffset
+            double x, double y, double z, double axisX, double axisZ, int railOffset,
+            EndDiagnostics diagnostics
     ) {
         final double axisLength = Math.sqrt(axisX * axisX + axisZ * axisZ);
         if (!Double.isFinite(axisLength) || axisLength < 1.0E-9D
                 || !Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) {
+            diagnostics.railNearby = true;
+            diagnostics.failedGate = GATE_AXIS;
             return 0.0D;
         }
         axisX /= axisLength;
@@ -524,58 +626,90 @@ public final class RailTrainRollHelper {
             return 0.0D;
         }
 
+        final double targetY = y - CAR_ORIGIN_ABOVE_RAIL - railOffset;
         Candidate best = null;
-        Polyline bestPolyline = null;
-        int bestIndex = -1;
         double bestDistance = Double.MAX_VALUE;
+        double bestParameter = 0.0D;
+        double bestAlignment = 0.0D;
+        boolean rejectedVertical = false;
+
         for (final Candidate candidate : candidates) {
             final Polyline polyline = candidate.polyline;
-            // 包围盒先剪枝：绝大多数候选连一次扫折线都不需要
-            if (x < polyline.minX - MATCH_HORIZONTAL || x > polyline.maxX + MATCH_HORIZONTAL
-                    || z < polyline.minZ - MATCH_HORIZONTAL || z > polyline.maxZ + MATCH_HORIZONTAL) {
+            // 包围盒先剪枝：绝大多数候选连一次扫折线都不需要。
+            // 用「诊断半径」而不是「匹配容差」做剪枝，好让近失诊断还能看见被水平门挡掉的情形。
+            if (x < polyline.minX - DIAGNOSTIC_NEAR_RADIUS || x > polyline.maxX + DIAGNOSTIC_NEAR_RADIUS
+                    || z < polyline.minZ - DIAGNOSTIC_NEAR_RADIUS || z > polyline.maxZ + DIAGNOSTIC_NEAR_RADIUS) {
                 continue;
             }
-            for (int i = 0; i < polyline.parameters.length; i++) {
-                final double dx = polyline.xs[i] - x;
-                final double dz = polyline.zs[i] - z;
-                final double distance = dx * dx + dz * dz;
+            final int segments = polyline.parameters.length - 1;
+            for (int i = 0; i < segments; i++) {
+                final double segmentX = polyline.xs[i + 1] - polyline.xs[i];
+                final double segmentZ = polyline.zs[i + 1] - polyline.zs[i];
+                final double segmentLengthSquared = segmentX * segmentX + segmentZ * segmentZ;
+                double ratio = 0.0D;
+                if (segmentLengthSquared > 1.0E-18D) {
+                    ratio = ((x - polyline.xs[i]) * segmentX + (z - polyline.zs[i]) * segmentZ)
+                            / segmentLengthSquared;
+                    ratio = ratio < 0.0D ? 0.0D : (ratio > 1.0D ? 1.0D : ratio);
+                }
+                final double projectedX = polyline.xs[i] + ratio * segmentX;
+                final double projectedZ = polyline.zs[i] + ratio * segmentZ;
+                final double dx = projectedX - x;
+                final double dz = projectedZ - z;
+                final double distance = Math.sqrt(dx * dx + dz * dz);
+
+                // 近失诊断的「附近确实有带滚转的轨道」判据（只在后面真的失败时才会被读到）
+                if (distance <= DIAGNOSTIC_NEAR_RADIUS) {
+                    diagnostics.railNearby = true;
+                    if (distance < diagnostics.bestHorizontal) {
+                        diagnostics.bestHorizontal = distance;
+                    }
+                }
+                if (distance > MATCH_HORIZONTAL) {
+                    continue;
+                }
+                // 该处的轨道高度：两个采样点的 y 按同一个投影比例插值（不是取最近顶点）
+                final double railY = polyline.ys[i] + ratio * (polyline.ys[i + 1] - polyline.ys[i]);
+                if (!Double.isFinite(railY) || Math.abs(railY - targetY) > MATCH_VERTICAL) {
+                    rejectedVertical = true;
+                    continue;
+                }
+                // 切向 = 参数增大方向（折线的采样顺序就是 MTR 的弧长顺序）
+                final int previous = Math.max(0, i - 1);
+                final int next = Math.min(segments, i + 2);
+                double tangentX = polyline.xs[next] - polyline.xs[previous];
+                double tangentZ = polyline.zs[next] - polyline.zs[previous];
+                final double tangentLength = Math.sqrt(tangentX * tangentX + tangentZ * tangentZ);
+                if (!Double.isFinite(tangentLength) || tangentLength < 1.0E-9D) {
+                    continue;
+                }
+                tangentX /= tangentLength;
+                tangentZ /= tangentLength;
+                final double alignment = axisX * tangentX + axisZ * tangentZ;
+                if (!Double.isFinite(alignment) || Math.abs(alignment) < MATCH_PARALLEL) {
+                    continue;
+                }
                 if (distance < bestDistance) {
                     bestDistance = distance;
                     best = candidate;
-                    bestPolyline = polyline;
-                    bestIndex = i;
+                    bestParameter = polyline.parameters[i]
+                            + ratio * (polyline.parameters[i + 1] - polyline.parameters[i]);
+                    bestAlignment = alignment;
                 }
             }
         }
-        if (best == null || bestIndex < 0 || bestDistance > MATCH_HORIZONTAL * MATCH_HORIZONTAL) {
+        if (best == null) {
+            // 全部候选都被挡住：记录是哪道门挡的，供一次性近失告警使用。
+            // 竖向门优先报：它意味着「横向确实贴上了、只是高度不对」，信息量最大。
+            diagnostics.failedGate = rejectedVertical ? GATE_VERTICAL : GATE_HORIZONTAL;
             return 0.0D;
         }
 
-        final double railY = bestPolyline.ys[bestIndex];
-        if (!Double.isFinite(railY)
-                || Math.abs(railY - (y - CAR_ORIGIN_ABOVE_RAIL - railOffset)) > MATCH_VERTICAL) {
-            return 0.0D;
-        }
-
-        // 切向 = 参数增大方向（折线的采样顺序就是 MTR 的弧长顺序）
-        final int previous = Math.max(0, bestIndex - 1);
-        final int next = Math.min(bestPolyline.parameters.length - 1, bestIndex + 1);
-        double tangentX = bestPolyline.xs[next] - bestPolyline.xs[previous];
-        double tangentZ = bestPolyline.zs[next] - bestPolyline.zs[previous];
-        final double tangentLength = Math.sqrt(tangentX * tangentX + tangentZ * tangentZ);
-        if (!Double.isFinite(tangentLength) || tangentLength < 1.0E-9D) {
-            return 0.0D;
-        }
-        tangentX /= tangentLength;
-        tangentZ /= tangentLength;
-        final double alignment = axisX * tangentX + axisZ * tangentZ;
-        if (!Double.isFinite(alignment) || Math.abs(alignment) < MATCH_PARALLEL) {
-            return 0.0D;
-        }
-
-        final double parameter = bestPolyline.parameters[bestIndex];
-        final double roll = best.frame.core.getRollRadians(parameter);
+        final double roll = best.frame.core.getRollRadians(bestParameter);
         if (!Double.isFinite(roll) || roll == 0.0D) {
+            // 匹配上了、但该处滚转恰好为 0（剖面端点 / 过零点）——这是<b>正常</b>的，不是抖动。
+            // 旧实现也在这里返回 0，区别是它连 railHitSamples 都不加，于是无法与「匹配失败」区分。
+            diagnostics.rollIsZero = true;
             return 0.0D;
         }
         railHitSamples++;
@@ -583,9 +717,11 @@ public final class RailTrainRollHelper {
         // ★ 单位：RailTiltRenderHelper.railFrameAngle 返回的是<b>弧度</b>（P5-3 直接喂 cos/sin），
         //   而 UtilitiesClient.rotateZDegrees 与笛卡尔 Rodrigues 要的是<b>度</b>，所以这里必须换算。
         //   MTR4 的对应表达式同样是 -Math.toDegrees(roll)·(…)。
+        // ★ 符号用的是<b>选中的那一段</b>的 alignment（选候选时算出来的同一个值），
+        //   不再事后按最近顶点重算一遍切向 —— 否则「选中」与「符号」可能出自两个不同的采样点。
         final double ribbonAngleDegrees = Math.toDegrees(
                 RailTiltRenderHelper.railFrameAngle(roll, best.frame.parameterIsPosition1ToPosition2));
-        return ribbonAngleDegrees * (alignment >= 0.0D ? 1.0D : -1.0D);
+        return ribbonAngleDegrees * (bestAlignment >= 0.0D ? 1.0D : -1.0D);
     }
 
     /**
@@ -717,6 +853,96 @@ public final class RailTrainRollHelper {
         return perCar[carIndex];
     }
 
+    /** 查或建每节车厢的近失诊断槽（与状态表同构的扩容逻辑）。 */
+    private static CarDiagnostics carDiagnostics(TrainRendererBase renderer, int carIndex) {
+        CarDiagnostics[] perCar = CAR_DIAGNOSTICS.get(renderer);
+        if (perCar == null || carIndex >= perCar.length) {
+            final int size = Math.max(8, carIndex + 1);
+            final CarDiagnostics[] grown = new CarDiagnostics[size];
+            if (perCar != null) {
+                System.arraycopy(perCar, 0, grown, 0, perCar.length);
+            }
+            perCar = grown;
+            CAR_DIAGNOSTICS.put(renderer, perCar);
+        }
+        if (perCar[carIndex] == null) {
+            perCar[carIndex] = new CarDiagnostics();
+        }
+        return perCar[carIndex];
+    }
+
+    // ==================== 一次性诊断：匹配近失 / 车体姿态突然归零 ====================
+
+    /**
+     * <b>P5-6 新增的一次性诊断（本项目「一-shot」约定）</b>：车体抖动（突然不倾斜、马上又回来）
+     * 与「这里本来就没有超高」在游戏里无法区分，所以必须由代码把它指出来。
+     * <p>
+     * 判定条件（两个都要满足，宁可漏报也不误报）：
+     * <ol>
+     *   <li><b>本帧滚转突然归零</b>：上一个 {@code captureCar} 给这节车厢算出的滚转角非 0，
+     *       而本帧是 0 —— 也就是用户看到的那一帧「突然不倾斜」；</li>
+     *   <li><b>确实有一端是「近失」</b>：那一端的端点周围 {@link #DIAGNOSTIC_NEAR_RADIUS} 格内
+     *       存在带滚转的轨道，但三道门全没过。</li>
+     * </ol>
+     * 告警里点名<b>哪一端、哪道门、残差多少、门限多少</b>，这是下一个人定位这一类问题的入口。
+     * <p>
+     * <b>为什么条件 2 不能只看「上一帧非零」</b>：滚转剖面本来就会过零（三点剖面的中点、
+     * 两点剖面的起始端），那种归零是正常的；只有「附近有带滚转的轨道却匹配不上」才可疑。
+     * <p>
+     * <b>为什么不会刷屏</b>：{@link #warnedRollDropout} 保证整个会话只打一条。
+     * 匹配成功、或者根本没有超高的世界里，这个方法一次日志都不会产生。
+     */
+    private static void reportNearMiss(CarDiagnostics diagnostics, TrainRendererBase renderer, int carIndex) {
+        final boolean endAFailed = diagnostics.end0.railNearby && !diagnostics.end0.rollIsZero;
+        final boolean endBFailed = diagnostics.end1.railNearby && !diagnostics.end1.rollIsZero;
+        if (endAFailed) {
+            nearMissSamples++;
+        }
+        if (endBFailed) {
+            nearMissSamples++;
+        }
+        // 只统计「本来在倾斜 → 本帧为 0 → 且确实有一端近失」的情形
+        if (diagnostics.roll != 0.0D || diagnostics.previousRoll == 0.0D || (!endAFailed && !endBFailed)) {
+            return;
+        }
+        rollDropoutSamples++;
+        if (warnedRollDropout) {
+            return;
+        }
+        warnedRollDropout = true;
+        final EndDiagnostics worst = worstEnd(diagnostics);
+        Main.LOGGER.warn("[P5-6] 车体滚转在相邻两帧之间突然归零（用户看到的「姿态抖动」）："
+                + "车厢 " + carIndex + " 上一帧滚转 " + diagnostics.previousRoll + "°，本帧因匹配失败退回 0°。"
+                + "失败的一端=" + (worst == diagnostics.end0 ? "前端" : "后端")
+                + "，被「" + GATE_NAMES[worst.failedGate] + "」门挡下："
+                + "横向最近距离 " + worst.bestHorizontal + " 格（水平门限 " + MATCH_HORIZONTAL + "）"
+                + "，竖向门限 " + MATCH_VERTICAL + "，平行度门限 " + MATCH_PARALLEL
+                + "。若这条日志出现在正常行车中，请把上面的残差与门限一起报告 —— "
+                + "匹配用的是「点-线段投影 + 按比例插值参数」，正常残差应在 1e-3 格量级。"
+                + "累计近失 " + nearMissSamples + " 次 / 归零 " + rollDropoutSamples + " 次");
+    }
+
+    /** 取两端里「信息量最大」的那一端：优先竖向门（横向贴上了、只是高度不对），其次近失距离大的。 */
+    private static EndDiagnostics worstEnd(CarDiagnostics diagnostics) {
+        final EndDiagnostics endA = diagnostics.end0;
+        final EndDiagnostics endB = diagnostics.end1;
+        final boolean aFailed = endA.railNearby && !endA.rollIsZero;
+        final boolean bFailed = endB.railNearby && !endB.rollIsZero;
+        if (aFailed && !bFailed) {
+            return endA;
+        }
+        if (bFailed && !aFailed) {
+            return endB;
+        }
+        if (endA.failedGate == GATE_VERTICAL && endB.failedGate != GATE_VERTICAL) {
+            return endA;
+        }
+        if (endB.failedGate == GATE_VERTICAL && endA.failedGate != GATE_VERTICAL) {
+            return endB;
+        }
+        return endA.bestHorizontal >= endB.bestHorizontal ? endA : endB;
+    }
+
     // ==================== 一次性诊断 ====================
 
     /**
@@ -809,22 +1035,29 @@ public final class RailTrainRollHelper {
         candidatesDirty = true;
     }
 
-    /** 探针专用：直接算出某节车厢的滚转角，不写任何状态（等价于 {@link #captureCar} 的算术部分）。 */
+    /**
+     * 探针专用：直接算出某节车厢的滚转角，不写任何状态（等价于 {@link #captureCar} 的算术部分）。
+     * <p>
+     * 诊断出口是一个<b>临时</b> {@link EndDiagnostics}（不进入 {@link #CAR_DIAGNOSTICS}），
+     * 因此探针调用它不会污染游戏内的一次性诊断计数。
+     */
     public static double computeBodyRollForProbe(
             double carX, double carY, double carZ, float carYaw, float carPitch,
             double realSpacing, int railOffset
     ) {
+        final EndDiagnostics scratch1 = new EndDiagnostics();
+        final EndDiagnostics scratch2 = new EndDiagnostics();
         final double axisX = Math.sin(carYaw) * Math.cos(carPitch);
         final double axisY = Math.sin(carPitch);
         final double axisZ = Math.cos(carYaw) * Math.cos(carPitch);
         final double half = realSpacing * 0.5D;
         if (!(half > 0.0D) || !Double.isFinite(half)) {
-            return rollDegreesAtPoint(carX, carY, carZ, axisX, axisZ, railOffset);
+            return rollDegreesAtPoint(carX, carY, carZ, axisX, axisZ, railOffset, scratch1);
         }
         final double rollA = rollDegreesAtPoint(
-                carX + half * axisX, carY + half * axisY, carZ + half * axisZ, axisX, axisZ, railOffset);
+                carX + half * axisX, carY + half * axisY, carZ + half * axisZ, axisX, axisZ, railOffset, scratch1);
         final double rollB = rollDegreesAtPoint(
-                carX - half * axisX, carY - half * axisY, carZ - half * axisZ, axisX, axisZ, railOffset);
+                carX - half * axisX, carY - half * axisY, carZ - half * axisZ, axisX, axisZ, railOffset, scratch2);
         return (rollA + rollB) * 0.5D;
     }
 
@@ -852,6 +1085,16 @@ public final class RailTrainRollHelper {
         return tiltAppliedSamples;
     }
 
+    /** 供诊断读取：累计「近失」端点数（附近有带滚转轨道、但三道门全没过）。 */
+    public static int nearMissSampleCount() {
+        return nearMissSamples;
+    }
+
+    /** 供诊断读取：累计「上一帧还在倾斜、本帧突然归零」的次数。 */
+    public static int rollDropoutSampleCount() {
+        return rollDropoutSamples;
+    }
+
     /** 探针专用：清零统计量。 */
     public static void resetDiagnosticsForProbe() {
         frameHookAlive = false;
@@ -865,6 +1108,8 @@ public final class RailTrainRollHelper {
         railHitSamples = 0;
         matchedSamples = 0;
         tiltAppliedSamples = 0;
+        nearMissSamples = 0;
+        rollDropoutSamples = 0;
         rolledRailEvidence = false;
         firstTiltLogged = false;
         warnedFrame = false;
@@ -874,6 +1119,7 @@ public final class RailTrainRollHelper {
         warnedConnection = false;
         warnedNeverApplied = false;
         warnedNoMatch = false;
+        warnedRollDropout = false;
     }
 
     // ==================== 内部数据结构 ====================
@@ -923,6 +1169,49 @@ public final class RailTrainRollHelper {
         private CurrentCar(TrainRendererBase renderer, int carIndex) {
             this.renderer = renderer;
             this.carIndex = carIndex;
+        }
+    }
+
+    /**
+     * 一节车厢的近失诊断（跨帧存活，见 {@link #CAR_DIAGNOSTICS}）。
+     * <p>
+     * {@link #previousRoll} 是<b>上一帧</b>算出的滚转角，用来判定「本来在倾斜、这一帧突然归零」；
+     * 它每次 {@link #captureCar} 都被 {@link #roll} 覆盖，所以不会累积残值。
+     * 两个端点槽 {@link #end0} / {@link #end1} 在每次 {@code captureCar} 开头被 {@code reset()}。
+     */
+    private static final class CarDiagnostics {
+        private final EndDiagnostics end0 = new EndDiagnostics();
+        private final EndDiagnostics end1 = new EndDiagnostics();
+        private double previousRoll = 0.0D;
+        private double roll = 0.0D;
+    }
+
+    /**
+     * 一个车厢端点的匹配诊断：只在<b>没匹配上</b>时才有意义。
+     * <p>
+     * 语义刻意分成三档，因为「归零」的原因完全不同、处理方式也完全不同：
+     * <ul>
+     *   <li>{@link #rollIsZero}：匹配<b>成功</b>了，只是该处剖面滚转恰好为 0（正常的过零点）；</li>
+     *   <li>{@link #railNearby} 且 {@code !rollIsZero}：附近确实有带滚转的轨道但三道门全没过
+     *       —— 这才是「近失」，也就是用户看到的抖动的候选原因；</li>
+     *   <li>两者都假：附近<b>根本没有</b>带滚转的轨道（列车不在超高段附近），归零完全正常。</li>
+     * </ul>
+     */
+    private static final class EndDiagnostics {
+        /** 该端点 {@link #DIAGNOSTIC_NEAR_RADIUS} 格内存在带滚转的轨道。 */
+        private boolean railNearby = false;
+        /** 匹配成功、但该处滚转为 0（剖面端点 / 过零点）——正常，不算近失。 */
+        private boolean rollIsZero = false;
+        /** 失败时哪道门拒绝的（{@link #GATE_HORIZONTAL} / {@link #GATE_VERTICAL} / {@link #GATE_AXIS}）。 */
+        private int failedGate = GATE_HORIZONTAL;
+        /** 观测到的最小横向距离（格），用于告警里给出「差多少」。 */
+        private double bestHorizontal = Double.MAX_VALUE;
+
+        private void reset() {
+            railNearby = false;
+            rollIsZero = false;
+            failedGate = GATE_HORIZONTAL;
+            bestHorizontal = Double.MAX_VALUE;
         }
     }
 }

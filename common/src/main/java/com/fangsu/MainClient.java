@@ -66,6 +66,11 @@ public class MainClient {
         }
 
         if (is_nte_loaded) Main.LOGGER.info("[FangSu] running with NTE, using compatible rendering");
+
+        // P5-4（路径 B）：把「NTE 在不在」交给外轨超高的 NTE 侧实现，让它的一次性诊断能把
+        // 「没装 NTE（走路径 A）」与「装了 NTE 但路径 B 的钩子没挂上（轨面平）」区分开。
+        // NteRailTiltHelper 是普通 common 类，不引用任何 NTE 类型（NTE 不是构建依赖）。
+        com.fangsu.mtr.rail.NteRailTiltHelper.reportNtePresence(is_nte_loaded);
     }
 
     public static void initResources(ResourceManager resourceManager) {

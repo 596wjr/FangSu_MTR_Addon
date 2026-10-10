@@ -3,6 +3,7 @@ package com.fangsu.mixin;
 import com.fangsu.customItem.CustomMtrLifts;
 import com.fangsu.data.LiftExtraSupplier;
 import com.fangsu.mtr.ModernTexturedLift;
+import com.fangsu.mtr.rail.NteRailTiltHelper;
 import com.fangsu.mtr.rail.RailTiltRenderHelper;
 import com.fangsu.mtr.rail.RailTrainRollHelper;
 import com.fangsu.render.lift.CustomLiftModel;
@@ -444,6 +445,35 @@ public class RenderTrainsMixin {
             MultiBufferSource vertexConsumers, CallbackInfo callbackInfo
     ) {
         RailTrainRollHelper.beginRenderFrame();
+    }
+
+    // ==================== P5-4：NTE 路径（路径 B）的看门狗 ====================
+    //
+    // 路径 B（NteBakedRailMixin）的目标类在 NTE 里，NTE 不在场时那个 mixin 会被 @Pseudo 静默跳过
+    // —— 这没问题；有问题的是「NTE 在场、视野里有轨道、但 BakedRail 的钩子没挂上」：
+    // 那时轨面永远是平的，而日志一片安静。所以这里需要一个「每帧一次、且不依赖 NTE」的时钟。
+    //
+    // 目标与上面 P5-6 的帧头钩子是同一个方法（同样的完整描述符、同样的 require = 0）。
+    // 同一个方法上的两个 @Inject(at = HEAD) 互不干扰；本钩子只推进一个计数器并做一次性告警，
+    // 不碰任何状态，也不改变 P5-6 的行为。
+
+    /**
+     * 每帧一次的 NTE 路径看门狗：装了 NTE 却长时间看不到任何 {@code BakedRail} 烘焙时告警一次。
+     * <p>
+     * 完整描述符与 {@code require = 0} 的理由同上（{@code RenderTrains} 里 {@code render}
+     * 有两个重载）。
+     */
+    @Inject(
+            method = "render(Lmtr/entity/EntitySeat;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;)V",
+            at = @At("HEAD"),
+            require = 0,
+            remap = false
+    )
+    private static void fangsu$tickNtePathWatchdog(
+            EntitySeat entity, float tickDelta, PoseStack matrices,
+            MultiBufferSource vertexConsumers, CallbackInfo callbackInfo
+    ) {
+        NteRailTiltHelper.tickFrameWatchdog(com.fangsu.MainClient.is_nte_loaded);
     }
 
 }

@@ -2,6 +2,7 @@ package com.fangsu.train;
 
 import com.fangsu.Main;
 import com.fangsu.MainClient;
+import com.fangsu.mtr.rail.RailTrainRollHelper;
 import com.fangsu.render.scripting.AbstractDrawCalls;
 import com.fangsu.render.sowcer.math.Matrix4f;
 import com.fangsu.render.sowcer.math.PoseStackUtil;
@@ -184,6 +185,11 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
             return;
         }
         try {
+            // 车体滚转（P5-6）：车体几何由 baseRenderer 画（本装饰器一个车体顶点都不画），但它画的时候
+            // 用的状态键是本装饰器实例（TrainClient.trainRenderer 就是它），所以在那里查得到角度。
+            // LCD 覆盖层挂在与车体同一个局部系里，因此这里补一次滚转是物理正确的（屏随车斜）。
+            // 内部有「滚转为 0 时一个矩阵运算都不做」的保证，普通轨道上与原生逐位一致。
+            RailTrainRollHelper.applyBodyRoll(matrices);
             final int light = LightTexture.pack(world.getBrightness(LightLayer.BLOCK, posAverage), world.getBrightness(LightLayer.SKY, posAverage));
             Matrix4f drawPose = new Matrix4f(matrices.last().pose());
             if (dh != null && dh.model != null) {
@@ -200,6 +206,10 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
         } catch (Exception e) {
             Main.LOGGER.error("", e);
         } finally {
+            // 清理车体滚转的 ThreadLocal（P5-6）：本方法可能在「rotateX 重定向不生效」的
+            // 构建上执行（例如本模组的 mixin 被别的模组挤掉），那时 BODY_ROLL 不会被消费，
+            // 残值会污染同一线程后续的渲染。清理本身在任何情况下都无害。
+            RailTrainRollHelper.clearBodyRoll();
             matrices.popPose();
         }
 
