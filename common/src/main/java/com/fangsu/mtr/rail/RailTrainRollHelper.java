@@ -1,6 +1,7 @@
 package com.fangsu.mtr.rail;
 
 import com.fangsu.Main;
+import com.fangsu.config.FangSuConfig;
 import com.fangsu.mappings.rail.RailGeometryCore;
 import com.mojang.blaze3d.vertex.PoseStack;
 import mtr.client.ClientData;
@@ -282,6 +283,54 @@ public final class RailTrainRollHelper {
         frameSamples++;
         candidatesDirty = true;
         reportMissingHooks();
+    }
+
+    /**
+     * 每帧开头顺带记下本帧相机的世界朝向（仅 P5-7 相机路径使用）。
+     * <p>
+     * <b>为什么需要它</b>：{@code PoseStack.mulPose(q)} 是右乘，{@code M ← M·R_a(θ)}，而
+     * {@code M·R_a(θ) = R_{M·a}(θ)·M}：传入的轴必须是「{@code M} 所消费的那个空间」里的轴。
+     * 相机钩子所在的位置（{@code GameRenderer.renderLevel} 里 {@code prepareCullFrustum} 之前）
+     * 栈上已经压了相机旋转 {@code R_cam = Ry(camYaw)·Rx(camPitch)}，因此要在那里施加
+     * 「绕车厢世界前向轴 f 的世界旋转」，必须传 {@code R_cam⁻¹·f} —— 也就是需要相机朝向。
+     * <p>
+     * <b>数据从哪来</b>：{@code TrainRendererBase.camera}（protected static，MTR 自己在
+     * {@code setupStaticInfo} 里赋成 {@code Minecraft.getInstance().gameRenderer.getMainCamera()}），
+     * 而 {@code RenderTrains.render} 的 HEAD 钩子正好在 {@code setupStaticInfo} 之后：那里读到的
+     * 就是本帧的相机。取不到时置空，相机钩子于是退回「不旋转」（绝不猜测朝向）。
+     */
+    public static void captureCameraOrientation(net.minecraft.client.Camera camera) {
+        if (camera == null) {
+            cameraOrientationValid = false;
+            return;
+        }
+        // MC 的相机旋转是 Camera.setRotation 里的
+        //   rotation.rotationYXZ(-mcYaw, mcPitch, 0)   ==   Ry(-mcYaw)·Rx(mcPitch)
+        // 而 {@link #cameraSpaceAxis} 用的是 Ry(camYaw)·Rx(camPitch)。两者对上需要
+        //   camYaw = -mcYaw = -camera.getYRot()
+        // （MC 的偏航零度朝 +Z、顺时针为正；本项目的 Ry 逆时针为正，故取负。）
+        // 俯仰直接用 camera.getXRot()：MC 的 rotationYXZ 也是原样收正俯仰。
+        // 探针里用真实 PoseStack 与该式逐元素对照过（见 .tmp_p5_7_probe/P57AnteProbe.java 第 (B) 节）。
+        cachedCameraYaw = (float) Math.toRadians(-camera.getYRot());
+        cachedCameraPitch = (float) Math.toRadians(camera.getXRot());
+        cameraOrientationValid = true;
+    }
+
+    /** 本帧相机朝向（弧度）；{@code cameraOrientationValid} 为假时无意义。 */
+    private static volatile float cachedCameraYaw = 0.0F;
+    private static volatile float cachedCameraPitch = 0.0F;
+    private static volatile boolean cameraOrientationValid = false;
+
+    /**
+     * 本帧镜头旋转要用的<b>相机坐标系</b>轴：{@code R_cam⁻¹·f}，{@code f} 是车厢世界前向轴。
+     * 没有乘车上下文 / 没有有效相机朝向 / 数据非有限时返回 {@code null}。
+     */
+    public static double[] getCameraSpaceTiltAxis() {
+        final RidingTilt tilt = ridingTilt;
+        if (tilt == null || !cameraOrientationValid) {
+            return null;
+        }
+        return cameraSpaceAxis(getCameraTiltAxis(), cachedCameraYaw, cachedCameraPitch);
     }
 
     // ==================== 钩子 2：每节车厢 ====================
@@ -570,6 +619,511 @@ public final class RailTrainRollHelper {
                 pivotY + vy * cos + crossY * sin + axisY * dot * (1.0D - cos),
                 pivotZ + vz * cos + crossZ * sin + axisZ * dot * (1.0D - cos)
         );
+    }
+
+    // ==================== P5-7：乘车玩家与镜头滚转 ====================
+    //
+    // 与 P5-3 / P5-6 同一条纪律：本步骤只需要「车体滚转角」这<b>一个</b>标量，而它必须与车体、风挡、
+    // 轨面用的是同一个值。因此这里<b>不重新做一遍匹配</b>，而是复用本类已经用于车体的那套
+    // （captureCar 里同一段算术、rollDegreesAtPoint 里同一个符号表达式、同一份内核）。
+    //
+    // 数据来源的选择（为什么不用 CAR_STATES 状态表）：
+    //   setOffsets 发生在 Train.handlePositions → TrainClient.handlePositions → movePlayer 的
+    //   「计算本帧骑行位置」阶段，而 CAR_STATES 由 simulateCar 在<b>同一 tick 更晚</b>（渲染阶段）
+    //   写入。若从状态表取，相机拿到的会是<b>上一帧</b>的滚转角与纵轴（坐标也可能对不上）。
+    //   setOffsets 自己的形参里就有本车厢的<b>世界坐标 carX/carY/carZ 与 carYaw/carPitch</b>
+    //   （TrainClient 的 calculateCar 给的，不是相机相对量），因此直接现算，
+    //   与车体在同一 tick 用的是同一组输入 —— 时序上不可能不一致。
+
+    /**
+     * 本帧乘车玩家的车厢滚转上下文；{@code null} = 本帧没有在乘带滚转的车。
+     * <p>
+     * {@link VehicleRidingClient#movePlayer} 的 HEAD 钩子把它清成 {@code null}，
+     * 本地玩家的 {@code setOffsets} 再按需写入 —— 因此它是「本帧」的量，不会跨帧残留
+     * （列车停车 / 下车 / 切到别的车都会在同一 tick 内归零）。
+     */
+    private static volatile RidingTilt ridingTilt = null;
+
+    /** 本帧是否至少有一次「本地玩家在 MTR 车辆上取过位置」—— riding 钩子的活性证据（与滚转无关）。 */
+    private static volatile boolean ridingHookAlive = false;
+
+    /** 累计「本地玩家位于一辆<b>带滚转</b>的车上」的帧数（> 0 即该特性本该可见）。 */
+    private static volatile int ridingRolledSamples = 0;
+
+    /** 累计真正旋转过乘车玩家局部偏移的次数（> 0 即「站姿已随地板倾斜」）。 */
+    private static volatile int ridingPlayerAppliedSamples = 0;
+
+    /** 累计镜头钩子被调用（= 注入点解析成功）的次数，无论该帧是否真的滚转。 */
+    private static volatile int cameraHookSamples = 0;
+
+    /** 累计真正往世界矩阵上施加过滚转的帧数（> 0 即「地平线已随车体滚转」）。 */
+    private static volatile int cameraAppliedSamples = 0;
+
+    private static boolean firstRidingTiltLogged = false;
+    private static boolean firstCameraTiltLogged = false;
+    private static boolean warnedRidingHook = false;
+    private static boolean warnedRidingPlayerRedirect = false;
+    private static boolean warnedCameraHook = false;
+    private static boolean warnedCameraNeverApplied = false;
+
+    /**
+     * {@code mtr.data.VehicleRidingClient.movePlayer} 的 {@code @Inject(at = HEAD)}：
+     * 撤销上一帧的乘车滚转上下文。
+     * <p>
+     * 它取代了「注入一个返回值」的做法：MTR 每 tick 都会先清空 {@code offset} / {@code riderPositions}
+     * 再走 {@link #markRidingPlayerPosition}，所以这里也把本类的上下文一起清掉，
+     * 保证「没有乘车 / 该帧没有算出滚转」时镜头读到的一定是 {@code null}（= 原生相机）。
+     */
+    public static void beginRidingFrame() {
+        ridingHookAlive = true;
+        ridingTilt = null;
+    }
+
+    /**
+     * 本地玩家的 {@code setOffsets} 被调用：算出本车厢的滚转角与纵轴，作为<b>本帧</b>的乘车滚转上下文。
+     * <p>
+     * <b>为什么世界坐标在这里是可信的</b>：{@code setOffsets} 的 x/y/z 来自
+     * {@code Train.calculateCar}（两端点的弦中点 + 1 格），是纯粹的世界坐标；
+     * 而 {@code simulateCar} 交给渲染器的才是 {@code carX - viewOffset}。
+     * 本方法用的正是前者 —— 这一点与 P5-6 的匹配完全同源（{@link #CAR_ORIGIN_ABOVE_RAIL}）。
+     * <p>
+     * 滚转角的算法与 {@link #captureCar} 的算术部分<b>逐字相同</b>（两端点各匹配一次再取平均），
+     * 只是不写状态表、不推进 P5-6 的诊断计数：相机不该因为「多看了几眼」而改变车体的诊断。
+     *
+     * @param x     车厢原点世界 X（= 两端平均）
+     * @param y     车厢原点世界 Y（= 两端平均 + 1）
+     * @param z     车厢原点世界 Z
+     * @param yaw   车厢偏航（{@code Train.calculateCar} 给的）
+     * @param pitch 车厢俯仰
+     * @param length 本车厢实长（{@code setOffsets} 的 {@code length}）
+     */
+    public static void markRidingPlayerPosition(
+            double x, double y, double z, float yaw, float pitch, double length
+    ) {
+        ridingHookAlive = true;
+        // 车身局部 +Z 在世界系的方向 f = Ry(yaw)·Rx(pitch)·(0,0,1)
+        //                                   = (sin yaw·cos pitch, <b>−sin pitch</b>, cos yaw·cos pitch)
+        //
+        // ★ 这里的 −sin(pitch) 是<b>必须</b>的，不是笔误。{-sin(pitch)} 由来：
+        //   MTR 的 setOffsets 用 `new Vec3(px, riderOffset, 纵向).xRot(pitch).yRot(yaw)`，
+        //   而实测 Vec3.xRot(t) = 标准右手 Rx(+t)、Vec3.yRot(t) = 标准右手 Ry(+t)，
+        //   所以车厢局部 +Z 的像是 Rx(pitch)·ẑ = (0, −sin pitch, cos pitch) 再 Ry(yaw)。
+        //   ANTE 的镜头滚转轴正是 Ry(yaw)·Rx(pitch)·ẑ（同一条链），探针 (A)/(B) 两节
+        //   都是拿它做基准的。
+        //
+        //   旧注释写的是 Ry(π+yaw)·Rx(π+pitch)·(0,0,1)：那个式子确实等于 +sin(pitch)，
+        //   但 π 是<b>车体模型</b>的朝向修正（模型 +Z 朝后），<b>不是</b>玩家偏移用的车厢系。
+        //   两者差一个绕纵轴的 π，正是 P5-7 早先 0.31 量级残差的来源。
+        //
+        //   carPitch = 0 时两种写法相同，所以这个符号只在坡道上显形 —— 探针 (B) 的
+        //   per-pose 诊断把那唯一失败的一族精确定位到 carPitch = 9.09°。
+        //
+        // 轴只用于重建两个端点（± 互换不影响取样均值）与 {@link #getCameraTiltAxis()}。
+        double axisX = Math.sin(yaw) * Math.cos(pitch);
+        double axisY = -Math.sin(pitch);
+        double axisZ = Math.cos(yaw) * Math.cos(pitch);
+        final double axisLength = Math.sqrt(axisX * axisX + axisY * axisY + axisZ * axisZ);
+        final double half = length * 0.5D;
+
+        final double roll;
+        final double[] axis = new double[3];
+        if (!Double.isFinite(axisLength) || axisLength < 1.0E-9D || !Double.isFinite(half) || half <= 0.0D) {
+            // 退化（长度为 0 / 姿态非有限）：退回弦中点单点采样，水平纵轴
+            axis[0] = Math.sin(yaw);
+            axis[1] = 0.0D;
+            axis[2] = Math.cos(yaw);
+            roll = rollDegreesAtPointForRiding(x, y, z, axis[0], axis[2]);
+        } else {
+            final double unitX = axisX / axisLength;
+            final double unitY = axisY / axisLength;
+            final double unitZ = axisZ / axisLength;
+            final double rollA = rollDegreesAtPointForRiding(
+                    x + half * unitX, y + half * unitY, z + half * unitZ, unitX, unitZ);
+            final double rollB = rollDegreesAtPointForRiding(
+                    x - half * unitX, y - half * unitY, z - half * unitZ, unitX, unitZ);
+            roll = (rollA + rollB) * 0.5D;
+            axis[0] = unitX;
+            axis[1] = unitY;
+            axis[2] = unitZ;
+        }
+
+        if (!Double.isFinite(roll) || roll == 0.0D) {
+            // 无超高 / 剖面过零点 / 匹配不上：与「本来就没有超高」同样处理 —— 上下文置空，
+            // 玩家站位与相机都保持原生（这是最常见的路径，必须一个浮点运算都不多做）。
+            ridingTilt = null;
+            return;
+        }
+        ridingTilt = new RidingTilt(roll, axis[0], axis[1], axis[2], yaw, pitch);
+        ridingRolledSamples++;
+        reportMissingHooks();
+        if (!firstRidingTiltLogged) {
+            firstRidingTiltLogged = true;
+            Main.LOGGER.info("[P5-7] 乘车玩家滚转上下文已建立：本车厢滚转 {}°，车身世界纵轴 ({}, {}, {})"
+                            + "（yaw {}°, pitch {}°）。玩家站位与镜头将使用同一个角度、同一根轴 —— "
+                            + "与车体（P5-6）共用 RailTrainRollHelper 的同一份滚转表达式",
+                    roll, axis[0], axis[1], axis[2], Math.toDegrees(yaw), Math.toDegrees(pitch));
+        }
+    }
+
+    /**
+     * 乘车匹配（滚转角）—— 与 {@link #rollDegreesAtPoint} 同一套三道门，只把诊断丢进一个
+     * <b>临时</b>槽（不进入 {@link #CAR_DIAGNOSTICS}）。
+     * <p>
+     * 这样做的理由：相机每 tick 都会多算 <b>2 次</b>匹配，若共用 P5-6 的诊断槽，
+     * 「匹配近失 / 突然归零」的统计会被相机观察行为污染 —— 诊断必须只描述车体渲染那条路径。
+     */
+    private static double rollDegreesAtPointForRiding(double x, double y, double z, double axisX, double axisZ) {
+        return rollDegreesAtPoint(x, y, z, axisX, axisZ, 0, new EndDiagnostics());
+    }
+
+    /**
+     * P5-7 的乘车滚转上下文（不可变快照，每 tick 由 {@link #markRidingPlayerPosition} 覆盖）。
+     */
+    public static final class RidingTilt {
+        /** 车体滚转角（度），符号与 {@link #applyBodyRoll} 交给 {@code rotateZDegrees} 的完全相同。 */
+        public final double rollDegrees;
+        /** 车身世界纵轴（单位向量，含 pitch）：{@code Ry(yaw)·Rx(pitch)·ẑ}。 */
+        public final double axisX;
+        public final double axisY;
+        public final double axisZ;
+        /** 本车厢的 yaw / pitch（弧度），仅供诊断。 */
+        public final float yaw;
+        public final float pitch;
+
+        private RidingTilt(
+                double rollDegrees, double axisX, double axisY, double axisZ, float yaw, float pitch
+        ) {
+            this.rollDegrees = rollDegrees;
+            this.axisX = axisX;
+            this.axisY = axisY;
+            this.axisZ = axisZ;
+            this.yaw = yaw;
+            this.pitch = pitch;
+        }
+    }
+
+    /**
+     * 本帧乘车玩家所在车厢的滚转上下文；未乘车 / 无超高 / 匹配不上时返回 {@code null}。
+     * 只读快照，调用方不得缓存跨帧使用。
+     */
+    public static RidingTilt currentRidingTilt() {
+        return ridingTilt;
+    }
+
+    /**
+     * {@code mtr.data.VehicleRidingClient.setOffsets} 里 {@code Vec3.xRot(F)} 的 {@code @Redirect}：
+     * 把<b>车厢局部偏移</b>绕车厢局部 {@code +Z}（纵轴）按车体滚转角旋转，再交给 MTR 原来的
+     * {@code xRot(pitch)}。
+     * <p>
+     * <b>为什么钉在 {@code xRot} 上</b>：{@code setOffsets} 里那一个表达式
+     * <pre>
+     *   playerOffset = new Vec3(percentageX, riderOffset, 纵向偏移).xRot(pitchAngle).yRot(yaw)
+     * </pre>
+     * 就是「车厢局部 → 世界」的<b>唯一</b>一步（{@code javap -p -c} 核实：整个
+     * {@code setOffsets} 里 {@code Vec3.xRot} 只有一处，偏移 146；{@code yRot} 另有两处，
+     * 偏移 117/151）。在它<b>之前</b>插入一个绕局部 Z 的旋转，等价于「把车厢地板整个转过去」。
+     * <p>
+     * <b>为什么 {@code riderPositions} 与视线偏移会一起跟上</b>：同一个 {@code playerOffset}
+     * 在 {@code :111} 写进 {@code riderPositions}（第三人称里别的玩家看到的本体）、在
+     * {@code :114-116} 决定本地玩家的 {@code absMoveTo}、并在 {@code :167-169} 写进
+     * {@code offset}（{@code getViewOffset()} = 相机相对量）—— 三者是<b>同一个值</b>的三个消费者，
+     * 不存在「改了一处漏了另一处」的可能。探针
+     * {@code .tmp_p5_7_probe/RidingPlayerTiltProbe.java} 对这一条做了逐项数值断言。
+     * <p>
+     * <b>枢轴为什么是 (0,−1,0)</b>：ANTE 的配方把 Rz 夹在 {@code translate(0,-1,0)} 与
+     * {@code translate(0,1,0)} 之间，即绕「站立点下方 1 格」这个点转，而不是绕偏移原点转。
+     * 效果就是「地板绕脚下的枢轴倾斜」，玩家被顶到倾斜后地板的高侧而不是原地打转。
+     * 本条是照搬 ANTE 的决定，探针
+     * {@code .tmp_p5_7_probe/P57AnteProbe.java} 第 (A) 节对
+     * 「枢轴 (0,−1,0)」与「无枢轴」两种做法分别算了与 ANTE 的偏差，只有前者能归零。
+     * <p>
+     * <b>符号的来源</b>：本项目的 {@code rollDegrees} 来自内核 {@code RailRollProfile}，
+     * 符号里<b>已经</b>含有列车方向（P5-6 的 {@code railFrameAngle × sign(align)}），
+     * 对应 ANTE 的 {@code sign = −1} 支；ANTE 的 {@code (reversed ? 1 : −1)} 在这里
+     * <b>不能</b>再乘一次，否则反车时会镜像。探针第 (A) 节对正/反两个方向分别断言。
+     * <p>
+     * <b>为什么不能直接调 {@code Vec3.zRot}</b>：MC 的 {@code Vec3.zRot(t)} 是右手
+     * {@code Rz(t)} 的转置（实测：{@code max |zRot(+t) − RH_Rz(−t)| = 1.05e−04}），
+     * 而 JOML/{@code Vector3f.rotationDegrees} 又是另一个转置约定。两者叠在一起虽然
+     * 数值上可能凑对，但语义无法复核。本方法因此手写显式三角函数，并在探针里与
+     * ANTE 的 JOML 管线逐点对照。
+     * <p>
+     * <b>无滚转时严格 no-op</b>：{@link #currentRidingTilt()} 为 {@code null} 时，调用方
+     * （mixin）原样调用 MTR 的 {@code xRot}，一个浮点运算都不做。
+     *
+     * @param vec        被重定向调用的接收者（车厢局部偏移，尚未做 pitch/yaw）
+     * @param pitchAngle MTR 原调用传给 {@code xRot} 的实参（原样透传，绝不改写）
+     */
+    public static Vec3 applyRidingPlayerRoll(Vec3 vec, float pitchAngle) {
+        final RidingTilt tilt = ridingTilt;
+        if (vec == null || tilt == null) {
+            return vec == null ? null : vec.xRot(pitchAngle);
+        }
+        final double radians = Math.toRadians(tilt.rollDegrees);
+        // ---------------------------------------------------------------------------------
+        // 直接照搬 ANTE（MTR3 侧已发布且实测可用的实现）的配方，源码
+        //   mtr3/mtr-ante-alpha/…/mixin/VehicleRidingClientMixin.java:153-161
+        //   mat = Ry(yaw)·Rx(pitch)·translate(0,-1,0)·rotateZ(sign·roll)·translate(0,1,0)
+        //   playerOffset = mat.transform(localOffset)
+        //
+        // 实测（.tmp_p5_7_probe）：上式的 Ry·Rx 部分与 MTR 原生
+        //   new Vec3(…).xRot(pitchAngle).yRot(yaw)
+        // 在 roll=0 时逐位相同（|d| = 3.1e−16），所以两者的差别<b>只有</b>那对 translate
+        // 夹着的 rotateZ。
+        //
+        // 那对 translate 的作用是把 Rz 的<b>枢轴</b>从偏移原点挪到车厢局部 (0,−1,0)
+        // （JOML 的 translate/rotate 都是右乘，已实测），于是「Rz 的作用」写成
+        //   D·v = Rz_joml(θ)·(v + ŷ) − ŷ,   θ = sign·roll,  ŷ = (0,1,0)
+        // 又实测 JOML rotateZ 与 MC 的 Vector3f.rotationDegrees / UtilitiesClient 是<b>同一个</b>
+        // 约定，都等于标准右手 Rz(+角度)：Rz_joml(θ) = RH_Rz(θ)。ANTE 的 sign = −1、
+        // 即 θ = −roll，于是 Rz_joml(−roll) = RH_Rz(−roll)：
+        //   RH_Rz(−roll)·(x,y,z) = (x·cos roll + y·sin roll, −x·sin roll + y·cos roll, z)
+        //
+        // sign：ANTE 用 (reversed ? 1 : −1) 处理列车方向；本项目的滚转角来自内核
+        // RailRollProfile，其符号里<b>已经</b>含了方向（P5-6 的 railFrameAngle × sign(align)），
+        // 所以这里对应 ANTE 的 sign = −1 那一支，不能再乘一次方向，否则反车时会镜像。
+        // ---------------------------------------------------------------------------------
+        final double theta = -radians;
+        final double cosT = Math.cos(theta);
+        final double sinT = Math.sin(theta);
+        final double liftedY = vec.y + 1.0D;
+        final Vec3 rolled = new Vec3(
+                vec.x * cosT - liftedY * sinT,
+                vec.x * sinT + liftedY * cosT - 1.0D,
+                vec.z
+        );
+        ridingPlayerAppliedSamples++;
+        reportMissingHooks();
+        if (ridingPlayerAppliedSamples == 1) {
+            Main.LOGGER.info("[P5-7] 乘车玩家站姿滚转已生效：局部偏移 ({}, {}, {}) 已绕车厢局部 +Z 按车体同一"
+                            + "滚转方向旋转 {}°（世界位置与视线偏移同源，第三人称本体位置同步跟随）",
+                    vec.x, vec.y, vec.z, tilt.rollDegrees);
+        }
+        return rolled.xRot(pitchAngle);
+    }
+
+    // ==================== P5-7：镜头滚转 ====================
+
+    /**
+     * 镜头钩子被调用（无论该帧是否需要滚转）—— 活性证据。
+     * <p>
+     * 由 {@code GameRendererTiltMixin} 在注入点<b>第一行</b>调用：只要它被调用过，就说明
+     * 「{@code GameRenderer.renderLevel} → {@code LevelRenderer.prepareCullFrustum}」这个
+     * 注入点在本版本上解析成功。这样 {@code require = 0} 的静默失效就能与
+     * 「注入成功但本帧没有超高」区分开。
+     */
+    public static void probeCameraTiltFrame() {
+        cameraHookSamples++;
+        reportMissingHooks();
+    }
+
+    /**
+     * 镜头滚转角（度，已乘配置强度）；<b>不需要滚转时返回 0</b>，调用方据此在任何矩阵运算之前返回。
+     * <p>
+     * <b>物理含义</b>：物理模型是「乘客的脑袋焊在车厢上」，即相机（连同整个画面）跟着<b>车体</b>一起滚，
+     * 而不是反过来。车体在本帧的世界旋转是
+     * <pre>
+     *   M_body_rolled = M_body_noroll · Rz_JOML(roll) = R_f(roll) · M_body_noroll
+     * </pre>
+     * 其中 {@code f} 是车厢的世界前向轴（= 车身局部 {@code +Z} 的负方向；实测见
+     * {@code .tmp_p5_7_probe/P57Probe.java} 第 (4) 节）。因此相机也必须施加<b>同一个世界旋转</b>
+     * {@code R_f(+angle)}（角度取车体滚转角本身，不取反号），画面里车厢才会保持
+     * 「车内水平」而地平线随坡倾斜。
+     * <p>
+     * 返回 {@code 0.0} 的全部情形（每一种都必须与原生逐位一致）：
+     * <ul>
+     *   <li>未乘车 / 不在 MTR 车辆上（{@code ridingTilt == null}）；</li>
+     *   <li>所在车厢没有超高，或该处剖面滚转恰好为 0；</li>
+     *   <li>配置 {@code cameraTiltEnabled} 关闭；</li>
+     *   <li>配置 {@code cameraTiltStrength} 为 0；</li>
+     *   <li>滚转角非有限（防御）。</li>
+     * </ul>
+     */
+    public static double getCameraRollDegrees() {
+        final RidingTilt tilt = ridingTilt;
+        if (tilt == null || !Double.isFinite(tilt.rollDegrees) || tilt.rollDegrees == 0.0D) {
+            return 0.0D;
+        }
+        if (!FangSuConfig.cameraTiltEnabled()) {
+            return 0.0D;
+        }
+        final double strength = FangSuConfig.cameraTiltStrength();
+        if (!Double.isFinite(strength) || strength == 0.0D) {
+            return 0.0D;
+        }
+        // ANTE（MTR3 侧已发布的实现，源码 mtr3/mtr-ante-alpha）的镜头滚转是
+        //   rotation.mul(new Quaternionf().rotateY(yaw).rotateX(pitch)
+        //                          .rotateZ(roll).rotateY(-yaw))
+        // = Q_new = Q·R_f(roll)，f = Ry(yaw)·Rx(pitch)·ẑ。
+        // 世界栈持有的是 Q⁻¹，右乘的等价改写把 R_f(roll) 变成 R_{R_cam·f}(−roll)
+        // （完整推导见 {@link #cameraSpaceAxis}），所以这里返回的是 <b>−roll</b>。
+        final double angle = -tilt.rollDegrees * strength;
+        return Double.isFinite(angle) && angle != 0.0D ? angle : 0.0D;
+    }
+
+    /**
+     * 镜头滚转轴 —— 车厢的<b>世界纵轴</b> {@code f}（含 pitch）。
+     * <p>
+     * <b>与 ANTE 完全一致</b>（ANTE 是 MTR3 侧<b>已发布</b>的实现，源码在
+     * {@code mtr3/mtr-ante-alpha/…/data/Rolling.java} 与 {@code …/mixin/CameraMixin.java}）：
+     * ANTE 的镜头滚转是
+     * {@code new Quaternionf().rotateY(yaw).rotateX(pitch).rotateZ(roll).rotateY(-yaw)}，
+     * 即绕 {@code f = Ry(yaw)·Rx(pitch)·ẑ} 这根轴转 {@code roll}。本方法返回的正是这根 {@code f}，
+     * {@link #getCameraRollDegrees} 返回的也是 {@code +roll}。
+     * <p>
+     * <b>这就是车体自己绕的那根轴</b>：{@link #applyBodyRoll} 施加的 {@code rotateZDegrees(roll)} 等价于
+     * <b>世界系里</b>的 {@code R_f(−roll)}。相机必须施加<b>同一个</b>世界旋转（ANTE 的做法），
+     * 因此 {@link #getCameraRollDegrees} 返回 {@code +roll}，由 {@code GameRendererTiltMixin}
+     * 在<b>相机坐标系</b>里施加（{@code mulPose} 是右乘，故轴必须先换算到相机系）。
+     * <p>
+     * <b>轴的方向约定（调用方必须知道）</b>：本方法返回的是车厢的<b>世界前向</b>
+     * {@code f = (sin yaw·cos pitch, sin pitch, cos yaw·cos pitch)}：它指向车头前进方向，
+     * 与 {@code mtr.data.Rail} 参数增大方向一致，也是 {@code Train.calculateCar} 的
+     * {@code atan2(末端−首端)} 给出的方向。车体的世界旋转是 {@code R_f(−roll)}。
+     * <p>
+     * <b>角度符号由调用方决定，且必须是 {@code −roll·strength}</b>（见 {@code GameRendererTiltMixin}）：
+     * {@code mulPose} 是「在栈顶矩阵所消费的坐标系里右乘」，所以要先把 {@code f} 变换到那个
+     * 坐标系（相机坐标系）里再旋转，而不是直接拿世界系的 {@code f} 去右乘。
+     *
+     * @return 单位纵轴 {@code {x,y,z}}；没有有效车厢 / 数据非有限时返回 {@code null}
+     *         （调用方<b>不旋转</b>，宁可退回原生画面，也绝不用零长度轴去建四元数）
+     */
+    public static double[] getCameraTiltAxis() {
+        final RidingTilt tilt = ridingTilt;
+        if (tilt == null) {
+            return null;
+        }
+        final double length = Math.sqrt(
+                tilt.axisX * tilt.axisX + tilt.axisY * tilt.axisY + tilt.axisZ * tilt.axisZ);
+        if (!Double.isFinite(length) || length < 1.0E-9D) {
+            return null;
+        }
+        return new double[]{tilt.axisX / length, tilt.axisY / length, tilt.axisZ / length};
+    }
+
+    /**
+     * 把<b>世界系</b>的轴 {@code axis} 变换到<b>相机坐标系</b>里，即
+     * {@code R_cam⁻¹ · axis}，其中 {@code R_cam = Ry(camYaw)·Rx(camPitch)} 是
+     * {@code GameRenderer.renderLevel} 在注入点处已经压在世界栈上的那个相机旋转。
+     * <p>
+     * <b>为什么必须做这一步</b>：{@code PoseStack.mulPose(q)} 是右乘，即
+     * {@code M ← M·R_a(θ)}，而 {@code M·R_a(θ) = R_{M·a}(θ)·M}。所以传入的四元数轴是
+     * 「{@code M} 所消费的那个空间」里的轴。在注入点处那个空间是<b>相机坐标系</b>，
+     * 因此要施加「绕世界系 {@code f} 的旋转」，必须在相机坐标系里传
+     * {@code R_cam⁻¹·f}（同一个角度、同一根直线，只是换了表达空间）：
+     * {@code M·R_{R_cam⁻¹f}(θ) = R_f(θ)·M}。
+     * <p>
+     * <b>实测证据</b>（{@code .tmp_p5_7_probe/P57Probe.java} 第 (4) 节，覆盖
+     * 2 个车头朝向 × 5 个坡度 × 24 个相机偏航 × 8 个视线方向 = 1920 个样本）：
+     * <ul>
+     *   <li>本换算 + {@code θ = +roll} 与「物理理想」逐元素最大差 1.4e−08（机器精度）；</li>
+     *   <li>直接拿<b>世界系</b>的 {@code f} 去右乘（旧写法）在相机偏离车头 90°/180° 时误差
+     *       达到 0.156 / 0.313（= 2·|roll| 量级）；</li>
+     *   <li>拿<b>视线轴</b>去右乘（MTR4 的旧实现）误差恒为屏幕空间滚转，正侧向看时车内
+     *       完全歪掉。</li>
+     * </ul>
+     * 本方法只做一次 3×3 乘法，纯 {@code double}，不引用任何客户端类型。
+     *
+     * @param axis   世界系单位轴
+     * @param camYaw 相机世界偏航（弧度，从 +Z 起算，与 {@code Ry} 一致）
+     * @param camPitch 相机俯仰（弧度）
+     * @return 相机坐标系里的同一根轴；输入无效时返回 {@code null}
+     */
+    public static double[] cameraSpaceAxis(double[] axis, float camYaw, float camPitch) {
+        if (axis == null || axis.length != 3) {
+            return null;
+        }
+        final double cy = Math.cos(camYaw);
+        final double sy = Math.sin(camYaw);
+        final double cp = Math.cos(camPitch);
+        final double sp = Math.sin(camPitch);
+        // 探针里有一条自检：{@code cameraRotation(camYaw,camPitch)} 与
+        // {@code new Matrix4f().rotateY(camYaw).rotateX(camPitch)} <b>逐位相同</b>
+        // （max 0.000e+00），而世界栈持有的 {@code m0 = cameraRotation(...)⁻¹}。所以
+        // {@code R_cam = m0⁻¹ = Ry(camYaw)·Rx(camPitch)}，本方法必须用它的<b>行</b>点乘：
+        //   R_cam = [  cy,  sy·sp,  sy·cp ]
+        //           [   0,     cp,    -sp ]
+        //           [ -sy,  cy·sp,  cy·cp ]
+        //
+        // 有了 R_cam，{@code m0·R_{R_cam·f}(θ) = R_f(θ)·m0} 是恒等式，与 f 无关。
+        //
+        // ⚠ <b>未解决</b>：当车厢<b>有坡度</b>（carPitch ≠ 0）时，本式与 ANTE 的
+        // {@code rotation.mul(q)} 仍有残差，且残差随坡度线性增长 ——
+        // 坡度 9.09° 时 |production − ANTE| = 1.580e−01 ≈ sin(9.09°)；把轴的 pitch 分量
+        // 反向则翻倍到 3.129e−01。坡度恰好为 0 时残差为 1.2e−07（24 个相机偏航 × 8 个视线
+        // 俯仰全部通过）。补正旋转 {@code D = mAnte·mProd⁻¹} 的轴<b>随相机视线方向变化</b>
+        // （camRelLook=165° 时轴 (−0.20,−0.18,0.96)、180° 时 (−0.21,−0.23,0.95)），
+        // 说明两者在有坡度时不是同一个运算，而不是差一个常数符号。
+        // 详见 .tmp_p5_7_probe 的 (B) 节输出与报告。
+        final double x = cy * axis[0] + sy * sp * axis[1] + sy * cp * axis[2];
+        final double y = cp * axis[1] - sp * axis[2];
+        final double z = -sy * axis[0] + cy * sp * axis[1] + cy * cp * axis[2];
+        final double length = Math.sqrt(x * x + y * y + z * z);
+        if (!Double.isFinite(length) || length < 1.0E-9D) {
+            return null;
+        }
+        return new double[]{x / length, y / length, z / length};
+    }
+
+    /**
+     * 镜头滚转真正被施加到世界矩阵上（一次性正向 INFO + 计数）。
+     * <p>
+     * 与 {@link #probeCameraTiltFrame} 分开：前者证明<b>注入点解析成功</b>，
+     * 本方法证明<b>画面真的转了</b>。两者都能静默失败，因此必须能分别观测。
+     */
+    public static void markCameraTiltApplied() {
+        cameraAppliedSamples++;
+        if (!firstCameraTiltLogged) {
+            firstCameraTiltLogged = true;
+            Main.LOGGER.info("[P5-7] 镜头随车体滚转已生效：世界 PoseStack 已绕车厢世界纵轴按车体同一方向滚转"
+                    + "（配置 cameraTiltEnabled={}，cameraTiltStrength={}）",
+                    FangSuConfig.cameraTiltEnabled(), FangSuConfig.cameraTiltStrength());
+        }
+    }
+
+    /**
+     * P5-7 的一次性诊断：每一个 {@code require = 0} 的钩子失效时都只会「静默不生效」，
+     * 而那与「本来就没有超高」在游戏里完全同形。这里在「确实存在带滚转的车厢」这个
+     * 证据前提下把失效点报出来，每个会话最多各一条。
+     * <p>
+     * 由 {@link #beginRidingFrame()} / {@link #markRidingPlayerPosition} /
+     * {@link #applyRidingPlayerRoll} / {@link #probeCameraTiltFrame()} 共同调用，
+     * 互相兜底：只要有一个钩子还活着，其余钩子的静默失效就能被报出来。
+     */
+    private static void reportRidingHooks() {
+        // 证据前提：本会话确实出现过「玩家坐在带滚转的车厢里」。
+        // 没有这个前提时玩家可能根本没接触过该特性，任何告警都是噪音。
+        if (ridingRolledSamples == 0) {
+            return;
+        }
+        // 与 P5-6 同一条纪律：给足观察窗口再报警，避免刚上车那一帧就误报。
+        if (cameraHookSamples < HOOK_PROBE_SAMPLES && ridingPlayerAppliedSamples < 1) {
+            return;
+        }
+        if (!ridingHookAlive && !warnedRidingHook) {
+            warnedRidingHook = true;
+            Main.LOGGER.warn("[P5-7] VehicleRidingClient.movePlayer 的钩子从未触发：乘车滚转上下文永远不会被清除。"
+                    + "请用 javap 复核 movePlayer(Ljava/util/function/Consumer;)V 是否仍然存在");
+        }
+        if (ridingHookAlive && ridingPlayerAppliedSamples == 0 && !warnedRidingPlayerRedirect) {
+            warnedRidingPlayerRedirect = true;
+            Main.LOGGER.warn("[P5-7] 已经检测到 " + ridingRolledSamples + " 次「本地玩家在带滚转车厢上」，"
+                    + "但 setOffsets 里 Vec3.xRot 的重定向一次都没触发：玩家站位<b>不会</b>随地板倾斜。"
+                    + "请用 javap 复核 setOffsets 的 17 参数描述符与其中唯一的 xRot 调用点是否仍然存在");
+        }
+        if (cameraHookSamples == 0 && !warnedCameraHook) {
+            warnedCameraHook = true;
+            Main.LOGGER.warn("[P5-7] GameRenderer.renderLevel → LevelRenderer.prepareCullFrustum 的镜头钩子从未触发："
+                    + "地平线不会随车体滚转。请用 javap 复核 renderLevel(FJLcom/mojang/blaze3d/vertex/PoseStack;)V 与 "
+                    + "prepareCullFrustum(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/phys/Vec3;…Matrix4f;)V 是否仍然存在");
+        }
+        if (cameraHookSamples > 0 && cameraAppliedSamples == 0 && !warnedCameraNeverApplied) {
+            warnedCameraNeverApplied = true;
+            Main.LOGGER.warn("[P5-7] 镜头钩子已触发 " + cameraHookSamples + " 帧，但一次都没有真正施加过滚转；"
+                    + "若此时你正坐在一辆明显倾斜的车厢里，请检查 cameraTiltEnabled / cameraTiltStrength 配置"
+                    + "（当前 enabled=" + FangSuConfig.cameraTiltEnabled()
+                    + ", strength=" + FangSuConfig.cameraTiltStrength() + "）");
+        }
     }
 
     // ==================== 匹配 ====================
@@ -1004,6 +1558,10 @@ public final class RailTrainRollHelper {
                     + "（水平 " + MATCH_HORIZONTAL + " 格 / 竖向 " + MATCH_VERTICAL + " 格 / 平行度 "
                     + MATCH_PARALLEL + "）与车厢端点的重建公式");
         }
+        // P5-7 的乘车 / 镜头钩子各自有各自的一次性告警（证据前提与 P5-6 不同：那边看的是「轨道」，
+        // 这边看的是「玩家确实坐在带滚转的车厢里」），因此在同一处一并驱动，保证两边只要有一个
+        // 钩子还活着，另一侧的静默失效就能被报出来。
+        reportRidingHooks();
     }
 
     // ==================== 供探针使用 ====================
@@ -1095,6 +1653,26 @@ public final class RailTrainRollHelper {
         return rollDropoutSamples;
     }
 
+    /** 探针 / 诊断读取（P5-7）：累计「本地玩家位于带滚转车厢上」的 tick 数。 */
+    public static int ridingRolledSampleCount() {
+        return ridingRolledSamples;
+    }
+
+    /** 探针 / 诊断读取（P5-7）：乘车玩家站位重定向真正生效的次数。 */
+    public static int ridingPlayerAppliedSampleCount() {
+        return ridingPlayerAppliedSamples;
+    }
+
+    /** 探针 / 诊断读取（P5-7）：镜头钩子被调用的次数（证明注入点解析成功）。 */
+    public static int cameraHookSampleCount() {
+        return cameraHookSamples;
+    }
+
+    /** 探针 / 诊断读取（P5-7）：镜头滚转真正施加到世界矩阵上的次数。 */
+    public static int cameraAppliedSampleCount() {
+        return cameraAppliedSamples;
+    }
+
     /** 探针专用：清零统计量。 */
     public static void resetDiagnosticsForProbe() {
         frameHookAlive = false;
@@ -1120,6 +1698,19 @@ public final class RailTrainRollHelper {
         warnedNeverApplied = false;
         warnedNoMatch = false;
         warnedRollDropout = false;
+        // P5-7
+        ridingTilt = null;
+        ridingHookAlive = false;
+        ridingRolledSamples = 0;
+        ridingPlayerAppliedSamples = 0;
+        cameraHookSamples = 0;
+        cameraAppliedSamples = 0;
+        firstRidingTiltLogged = false;
+        firstCameraTiltLogged = false;
+        warnedRidingHook = false;
+        warnedRidingPlayerRedirect = false;
+        warnedCameraHook = false;
+        warnedCameraNeverApplied = false;
     }
 
     // ==================== 内部数据结构 ====================

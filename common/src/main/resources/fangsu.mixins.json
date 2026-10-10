@@ -12,7 +12,10 @@
     "TrainClientRollMixin",
     "JonModelTrainRendererRollMixin",
     "FunctionalTrainRendererRollMixin",
-    "NteBakedRailMixin"
+    "NteBakedRailMixin",
+    "VehicleRidingClientRollMixin",
+    "GameRendererTiltMixin",
+    "TrainRendererBaseCameraMixin"
   ],
   "mixins": [
     "CustomResourcesMixin",
