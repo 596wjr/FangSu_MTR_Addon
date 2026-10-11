@@ -164,6 +164,23 @@ public class RenderTrainsMixin {
     // 全部由 RailTiltRenderHelper 的一次性诊断兜底（见那边的 verifyTiltHooksAlive /
     // verifyScheduleHookAlive）。
     //
+    // ★ 选择器的 remap（2026-10-11 beta 包事故后修正）
+    //   本类级写的是 @Mixin(remap = false)，运行期会把每一条选择器字符串「无条件」过一遍 refmap
+    //   （MemberInfo.parse → ISelectorContext.remap → IReferenceMapper.remap），查不到就原样返回；
+    //   而注解处理器只把「有效 remap 为 true」的成员写进 refmap。因此凡是描述符里出现
+    //   Lnet/minecraft/... 的选择器，必须逐条写 remap = true，否则生产命名空间里永远匹配不上，
+    //   require = 0 会让它「静默失效」—— 这就是 4 分钟会话只出现 1 条 [P5-…] 日志的直接原因。
+    //   本类里需要 remap = true 的正是下面 9 条（其余选择器不含任何 MC/vanilla 类型，保持类级默认）：
+    //     1. RENDER_RAIL_STANDARD_10_DESCRIPTOR 的 @ModifyVariable（Level/Rail/…）
+    //     2. 同一个描述符的 @Inject(RETURN)
+    //     3. scheduleRender 的两条 @Redirect 的 @At.target（ResourceLocation）
+    //     4. drawTexture 的四条 @Redirect 的 @At.target（Direction）
+    //     5. render(...MultiBufferSource) 的两条 @Inject（新的方法选择器 + NTE 看门狗）
+    //   ⚠ 反例（保持 remap = false，且**不可以**改成 true）：
+    //     * method = "lambda$render$6" 与 RailTiltRenderHelper.RAIL_SCHEDULE_TARGET /
+    //       RAIL_ARROW_DRAW_TARGET / RAIL_QUAD_DRAW_TARGET —— 这些是 synthetic lambda 的**裸名字**，
+    //       描述符里一个 MC 类型都没有，注解处理器也解析不了 lambda 的描述符。
+    //
     //  ① @ModifyVariable(index = 1) 捕获「当前正在渲染的轨道」（Rail 在槽位 1）
     //  ② @Inject(RETURN)            结束同步窗口
     //  ⑤ scheduleRender 的 @Redirect ×2    只包装轨面 / 单行道箭头那两个排队消费者
@@ -209,7 +226,7 @@ public class RenderTrainsMixin {
             argsOnly = true,
             index = 1,
             require = 0,
-            remap = false
+            remap = true
     )
     private static Rail fangsu$captureRailSection(Rail rail) {
         return RailTiltRenderHelper.captureSectionRail(rail);
@@ -220,7 +237,7 @@ public class RenderTrainsMixin {
             method = RailTiltRenderHelper.RENDER_RAIL_STANDARD_10_DESCRIPTOR,
             at = @At("RETURN"),
             require = 0,
-            remap = false
+            remap = true
     )
     private static void fangsu$endRailSection(CallbackInfo callbackInfo) {
         RailTiltRenderHelper.endRailSection();
@@ -256,7 +273,7 @@ public class RenderTrainsMixin {
                     ordinal = RailTiltRenderHelper.RAIL_ARROW_SCHEDULE_ORDINAL
             ),
             require = 0,
-            remap = false
+            remap = true
     )
     private static void fangsu$scheduleRolledArrowQuad(
             ResourceLocation resourceLocation, boolean priority,
@@ -276,7 +293,7 @@ public class RenderTrainsMixin {
                     ordinal = RailTiltRenderHelper.RAIL_QUAD_SCHEDULE_ORDINAL
             ),
             require = 0,
-            remap = false
+            remap = true
     )
     private static void fangsu$scheduleRolledRailQuad(
             ResourceLocation resourceLocation, boolean priority,
@@ -304,7 +321,7 @@ public class RenderTrainsMixin {
                     target = "Lmtr/client/IDrawing;drawTexture(Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/blaze3d/vertex/VertexConsumer;FFFFFFFFFFFFFFFFLnet/minecraft/core/Direction;II)V"
             ),
             require = 0,
-            remap = false
+            remap = true
     )
     private static void fangsu$drawRolledArrowQuadFirst(
             PoseStack matrices, VertexConsumer vertexConsumer,
@@ -333,7 +350,7 @@ public class RenderTrainsMixin {
                     ordinal = 1
             ),
             require = 0,
-            remap = false
+            remap = true
     )
     private static void fangsu$drawRolledArrowQuadSecond(
             PoseStack matrices, VertexConsumer vertexConsumer,
@@ -354,7 +371,7 @@ public class RenderTrainsMixin {
                     target = "Lmtr/client/IDrawing;drawTexture(Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/blaze3d/vertex/VertexConsumer;FFFFFFFFFFFFFFFFLnet/minecraft/core/Direction;II)V"
             ),
             require = 0,
-            remap = false
+            remap = true
     )
     private static void fangsu$drawRolledRailQuadFirst(
             PoseStack matrices, VertexConsumer vertexConsumer,
@@ -376,7 +393,7 @@ public class RenderTrainsMixin {
                     ordinal = 1
             ),
             require = 0,
-            remap = false
+            remap = true
     )
     private static void fangsu$drawRolledRailQuadSecond(
             PoseStack matrices, VertexConsumer vertexConsumer,
@@ -438,7 +455,7 @@ public class RenderTrainsMixin {
             method = "render(Lmtr/entity/EntitySeat;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;)V",
             at = @At("HEAD"),
             require = 0,
-            remap = false
+            remap = true
     )
     private static void fangsu$beginTrainRollFrame(
             EntitySeat entity, float tickDelta, PoseStack matrices,
@@ -467,7 +484,7 @@ public class RenderTrainsMixin {
             method = "render(Lmtr/entity/EntitySeat;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;)V",
             at = @At("HEAD"),
             require = 0,
-            remap = false
+            remap = true
     )
     private static void fangsu$tickNtePathWatchdog(
             EntitySeat entity, float tickDelta, PoseStack matrices,

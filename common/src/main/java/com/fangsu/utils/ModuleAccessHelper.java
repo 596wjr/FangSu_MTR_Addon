@@ -22,8 +22,10 @@ public class ModuleAccessHelper {
         } catch (ClassNotFoundException e) {
             // Java 8 或更早版本，不需要处理
         } catch (Exception e) {
-            // 记录但不要崩溃
-            System.err.println("[FangSu] Failed to setup module access: " + e.getMessage());
+            // 记录但不要崩溃。按仓库约定走 Main.LOGGER（不直接写 System.err），
+            // 并把完整异常带上 —— 只打 e.getMessage() 会把「哪个 addExports 失败」这类关键
+            // 信息丢在 stack trace 里，而这正是本次失败唯一可诊断的东西。
+            com.fangsu.Main.LOGGER.error("[FangSu] 模块访问设置失败（GraalJS 沙箱导出未生效）", e);
         } finally {
             initialized = true;
         }

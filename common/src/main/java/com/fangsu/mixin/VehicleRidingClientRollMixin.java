@@ -135,6 +135,18 @@ public class VehicleRidingClientRollMixin {
      * 因此处理器是非静态的、第一个形参就是接收者 {@code Vec3} —— 与
      * {@code JonModelTrainRendererRollMixin} 里 {@code rotateX} 的重定向同一种形状。
      * <p>
+     * <b>为什么这里必须 {@code remap = true}（本类级写的是 {@code remap = false}）</b>：
+     * {@code @At(target = "Lnet/minecraft/world/phys/Vec3;xRot(F)Lnet/minecraft/world/phys/Vec3;")}
+     * 里出现了 {@code Lnet/minecraft/...}。运行期会把每一条选择器字符串<b>无条件</b>过一遍 refmap
+     * （{@code MemberInfo.parse → ISelectorContext.remap → IReferenceMapper.remap}），refmap 里没有就
+     * <b>原样返回</b>；而注解处理器只把「有效 {@code remap} 为 true」的成员写进 refmap。
+     * 于是 {@code remap = false} 时生产命名空间里这句永远匹配不上（生产里是
+     * {@code net/minecraft/class_243;method_1021}），{@code require = 0} 让它<b>静默失效</b>。
+     * 改成 {@code remap = true} 后 {@code fangsu-common-refmap.json} 里会出现这一条（见 refmap 门禁）。
+     * 本类另外两个选择器（{@link #MOVE_PLAYER} / {@link #SET_OFFSETS}）里只有 JDK 类型
+     * （{@code java/util/UUID}、{@code java/util/function/Consumer}、{@code java/lang/Runnable}），
+     * 一个 MC/vanilla 类型都没有，因此沿用类级 {@code remap = false} 是正确的。
+     * <p>
      * <b>返回 {@code null} 的处理</b>：{@code setOffsets} 里 {@code new Vec3(...)} 永远非空，
      * 因此接收者不可能为 {@code null}；helper 仍然兜底转发（宁可原样画，也绝不抛异常）。
      * 目标方法的返回类型是 <b>public</b> 类 {@code Vec3}，不存在 MTR4 上
@@ -147,7 +159,7 @@ public class VehicleRidingClientRollMixin {
                     target = "Lnet/minecraft/world/phys/Vec3;xRot(F)Lnet/minecraft/world/phys/Vec3;"
             ),
             require = 0,
-            remap = false
+            remap = true
     )
     private Vec3 fangsu$rollRidingPlayerOffset(Vec3 vec, float pitchAngle) {
         return RailTrainRollHelper.applyRidingPlayerRoll(vec, pitchAngle);

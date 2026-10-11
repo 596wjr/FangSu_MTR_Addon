@@ -34,8 +34,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *       无超高路径与 MTR 原生逐位一致。</li>
  * </ul>
  * <p>
- * <b>所有钩子都是 {@code require = 0} + 完整描述符</b>：MTR3 的 {@code simulateCar} 只有一个重载，
- * 但仍写全描述符 —— 一旦将来多一个同名重载，裸名字就会静默指错（P5-3 的死钩子教训）。
+ * <b>所有钩子都是 {@code require = 0} + 完整描述符 + 成员级 {@code remap = true}</b>：MTR3 的
+ * {@code simulateCar} 只有一个重载，但仍写全描述符 —— 一旦将来多一个同名重载，裸名字就会静默指错
+ * （P5-3 的死钩子教训）。{@code remap = true} <b>同样是必需的</b>（本类级写的是 {@code remap = false}）：
+ * {@link #SIMULATE_CAR} 与 {@link #RENDER_CONNECTION} / {@link #RENDER_BARRIER} 的描述符里都含
+ * {@code Lnet/minecraft/...}，而运行期会把选择器无条件过一遍 refmap；只有有效 {@code remap} 为 true
+ * 的成员才会被注解处理器写进 refmap，否则生产命名空间（Fabric intermediary）里这两个字符串
+ * 永远匹配不上，{@code require = 0} 会让它<b>静默失效</b>（2026-10-11 beta 包的实际症状：
+ * 4 分钟会话只有 1 条 {@code [P5-…]} 日志）。
  * 每一个可能静默失效的钩子都由 {@link RailTrainRollHelper} 的一次性诊断兜底。
  * <p>
  * 本类只注册在 {@code fangsu.mixins.json} 的 {@code client} 数组里：{@code TrainClient} 是客户端类。
@@ -76,7 +82,7 @@ public abstract class TrainClientRollMixin {
      * 因此能直接拿到世界坐标。{@code transportMode.railOffset} 也一并传下去：缆车是 -6，
      * 其余是 0，竖向匹配必须扣掉它（{@code javap -c} 核实过这四个常量）。
      */
-    @Inject(method = SIMULATE_CAR, at = @At("HEAD"), require = 0, remap = false)
+    @Inject(method = SIMULATE_CAR, at = @At("HEAD"), require = 0, remap = true)
     private void fangsu$captureCarRoll(
             Level world, int ridingCar, float ticksElapsed,
             double carX, double carY, double carZ, float carYaw, float carPitch,
@@ -99,7 +105,7 @@ public abstract class TrainClientRollMixin {
      * 它只清 {@link RailTrainRollHelper} 里那个 ThreadLocal 上下文；失效无害（每次 HEAD 都会整体覆盖），
      * 因此 {@link RailTrainRollHelper} 不为它单独发告警，只由探针断言「清得干净」。
      */
-    @Inject(method = SIMULATE_CAR, at = @At("RETURN"), require = 0, remap = false)
+    @Inject(method = SIMULATE_CAR, at = @At("RETURN"), require = 0, remap = true)
     private void fangsu$endCarRoll(
             Level world, int ridingCar, float ticksElapsed,
             double carX, double carY, double carZ, float carYaw, float carPitch,
@@ -121,7 +127,7 @@ public abstract class TrainClientRollMixin {
             method = SIMULATE_CAR,
             at = @At(value = "INVOKE", target = RENDER_CONNECTION),
             require = 0,
-            remap = false
+            remap = true
     )
     private void fangsu$rollConnection(
             TrainRendererBase renderer,
@@ -148,7 +154,7 @@ public abstract class TrainClientRollMixin {
             method = SIMULATE_CAR,
             at = @At(value = "INVOKE", target = RENDER_BARRIER),
             require = 0,
-            remap = false
+            remap = true
     )
     private void fangsu$rollBarrier(
             TrainRendererBase renderer,

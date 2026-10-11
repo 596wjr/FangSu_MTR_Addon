@@ -123,19 +123,43 @@ public class GameRendererTiltMixin {
      * <b>静态性</b>：{@code renderLevel} 是<b>实例</b>方法，因此处理器也是实例方法
      * （{@code require = 0} 不能抑制静态性不匹配导致的致命 {@code InvalidInjectionException}）。
      * <p>
-     * <b>{@code remap = false} 是必需的，理由已实测</b>（不是随手加的）：{@code GameRenderer.renderLevel}
-     * 是 Fabric API 在自己的 {@code GameRendererMixin} 里<b>注入</b>进 {@code GameRenderer} 的方法，
-     * 它因此<b>不在 Minecraft 自己的混淆映射表里</b>。Mixin 注解处理器在
-     * {@code remap = true}（默认）时会尝试把这个方法名映射到 intermediary，找不到就抛
+     * <b>{@code remap = true}（2026-10-11 beta 包事故后修正；此前写的是 {@code remap = false}）</b>：
+     * 本选择器同时出现在 {@code method} 与 {@code @At(target = ...)} 两处，且两处都含
+     * {@code net.minecraft} 类型 —— {@code method} 是
+     * {@code renderLevel(…Lcom/mojang/blaze3d/vertex/PoseStack;)V}（目标类方法名为
+     * {@code LevelRenderer.renderLevel}，intermediary {@code method_3188}），
+     * {@code @At} 是 {@code Lnet/minecraft/client/renderer/LevelRenderer;prepareCullFrustum(…)V}
+     * （intermediary {@code Lnet/minecraft/class_761;method_32133(…)}）。
+     * <p>
+     * <b>为什么 {@code remap = false} 是致命的</b>：运行期把每一条选择器字符串<b>无条件</b>过一遍
+     * refmap（{@code MemberInfo.parse → ISelectorContext.remap → IReferenceMapper.remap}），
+     * refmap 里没有该条目时<b>原样返回该字符串</b>；而注解处理器只把「有效 {@code remap} 为 true」
+     * 的成员写进 refmap。于是本类在生产命名空间里会把
+     * {@code net.minecraft.client.renderer.LevelRenderer} 当成真实类名去找 —— 生产里它叫
+     * {@code net/minecraft/class_761} ⇒ 这句 {@code @At} 永远匹配不到，{@code require = 0}
+     * 让它静默失效：镜头不滚转，且日志一片安静。
+     * （这就是 2026-10-11 beta 包「4 分钟只有 1 条 {@code [P5-…]} 日志」的成因之一。）
+     * <p>
+     * <b>曾经写 {@code remap = false} 的理由已被证伪</b>：旧注释称「{@code renderLevel} 是 Fabric API
+     * 注入的方法，映射表里没有，{@code remap = true} 会报
+     * {@code Unable to locate obfuscation mapping for @Inject target renderLevel}」。
+     * 实测（{@code .tmp_remap_audit/ap-experiment2.ps1}，用 gradle 同款注解处理器配置：
+     * {@code fabric-mixin-compile-extensions 0.6.0} 的 {@code ObfuscationServiceFabric}
+     * + {@code loom.mappings…/mappings.tiny} + {@code mappings-base.tiny}）：
+     * {@code remap = true} 下注解处理器<b>零 error 零 warning</b>，并在 refmap 里写出
      * <pre>
-     *   error: Unable to locate obfuscation mapping for @Inject target renderLevel
+     *   "renderLevel(FJLcom/mojang/blaze3d/vertex/PoseStack;)V":
+     *       "Lnet/minecraft/class_757;method_3188(FJLnet/minecraft/class_4587;)V"
+     *   "Lnet/minecraft/client/renderer/LevelRenderer;prepareCullFrustum(…Lcom/mojang/blaze3d/vertex/PoseStack;…Lnet/minecraft/world/phys/Vec3;Lorg/joml/Matrix4f;)V":
+     *       "Lnet/minecraft/class_761;method_32133(Lnet/minecraft/class_4587;Lnet/minecraft/class_243;Lorg/joml/Matrix4f;)V"
      * </pre>
-     * 这不是「注入点写错」——同一行还会提示 {@code @At} 的
-     * {@code LevelRenderer.prepareCullFrustum(...)} 也无法映射，而那个方法在
-     * {@code javap} 里是确凿存在的。加 {@code remap = false} 后 AP 全绿、探针的
-     * {@code WiringProbe} 仍然在真实类字节上把这条注入点解析到唯一的一处调用。
-     * <b>方法名/描述符一个字都没变</b>，因此运行期（named + Fabric 的 intermediary 运行时重映射）
-     * 的目标与写 {@code remap = true} 时完全一致 —— 只是不再让 AP 去做那次注定失败的映射查询。
+     * 旧结论来自探针用的 {@code dev.architectury:mixin-patched 0.8.5.12} —— 那个 jar 里
+     * <b>只有</b> {@code ObfuscationServiceMCP}（{@code searge}/{@code notch}），
+     * <b>没有 Fabric intermediary 服务</b>，因此任何 {@code net.minecraft} 选择器都「找不到映射」。
+     * gradle 真正用的处理器路径是 loom 提供的 Fabric 服务，两者不是一回事。
+     * 附带说明：本类用到的 {@code PoseStack} 属于 {@code com.mojang}，
+     * intermediary 里是恒等映射（{@code com/mojang/blaze3d/vertex/PoseStack} 不变），
+     * 所以本类两个选择器里真正需要改写的只有 {@code net.minecraft} 那几个类型。
      * <p>
      * {@code require = 0}：将来 MC / Fabric 改动这个调用点时退化为「相机无滚转」
      * （= 修复前的现状）而不是崩游戏，并由 {@link RailTrainRollHelper} 的一次性告警暴露。
@@ -148,7 +172,7 @@ public class GameRendererTiltMixin {
                     shift = At.Shift.BEFORE
             ),
             require = 0,
-            remap = false
+            remap = true
     )
     private void fangsu$tiltCameraWhenRiding(float tickDelta, long limitTime, PoseStack poseStack, CallbackInfo callbackInfo) {
         // 钩子存活诊断：只要进入本方法就说明注入点解析成功（不论这一帧是否需要滚转）。

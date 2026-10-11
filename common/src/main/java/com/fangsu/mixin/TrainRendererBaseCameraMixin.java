@@ -68,8 +68,17 @@ public class TrainRendererBaseCameraMixin {
      * <p>
      * 处理器是<b>静态</b>方法：目标方法是静态方法，Mixin 的
      * {@code Injector.checkTargetModifiers} 要求静态性一致。
+     * <p>
+     * <b>为什么必须 {@code remap = true}（本类级写的是 {@code remap = false}）</b>：
+     * {@link #SETUP_STATIC_INFO} 的描述符里有 {@code Lnet/minecraft/client/renderer/MultiBufferSource;}
+     * （以及 {@code Lcom/mojang/blaze3d/vertex/PoseStack;}）。运行期把选择器<b>无条件</b>过一遍 refmap，
+     * 没有条目就原样使用，而注解处理器只对「有效 {@code remap} 为 true」的成员写 refmap 条目 ——
+     * 于是 {@code remap = false} 时生产命名空间（intermediary）里这句永远匹配不上，
+     * {@code require = 0} 让它静默失效（相机朝向取不到 ⇒ 镜头滚转轴换算退回不旋转）。
+     * 类级 {@code remap = false} 保留：它只影响没有 MC 类型的成员，而那些成员本来就不需要映射。
+     * 注意 {@code setupStaticInfo} 里<b>只有这一条</b>选择器，成员级 {@code remap = true} 已经把它盖住。
      */
-    @Inject(method = SETUP_STATIC_INFO, at = @At("TAIL"), require = 0, remap = false)
+    @Inject(method = SETUP_STATIC_INFO, at = @At("TAIL"), require = 0, remap = true)
     private static void fangsu$captureCameraOrientation(
             PoseStack matrices, MultiBufferSource vertexConsumers, EntitySeat entity, float tickDelta,
             CallbackInfo callbackInfo

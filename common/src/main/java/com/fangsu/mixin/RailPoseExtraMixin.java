@@ -38,6 +38,22 @@ import java.util.Map;
  * </pre>
  * 每一处都显式写了 {@code method = ...}（本仓库硬性要求），没有使用 {@code @ModifyArgs}。
  * <p>
+ * <b>为什么两个「带 MC 类型描述符」的选择器必须写 {@code remap = true}（本类级 {@code remap = false}）</b>：
+ * 运行期会把每一条选择器字符串<b>无条件</b>过一遍 refmap（{@code MemberInfo.parse → ISelectorContext.remap
+ * → IReferenceMapper.remap}），refmap 里没有就<b>原样返回</b>；而注解处理器只对「有效 {@code remap} 为
+ * true」的成员写 refmap 条目。于是「{@code remap = false} + 描述符里出现 {@code Lnet/minecraft/...}」
+ * 在选择器于生产命名空间（Fabric intermediary / Forge SRG）里<b>必然找不到目标</b>：
+ * {@code Rail} 的 {@code <init>(FriendlyByteBuf)} 会去找 {@code <init>(Lnet/minecraft/network/FriendlyByteBuf;)V}，
+ * 而生产里那个类型叫 {@code net/minecraft/class_2540}。
+ * 这是 2026-10-11 beta 包里的<b>硬崩溃</b>（{@code require = 1}，52 次注入失败，{@code mtr.data.Rail}
+ * 整个类加载不了、存档读不出来）。修法与同仓库既有的 {@link LiftMixin#fromPacket}
+ * （{@code @Mixin(remap = false)} + 成员级 {@code remap = true}）逐字一致；
+ * {@code fangsu-common-refmap.json} 里现在确有对应条目（见 {@code .tmp_p5_3_probe} 的 refmap 门禁）。
+ * <p>
+ * 另外三个选择器（{@code <init>(Map)}、{@code toMessagePack(MessagePacker)}、{@code messagePackLength()}）
+ * 里<b>没有任何 MC/vanilla 类型</b>，因此沿用类级 {@code remap = false} 是正确的：
+ * 它们要么是纯 MTR 自有类型（{@code mtr.data.Rail}/{@code org.msgpack}），要么没有形参。
+ * <p>
  * {@code mtr.data.Rail} 是硬依赖类（永远存在），且以上 5 个成员在全部可核实版本里形状相同，
  * 因此这里用默认的 {@code require = 1}：万一将来某个版本改了签名，宁可在启动时<b>报错</b>，
  * 也不要静默丢失姿态 —— P5-0 是「静默子阶段」，静默失效无法被发现。
@@ -75,7 +91,7 @@ public abstract class RailPoseExtraMixin implements RailPoseExtraHolder {
      * <p>
      * 已核实调用点：{@code ClientData.writeRails} 与 {@code PacketTrainDataGuiClient.createRailS2C}。
      */
-    @Inject(method = "<init>(Lnet/minecraft/network/FriendlyByteBuf;)V", at = @At("TAIL"))
+    @Inject(method = "<init>(Lnet/minecraft/network/FriendlyByteBuf;)V", at = @At("TAIL"), remap = true)
     private void fangsu$readPacket(FriendlyByteBuf packet, CallbackInfo callbackInfo) {
         this.fangsu$pose = RailPoseExtraIO.readPacket(packet);
     }
@@ -114,7 +130,7 @@ public abstract class RailPoseExtraMixin implements RailPoseExtraHolder {
      * {@code Rail.writePacket(FriendlyByteBuf)} —— 只在非默认姿态时追加
      * 「8 字节魔数 + 编码串」，默认姿态的数据包字节与原版完全一致。
      */
-    @Inject(method = "writePacket(Lnet/minecraft/network/FriendlyByteBuf;)V", at = @At("TAIL"))
+    @Inject(method = "writePacket(Lnet/minecraft/network/FriendlyByteBuf;)V", at = @At("TAIL"), remap = true)
     private void fangsu$writePacket(FriendlyByteBuf packet, CallbackInfo callbackInfo) {
         RailPoseExtraIO.writePacket(packet, fangsu$poseOrDefault());
     }

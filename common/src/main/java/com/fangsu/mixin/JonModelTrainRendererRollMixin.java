@@ -31,6 +31,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * 中心线（P5-1）不受影响。
  * <p>
  * 两个钩子都是 {@code require = 0} + 完整描述符，并由 {@link RailTrainRollHelper} 一次性诊断兜底。
+ * <p>
+ * <b>为什么只有 {@code @Redirect} 写 {@code remap = true}（本类级是 {@code remap = false}）</b>：
+ * {@code @At(target = "Lmtr/mappings/UtilitiesClient;rotateX(Lcom/mojang/blaze3d/vertex/PoseStack;F)V")}
+ * 里含 {@code Lcom/mojang/blaze3d/vertex/PoseStack;}。运行期会把选择器<b>无条件</b>过一遍 refmap，
+ * 没有条目就原样使用；而注解处理器只对「有效 {@code remap} 为 true」的成员写条目 ——
+ * {@code remap = false} 时生产命名空间里这条 {@code @At} 永远匹配不上，{@code require = 0}
+ * 让它静默失效（车体不滚转，日志一片安静：正是 2026-10-11 beta 包的症状）。
+ * 而 {@link #RENDER_CAR} 的描述符 {@code (IDDDFFZZ)V} 里<b>没有任何对象类型</b>，
+ * 因此继续沿用类级 {@code remap = false}，无需映射、也不会污染 refmap。
  */
 @Mixin(value = JonModelTrainRenderer.class, remap = false)
 public abstract class JonModelTrainRendererRollMixin {
@@ -75,7 +84,7 @@ public abstract class JonModelTrainRendererRollMixin {
                     ordinal = 0
             ),
             require = 0,
-            remap = false
+            remap = true
     )
     private void fangsu$rollBody(PoseStack matrices, float angle) {
         UtilitiesClient.rotateX(matrices, angle);
