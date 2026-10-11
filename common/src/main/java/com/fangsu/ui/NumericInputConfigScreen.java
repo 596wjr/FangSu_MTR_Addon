@@ -637,19 +637,23 @@ public abstract class NumericInputConfigScreen extends BasicConfigScreen {
         //$$ }
         //#endif
 
+        // 渲染入口的访问级别同样要按版本分叉：1.19.3 的 renderButton、1.19.4 的 renderWidget 在
+        // AbstractWidget 里都是 public，1.20+ 的 renderWidget 才是 protected。覆写只能放宽、不能
+        // 收紧访问权，所以三个分支一律写 public（同本文件 setFocused 的放宽写法）——写成 protected
+        // 会在 1.19.3 / 1.19.4 上以「attempting to assign weaker access privileges」直接编译失败。
         //#if MC_VERSION >= 12000
         @Override
-        protected void renderWidget(net.minecraft.client.gui.GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        public void renderWidget(net.minecraft.client.gui.GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
             renderAt(graphics, mouseX, mouseY);
         }
         //#elseif MC_VERSION >= 11904
         //$$ @Override
-        //$$ protected void renderWidget(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        //$$ public void renderWidget(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
         //$$     renderAt(poseStack, mouseX, mouseY);
         //$$ }
         //#elseif MC_VERSION >= 11903
         //$$ @Override
-        //$$ protected void renderButton(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        //$$ public void renderButton(com.mojang.blaze3d.vertex.PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
         //$$     renderAt(poseStack, mouseX, mouseY);
         //$$ }
         //#else
