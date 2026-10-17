@@ -50,6 +50,21 @@ public final class Main {
         ModEvents.init();
     }
 
+    /**
+     * 当前是否运行在物理客户端（专用服务端返回 false）。
+     * <p>
+     * 专用服务端的 classpath 里根本没有客户端渲染类（{@code com.mojang.blaze3d.*}、
+     * {@code net.minecraft.client.*}，Fabric 运行时为 {@code net.minecraft.class_xxxx}）。
+     * 任何从服务端也可能走到的路径（最典型的是方块实体销毁时的渲染资源释放）一旦触碰它们，
+     * 就会抛 {@link NoClassDefFoundError} 并打挂服务端 tick 循环，因此必须先做本判定。
+     * <p>
+     * {@link #isClient} 在 {@link #init()} 中赋值；赋值前（正常流程下不会发生）按客户端处理，
+     * 保持与旧行为一致。
+     */
+    public static boolean isPhysicalClient() {
+        return !Boolean.FALSE.equals(isClient);
+    }
+
     public static void debug(String msg) {
         if (debug)
             LOGGER.info("[DEBUG] " + msg);
