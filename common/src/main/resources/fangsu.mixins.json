@@ -3,6 +3,7 @@
   "package": "com.fangsu.mixin",
   "compatibilityLevel": "JAVA_17",
   "minVersion": "0.8",
+  "plugin": "com.fangsu.mixin.FangSuMixinPlugin",
   "client": [
     "LevelRendererMixin",
     "LiftClientMixin",
@@ -10,6 +11,7 @@
     "RenderTrainsMixin",
     "ClientDataMixin",
     "TrainClientRollMixin",
+    "TrainClientConnectionRollMixin",
     "JonModelTrainRendererRollMixin",
     "FunctionalTrainRendererRollMixin",
     "NteBakedRailMixin",

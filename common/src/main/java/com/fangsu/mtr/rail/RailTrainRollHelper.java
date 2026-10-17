@@ -233,6 +233,14 @@ public final class RailTrainRollHelper {
     private static volatile boolean captureHookAlive = false;
     private static volatile boolean bodyBeginHookAlive = false;
     private static volatile boolean bodyRotateHookAlive = false;
+    /**
+     * 风挡 / 挡板的 {@code @Redirect} 是否触发过。
+     * <p>
+     * P5-8 起，这两个钩子所在的 {@code com.fangsu.mixin.TrainClientConnectionRollMixin} 在装了
+     * NTE / ANTE 时会被 {@code com.fangsu.mixin.FangSuMixinPlugin} 整体跳过，因此本标志在那种
+     * 环境下<b>预期</b>永远为 {@code false} —— 一次性诊断靠 {@link #fangsu$connectionRollMixinDisabled()}
+     * 把「刻意跳过」与「静默失效」区分开。
+     */
     private static volatile boolean connectionHookAlive = false;
 
     /** 帧数（{@code RenderTrains.render} 的 HEAD 钩子推进，一次性诊断的慢时钟）。 */
@@ -513,8 +521,15 @@ public final class RailTrainRollHelper {
     // ==================== 钩子 4：风挡 / 挡板 ====================
 
     /**
-     * {@code simulateCar} 里 {@code renderConnection} / {@code renderBarrier} 调用的 {@code @Redirect}：
-     * 把两端的 8 个角点绕<b>各自那一端</b>的车身纵轴旋转。
+     * {@code simulateCar} 里 {@code renderConnection} / {@code renderBarrier} 调用的 {@code @Redirect}
+     * （现位于 {@code com.fangsu.mixin.TrainClientConnectionRollMixin}）：把两端的 8 个角点绕
+     * <b>各自那一端</b>的车身纵轴旋转。
+     * <p>
+     * <b>P5-8：装了 NTE / ANTE 时这个方法永远不会被调用</b> —— 那两处 {@code @Redirect} 会被
+     * {@code FangSuMixinPlugin}（{@code fangsu.mixins.json} 的 {@code "plugin"}）整体跳过，
+     * 因为 NTE 的同描述符 {@code simulateCar} 合并会让它们在 prepare 阶段抛
+     * {@code InvalidInjectionException} 并崩游戏。此时风挡 / 挡板不滚转；
+     * 一次性诊断（{@link #reportMissingHooks()}）会把这个取舍显式记进日志，而不是当成静默失效。
      * <p>
      * <b>角点为什么必须逐端旋转</b>：MTR3 的这两个方法<b>没有</b> MTR4 那种
      * {@code oscillationAmount}（摆动量）参数 —— 风挡 / 挡板的几何完全由 8 个世界坐标角点决定
@@ -1541,9 +1556,21 @@ public final class RailTrainRollHelper {
         }
         if (captureHookAlive && !connectionHookAlive && !warnedConnection) {
             warnedConnection = true;
-            Main.LOGGER.warn("[P5-6] simulateCar 的钩子已触发 " + captureSamples + " 次，但 renderConnection /"
-                    + " renderBarrier 的 @Redirect 从未触发；风挡与挡板不会随车体倾斜（请用 javap 复核 "
-                    + "TrainRendererBase.renderConnection / renderBarrier 的 13 参数描述符）");
+            if (fangsu$connectionRollMixinDisabled()) {
+                // P5-8：这个分支是「预期行为」，不是静默失效 —— 风挡 / 挡板那两处 @Redirect
+                // （现 TrainClientConnectionRollMixin）在装了 NTE / ANTE 时被 FangSuMixinPlugin
+                // 整体跳过，因为 NTE 的同描述符 simulateCar 合并会让它们在 prepare 阶段崩游戏。
+                Main.LOGGER.info("[P5-8] 检测到 NTE / ANTE：TrainClientConnectionRollMixin 按 NTE/ANTE"
+                        + " 检测判据（FangSuMixinPlugin.nteFamilyPresent）被整体跳过，"
+                        + "风挡与挡板不随车体滚转（这是刻意的取舍：宁可少一个装饰特性，"
+                        + "也绝不能因为那两处 @Redirect 在 prepare 阶段崩游戏）。车体 / 轨面 / 镜头 / 乘车的"
+                        + "倾角不受影响，数据源（TrainClientRollMixin 的 captureCar）仍然活着。");
+            } else {
+                Main.LOGGER.warn("[P5-6] simulateCar 的钩子已触发 " + captureSamples + " 次，但 renderConnection /"
+                        + " renderBarrier 的 @Redirect 从未触发；风挡与挡板不会随车体倾斜（请用 javap 复核 "
+                        + "TrainRendererBase.renderConnection / renderBarrier 的 13 参数描述符，"
+                        + "以及 TrainClientConnectionRollMixin 是否真的被加载）");
+            }
         }
         if (matchedSamples > 0 && tiltAppliedSamples == 0 && !warnedNeverApplied) {
             warnedNeverApplied = true;
@@ -1667,6 +1694,39 @@ public final class RailTrainRollHelper {
     public static int cameraHookSampleCount() {
         return cameraHookSamples;
     }
+
+    /**
+     * 风挡 / 挡板那两处 {@code @Redirect}（现 {@code TrainClientConnectionRollMixin}）是否被
+     * <b>按下述判据刻意跳过</b>（P5-8）。
+     * <p>
+     * <b>为什么用反射而不是直接引用</b>：{@code com.fangsu.mixin.FangSuMixinPlugin} 是 Mixin 配置插件，
+     * 只在 mixin 引导期被 Mixin 自己实例化；本类（普通运行时类）直接引用它会把一个「插件」类拖进
+     * 常规类加载路径，既没必要也不干净。判据与插件<b>同源</b>（插件里的那次 {@code Class.forName} 探测），
+     * 因此两者不可能给出不一致的结论。
+     * <p>
+     * <b>查不到时返回 false</b>（= 「没有跳过」）：那样本方法会走原来的 warn 分支 ——
+     * 宁可多报一条告警，也不要把真正的静默失效藏起来。
+     */
+    private static boolean fangsu$connectionRollMixinDisabled() {
+        if (connectionRollMixinDisabled != null) {
+            return connectionRollMixinDisabled;
+        }
+        boolean disabled = false;
+        try {
+            Class<?> pluginClass = Class.forName(
+                    "com.fangsu.mixin.FangSuMixinPlugin", false, RailTrainRollHelper.class.getClassLoader());
+            Object result = pluginClass.getMethod("nteFamilyLoaded").invoke(null);
+            disabled = result instanceof Boolean && (Boolean) result;
+        } catch (Throwable ignored) {
+            // 插件类不可用（例如被其它引导方式裁剪）：按「没有跳过」处理，保留告警
+            disabled = false;
+        }
+        connectionRollMixinDisabled = disabled;
+        return disabled;
+    }
+
+    /** 一次性缓存的「风挡 / 挡板 mixin 被刻意跳过」结果；{@code null} = 还没查过。 */
+    private static volatile Boolean connectionRollMixinDisabled = null;
 
     /** 探针 / 诊断读取（P5-7）：镜头滚转真正施加到世界矩阵上的次数。 */
     public static int cameraAppliedSampleCount() {
