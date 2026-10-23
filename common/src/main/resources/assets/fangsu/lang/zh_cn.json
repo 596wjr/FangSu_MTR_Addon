@@ -319,7 +319,7 @@
   "msg.fangsu.hybrid_creator.import_preset_success": "已导入预设 %s",
   "msg.fangsu.hybrid_creator.io_error": "文件读写失败，详见日志",
   "block.fangsu.ticket_barrier.desc": "检票进出站闸机。手持单程票或 IC 卡在闸机正面右键刷卡过闸，支持 MTR 计费、固定收费、自定义计费区三种模式。刷子右键可切换出入口并反转朝向，扳手右键打开配置界面",
-  "block.fangsu.traffic_light.desc": "交通灯。扳手右键打开配置界面选择模型。自定义灯控程序暂未实现（即将推出）",
+  "block.fangsu.traffic_light.desc": "交通灯。扳手右键打开配置界面选择模型，显示类型可选「程序控制」或「MTR 信号联动」；程序控制可用图形化积木编辑器编排灯色相位与倒计时显示，无需编写代码",
   "block.fangsu.screendoor_door.desc": "站台屏蔽门的活动门页，放置后与 MTR 列车门自动联动开关。扳手右键可配置模型与开门方向（左/右/灵活）",
   "block.fangsu.screendoor_glass.desc": "屏蔽门的固定玻璃板，与门页联动开闭，用于组成整列站台门。扳手右键配置模型，刷子右键手动开关",
   "block.fangsu.duanmen.desc": "站台端部的端门，右键即可开关，用刷子右键也可以开关，扳手右键配置模型",

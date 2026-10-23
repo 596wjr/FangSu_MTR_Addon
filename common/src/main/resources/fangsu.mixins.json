@@ -10,6 +10,7 @@
     "LiftCustomizationScreenMixin",
     "RenderTrainsMixin",
     "ClientDataMixin",
+    "TrainClientDoorSideMixin",
     "TrainClientRollMixin",
     "TrainClientConnectionRollMixin",
     "JonModelTrainRendererRollMixin",

@@ -48,6 +48,8 @@ public class MainClient {
         ShadersModHandler.init();
         ScriptManager.getInstance().init();
         com.fangsu.network.HybridCreatorClient.init();
+        com.fangsu.train.DoorOpenCacheClient.initClient();
+        com.fangsu.train.DoorSideObserverMtr3.init();
 
         try {
             Class.forName("cn.zbx1425.mtrsteamloco.MainClient", false, MainClient.class.getClassLoader());

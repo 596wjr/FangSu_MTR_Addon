@@ -319,7 +319,7 @@
   "msg.fangsu.hybrid_creator.import_preset_success": "Imported preset %s",
   "msg.fangsu.hybrid_creator.io_error": "File I/O failed, see log",
   "block.fangsu.ticket_barrier.desc": "Ticket gate for entering/exiting the paid area. Right-click the front of the gate while holding a Single Journey Ticket or IC Card to pass. Supports MTR fare, fixed fare and custom fare zone modes. Use a Brush to flip entrance/exit and the facing, or a Wrench to open the configuration screen",
-  "block.fangsu.traffic_light.desc": "Traffic light. Use a Wrench to open the configuration screen to pick the model. The custom light program is not yet available (coming soon)",
+  "block.fangsu.traffic_light.desc": "Traffic light. Use a Wrench to open the configuration screen and pick the model. The display can be driven by a Program or by the MTR signal state; a program is assembled from drag-and-drop blocks to sequence the lights and the countdown display, with no code required",
   "block.fangsu.screendoor_door.desc": "The movable door panel of a platform screen door. Syncs with MTR train doors automatically. Use a Wrench to configure the model and the opening side (left/right/flexible)",
   "block.fangsu.screendoor_glass.desc": "The fixed glass panel of a platform screen door, opens and closes with the door panels to form a full platform screen. Use a Wrench to configure the model, or a Brush to toggle it manually",
   "block.fangsu.duanmen.desc": "End door at the end of a platform. Right-click to open/close it, or use a Brush. Use a Wrench to configure the model",

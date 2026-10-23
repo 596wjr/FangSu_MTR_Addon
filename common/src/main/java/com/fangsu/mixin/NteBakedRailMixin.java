@@ -19,11 +19,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *   <li>目标类名必须写<b>三遍</b>：forgix 打出来的 NTE jar 里
  *       {@code cn.zbx1425.mtrsteamloco…} / {@code fabric.cn.zbx1425.mtrsteamloco…} /
  *       {@code forge.cn.zbx1425.mtrsteamloco…} 是三个不同的类（二进制名带前缀）。</li>
- *   <li>{@code remap = false}：NTE 的类名不在 MTR/MC 命名空间里，没有 refmap 可映射。</li>
+ *   <li>{@code remap = false}（<b>类级</b>）：NTE 的类名不在 MTR/MC 命名空间里，没有 refmap 可映射。
+ *       <b>每个注射器成员另外显式写 {@code remap = true}</b>：这是本仓库对外部模组目标的统一纪律
+ *       （显式声明，不依赖注解默认值），运行时真正决定是否查 refmap 的是类级
+ *       {@code @Mixin(remap = false)}，而 NTE/ANTE 的成员本来也不在 refmap 里
+ *       —— 两条合起来的结果是「选择器字符串按字面使用」，因此这里写 {@code true} 不会把
+ *       {@code lambda$new$1} 或 {@code Ljava/util/ArrayList;add(...)} 映射成别的东西。</li>
  *   <li>每个注入器都写<b>显式 {@code method}</b> 且 {@code require = 0}
  *       —— 将来 NTE 改名只降级为「轨面不倾斜」，不会崩游戏；失败由
  *       {@link NteRailTiltHelper} 的一次性诊断报出来（本仓库在 P5-3 上正是靠这条纪律
  *       才发现三个钩子从未生效）。</li>
+ *   <li><b>「{@code require = 0} 会静默跳过」是一把双刃剑</b>：sponge-mixin 的
+ *       {@code TargetSelectors.validate(found, expected, required)} 在 {@code found == 0} 且
+ *       {@code required <= 0} 时<b>直接 return</b>（连 DEBUG 日志都不打，除非开了
+ *       {@code DEBUG_INJECTORS}）。所以「目标方法消失」在本 mixin 里不会报错 ——
+ *       ANTE 1.1.0 把逐截面循环内联进 {@code BakedRail.<init>} 之后，老的那个
+ *       {@code lambda$new$1} 注入器就是这样悄无声息地失效的。因此本类<b>必须</b>为每一个
+ *       已知版本形态各留一个注射器，并由 {@link NteRailTiltHelper#tickFrameWatchdog} 负责报警。</li>
  * </ul>
  * <b>为什么注入点是「{@code ArrayList.add(Object)} 的 {@code @ModifyArg}」</b>：
  * 本 mixin 编译时 NTE <b>不在类路径上</b>（它不是构建依赖），所以处理器方法的签名里
@@ -34,6 +46,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * 要么在签名里出现 NTE 类型，要么依赖 {@code CallbackInfoReturnable} 的泛型实参被处理器接受
  * —— 两者都比这里脆弱。矩阵本身由 {@link NteRailTiltHelper} 用运行时反射调用
  * {@code rotateZ(float)} 完成旋转。
+ * <p>
+ * <b>两个版本形态（这就是本 mixin 为什么有两个截面钩子）</b>：
+ * <pre>
+ *   NTE  0.5.2+1.20.1：逐截面循环在  lambda$new$1(FFZDDDDDDDDDD)V   —— ArrayList.add 在偏移 93
+ *   ANTE 1.1.0+1.20.1：逐截面循环被内联进 BakedRail.&lt;init&gt;(Lmtr/data/Rail;)V —— 同一个 add 在偏移 248
+ * </pre>
+ * 两版各只有一处该 {@code add}，{@code ordinal = 0} 在两边都无歧义；两版各自只会命中其中一个钩子。
+ * 附带差异（不影响本注入点）：ANTE 的 {@code getLookAtMat} 签名从 {@code (FFFFFFFZ)} 变成了
+ * {@code (Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;FFZ)}，
+ * 并把 {@code rotateZ} 挪进了 {@code getLookAtMat} 自身（偏移 140-162，
+ * {@code rotateZ(reversed ? -roll : roll)}）。本 mixin <b>不</b>注入 {@code getLookAtMat}，
+ * 只注入 {@code ArrayList.add}，所以那两个签名差异对本 mixin 无影响。
  * <p>
  * <b>静态性</b>（对 <b>生产运行时</b> {@code sponge-mixin 0.17.3+mixin.0.8.7} 与本地 AP 用的
  * {@code mixin-patched 0.8.5.12} 逐条核实；两版对 {@code @Inject} 的判据<b>不同</b>，以下以运行时为准）：
@@ -125,16 +149,16 @@ public abstract class NteBakedRailMixin {
     }
 
     /**
-     * 逐截面旋转：把 NTE 刚造出来、即将存进 {@code coveredChunks} 的那个 4×4 截面矩阵
-     * 按内核的滚转角就地旋转。
+     * 逐截面旋转（<b>形态 A</b>，NTE 0.5.2）：把 NTE 刚造出来、即将存进 {@code coveredChunks}
+     * 的那个 4×4 截面矩阵按内核的滚转角就地旋转。
      * <p>
      * 注入点已用 {@code javap -p -c} 核实：{@code lambda$new$1} 里<b>只有一处</b>
-     * {@code invokevirtual java/util/ArrayList.add:(Ljava/lang/Object;)Z}（偏移 93）。
-     * {@code ordinal = 0} 把它钉死在那一处 —— 将来 NTE 在同一个 lambda 里再加一处 {@code add}，
-     * 也不会被重复旋转。
+     * {@code invokevirtual java/util/ArrayList.add:(Ljava/lang/Object;)Z}（偏移 93；
+     * 整类全文也只有这一处）。{@code ordinal = 0} 把它钉死在那一处 —— 将来 NTE 在同一个
+     * lambda 里再加一处 {@code add}，也不会被重复旋转。
      * <p>
      * <b>无滚转时返回同一个对象引用</b>：{@code add} 收到的还是 NTE 原来那个矩阵，
-     * 字节完全相同（见 {@link NteRailTiltHelper#tiltBakedSection}）。
+     * 字节完全相同（见 {@link NteRailTiltHelper#tiltBakedSection(Object)}）。
      * <p>
      * 两个 chunk 实现（{@code InstancedRailChunk} / {@code MeshBuildingRailChunk}）消费的是
      * <b>同一批</b> {@code coveredChunks} 矩阵，所以这一个注入点同时覆盖实例化与 mesh 两条路径。
@@ -153,9 +177,60 @@ public abstract class NteBakedRailMixin {
             ),
             index = 0,
             require = 0,
-            remap = false
+            remap = true
     )
     private Object fangsu$tiltNteBakedSection(Object bakedSectionMatrix) {
         return NteRailTiltHelper.tiltBakedSection(bakedSectionMatrix);
+    }
+
+    /**
+     * 逐截面旋转（<b>形态 B</b>，ANTE 1.1.0+）：同一处 {@code ArrayList.add} 被内联进了
+     * {@code BakedRail.<init>(Lmtr/data/Rail;)V}，所以要另挂一个注入器。
+     * <p>
+     * <b>为什么必须新增而不是换掉形态 A</b>：NTE 0.5.2 上 {@code lambda$new$1} 是唯一的注入点，
+     * ANTE 1.1.0 上 {@code lambda$new$1} 已经不存在 —— 两版各自只会命中其中一个，
+     * 另一个因 {@code require = 0} 静默跳过。删掉形态 A 会让 NTE 0.5.2 直接失去路径 B。
+     * <p>
+     * 注入点已用 {@code javap -p -c} 核实（{@code fabric} / {@code forge} 两份逐字节相同）：
+     * <pre>
+     *   BakedRail.<init>(Lmtr/data/Rail;)V
+     *     0: aload_0 / 1: invokespecial Object."&lt;init&gt;"()V        ← 委托调用（super()）
+     *     ...
+     *   245: invokestatic  // Method getLookAtMat:(LVec3;LVec3;LVec3;FFZ)L.../Matrix4f;
+     *   248: invokevirtual // Method java/util/ArrayList.add:(Ljava/lang/Object;)Z
+     *   251: pop
+     *   263: goto 147                                           ← 循环回边
+     *   266: return
+     * </pre>
+     * 该构造器里<b>只有这一处</b> {@code ArrayList.add(Object)}（整类全文也只有这一处），
+     * 所以 {@code ordinal = 0} 是<b>唯一</b>且无歧义的选择 —— 不是猜出来的。
+     * <p>
+     * <b>{@code @ModifyArg} 不受「super() 之前必须 static」约束</b>：那条规则在
+     * {@code Injector.checkTargetForNode} 里，只被 {@code CallbackInjector}（即 {@code @Inject}）调用；
+     * {@code InvokeInjector} 只走 {@code sanityCheck → checkTarget → checkTargetModifiers(target, true)}，
+     * 要求「处理器静态性与目标静态性逐字一致」。本构造器是<b>实例</b>成员（非静态），
+     * 所以处理器也必须<b>非静态</b>（这一点与形态 A 相同）。注入点偏移 248 远在委托调用之后，
+     * 无论按哪条规则都不会落进「委托之前」的区域。
+     * <p>
+     * <b>与 ANTE 自带滚转的关系</b>：ANTE 1.1.0 的 {@code getLookAtMat} 自己会
+     * {@code rotateZ(reversed ? -roll : roll)}，而 {@code roll} 来自
+     * {@code RailExtraSupplier.getRollAngle(rail, t)} —— 那个 map <b>方速从不写入</b>
+     * （两工程 grep {@code rollAngleMap|getRollAngle} 只有注释），map 为空时 ANTE 返回 {@code 0.0f}。
+     * 因此这里后乘的 {@code rotateZ(φ)} 与 ANTE 的 {@code rotateZ(0)} 复合，
+     * 结果就是 {@code rotateZ(φ)}；滚转为 0 时方速原样返回入参、一次浮点运算都不做。
+     */
+    @ModifyArg(
+            method = NteRailTiltHelper.BAKED_RAIL_SECTION_INLINE,
+            at = @At(
+                    value = "INVOKE",
+                    target = NteRailTiltHelper.SECTION_ADD_TARGET,
+                    ordinal = NteRailTiltHelper.SECTION_ADD_ORDINAL
+            ),
+            index = 0,
+            require = 0,
+            remap = true
+    )
+    private Object fangsu$tiltNteBakedSectionInline(Object bakedSectionMatrix) {
+        return NteRailTiltHelper.tiltBakedSectionInline(bakedSectionMatrix);
     }
 }

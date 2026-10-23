@@ -88,6 +88,7 @@ public class ModNetwork {
         DisplacementToolPackets.registerServer();
         // 逐轨道超高（P5-5）：注册位置紧挨 NODE_REFRESH_RAIL 的语义位置
         RailTiltPackets.registerServer();
+        com.fangsu.train.DoorOpenCacheNet.registerServer();
     }
 
     private static void handleBeSync(

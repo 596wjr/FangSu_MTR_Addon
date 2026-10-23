@@ -39,7 +39,8 @@ import java.util.List;
  * <p>
  * 角度策略（与 MTR4 版一致）：
  * <ul>
- *   <li>两端都未绑定 → 直线</li>
+ *   <li>两端都未绑定 → 直线；<b>并自动写入两端俯仰角 = 两端高差 / 水平距离</b>，
+ *       使竖向剖面是一条恒定坡率的直线坡，而不是 MTR 原生的 S 形二次剖面</li>
  *   <li>仅一端未绑定 → 未绑定端取最大半径圆弧切向角（平滑衔接），几何不成立再退化为直线</li>
  *   <li>两端都已绑定 → 用两端角度；几何不成立且有一端是普通节点（无绑定意图）时，
  *       降级为该端取最大半径圆弧切向，再退化为直线；两端均为万向节点时不降级
@@ -122,7 +123,14 @@ public abstract class ItemNodeModifierBaseMixin {
 
         final List<double[]> candidates = new ArrayList<>();
         final double straight = NodeConnector.straightAngle(posStart, posEnd);
-        if (!startBonded && !endBonded) {
+        // 直线连接模式 = 两端方向均未绑定（两端都必须是万向节点：普通节点的 isBonded 恒为 true）。
+        // 该模式下的竖向剖面由「两端俯仰角」决定：MTR 原生是 S 形二次曲线，
+        // 把两端俯仰角设成同一条弦的坡角后，几何内核的三次 Hermite 退化为直线坡。
+        final boolean straightMode = !startBonded && !endBonded;
+        final double straightPitch = straightMode
+                ? NodeConnector.straightPitchDegrees(world, posStart, posEnd)
+                : 0.0D;
+        if (straightMode) {
             // 两端均未绑定 → 直线
             candidates.add(new double[]{straight, straight});
         } else if (!startBonded) {
@@ -157,6 +165,14 @@ public abstract class ItemNodeModifierBaseMixin {
             }
             if (endIsNode && !endBonded) {
                 NodeConnector.bindNode(world, posEnd, candidate[1]);
+            }
+            // 直线连接模式：自动纵坡必须在 onConnect 之前落库 ——
+            // ItemRailModifierMixin 建完轨会立刻读节点姿态写进 RailPoseExtra，
+            // 晚一步写入就只能等下一次节点编辑才生效。
+            if (straightMode) {
+                NodeConnector.setNodePitchDegrees(world, posStart, straightPitch);
+                NodeConnector.setNodePitchDegrees(world, posEnd, straightPitch);
+                Main.debug("[MultiDirectionNode] 直线连接模式自动纵坡 {}° {}->{}", straightPitch, posStart, posEnd);
             }
             final double[] aligned = NodeConnector.alignToConnection(posStart, candidate[0], posEnd, candidate[1]);
             onConnect(world, context.getItemInHand(), transportMode, stateStart, stateEnd, posStart, posEnd,

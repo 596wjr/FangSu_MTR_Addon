@@ -1,5 +1,6 @@
 package com.fangsu.train;
 
+import com.fangsu.Main;
 import com.fangsu.mtr.DrawableRoute;
 import com.fangsu.mtr.LocalRoute;
 import com.fangsu.render.sowcer.math.Matrix4f;
@@ -9,6 +10,7 @@ import mtr.data.*;
 import mtr.path.PathData;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -18,6 +20,18 @@ public class TrainStatus {
 
     public final boolean[] doorLeftOpen;
     public final boolean[] doorRightOpen;
+
+    /**
+     * 逐车节「最近一次实际观测」到的开门方向（<b>原始帧，不翻转</b>），下标 = 车节索引。
+     * 数据源：{@link DoorSideObserverMtr3#lastSides(long)}（MTR3），全 UNKNOWN = 还没观测到。
+     */
+    public DoorOpenRecord.DoorOpenSide[] doorOpenSides;
+
+    /**
+     * 逐车节「规范帧」的开门方向预测，下标 = 车节索引。
+     * 数据源：{@link DoorOpenCacheClient#query(long, String, int, int)}，即按站台 + 列车配置查到的历史缓存。
+     */
+    public DoorOpenRecord.DoorOpenSide[] predictedDoorOpenSides;
 
     public final Matrix4f[] lastWorldPose;
     public final Vector3f[] lastCarPosition;
@@ -46,11 +60,18 @@ public class TrainStatus {
 
     private int cacheIndex;
 
+    /** 上次「预测」用的站台 id；只有当下一站台变化时才重新查缓存（-1 = 还没查过）。 */
+    private long lastPredictedPlatformId = -1L;
+    /** 上次预测时缓存的版本号；缓存被写入（含本站刚观测到的记录）时即使站台不变也要重查。 */
+    private long lastPredictedGeneration = -1L;
+
     public TrainStatus(TrainClient train) {
         this.train = train;
         int trainCars = train.trainCars;
         doorLeftOpen = new boolean[trainCars];
         doorRightOpen = new boolean[trainCars];
+        doorOpenSides = unknownDoorSides(trainCars);
+        predictedDoorOpenSides = unknownDoorSides(trainCars);
         lastWorldPose = new Matrix4f[trainCars];
         lastCarPosition = new Vector3f[trainCars];
         lastCarRotation = new Vector3f[trainCars];
@@ -92,6 +113,110 @@ public class TrainStatus {
         this.isOnRoute = train.isOnRoute();
         this.isReverse = train.isReversed();
         this.trainStatus = geTrainStatus();
+
+        // 开门方向（实时观测 + 历史预测）随路线状态一起刷新；与上面的字段互不影响
+        updateDoorSides();
+    }
+
+    /**
+     * 刷新 LCD 消费的两个开车门数组（见 DESIGN 第 8 节）。
+     * <p>
+     * 只写内存，<b>不改动原有 {@code doorLeftOpen/doorRightOpen} 的语义</b>（那两个仍然是「本帧扫描到的
+     * 世界内方块开门状态」，用于渲染）。本方法新增的是「逐车节的开门<i>方向</i>」：
+     * <ul>
+     *   <li>{@link #doorOpenSides}：最近一次实际观测的原始帧，来自 MTR3 观测器；</li>
+     *   <li>{@link #predictedDoorOpenSides}：按「站台 + 列车配置」查历史缓存得到的规范帧预测。</li>
+     * </ul>
+     * 任何异常都只影响这两个数组，绝不能让 LCD 的路线渲染挂掉，因此全程 try/catch 兜底。
+     */
+    private void updateDoorSides() {
+        final int trainCars = train.trainCars;
+        if (doorOpenSides == null || doorOpenSides.length != trainCars) {
+            // 编组数量变化（或尚未初始化）：整体重来，预测随之作废
+            doorOpenSides = unknownDoorSides(trainCars);
+            predictedDoorOpenSides = unknownDoorSides(trainCars);
+            lastPredictedPlatformId = -1L;
+            lastPredictedGeneration = -1L;
+        }
+
+        // —— 实时值：最近一次实际观测（原始帧） ——
+        try {
+            // 幂等兜底：契约未规定观测端 init() 的调用点，这里保证只要有 LCD 就一定已注册
+            DoorSideObserverMtr3.init();
+            final DoorOpenRecord.DoorOpenSide[] live = DoorSideObserverMtr3.lastSides(train.id);
+            if (live != null && live.length == trainCars) {
+                doorOpenSides = live.clone();
+            }
+        } catch (Throwable t) {
+            Main.LOGGER.warn("[FangSu 开门缓存] 读取 MTR3 实时开门方向失败（train={}）", train.id, t);
+        }
+
+        // —— 预测值：站台变化、或缓存被写入（含本站刚观测到的记录）时重查一次 ——
+        try {
+            final long platformId = resolveNextPlatformId();
+            final long cacheGeneration = DoorOpenCacheClient.generation();
+            if (platformId != lastPredictedPlatformId || cacheGeneration != lastPredictedGeneration) {
+                lastPredictedPlatformId = platformId;
+                lastPredictedGeneration = cacheGeneration;
+                predictedDoorOpenSides = platformId > 0L
+                        ? queryPredictedSides(platformId, trainCars)
+                        : unknownDoorSides(trainCars);
+            }
+        } catch (Throwable t) {
+            Main.LOGGER.warn("[FangSu 开门缓存] 刷新 MTR3 开门方向预测失败（train={}）", train.id, t);
+        }
+    }
+
+    /**
+     * 「下一站台」的 id：{@code getAllPlatforms()} + {@code getAllPlatformsNextIndex()}。
+     * 尚未解析到站台（出库/回库/路线未就绪）时返回 0。
+     */
+    private long resolveNextPlatformId() {
+        final List<PlatformInfo> platforms = getAllPlatforms();
+        if (platforms == null || platforms.isEmpty()) {
+            return 0L;
+        }
+        final int nextIndex = getAllPlatformsNextIndex();
+        if (nextIndex < 0 || nextIndex >= platforms.size()) {
+            return 0L;
+        }
+        final PlatformInfo platformInfo = platforms.get(nextIndex);
+        if (platformInfo == null || platformInfo.platform == null) {
+            return 0L;
+        }
+        return platformInfo.platform.id;
+    }
+
+    /** 查缓存；返回值保证长度 = {@code trainCars}，查不到/异常时全 UNKNOWN。 */
+    private DoorOpenRecord.DoorOpenSide[] queryPredictedSides(long platformId, int trainCars) {
+        try {
+            final DoorOpenRecord.DoorOpenSide[] predicted =
+                    DoorOpenCacheClient.query(platformId, cacheTrainTypeId(), trainCars, cacheLengthMeters());
+            if (predicted != null && predicted.length == trainCars) {
+                return predicted.clone();
+            }
+        } catch (Throwable t) {
+            Main.LOGGER.warn("[FangSu 开门缓存] 查询站台 {} 的开门方向缓存失败（train={}）", platformId, train.id, t);
+        }
+        return unknownDoorSides(trainCars);
+    }
+
+    /** MTR3 的缓存配置标识：{@code train.trainId}，为空则退回 {@code baseTrainType}。 */
+    private String cacheTrainTypeId() {
+        final String trainId = train.trainId;
+        return trainId == null || trainId.isEmpty() ? train.baseTrainType : trainId;
+    }
+
+    /** MTR3 没有总长字段，用「车节数 × 节间距」近似（米，四舍五入）。 */
+    private int cacheLengthMeters() {
+        return (int) Math.round(train.trainCars * (double) train.spacing);
+    }
+
+    /** 生成一个全 UNKNOWN 的开车门方向数组（长度非法时退化为空数组）。 */
+    private static DoorOpenRecord.DoorOpenSide[] unknownDoorSides(int length) {
+        final DoorOpenRecord.DoorOpenSide[] sides = new DoorOpenRecord.DoorOpenSide[Math.max(0, length)];
+        Arrays.fill(sides, DoorOpenRecord.DoorOpenSide.UNKNOWN);
+        return sides;
     }
 
     public void update(int carIndex, boolean doorLeftOpen, boolean doorRightOpen, Matrix4f carPose) {

@@ -113,6 +113,10 @@ public class GraphicsTextureHelper {
      * 只在"从有世界变为无世界"时清理，因此不会误删刚进入新世界后注册的纹理。
      */
     private void checkLevelUnload() {
+        // 专用服务端没有客户端世界，也没有 net.minecraft.client.Minecraft 这个类。
+        // 方块实体销毁时 GraphicsTextureHelper 单例会随 whenDisposing 在服务端被初始化，
+        // 本方法由后台 tick 线程调用，一旦执行到下一行就会抛 NoClassDefFoundError 打挂 tick。
+        if (!Main.isPhysicalClient()) return;
         boolean nowNull = Minecraft.getInstance().level == null;
         if (nowNull && !lastLevelWasNull) {
             Main.LOGGER.info("[FangSu] world unloaded, releasing {} graphics textures", loadGts.size());

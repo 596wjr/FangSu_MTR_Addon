@@ -4,6 +4,7 @@ import com.fangsu.mtr.ColorNameTuple;
 import com.fangsu.mtr.DrawableRoute;
 import com.fangsu.scripting.G2dTextHelper;
 import com.fangsu.scripting.TextUtil;
+import com.fangsu.train.DoorOpenRecord;
 import com.fangsu.train.LcdBase;
 import com.fangsu.train.LcdInfo;
 import com.fangsu.train.TrainStatus;
@@ -58,6 +59,8 @@ public class MtrLcd extends LcdBase {
 
             drawRoute(g, x, y, w, h, route, stations, cjkFont, nonCjkFont, isReverse);
             drawRouteName(g, x, y, w, h, cjkFont, nonCjkFont, route.routeColor, route.routeName, isLeft);
+            // 线路图屏：一角是线路颜色 + 线路名（上面这行），另一角常驻「请在…落车」
+            drawDoorSideBadge(g, x, y, w, h, cjkFont, nonCjkFont, status, side);
 
         } else if (status.trainStatus == 4) {
             DrawableRoute.DrawableRouteStation thisStation = null;
@@ -69,20 +72,14 @@ public class MtrLcd extends LcdBase {
                 String nonCjkName = TextUtil.getCjkMatching(thisStation.stationName, false);
                 drawStationNameCenter(g, x, y, w, h, cjkName, nonCjkName, cjkFont, nonCjkFont);
                 drawMindTheGap(g, x, y, w, h, cjkFont, nonCjkFont);
-
-                boolean leftOpen = status.doorLeftOpen[0];
-                boolean rightOpen = status.doorRightOpen[0];
-                boolean isLeft = side.contains("left");
-                if (leftOpen || rightOpen) {
-                    boolean doorOnRight = (isLeft && rightOpen) || (!isLeft && leftOpen);
-                    boolean doorOnThisSide = (isLeft && leftOpen) || (!isLeft && rightOpen);
-                    drawDoorOpen(g, x, y, w, h, cjkFont, nonCjkFont, doorOnRight, doorOnThisSide);
-                }
+                // 到站屏的「请在…落车」与线路图屏画在同一个角
+                drawDoorSideBadge(g, x, y, w, h, cjkFont, nonCjkFont, status, side);
             } else {
                 boolean isLeft = side.contains("left");
                 boolean isReverse = isLeft == status.isReverse;
                 drawRoute(g, x, y, w, h, route, stations, cjkFont, nonCjkFont, isReverse);
                 drawRouteName(g, x, y, w, h, cjkFont, nonCjkFont, route.routeColor, route.routeName, isLeft);
+                drawDoorSideBadge(g, x, y, w, h, cjkFont, nonCjkFont, status, side);
             }
         } else {
             g.setColor(Color.BLACK);
@@ -213,6 +210,98 @@ public class MtrLcd extends LcdBase {
         g.setColor(Color.BLACK);
         G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX, centralY - routeNameTextHeight, routeNameTextHeight, 0, routeName.split("\\|"));
 
+    }
+
+    /**
+     * 画「请在…落车」角标（线路图屏与到站屏共用同一个位置）。
+     * <p>
+     * 位置固定在<b>线路名牌的对角</b>：{@code drawRouteName(...)} 用 {@code isLeft} 当 {@code onRight}，
+     * 所以这里用 {@code !isLeft}。这样「线路颜色 + 线路名」和「请在…落车」永远各占一角，
+     * 到站屏也画在同一个角上。
+     * <p>
+     * 开门方向未知（该站台还没有任何缓存记录、且门也没开）时不画。
+     */
+    private void drawDoorSideBadge(Graphics2D g, int x, int y, int w, int h,
+                                   Font cjkFont, Font nonCjkFont, TrainStatus status, String side) {
+        final boolean[] openSides = resolveOpenSides(status);
+        final boolean leftOpen = openSides[0];
+        final boolean rightOpen = openSides[1];
+        if (!leftOpen && !rightOpen) {
+            return;
+        }
+        final boolean isLeft = side.contains("left");
+        // 「这边」= 本 LCD 面板所在的一侧
+        final boolean doorOnThisSide = (isLeft && leftOpen) || (!isLeft && rightOpen);
+        drawDoorOpen(g, x, y, w, h, cjkFont, nonCjkFont, !isLeft, doorOnThisSide);
+    }
+
+    /**
+     * 取「本次到站」的左右开门状态：{@code [left, right]}。
+     * <p>
+     * 数据来源按优先级：
+     * <ol>
+     *   <li>{@link TrainStatus#predictedDoorOpenSides}：按「站台 + 列车配置」查到的历史预测
+     *       （<b>规范帧</b>，写入时已按「发车车头、非反向」规范化，因此这里要按本车
+     *       {@code isReverse} 自行 {@code toOpposite} —— 翻转责任在调用方）。
+     *       它在「本站刚被观测到」时会被刷成实际方向，所以到站开门前后都以它为准；</li>
+     *   <li>预测没有本站记录（第一次运行）时，<b>只有门此刻真的开着</b>才退回实时观测
+     *       {@link TrainStatus#doorOpenSides}（原始帧）——否则跨站保留的实时值会把上一站的方向
+     *       误显示到本站。</li>
+     * </ol>
+     * 两者都拿不到具体值（该站台从未观测过）时返回全 {@code false}，调用方据此<b>不画</b>「请在…落车」。
+     */
+    private static boolean[] resolveOpenSides(TrainStatus status) {
+        final boolean[] result = new boolean[]{false, false};
+        DoorOpenRecord.DoorOpenSide predicted = firstKnownSide(status.predictedDoorOpenSides);
+        if (predicted != null) {
+            if (status.isReverse) {
+                predicted = DoorOpenRecord.DoorOpenSide.toOpposite(predicted);
+            }
+            applyOpenSide(result, predicted);
+            return result;
+        }
+        // 首次运行、本站从来没有记录：门没开时什么都不显示；门开着才用刚观测到的实时值兜底
+        if (isDoorOpenNow(status)) {
+            final DoorOpenRecord.DoorOpenSide live = firstKnownSide(status.doorOpenSides);
+            if (live != null) {
+                applyOpenSide(result, live);
+            }
+        }
+        return result;
+    }
+
+    /** 当前是否有任意车节的门真的开着（MTR3 的 flag 只在 doorValue>0 时为真；MTR4 用近似值但同样只在该窗口为真）。 */
+    private static boolean isDoorOpenNow(TrainStatus status) {
+        if (status.doorLeftOpen != null && status.doorRightOpen != null) {
+            final int length = Math.min(status.doorLeftOpen.length, status.doorRightOpen.length);
+            for (int i = 0; i < length; i++) {
+                if (status.doorLeftOpen[i] || status.doorRightOpen[i]) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** 数组里第一个「具体且不是 NONE」的方向（逐车节查找，前车不开门时顺延到下一节）；没有则 null。 */
+    private static DoorOpenRecord.DoorOpenSide firstKnownSide(DoorOpenRecord.DoorOpenSide[] sides) {
+        if (sides == null) {
+            return null;
+        }
+        for (final DoorOpenRecord.DoorOpenSide side : sides) {
+            if (side != null
+                    && side != DoorOpenRecord.DoorOpenSide.UNKNOWN
+                    && side != DoorOpenRecord.DoorOpenSide.NONE) {
+                return side;
+            }
+        }
+        return null;
+    }
+
+    /** 把单值方向展开成 {@code [leftOpen, rightOpen]}。 */
+    private static void applyOpenSide(boolean[] result, DoorOpenRecord.DoorOpenSide side) {
+        result[0] = side == DoorOpenRecord.DoorOpenSide.LEFT || side == DoorOpenRecord.DoorOpenSide.BOTH;
+        result[1] = side == DoorOpenRecord.DoorOpenSide.RIGHT || side == DoorOpenRecord.DoorOpenSide.BOTH;
     }
 
     private void drawDoorOpen(Graphics2D g, int x, int y, int w, int h, Font cjkFont, Font nonCjkFont, boolean onRight, boolean isOpen) {

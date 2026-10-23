@@ -2,6 +2,7 @@ package com.fangsu.mixin;
 
 import com.fangsu.Main;
 import com.fangsu.mappings.ComponentHelper;
+import com.fangsu.mappings.rail.RailPoseExtra;
 import com.fangsu.util.NodeConnector;
 import mtr.block.BlockNode;
 import mtr.data.Rail;
@@ -116,6 +117,19 @@ public abstract class ItemRailModifierMixin {
         final boolean isValid = NodeConnector.isGeometryUsable(rail1) && NodeConnector.isGeometryUsable(rail2);
 
         if (goodRadius && isValid && isValidContinuousMovement) {
+            // 附加姿态（节点平移 / 俯仰 / 翻滚 / 半轨距）：必须在登记与广播之前写入。
+            // 姿态是轨道对象上的数据，MTR 只会把轨道本身发给客户端；不在这里写，
+            // 万向节点新建的轨道就要等到下一次「节点编辑 → 重建」才会拿到纵坡 / 超高。
+            // 两端各按自己作为 position1 的顺序取姿态（与 createAndSendRail 一致）。
+            // 默认姿态不写：新建的轨道本来就没有姿态，跳过可省掉一次几何缓存失效。
+            final RailPoseExtra pose1 = NodeConnector.readRailPose(world, posStart, posEnd);
+            if (!pose1.isDefault()) {
+                NodeConnector.applyPose(rail1, pose1);
+            }
+            final RailPoseExtra pose2 = NodeConnector.readRailPose(world, posEnd, posStart);
+            if (!pose2.isDefault()) {
+                NodeConnector.applyPose(rail2, pose2);
+            }
             railwayData.addRail(player, transportMode, posStart, posEnd, rail1, false);
             final long newId = railwayData.addRail(player, transportMode, posEnd, posStart, rail2, true);
             world.setBlockAndUpdate(posStart, stateStart.setValue(BlockNode.IS_CONNECTED, true));
