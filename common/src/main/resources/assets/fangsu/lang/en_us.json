@@ -415,5 +415,25 @@
   "block.fangsu.modular.var_value": "Variable",
   "block.fangsu.modular.random": "Pick random between",
   "block.fangsu.modular.join": "Join",
-  "block.fangsu.modular.bigger": "Greater than"
+  "block.fangsu.modular.bigger": "Greater than",
+
+  "block.fangsu.level_crossing": "Level Crossing",
+  "block.fangsu.level_crossing.desc": "A crossing block that fuses a stretch of MTR track with the road deck. Right-click with a wrench to set the deck style, outer extend, steps and rail-top/groove depth; sneak-right-click to recompute the geometry of the surrounding 5x5 layer",
+  "ui.fangsu.level_crossing.style": "Deck Style",
+  "ui.fangsu.level_crossing.style.asphalt": "Asphalt",
+  "ui.fangsu.level_crossing.style.concrete": "Concrete",
+  "ui.fangsu.level_crossing.style.wood": "Wood",
+  "ui.fangsu.level_crossing.outer_extend": "Outer Extend",
+  "ui.fangsu.level_crossing.step_count": "Steps Along Rail",
+  "ui.fangsu.level_crossing.bevel": "Ramp length",
+  "ui.fangsu.level_crossing.deck_inset": "Deck drop",
+  "ui.fangsu.level_crossing.rail_top": "Rail Top Height",
+  "ui.fangsu.level_crossing.groove_depth": "Groove Depth",
+  "ui.fangsu.level_crossing.ramp_foot": "Ramp foot Y",
+                "ui.fangsu.level_crossing.rail_top_bias": "Rail top bias (blocks)",
+                "ui.fangsu.level_crossing.lateral_scale": "Lateral scale",
+                "ui.fangsu.level_crossing.lateral_offset": "Lateral offset",
+  "ui.fangsu.level_crossing.recompute": "Recompute",
+  "ui.fangsu.level_crossing.no_rail": "No track detected"
 }
+

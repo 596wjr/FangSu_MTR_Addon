@@ -88,6 +88,7 @@ public class MaterialProp {
 
     public void setupCompositeState() {
         if (texture != null) {
+            // 本方块（平交路口）走 LevelCrossingStyles.ensureNearestFilter() 单独处理，避免影响其它方块
             // TextureManager textureManager = Minecraft.getInstance().getTextureManager();
             // textureManager.getTexture(texture).setFilter(false, false);
             RenderSystem.setShaderTexture(0, texture);

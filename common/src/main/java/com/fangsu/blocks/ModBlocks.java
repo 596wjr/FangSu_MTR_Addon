@@ -77,6 +77,16 @@ public class ModBlocks {
 
     public static final RegistrySupplier<Item> ITEM_ROTATING_RAIL = RegisterUtil.addBlockItem("rotating_rail", BLOCK_ROTATING_RAIL);
 
+    // 平交路口：轨道+铺面一体的方块，几何按相邻方块缓存的快照生成
+    public static final RegistrySupplier<Block> BLOCK_LEVEL_CROSSING =
+            RegisterUtil.addBlock("level_crossing", BlockLevelCrossing::new);
+
+    public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_LEVEL_CROSSING =
+            RegisterUtil.addBlockEntity("block_entity_level_crossing", BLOCK_LEVEL_CROSSING, BlockEntityLevelCrossing::new);
+
+    public static final RegistrySupplier<Item> ITEM_LEVEL_CROSSING =
+            RegisterUtil.addBlockItem("level_crossing", BLOCK_LEVEL_CROSSING);
+
     // 万向节点：轨道方向可为任意角度（不受 MTR 16×22.5° 限制）且可由玩家绑定/改绑
     public static final RegistrySupplier<Block> BLOCK_MULTI_DIRECTION_NODE =
             RegisterUtil.addBlock("multi_direction_node", BlockMultiDirectionNode::new);

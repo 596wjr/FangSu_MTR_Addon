@@ -314,5 +314,24 @@
   "ui.fangsu.mtrplatform.dirNone": "無",
   "ui.fangsu.mtrplatform.dirLeft": "左",
   "ui.fangsu.mtrplatform.dirRight": "右",
-  "ui.fangsu.mtrplatform.showDest": "顯示終點"
+  "ui.fangsu.mtrplatform.showDest": "顯示終點",
+
+  "block.fangsu.level_crossing": "平交道口",
+  "block.fangsu.level_crossing.desc": "把一段 MTR 軌道與鋪面合成一體的道口方塊。扳手右鍵開啟設定介面設定鋪面樣式、外擴、分段與軌頂/槽深；潛行右鍵以該方塊為中心重算周圍 5×5 一層的幾何",
+  "ui.fangsu.level_crossing.style": "鋪面樣式",
+  "ui.fangsu.level_crossing.style.asphalt": "瀝青",
+  "ui.fangsu.level_crossing.style.concrete": "混凝土",
+  "ui.fangsu.level_crossing.style.wood": "木質",
+  "ui.fangsu.level_crossing.outer_extend": "外擴格數",
+  "ui.fangsu.level_crossing.step_count": "沿軌分段",
+  "ui.fangsu.level_crossing.bevel": "斜坡長度",
+  "ui.fangsu.level_crossing.deck_inset": "鋪面下沉",
+  "ui.fangsu.level_crossing.rail_top": "軌頂高度",
+  "ui.fangsu.level_crossing.groove_depth": "槽深",
+  "ui.fangsu.level_crossing.ramp_foot": "斜坡坡腳高度",
+                "ui.fangsu.level_crossing.rail_top_bias": "軌頂偏移（格）",
+                "ui.fangsu.level_crossing.lateral_scale": "橫向縮放倍率",
+                "ui.fangsu.level_crossing.lateral_offset": "橫向偏移增量",
+  "ui.fangsu.level_crossing.recompute": "重新計算",
+  "ui.fangsu.level_crossing.no_rail": "未偵測到軌道"
 }

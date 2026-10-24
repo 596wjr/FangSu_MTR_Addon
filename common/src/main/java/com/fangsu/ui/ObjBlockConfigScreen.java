@@ -102,22 +102,26 @@ public class ObjBlockConfigScreen extends BasicConfigScreen {
         int colWidth = getPanelWidth();
 
         // ---- 濡€崇€烽柅澶嬪 ----
-        addEntry(createTextLabel(panelCenterX, y, ComponentHelper.translatable("ui.fangsu.block.modelSelect"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
-        y += 12;
-        addEntry(addButton(colLeft, y, colWidth, 24, ComponentHelper.translatable("ui.fangsu.block.mainModelSelect"),
-                (b) -> Minecraft.getInstance().setScreen(new ModelSelectScreen(
-                        ComponentHelper.translatable("ui.fangsu.block.mainModelSelect"),
-                        this.be,
-                        CustomItems.items.get(this.be.getMainModelKey()),
-                        (target) -> target.mainModel,
-                        (target, v) -> target.mainModel = v, this,
-                        () -> {
-                            be.setDefaultSubModel();
-                            be.afterChangeModel();
-                        }
-                ))
-        ), y);
-        y += 28;
+        // 仅当该方块注册了主模型键时才显示主模型选择：几何全由方块实体自绘的方块（如平交路口）没有模型键，
+        // 直接构造会弹出一个空的模型选择列表
+        if (CustomItems.items.get(this.be.getMainModelKey()) != null) {
+            addEntry(createTextLabel(panelCenterX, y, ComponentHelper.translatable("ui.fangsu.block.modelSelect"), TextLabel.Align.CENTER, 0xFFFFFF, false), y);
+            y += 12;
+            addEntry(addButton(colLeft, y, colWidth, 24, ComponentHelper.translatable("ui.fangsu.block.mainModelSelect"),
+                    (b) -> Minecraft.getInstance().setScreen(new ModelSelectScreen(
+                            ComponentHelper.translatable("ui.fangsu.block.mainModelSelect"),
+                            this.be,
+                            CustomItems.items.get(this.be.getMainModelKey()),
+                            (target) -> target.mainModel,
+                            (target, v) -> target.mainModel = v, this,
+                            () -> {
+                                be.setDefaultSubModel();
+                                be.afterChangeModel();
+                            }
+                    ))
+            ), y);
+            y += 28;
+        }
 
         if (be.getSubModelInfos() != null) {
             List<SubModelDispInfo> infos = be.getSubModelInfos();

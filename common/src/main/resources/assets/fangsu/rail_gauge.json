@@ -1,0 +1,28 @@
+{
+  "defaults": {
+    "_source": "inner plate [0.6675,0.6725] w=0.005; flangeway [0.6725,0.7175]; plate covers vanilla rail head [0.7175,0.785883]",
+    "gauge": 1.50,
+    "grooveOuter": 0.785883,
+    "grooveInner": 0.6675,
+    "grooveCenter": 0.695,
+    "lipInner": 0.005,
+    "grooveDepth": 0.09375,
+    "railTopY": 0.26428,
+    "lateralScale": 1.0,
+    "lateralOffset": 0.0
+  },
+  "rails": {
+    "mtr:default": {
+      "_source": "inner plate [0.6675,0.6725] w=0.005; flangeway [0.6725,0.7175]; plate covers vanilla rail head [0.7175,0.785883]",
+      "gauge": 1.50,
+      "grooveOuter": 0.785883,
+      "grooveInner": 0.6675,
+      "grooveCenter": 0.695,
+      "lipInner": 0.005,
+      "grooveDepth": 0.09375,
+      "railTopY": 0.26428,
+      "lateralScale": 1.0,
+      "lateralOffset": 0.0
+    }
+  }
+}

@@ -49,6 +49,8 @@ public class MainClient {
         ScriptManager.getInstance().init();
         com.fangsu.network.HybridCreatorClient.init();
         com.fangsu.train.DoorOpenCacheClient.initClient();
+        // 平交路口的网格构建队列（客户端 tick 驱动，与渲染回调解耦）
+        com.fangsu.blockEntities.BlockEntityLevelCrossing.initBuildQueue();
         com.fangsu.train.DoorSideObserverMtr3.init();
 
         try {

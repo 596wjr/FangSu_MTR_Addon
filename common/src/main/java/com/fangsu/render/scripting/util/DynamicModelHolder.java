@@ -43,9 +43,22 @@ public class DynamicModelHolder {
             boolean needProtection = !GlStateTracker.isStateProtected;
             if (needProtection) GlStateTracker.capture();
             ModelCluster lastUploadedModel = uploadedModel;
-            uploadedModel = new ModelCluster(finalRawModel, ModelManager.DEFAULT_MAPPING, MainClient.modelManager);
+            try {
+                uploadedModel = new ModelCluster(finalRawModel, ModelManager.DEFAULT_MAPPING, MainClient.modelManager);
+            } catch (Throwable t) {
+                // <b>热修（2026-07）</b>：旧实现是「capture → 上传 → restore」的直线写法，没有 try/finally。
+                // 只要上传抛一次异常，GlStateTracker.restore() 就被跳过，捕获状态永久残留 →
+                // 之后所有走这条渲染栈的方速方块全部不渲染（用户报「其他方速方块也不渲染了」正是这个）。
+                // 这里：① restore 必定在 finally 执行；② 失败时把旧模型放回、不清空也不 close；
+                // ③ 打全栈日志便于定位（只在失败时打，没有性能问题）。
+                Main.LOGGER.warn("[fangsu] model upload failed (meshes={})",
+                        finalRawModel == null || finalRawModel.meshList == null ? -1 : finalRawModel.meshList.size(), t);
+                uploadedModel = lastUploadedModel;
+                return;
+            } finally {
+                if (needProtection) GlStateTracker.restore();
+            }
             if (lastUploadedModel != null) lastUploadedModel.close();
-            if (needProtection) GlStateTracker.restore();
         });
     }
 

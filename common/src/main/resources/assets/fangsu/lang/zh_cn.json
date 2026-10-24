@@ -403,5 +403,25 @@
   "block.fangsu.modular.var_value": "变量",
   "block.fangsu.modular.random": "在区间随机取数",
   "block.fangsu.modular.join": "连接",
-  "block.fangsu.modular.bigger": "大于"
+  "block.fangsu.modular.bigger": "大于",
+
+  "block.fangsu.level_crossing": "平交路口",
+  "block.fangsu.level_crossing.desc": "把一段 MTR 轨道与铺面合成一体的道口方块。扳手右键打开配置界面设置铺面样式、外扩、分段与轨顶/槽深；潜行右键以该方块为中心重算周围 5×5 一层的几何",
+  "ui.fangsu.level_crossing.style": "铺面样式",
+  "ui.fangsu.level_crossing.style.asphalt": "沥青",
+  "ui.fangsu.level_crossing.style.concrete": "混凝土",
+  "ui.fangsu.level_crossing.style.wood": "木质",
+  "ui.fangsu.level_crossing.outer_extend": "外扩格数",
+  "ui.fangsu.level_crossing.step_count": "沿轨分段",
+  "ui.fangsu.level_crossing.bevel": "斜坡长度",
+  "ui.fangsu.level_crossing.deck_inset": "铺面下沉",
+  "ui.fangsu.level_crossing.rail_top": "轨顶高度",
+  "ui.fangsu.level_crossing.groove_depth": "槽深",
+  "ui.fangsu.level_crossing.ramp_foot": "斜坡坡脚高度",
+                "ui.fangsu.level_crossing.rail_top_bias": "轨顶偏置（格）",
+                "ui.fangsu.level_crossing.lateral_scale": "横向缩放倍率",
+                "ui.fangsu.level_crossing.lateral_offset": "横向偏移增量",
+  "ui.fangsu.level_crossing.recompute": "重新计算",
+  "ui.fangsu.level_crossing.no_rail": "未检测到轨道"
 }
+

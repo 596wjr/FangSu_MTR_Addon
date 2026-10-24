@@ -1,6 +1,7 @@
 package com.fangsu.customItem;
 
 import com.fangsu.Main;
+import com.fangsu.levelcrossing.LevelCrossingGaugeTable;
 import com.fangsu.scripting.JsonHelper;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonArray;
@@ -69,6 +70,8 @@ public class NteRailManager {
      */
     public void load() {
         rails.clear();
+        // 轨道几何参数表要跟着资源重载一起刷新，否则会一直用旧数据
+        LevelCrossingGaugeTable.getInstance().reload();
         loadNteDirectoryRails();
         loadMtrCustomRails();
         Main.debug("Loaded {} custom rails", rails.size());
@@ -188,6 +191,10 @@ public class NteRailManager {
             Main.LOGGER.warn("[FangSu] Duplicate NTE rail id '{}', overwriting previous entry", rail.id());
         }
         rails.put(rail.id(), rail);
+        // 轨道 JSON 里顺带声明了几何参数时并入平交路口的参数表（方速自有 JSON 优先）
+        if (rail.hasGaugeOverride()) {
+            LevelCrossingGaugeTable.overrideFromNteRail(rail);
+        }
     }
 
     /** 从 NTE 目录 JSON 文件构建轨道（模型字段名为 "model"）。 */
@@ -196,7 +203,21 @@ public class NteRailManager {
         String model = JsonHelper.getOrDefaultString(json, modelKey, "");
         double repeatInterval = JsonHelper.getOrDefaultDouble(json, "repeatInterval", 0.5);
         boolean flipV = JsonHelper.getOrDefaultBoolean(json, "flipV", false);
-        return new NteRail(id, name, model, repeatInterval, flipV);
+        return new NteRail(id, name, model, repeatInterval, flipV,
+                getNullableDouble(json, "gauge"),
+                getNullableDouble(json, "grooveOuter"),
+                getNullableDouble(json, "grooveInner"),
+                getNullableDouble(json, "grooveDepth"),
+                getNullableDouble(json, "railTopY"));
+    }
+
+    /** 读取可空数值：字段缺失或不是数字时返回 null，交给几何参数表回落到 defaults。 */
+    private static Double getNullableDouble(JsonObject json, String key) {
+        JsonElement element = json.get(key);
+        if (element == null || !element.isJsonPrimitive() || !element.getAsJsonPrimitive().isNumber()) {
+            return null;
+        }
+        return element.getAsDouble();
     }
 
     /** 从 MTR "rails" 数组项构建轨道（id 必填）。 */
@@ -206,7 +227,12 @@ public class NteRailManager {
         String model = JsonHelper.getOrDefaultString(json, modelKey, "");
         double repeatInterval = JsonHelper.getOrDefaultDouble(json, "repeatInterval", 0.5);
         boolean flipV = JsonHelper.getOrDefaultBoolean(json, "flipV", false);
-        return new NteRail(id, name, model, repeatInterval, flipV);
+        return new NteRail(id, name, model, repeatInterval, flipV,
+                getNullableDouble(json, "gauge"),
+                getNullableDouble(json, "grooveOuter"),
+                getNullableDouble(json, "grooveInner"),
+                getNullableDouble(json, "grooveDepth"),
+                getNullableDouble(json, "railTopY"));
     }
 
     /** 由资源位置推导单模型格式的默认 id（取去掉 ".json" 后缀的文件名）。 */
@@ -220,7 +246,24 @@ public class NteRailManager {
     }
 
     /** 一条自定义轨道的不可变描述。实现了 {@link ModelSelectInfo} 以便用于选择界面。 */
-    public record NteRail(String id, String name, String model, double repeatInterval, boolean flipV) implements ModelSelectInfo {
+    public record NteRail(String id, String name, String model, double repeatInterval, boolean flipV,
+                          Double gauge, Double grooveOuter, Double grooveInner, Double grooveDepth,
+                          Double railTopY) implements ModelSelectInfo {
+
+        /**
+         * 兼容旧签名的便捷构造器：不带几何参数的调用点（选择界面等）继续用这个，
+         * 五个几何字段留空由 {@link LevelCrossingGaugeTable} 回落到 defaults。
+         */
+        public NteRail(String id, String name, String model, double repeatInterval, boolean flipV) {
+            this(id, name, model, repeatInterval, flipV, null, null, null, null, null);
+        }
+
+        /** 是否在轨道 JSON 里声明了至少一个几何参数。 */
+        public boolean hasGaugeOverride() {
+            return gauge != null || grooveOuter != null || grooveInner != null
+                    || grooveDepth != null || railTopY != null;
+        }
+
         public NteRail fromJson(JsonObject json) {
             return NteRailManager.getInstance().createNteRail(id, json, "model");
         }
