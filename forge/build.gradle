@@ -122,7 +122,7 @@ shadowJar {
 
 remapJar {
     inputFile.set shadowJar.archiveFile
-    archiveFileName.set("$rootProject.mod_prefix$rootProject.archives_name-mc$project.minecraft_version-${platform}-${rootProject.mod_version}.jar")
+    archiveFileName.set("$rootProject.mod_prefix$rootProject.archives_name-mc$project.minecraft_version-${platform}-${rootProject.mod_version}-build${rootProject.build_timestamp}.jar")
 }
 
 tasks.named("sourcesJar") {
