@@ -66,6 +66,7 @@ public class EyeCandyDrawCalls extends AbstractDrawCalls {
                     playSoundCall.sound, SoundSource.BLOCKS,
                     playSoundCall.volume, playSoundCall.pitch, false);
         }
+        soundList.clear();
     }
 
     public void commit(DrawScheduler drawScheduler, Matrix4f basePose, int light) {
@@ -83,11 +84,13 @@ public class EyeCandyDrawCalls extends AbstractDrawCalls {
                     playSoundCall.sound, SoundSource.BLOCKS,
                     playSoundCall.volume, playSoundCall.pitch, false);
         }
+        soundList.clear();
     }
 
     public void reset() {
         for (ClusterDrawCall c : drawList) {
             if (c.pose != Matrix4f.IDENTITY) matrixPool.addLast(c.pose);
+            c.set(null,null,Matrix4f.IDENTITY);
             callPool.addLast(c);
         }
         drawList.clear();

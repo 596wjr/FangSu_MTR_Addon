@@ -122,6 +122,8 @@ public class RawModel {
         for (RawMesh mesh : meshList.values()) mesh.generateNormals();
     }
 
+    public void prepareForUpload(){for(RawMesh mesh:meshList.values())mesh.prepareForUpload();}
+
     public void distinct() {
         for (RawMesh mesh : meshList.values()) mesh.distinct();
     }

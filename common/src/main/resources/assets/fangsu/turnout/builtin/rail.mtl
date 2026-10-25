@@ -1,0 +1,15 @@
+newmtl rail_top
+Kd 1 1 1
+map_Kd rail.png
+
+newmtl rail_side
+Kd 1 1 1
+map_Kd rail.png
+
+newmtl sleeper_rail
+Kd 1 1 1
+map_Kd rail.png
+
+newmtl spike_rail
+Kd 1 1 1
+map_Kd rail.png

@@ -67,5 +67,12 @@ public class ModBlockClient {
                 ModBlocks.BLOCK_ENTITY_TRAFFIC_LIGHT.get(),
                 ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
         );
+        // 道岔：几何由 BlockEntityTurnout.whenRendering() 提交（本体不渲染，只有轨道几何）。
+        // 必须用专用渲染器：几何可从方块跨出约 32 格，随 section 剔除会让远端整段消失，
+        // 故 TurnoutBlockEntityRenderer 只覆写 shouldRenderOffScreen()→true（其余全部继承基类）。
+        BlockEntityRendererRegistry.register(
+                ModBlocks.BLOCK_ENTITY_TURNOUT.get(),
+                ctx -> new TurnoutBlockEntityRenderer(ctx.getBlockEntityRenderDispatcher())
+        );
     }
 }

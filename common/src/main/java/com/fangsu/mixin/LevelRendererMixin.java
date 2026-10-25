@@ -34,14 +34,16 @@ public class LevelRendererMixin {
         Minecraft.getInstance().level.getProfiler().popPush("FangSuBlockEntities");
         BufferSourceProxy vertexConsumersProxy = new BufferSourceProxy(renderBuffers.bufferSource());
         MainClient.drawScheduler.commit(vertexConsumersProxy, MainClient.drawContext);
+        // 节点线框与标记圆盘：顶点是世界坐标，必须在本注入点（世界系 pose，含相机变换）绘制；
+        // buffer 直接用 LevelRenderer 自己的 renderBuffers.bufferSource()（与方速方块实体同一条已验证可见的路径），
+        // 不再自建 Tesselator buffer，避免在 renderLevel 中途与其他批次抢同一个共享 builder
+        NodeHighlightRenderer.renderLevel(poseStack, camera, renderBuffers.bufferSource());
         if (!MainClient.is_nte_loaded)
             vertexConsumersProxy.commit();
     }
 
     @Inject(method = "renderLevel", at = @At("TAIL"))
     private void renderLevelLast(PoseStack poseStack, float f, long l, boolean bl, Camera camera, GameRenderer gameRenderer, LightTexture lightTexture, Matrix4f matrix4f, CallbackInfo ci) {
-        // 手持位移工具/轨道模型工具时显示轨道节点（内部自建 buffer 立即提交，不受 NTE 影响）
-        NodeHighlightRenderer.renderLevel(poseStack, camera);
         MainClient.drawContext.resetFrameProfiler();
     }
 

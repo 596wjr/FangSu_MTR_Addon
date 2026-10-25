@@ -1,6 +1,7 @@
 {
   "defaults": {
     "_source": "inner plate [0.6675,0.6725] w=0.005; flangeway [0.6725,0.7175]; plate covers vanilla rail head [0.7175,0.785883]",
+    "_units": "gauge/grooveOuter/grooveInner/grooveCenter/lipInner/grooveDepth/railTopY 单位为格(1格=1米); 轨道 JSON 里的 gaugeMm 为毫米, 缺省 1435, 仅参与横向位置计算(本文件不读取 gaugeMm)",
     "gauge": 1.50,
     "grooveOuter": 0.785883,
     "grooveInner": 0.6675,

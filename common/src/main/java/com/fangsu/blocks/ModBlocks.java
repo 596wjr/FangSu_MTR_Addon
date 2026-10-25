@@ -2,6 +2,7 @@ package com.fangsu.blocks;
 
 import com.fangsu.blockEntities.*;
 import com.fangsu.blocks.client.ModBlockClient;
+import com.fangsu.items.ItemTurnout;
 import com.fangsu.items.ModItems;
 import com.fangsu.utils.RegisterUtil;
 import dev.architectury.registry.registries.RegistrySupplier;
@@ -105,6 +106,14 @@ public class ModBlocks {
             RegisterUtil.addBlock("collision_compensation_block", BlockCollisionCompensator::new);
     public static final RegistrySupplier<Item> ITEM_COLLISION_COMPENSATOR =
             RegisterUtil.addBlockItem("collision_compensation_block", BLOCK_COLLISION_COMPENSATOR);
+
+    // 道岔：三个节点标记（1 蓝 + 2 红）绑成一组单开道岔几何，无碰撞、无本体渲染
+    public static final RegistrySupplier<Block> BLOCK_TURNOUT = RegisterUtil.addBlock("turnout", BlockTurnout::new);
+    public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_TURNOUT =
+            RegisterUtil.addBlockEntity("block_entity_turnout", BLOCK_TURNOUT, BlockEntityTurnout::new);
+    // 放置门禁：ItemTurnout 在客户端按同一套规则预检（1 蓝 2 红 / 轨道 / 夹角），不满足就不放置、不消耗物品
+    public static final RegistrySupplier<Item> ITEM_TURNOUT = RegisterUtil.addItem("turnout",
+            () -> new ItemTurnout(BLOCK_TURNOUT.get(), RegisterUtil.tabProps(new Item.Properties())));
 
     public static void init() {
     }

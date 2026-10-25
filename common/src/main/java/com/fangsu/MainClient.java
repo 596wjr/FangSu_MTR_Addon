@@ -48,6 +48,8 @@ public class MainClient {
         ShadersModHandler.init();
         ScriptManager.getInstance().init();
         com.fangsu.network.HybridCreatorClient.init();
+        // 道岔 S2C（绑定结果）接收器
+        com.fangsu.network.ModNetwork.initClient();
         com.fangsu.train.DoorOpenCacheClient.initClient();
         // 平交路口的网格构建队列（客户端 tick 驱动，与渲染回调解耦）
         com.fangsu.blockEntities.BlockEntityLevelCrossing.initBuildQueue();

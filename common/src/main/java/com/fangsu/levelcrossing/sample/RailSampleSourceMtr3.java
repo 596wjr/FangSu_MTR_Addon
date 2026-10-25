@@ -295,7 +295,25 @@ public final class RailSampleSourceMtr3 implements RailSampleSource {
      * {@code level} 只用来在 {@link #tiltDegrees()} 里读节点姿态（{@code NodeConnector.readRailPose} 需要世界对象），
      * 生命周期与本对象一致：它只在一次 {@link #nearby} 的返回值里存活，不会跨 tick 持有世界引用。
      */
-    private record Mtr3Geometry(Level level, Rail rail, BlockPos pos1, BlockPos pos2) implements RailGeometry {
+    private record Mtr3Geometry(Level level, Rail rail, BlockPos pos1, BlockPos pos2,
+                                com.fangsu.mappings.rail.RailRollProfile rollProfile) implements RailGeometry {
+
+        private Mtr3Geometry(Level level,Rail rail,BlockPos pos1,BlockPos pos2) {
+            this(level,rail,pos1,pos2,nativeRollProfile(level,rail,pos1,pos2));
+        }
+
+        private static com.fangsu.mappings.rail.RailRollProfile nativeRollProfile(Level level,Rail rail,BlockPos a,BlockPos b) {
+            try {
+                Vec3 start=rail.getPosition(0);
+                if(start!=null&&start.distanceToSqr(Vec3.atCenterOf(b))<start.distanceToSqr(Vec3.atCenterOf(a))){BlockPos swap=a;a=b;b=swap;}
+                RailPoseExtra pose=NodeConnector.readRailPose(level,a,b);
+                return pose==null?com.fangsu.mappings.rail.RailRollProfile.NONE:com.fangsu.mtr.rail.RailGeometrySource.rollProfileFor(pose);
+            }catch(RuntimeException e){return com.fangsu.mappings.rail.RailRollProfile.NONE;}
+        }
+
+        @Override public double tiltDegrees(double distance) {
+            return Math.toDegrees(rollProfile.getRadians(Math.max(0,Math.min(1,distance/Math.max(1e-6D,length())))));
+        }
 
         @Override
         public double length() {

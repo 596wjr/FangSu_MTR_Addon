@@ -25,6 +25,13 @@ public class RawMesh {
     public final MaterialProp materialProp;
     public List<Vertex> vertices = new ArrayList<>();
     public List<Face> faces = new ArrayList<>();
+    private boolean uploadPrepared;
+    private int preparedVertices,preparedFaces;
+    /** 只为构建后不再改几何的模型启用；普通可变脚本模型仍维持原上传流程。 */
+    public void prepareForUpload(){distinct();uploadPrepared=true;preparedVertices=vertices.size();preparedFaces=faces.size();}
+    public boolean isUploadPrepared(){return uploadPrepared&&preparedVertices==vertices.size()&&preparedFaces==faces.size();}
+    private void inheritPreparation(RawMesh source){uploadPrepared=source.isUploadPrepared();preparedVertices=vertices.size();preparedFaces=faces.size();}
+
 
     public RawMesh(MaterialProp materialProp) {
         this.materialProp = materialProp;
@@ -41,6 +48,8 @@ public class RawMesh {
     }
 
     public void append(RawMesh nextMesh) {
+        boolean inherit=vertices.isEmpty()&&faces.isEmpty();
+        uploadPrepared=false;
         if (nextMesh == this) throw new IllegalStateException("Mesh self-appending");
         int vertOffset = vertices.size();
         vertices.addAll(nextMesh.vertices);
@@ -51,9 +60,11 @@ public class RawMesh {
             }
             faces.add(newFace);
         }
+        if(inherit)inheritPreparation(nextMesh);
     }
 
     public void appendTransformed(RawMesh nextMesh, Matrix4f mat, int color, int light) {
+        uploadPrepared=false;
         if (nextMesh == this) throw new IllegalStateException("Mesh self-appending");
         int vertOffset = vertices.size();
         for (Vertex vertex : nextMesh.vertices) {
@@ -74,6 +85,7 @@ public class RawMesh {
     }
 
     public void clear() {
+        uploadPrepared=false;
         vertices.clear();
         faces.clear();
     }
@@ -90,6 +102,7 @@ public class RawMesh {
     }
 
     public void triangulate() {
+        uploadPrepared=false;
         List<Face> newFaces = new ArrayList<>();
         for (Face face : faces) {
             newFaces.addAll(Face.triangulate(face.vertices, false));
@@ -102,6 +115,7 @@ public class RawMesh {
      * Removes duplicate vertices and faces from the mesh.
      */
     public void distinct() {
+        uploadPrepared=false;
         // if (vertices.size() > 10000 || faces.size() > 10000) return;
         // if (vertices.size() > 0) return;
 
@@ -110,6 +124,7 @@ public class RawMesh {
         final LinkedHashSet<Face> distinctFaces = new LinkedHashSet<>(faces.size());
 
         for (Face face : faces) {
+            if(Thread.currentThread().isInterrupted())throw new java.util.concurrent.CancellationException();
             for (int i = 0; i < face.vertices.length; ++i) {
                 Vertex vertex = vertices.get(face.vertices[i]);
                 int newIndex;
@@ -135,6 +150,7 @@ public class RawMesh {
      * Generates normals for vertices without a normal vector. Produces duplicate vertices.
      */
     public void generateNormals() {
+        uploadPrepared=false;
         final List<Vertex> newVertices = new ArrayList<>(vertices.size());
         for (Face face : faces) {
             if (face.vertices.length >= 3) {
@@ -180,7 +196,7 @@ public class RawMesh {
     }
 
     public void upload(Mesh mesh, VertAttrMapping mapping) {
-        distinct();
+        if(!isUploadPrepared())distinct();
 
         ByteBuffer vertBuf = OffHeapAllocator.allocate(vertices.size() * mapping.strideVertex);
         for (int i = 0; i < vertices.size(); ++i) {
@@ -248,6 +264,7 @@ public class RawMesh {
     }
 
     public void applyMatrix(Matrix4f matrix) {
+        uploadPrepared=false;
         for (Vertex vertex : vertices) {
             vertex.position = matrix.transform(vertex.position);
             vertex.normal = matrix.transform3(vertex.normal);
@@ -255,12 +272,14 @@ public class RawMesh {
     }
 
     public void applyTranslation(float x, float y, float z) {
+        uploadPrepared=false;
         for (Vertex vertex : vertices) {
             vertex.position.add(x, y, z);
         }
     }
 
     public void applyRotation(Vector3f axis, float angle) {
+        uploadPrepared=false;
         for (Vertex vertex : vertices) {
             vertex.position.rotDeg(axis, angle);
             vertex.normal.rotDeg(axis, angle);
@@ -268,6 +287,7 @@ public class RawMesh {
     }
 
     public void applyScale(float x, float y, float z) {
+        uploadPrepared=false;
         float rx = (float) (1.0 / x);
         float ry = (float) (1.0 / y);
         float rz = (float) (1.0 / z);
@@ -295,6 +315,7 @@ public class RawMesh {
     }
 
     public void applyMirror(boolean vx, boolean vy, boolean vz, boolean nx, boolean ny, boolean nz) {
+        uploadPrepared=false;
         for (Vertex vertex : vertices) {
             vertex.position.mul(vx ? -1 : 1, vy ? -1 : 1, vz ? -1 : 1);
             vertex.normal.mul(nx ? -1 : 1, ny ? -1 : 1, nz ? -1 : 1);
@@ -313,6 +334,7 @@ public class RawMesh {
     }
 
     public void applyUVMirror(boolean u, boolean v) {
+        uploadPrepared=false;
         for (Vertex vertex : vertices) {
             if (u) vertex.u = 1 - vertex.u;
             if (v) vertex.v = 1 - vertex.v;
@@ -320,6 +342,7 @@ public class RawMesh {
     }
 
     public void applyShear(Vector3f dir, Vector3f shear, float ratio) {
+        uploadPrepared=false;
         for (Vertex vertex : vertices) {
             float n1 = ratio * (dir.x() * vertex.position.x() + dir.y() * vertex.position.y() + dir.z() * vertex.position.z());
             Vector3f offset1 = shear.copy();
@@ -372,6 +395,8 @@ public class RawMesh {
 
     public void writeBlazeBuffer(FaceList vertexConsumer, Matrix4f matrix, int color, int light, DrawContext drawContext) {
         drawContext.recordBlazeAction(faces.size());
+        // 不透明网格只排队一条引用；提交时直接写顶点，避免每面创建整套变换对象。
+        if(vertexConsumer.addUnsortedMesh(this,matrix,color,light))return;
         for (Face face : faces) {
             assert face.vertices.length == 3;
             Vertex[] transformedVertices = new Vertex[face.vertices.length];
@@ -397,6 +422,7 @@ public class RawMesh {
         RawMesh result = new RawMesh(this.materialProp.copy());
         result.vertices = vertices;
         result.faces = faces;
+        result.inheritPreparation(this);
         return result;
     }
 

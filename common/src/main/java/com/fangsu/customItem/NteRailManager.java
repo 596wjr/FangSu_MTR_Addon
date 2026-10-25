@@ -35,15 +35,23 @@ import java.util.Map;
  * }
  * </pre>
  *
- * <p>{@code mtr:mtr_custom_resources.json} 中的 "rails" 数组：</p>
+ * <p>{@code mtr:mtr_custom_resources.json} 中的 "rails" 数组按 MTR4 资源 schema
+ * （{@code org.mtr.mod.resource.RailResourceSchema}）解析，字段为
+ * {@code id / name / color / modelResource / textureResource / flipTextureV / repeatInterval / modelYOffset}，
+ * 解析入口见 MTR4 的 {@code org.mtr.mod.client.CustomResourceLoader}：</p>
  * <pre>
  * {
  *   "rails": [
- *     { "id": "my_custom_rail", "name": "My custom Rail",
- *       "modelResource": "mtr:custom_rails/my_custom_rail.obj", "repeatInterval": 0.5 }
+ *     { "id": "my_custom_rail", "name": "My custom Rail", "color": "777777",
+ *       "modelResource": "mtr:custom_rails/my_custom_rail.obj",
+ *       "textureResource": "mtr:custom_rails/my_custom_rail.png",
+ *       "flipTextureV": false, "repeatInterval": 0.5, "modelYOffset": 0 }
  *   ]
  * }
  * </pre>
+ *
+ * <p>方速额外支持的键（全部可缺省，缺省时不改变既有几何）：{@code gauge}、{@code grooveOuter}、
+ * {@code grooveInner}、{@code grooveDepth}、{@code railTopY}、{@code gaugeMm}。</p>
  */
 public class NteRailManager {
     private static final ResourceLocation RAIL_LOCATION = new ResourceLocation("mtrsteamloco", "rails");
@@ -74,7 +82,21 @@ public class NteRailManager {
         LevelCrossingGaugeTable.getInstance().reload();
         loadNteDirectoryRails();
         loadMtrCustomRails();
+        loadBuiltinTurnoutRails();
         Main.debug("Loaded {} custom rails", rails.size());
+    }
+
+    /** 五种道岔内置样式：无需安装 NTE 或添加轨道包 JSON。外部同名定义仍优先。 */
+    private void loadBuiltinTurnoutRails() {
+        rails.putIfAbsent("mtr:default", new NteRail("mtr:default", "ui.fangsu.turnout.default_rail",
+                "fangsu:turnout/builtin/mtr_default.obj", 0.5D, false));
+        rails.putIfAbsent("mtr:siding", new NteRail("mtr:siding", "ui.fangsu.turnout.siding_rail",
+                "fangsu:turnout/builtin/mtr_siding.obj", 0.5D, false));
+        for (int type = 1; type <= 3; type++) {
+            String id = "main_tp" + type;
+            rails.putIfAbsent(id, new NteRail(id, "ui.fangsu.turnout.fsrail_type" + type,
+                    "mtrsteamloco:fsrail/main_tp" + type + ".obj", 0.5D, false));
+        }
     }
 
     // ==================== 访问器 ====================
@@ -87,7 +109,12 @@ public class NteRailManager {
     /** 按 id 查找轨道，不存在时返回 null。 */
     @Nullable
     public NteRail getRail(String id) {
-        return id == null ? null : rails.get(id);
+        if (id == null) return null;
+        return switch (id) {
+            case "default_3d", "mtr:default_3d", "nte_builtin_concrete_sleeper" -> rails.get("mtr:default");
+            case "default_3d_siding", "mtr:default_3d_siding", "nte_builtin_depot" -> rails.get("mtr:siding");
+            default -> rails.get(id);
+        };
     }
 
     /** 判断指定 id 的轨道是否存在。 */
@@ -191,7 +218,7 @@ public class NteRailManager {
             Main.LOGGER.warn("[FangSu] Duplicate NTE rail id '{}', overwriting previous entry", rail.id());
         }
         rails.put(rail.id(), rail);
-        // 轨道 JSON 里顺带声明了几何参数时并入平交路口的参数表（方速自有 JSON 优先）
+        // 轨道 JSON 里顺带声明了几何参数（含毫米轨距）时并入平交路口的参数表（方速自有 JSON 优先）
         if (rail.hasGaugeOverride()) {
             LevelCrossingGaugeTable.overrideFromNteRail(rail);
         }
@@ -199,16 +226,38 @@ public class NteRailManager {
 
     /** 从 NTE 目录 JSON 文件构建轨道（模型字段名为 "model"）。 */
     private NteRail createNteRail(String id, JsonObject json, String modelKey) {
-        String name = JsonHelper.getOrDefaultString(json, "name", "");
+        return createNteRail(id, JsonHelper.getOrDefaultString(json, "name", ""), json, modelKey);
+    }
+
+    /** 从 MTR "rails" 数组项构建轨道（id 必填）。 */
+    private NteRail createNteRail(JsonObject json, String modelKey) {
+        return createNteRail(JsonHelper.getOrDefaultString(json, "id", ""),
+                JsonHelper.getOrDefaultString(json, "name", ""), json, modelKey);
+    }
+
+    /**
+     * 统一的轨道构建入口：NTE 与 MTR 只差模型字段名（"model" / "modelResource"），其余字段共用。
+     * <p>
+     * 缺失字段一律保持原有缺省（模型空串、repeatInterval 0.5、flipV false、几何参数 null），
+     * 因此不带新字段的旧资源行为完全不变。
+     */
+    private NteRail createNteRail(String id, String name, JsonObject json, String modelKey) {
         String model = JsonHelper.getOrDefaultString(json, modelKey, "");
         double repeatInterval = JsonHelper.getOrDefaultDouble(json, "repeatInterval", 0.5);
-        boolean flipV = JsonHelper.getOrDefaultBoolean(json, "flipV", false);
+        // NTE 用 "flipV"，MTR4 资源 schema 用 "flipTextureV"；两者都缺时为 false
+        boolean flipV = json.has("flipV")
+                ? JsonHelper.getOrDefaultBoolean(json, "flipV", false)
+                : JsonHelper.getOrDefaultBoolean(json, "flipTextureV", false);
         return new NteRail(id, name, model, repeatInterval, flipV,
                 getNullableDouble(json, "gauge"),
                 getNullableDouble(json, "grooveOuter"),
                 getNullableDouble(json, "grooveInner"),
                 getNullableDouble(json, "grooveDepth"),
-                getNullableDouble(json, "railTopY"));
+                getNullableDouble(json, "railTopY"),
+                getNullableInteger(json, "gaugeMm"),
+                JsonHelper.getOrDefaultString(json, "textureResource", ""),
+                getNullableColor(json, "color"),
+                json.has("modelYOffset") ? getNullableDouble(json, "modelYOffset") : getNullableDouble(json, "yOffset"));
     }
 
     /** 读取可空数值：字段缺失或不是数字时返回 null，交给几何参数表回落到 defaults。 */
@@ -220,19 +269,41 @@ public class NteRailManager {
         return element.getAsDouble();
     }
 
-    /** 从 MTR "rails" 数组项构建轨道（id 必填）。 */
-    private NteRail createNteRail(JsonObject json, String modelKey) {
-        String id = JsonHelper.getOrDefaultString(json, "id", "");
-        String name = JsonHelper.getOrDefaultString(json, "name", "");
-        String model = JsonHelper.getOrDefaultString(json, modelKey, "");
-        double repeatInterval = JsonHelper.getOrDefaultDouble(json, "repeatInterval", 0.5);
-        boolean flipV = JsonHelper.getOrDefaultBoolean(json, "flipV", false);
-        return new NteRail(id, name, model, repeatInterval, flipV,
-                getNullableDouble(json, "gauge"),
-                getNullableDouble(json, "grooveOuter"),
-                getNullableDouble(json, "grooveInner"),
-                getNullableDouble(json, "grooveDepth"),
-                getNullableDouble(json, "railTopY"));
+    /** 读取可空整数（毫米轨距等）：缺失或不是数字时返回 null，表示「不覆盖既有轨距」。 */
+    private static Integer getNullableInteger(JsonObject json, String key) {
+        JsonElement element = json.get(key);
+        if (element == null || !element.isJsonPrimitive() || !element.getAsJsonPrimitive().isNumber()) {
+            return null;
+        }
+        return element.getAsInt();
+    }
+
+    /**
+     * 读取 MTR4 的 {@code color} 字段：既接受 "777777" 这类十六进制字符串
+     * （MTR 的 {@code CustomResourceTools.colorStringToInt} 语义），也接受十进制数字。
+     * 缺失或解析失败返回 null，由调用方决定用哪个缺省色。
+     */
+    private static Integer getNullableColor(JsonObject json, String key) {
+        JsonElement element = json.get(key);
+        if (element == null || !element.isJsonPrimitive()) {
+            return null;
+        }
+        if (element.getAsJsonPrimitive().isNumber()) {
+            return element.getAsInt();
+        }
+        String raw = element.getAsString().trim();
+        if (raw.startsWith("#")) {
+            raw = raw.substring(1);
+        }
+        if (raw.isEmpty()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(raw, 16);
+        } catch (NumberFormatException e) {
+            Main.debug("[FangSu] Skipped unparsable rail color '{}'", element.getAsString());
+            return null;
+        }
     }
 
     /** 由资源位置推导单模型格式的默认 id（取去掉 ".json" 后缀的文件名）。 */
@@ -245,23 +316,45 @@ public class NteRailManager {
         return fileName;
     }
 
-    /** 一条自定义轨道的不可变描述。实现了 {@link ModelSelectInfo} 以便用于选择界面。 */
+    /**
+     * 一条自定义轨道的不可变描述。实现了 {@link ModelSelectInfo} 以便用于选择界面。
+     * <p>
+     * 单位与来源：{@code gauge / grooveOuter / grooveInner / grooveDepth / railTopY} 为「格」，
+     * 缺省由 {@link LevelCrossingGaugeTable} 提供；{@code gaugeMm} 为毫米
+     * （缺省 null 表示不覆盖，实际轨距仍由参数表给出）；{@code color} 为 MTR 的 0xRRGGBB 整数；
+     * {@code modelYOffset} 为 MTR 的模型下移量（格）；{@code textureResource} 为贴图资源路径。
+     */
     public record NteRail(String id, String name, String model, double repeatInterval, boolean flipV,
                           Double gauge, Double grooveOuter, Double grooveInner, Double grooveDepth,
-                          Double railTopY) implements ModelSelectInfo {
+                          Double railTopY,
+                          Integer gaugeMm, String textureResource, Integer color, Double modelYOffset)
+            implements ModelSelectInfo {
+
+        public NteRail {
+            // 贴图路径用空串表示「未声明」，避免调用方到处判 null
+            textureResource = textureResource == null ? "" : textureResource;
+        }
 
         /**
          * 兼容旧签名的便捷构造器：不带几何参数的调用点（选择界面等）继续用这个，
-         * 五个几何字段留空由 {@link LevelCrossingGaugeTable} 回落到 defaults。
+         * 几何字段留空由 {@link LevelCrossingGaugeTable} 回落到 defaults，MTR4 材质字段留空。
          */
         public NteRail(String id, String name, String model, double repeatInterval, boolean flipV) {
-            this(id, name, model, repeatInterval, flipV, null, null, null, null, null);
+            this(id, name, model, repeatInterval, flipV, null, null, null, null, null, null, "", null, null);
         }
 
-        /** 是否在轨道 JSON 里声明了至少一个几何参数。 */
+        /** 兼容旧签名（只带平交路口几何参数）的构造器，MTR4 材质/偏移字段留空。 */
+        public NteRail(String id, String name, String model, double repeatInterval, boolean flipV,
+                       Double gauge, Double grooveOuter, Double grooveInner, Double grooveDepth,
+                       Double railTopY) {
+            this(id, name, model, repeatInterval, flipV, gauge, grooveOuter, grooveInner, grooveDepth,
+                    railTopY, null, "", null, null);
+        }
+
+        /** 是否在轨道 JSON 里声明了至少一个几何参数（毫米轨距也算）。 */
         public boolean hasGaugeOverride() {
             return gauge != null || grooveOuter != null || grooveInner != null
-                    || grooveDepth != null || railTopY != null;
+                    || grooveDepth != null || railTopY != null || gaugeMm != null;
         }
 
         public NteRail fromJson(JsonObject json) {
@@ -289,4 +382,3 @@ public class NteRailManager {
         }
     }
 }
-

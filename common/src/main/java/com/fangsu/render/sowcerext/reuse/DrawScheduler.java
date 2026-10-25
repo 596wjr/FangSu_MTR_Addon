@@ -15,7 +15,7 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.server.packs.resources.ResourceManager;
 
 import java.io.IOException;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 
 public class DrawScheduler {
@@ -23,18 +23,28 @@ public class DrawScheduler {
     public final BatchManager batchManager = new BatchManager();
     public final ShaderManager shaderManager = new ShaderManager();
 
-    private final List<ClusterDrawCall> drawCalls = new LinkedList<>();
+    private final List<ClusterDrawCall> drawCalls = new ArrayList<>();
 
     public void reloadShaders(ResourceManager resourceManager) throws IOException {
         shaderManager.reloadShaders(resourceManager);
     }
 
     public void enqueue(ModelCluster model, Matrix4f pose, int light) {
-        if (model == null) return;
+        if (model == null || model.isClosed()) return;
         drawCalls.add(new ClusterDrawCall(model, pose, light));
     }
 
     public void commit(BufferSourceProxy vertexConsumers, DrawContext drawContext) {
+        try {
+            commitFrame(vertexConsumers,drawContext);
+        } finally {
+            // 队列只属于当前帧；着色器未就绪、兼容路径异常也不能积压旧帧和旧模型。
+            drawCalls.clear();
+            batchManager.batches.clear();
+        }
+    }
+
+    private void commitFrame(BufferSourceProxy vertexConsumers,DrawContext drawContext) {
         // ===== 兼容模式：使用私有 Immediate BufferSource =====
         if (MainClient.is_nte_loaded) {
             // 1. 创建私有的 Immediate BufferSource
@@ -45,7 +55,7 @@ public class DrawScheduler {
 
             // 2. 复用原有 enqueue 逻辑（不动模型代码）
             for (ClusterDrawCall drawCall : drawCalls) {
-                if (drawCall.model == null) continue;
+                if (drawCall.model == null || drawCall.model.isClosed()) continue;
 
                 drawCall.model.enqueueOpaqueBlaze(
                         safeProxy,
@@ -56,7 +66,7 @@ public class DrawScheduler {
             }
 
             for (ClusterDrawCall drawCall : drawCalls) {
-                if (drawCall.model == null) continue;
+                if (drawCall.model == null || drawCall.model.isClosed()) continue;
 
                 drawCall.model.enqueueTranslucentBlaze(
                         safeProxy,
@@ -79,23 +89,23 @@ public class DrawScheduler {
         if (drawCalls.isEmpty()) return;
         if (drawContext.drawWithBlaze) {
             for (ClusterDrawCall drawCall : drawCalls) {
-                if (drawCall.model == null) continue;
+                if (drawCall.model == null || drawCall.model.isClosed()) continue;
                 drawCall.model.enqueueOpaqueBlaze(vertexConsumers, drawCall.pose, drawCall.light, drawContext);
             }
         } else {
             for (ClusterDrawCall drawCall : drawCalls) {
-                if (drawCall.model == null) continue;
+                if (drawCall.model == null || drawCall.model.isClosed()) continue;
                 drawCall.model.enqueueOpaqueGl(batchManager, drawCall.pose, drawCall.light, drawContext);
             }
         }
         if (drawContext.drawWithBlaze || drawContext.sortTranslucentFaces) {
             for (ClusterDrawCall drawCall : drawCalls) {
-                if (drawCall.model == null) continue;
+                if (drawCall.model == null || drawCall.model.isClosed()) continue;
                 drawCall.model.enqueueTranslucentBlaze(vertexConsumers, drawCall.pose, drawCall.light, drawContext);
             }
         } else {
             for (ClusterDrawCall drawCall : drawCalls) {
-                if (drawCall.model == null) continue;
+                if (drawCall.model == null || drawCall.model.isClosed()) continue;
                 drawCall.model.enqueueTranslucentGl(batchManager, drawCall.pose, drawCall.light, drawContext);
             }
         }

@@ -58,15 +58,10 @@ public interface RailSampleSource {
         /** 轨道终点（MTR 的 position2 语义，用于读节点姿态）。 */
         BlockPos pos2();
 
-        /**
-         * 主轨超高（度）。
-         * <p>
-         * 这是采样链路上唯一"各版语义天生不同"的量，因此下沉到实现里：
-         * MTR3 的 {@code mtr.data.Rail} 没有超高字段，只能读两端节点姿态取平均；
-         * MTR4 的 {@code RailMath} 自带 tilt 曲线，直接按弧长取即可。
-         * <p>
-         * 采样器只消费数值并夹到 ±20°，不关心符号约定，但每份实现都要在类注释里写明自己的单位与符号来源。
-         */
+        /** 旧消费者使用的平均滚转值（度）；逐位置断面对接请使用下面的带参数入口。 */
         double tiltDegrees();
+
+        /** 指定轨道原生参数处的滚转；旧采样消费者继续使用上面的平均值接口。 */
+        default double tiltDegrees(double distance) { return tiltDegrees(); }
     }
 }

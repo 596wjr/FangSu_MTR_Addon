@@ -6,6 +6,7 @@ import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 import java.util.Set;
@@ -24,6 +25,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class LevelCrossingGaugeTable {
 
     private static final ResourceLocation GAUGE_FILE = new ResourceLocation("fangsu", "rail_gauge.json");
+
+    /** 标准轨距（毫米）。轨道 JSON 未声明 {@code gaugeMm} 时按它换算轨距。 */
+    public static final int DEFAULT_GAUGE_MM = 1435;
+
+    /** 换算出的轨距（格）合理区间：超出视为写坏，回落标准轨距而非算出荒唐几何。 */
+    private static final double MIN_GAUGE_BLOCKS = 0.5D;
+    private static final double MAX_GAUGE_BLOCKS = 3.0D;
 
     private static volatile LevelCrossingGaugeTable instance;
 
@@ -59,6 +67,8 @@ public final class LevelCrossingGaugeTable {
             1.0D, 0.0D, 0.695D);
     private final Map<String, GaugeInfo> jsonRails = new ConcurrentHashMap<>();
     private final Map<String, GaugeInfo> nteOverrides = new ConcurrentHashMap<>();
+    /** 轨道 JSON 里声明的毫米轨距；只改横向位置/宽度，不动槽宽与轨顶高。 */
+    private final Map<String, Integer> gaugeMmOverrides = new ConcurrentHashMap<>();
     private final Set<String> warned = ConcurrentHashMap.newKeySet();
 
     private volatile boolean loaded = false;
@@ -87,22 +97,74 @@ public final class LevelCrossingGaugeTable {
 
     /** 按轨道 id 查几何参数；查不到时回落 defaults，并且同一条轨道只警告一次。 */
     public GaugeInfo lookup(String railId) {
-        ensureLoaded();
-        if (railId == null || railId.isEmpty()) {
-            return defaults;
-        }
-        GaugeInfo info = jsonRails.get(railId);
+        GaugeInfo info = lookupOrNull(railId);
         if (info != null) {
             return info;
         }
-        info = nteOverrides.get(railId);
-        if (info != null) {
-            return info;
-        }
-        if (warned.add(railId)) {
+        if (railId != null && !railId.isEmpty() && warned.add(railId)) {
             Main.LOGGER.warn("[FangSu] Level crossing: no gauge entry for rail '{}', falling back to defaults", railId);
         }
         return defaults;
+    }
+
+    /**
+     * 按轨道 id 查几何参数，<b>查不到时返回 null 且不告警</b>。
+     * 供需要区分「表里有这条轨道」与「回落到 defaults」的调用方使用（如道岔参数解析）。
+     * <p>
+     * 若该轨道额外声明了毫米轨距（{@link #overrideGaugeMm}），返回的副本只替换 {@code gauge}，
+     * 槽宽、槽深、轨顶高等断面参数保持原值。
+     */
+    @Nullable
+    public GaugeInfo lookupOrNull(String railId) {
+        ensureLoaded();
+        if (railId == null || railId.isEmpty()) {
+            return null;
+        }
+        GaugeInfo info = jsonRails.get(railId);
+        if (info == null) {
+            info = nteOverrides.get(railId);
+        }
+        if (info == null) {
+            return null;
+        }
+        Integer gaugeMm = gaugeMmOverrides.get(railId);
+        if (gaugeMm == null) {
+            return info;
+        }
+        return new GaugeInfo(gaugeMmToBlocks(gaugeMm), info.grooveOuter(), info.grooveInner(),
+                info.grooveDepth(), info.railTopY(), info.lateralScale(), info.lateralOffset(),
+                info.grooveCenter());
+    }
+
+    /**
+     * 毫米轨距 → 格 的<b>唯一换算入口</b>：{@code gaugeBlocks = gaugeMm / 1000.0}。
+     * 非法输入（null、非正数、换算后超出 [0.5, 3] 格）一律回落标准轨距 {@value #DEFAULT_GAUGE_MM} mm。
+     */
+    public static double gaugeMmToBlocks(@Nullable Integer gaugeMm) {
+        if (gaugeMm == null || gaugeMm <= 0) {
+            return DEFAULT_GAUGE_MM / 1000.0D;
+        }
+        double blocks = gaugeMm / 1000.0D;
+        if (blocks < MIN_GAUGE_BLOCKS || blocks > MAX_GAUGE_BLOCKS) {
+            return DEFAULT_GAUGE_MM / 1000.0D;
+        }
+        return blocks;
+    }
+
+    /**
+     * 登记一条轨道的毫米轨距，只影响横向位置/宽度计算（平交路口 corridors 的半宽、道岔轨距）。
+     * 优先级与 {@link #overrideFromNteRail} 一致：方速自有 {@code rail_gauge.json} 已有条目时不覆盖。
+     */
+    public static void overrideGaugeMm(String railId, @Nullable Integer gaugeMm) {
+        if (railId == null || railId.isEmpty() || gaugeMm == null || gaugeMm <= 0) {
+            return;
+        }
+        LevelCrossingGaugeTable table = getInstance();
+        table.ensureLoaded();
+        if (table.jsonRails.containsKey(railId)) {
+            return;
+        }
+        table.gaugeMmOverrides.put(railId, gaugeMm);
     }
 
     /**
@@ -118,6 +180,8 @@ public final class LevelCrossingGaugeTable {
         if (table.jsonRails.containsKey(rail.id())) {
             return;
         }
+        // 毫米轨距单独记账，避免把它混进槽宽/轨顶高这类断面参数
+        overrideGaugeMm(rail.id(), rail.gaugeMm());
         GaugeInfo base = table.defaults;
         table.nteOverrides.put(rail.id(), new GaugeInfo(
                 pick(rail.gauge(), base.gauge()),
@@ -133,6 +197,7 @@ public final class LevelCrossingGaugeTable {
         loaded = false;
         jsonRails.clear();
         nteOverrides.clear();
+        gaugeMmOverrides.clear();
         warned.clear();
         defaults = new GaugeInfo(1.435, 0.785883, 0.6675, 0.09375, 0.26428, 1.0D, 0.0D, 0.695D);
     }

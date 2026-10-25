@@ -57,6 +57,19 @@ public class ModNetwork {
      * 载荷布局与校验见 {@link RailTiltPayload} / {@link RailTiltPackets}。
      */
     public static final ResourceLocation RAIL_TILT_EDIT = RailTiltPackets.RAIL_TILT_EDIT;
+    /**
+     * 道岔构建请求（C2S）。
+     * <p>
+     * 节点标记集合是玩家的私有数据，只存在于客户端，因此判定入口只能是客户端发包；
+     * 服务端收到后用 {@code TurnoutTopology} 以服务端轨道表为权威重算一遍，通过才写绑定。
+     * 载荷与校验见 {@link TurnoutBuildRequestPayload}。
+     */
+    public static final ResourceLocation TURNOUT_BUILD_REQUEST = TurnoutBuildRequestPayload.CHANNEL;
+    /**
+     * 道岔绑定结果（S2C）：成功带完整绑定，失败只带提示键（客户端在动作栏显示）。
+     * 见 {@link TurnoutBindingPayload}。
+     */
+    public static final ResourceLocation TURNOUT_BINDING = TurnoutBindingPayload.CHANNEL;
 
     public static void init() {
         NetworkManager.registerReceiver(
@@ -89,6 +102,19 @@ public class ModNetwork {
         // 逐轨道超高（P5-5）：注册位置紧挨 NODE_REFRESH_RAIL 的语义位置
         RailTiltPackets.registerServer();
         com.fangsu.train.DoorOpenCacheNet.registerServer();
+        // 道岔（P6）：构建请求 C2S，判定入口在客户端，服务端只做权威校验
+        TurnoutBuildRequestPayload.registerServer();
+        TurnoutPlacementPayload.registerServer();
+    }
+
+    /**
+     * 客户端网络入口（由 {@link com.fangsu.MainClient#initClient()} 调用）。
+     * <p>
+     * 与 {@link #init()} 分开的理由和其它 S2C 通道一致：S2C 接收器只能在客户端注册，
+     * 注册时会把客户端处理函数挂到客户端网络栈上。
+     */
+    public static void initClient() {
+        TurnoutBindingPayload.registerClient();
     }
 
     private static void handleBeSync(

@@ -7,6 +7,7 @@ import com.fangsu.events.ModEvents;
 import com.fangsu.items.ModItems;
 import com.fangsu.modular.TrafficLightProgramBlocks;
 import com.fangsu.network.ModNetwork;
+import com.fangsu.turnout.marker.NodeMarkerInteractions;
 import com.fangsu.ui.ModMenus;
 import com.fangsu.utils.RegisterUtil;
 import com.google.gson.Gson;
@@ -48,6 +49,8 @@ public final class Main {
         ModMenus.init();
         ModNetwork.init();
         ModEvents.init();
+        // 节点标记右键交互（MTR 节点方块会吞掉右键并返回 FAIL，必须走交互事件）
+        NodeMarkerInteractions.init();
     }
 
     /**
