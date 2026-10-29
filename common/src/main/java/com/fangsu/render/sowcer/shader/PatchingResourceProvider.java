@@ -40,6 +40,10 @@ public class PatchingResourceProvider implements ResourceProvider {
         //$$public Resource getResource(ResourceLocation resourceLocation) throws IOException {
         //#endif
         try {
+            boolean normalMap = resourceLocation.getPath().contains("_normal");
+            boolean modelMatrix = !resourceLocation.getPath().contains("_normal_blaze");
+            if (normalMap) resourceLocation = new ResourceLocation(resourceLocation.getNamespace(),
+                    resourceLocation.getPath().replace("_normal_blaze", "").replace("_normal", ""));
             if (resourceLocation.getPath().contains("_modelmat"))
                 resourceLocation = new ResourceLocation(resourceLocation.getNamespace(),
                         resourceLocation.getPath().replace("_modelmat", ""));
@@ -61,19 +65,29 @@ public class PatchingResourceProvider implements ResourceProvider {
             if (resourceLocation.getPath().endsWith(".json")) {
                 String srcContent = IOUtils.toString(srcInputStream, StandardCharsets.UTF_8);
                 JsonObject data = Main.JSON_PARSER.parse(srcContent).getAsJsonObject();
-                data.addProperty("vertex", data.get("vertex").getAsString() + "_modelmat");
+                data.addProperty("vertex", data.get("vertex").getAsString()
+                        + (normalMap ? (modelMatrix ? "_normal_modelmat" : "_normal_blaze") : "_modelmat"));
+                if (normalMap) {
+                    data.addProperty("fragment", data.get("fragment").getAsString() + "_normal");
+                    NormalMapShader.patchConfiguration(data);
+                }
 
                 JsonArray attribArray = data.get("attributes").getAsJsonArray();
                 int dummyAttribCount = 6 - attribArray.size();
                 for (int i = 0; i < dummyAttribCount; i++) {
                     attribArray.add("Dummy" + i);
                 }
-                attribArray.add("ModelMat");
+                if (modelMatrix) attribArray.add("ModelMat");
                 returningContent = data.toString();
                 srcInputStream.close();
             } else if (resourceLocation.getPath().endsWith(".vsh")) {
                 String srcContent = IOUtils.toString(srcInputStream, StandardCharsets.UTF_8);
-                returningContent = patchVertexShaderSource(srcContent);
+                if (normalMap) srcContent = NormalMapShader.removeVertexLighting(srcContent);
+                returningContent = modelMatrix ? patchVertexShaderSource(srcContent) : srcContent;
+                if (normalMap) returningContent = NormalMapShader.patchVertexSource(returningContent, modelMatrix);
+                srcInputStream.close();
+            } else if (normalMap && resourceLocation.getPath().endsWith(".fsh")) {
+                returningContent = NormalMapShader.patchFragmentSource(IOUtils.toString(srcInputStream, StandardCharsets.UTF_8));
                 srcInputStream.close();
             } else {
                 return srcResource;

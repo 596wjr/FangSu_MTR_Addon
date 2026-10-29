@@ -222,7 +222,7 @@ public class ScriptManager {
     /**
      * 获取或初始化脚本持有者（线程安全）
      */
-    public ScriptHolderBase getOrInitHolder(ResourceLocation pos, Supplier<? extends ScriptHolderBase> holderSupplier) {
+    public synchronized ScriptHolderBase getOrInitHolder(ResourceLocation pos, Supplier<? extends ScriptHolderBase> holderSupplier) {
         if (!initialized.get()) {
             return null;
         }
@@ -238,33 +238,24 @@ public class ScriptManager {
         });
     }
 
-//    /**
-//     * 重载指定脚本
-//     */
-//    public boolean reloadScript(ResourceLocation pos) {
-//        ScriptHolderBase holder = holders.get(pos);
-//        if (holder != null) {
-//            holder.close();
-//            holder.loadScript(context, pos, null);
-//            return true;
-//        }
-//        return false;
-//    }
-//
-//    /**
-//     * 重载所有脚本
-//     */
-//    public void reloadAllScripts(Context context) {
-//        holders.forEach((pos, holder) -> {
-//            holder.close();
-//            holder.loadScript(context, pos, null);
-//        });
-//    }
+    /**
+     * 重建上下文并重新读取脚本，保留 holder 本身以更新已放置方块和列车持有的引用。
+     */
+    public synchronized void reloadAllScripts() {
+        if (!initialized.get() || isShutdown) return;
+        holders.forEach((location, holder) -> {
+            try {
+                holder.reloadScript(location);
+            } catch (Exception e) {
+                Main.LOGGER.error("Failed to reload script {}", location, e);
+            }
+        });
+    }
 
     /**
      * 移除脚本持有者
      */
-    public void removeHolder(ResourceLocation pos) {
+    public synchronized void removeHolder(ResourceLocation pos) {
         ScriptHolderBase holder = holders.remove(pos);
         if (holder != null) {
             holder.close();
@@ -274,7 +265,7 @@ public class ScriptManager {
     /**
      * 关闭管理器（游戏结束时调用）
      */
-    public void shutdown() {
+    public synchronized void shutdown() {
         if (!isShutdown) {
             isShutdown = true;
             holders.values().forEach(ScriptHolderBase::close);

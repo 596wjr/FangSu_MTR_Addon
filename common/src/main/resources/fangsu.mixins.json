@@ -5,7 +5,7 @@
   "minVersion": "0.8",
   "plugin": "com.fangsu.mixin.FangSuMixinPlugin",
   "client": [
-    "LevelRendererMixin", "TurnoutRailToolMixin",
+    "LevelRendererMixin", "TurnoutRailToolMixin", "NteRailSelectionScreenMixin", "NteRailLayersMixin",
     "LiftClientMixin",
     "LiftCustomizationScreenMixin",
     "RenderTrainsMixin",

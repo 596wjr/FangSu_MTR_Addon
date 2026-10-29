@@ -1,5 +1,6 @@
 package com.fangsu.render.sowcer.shader;
 
+import com.fangsu.Main;
 import com.fangsu.render.ShadersModHandler;
 import com.fangsu.render.sowcer.batch.MaterialProp;
 import com.fangsu.render.sowcer.batch.ShaderProp;
@@ -45,11 +46,20 @@ public class ShaderManager {
     public void reloadShaders(ResourceManager resourceManager) throws IOException {
         this.shaders.values().forEach(ShaderInstance::close);
         this.shaders.clear();
+        NormalMapShader.clear();
         PatchingResourceProvider provider = new PatchingResourceProvider(resourceManager);
 
         loadShader(provider, "rendertype_entity_cutout");
         loadShader(provider, "rendertype_entity_translucent_cull");
         loadShader(provider, "rendertype_beacon_beam");
+        for (String name : new String[]{"rendertype_entity_cutout", "rendertype_entity_translucent_cull"}) {
+            try {
+                loadShader(provider, name + "_normal");
+                NormalMapShader.loadBlazeShader(provider, name);
+            } catch (IOException | RuntimeException failure) {
+                Main.LOGGER.warn("[fangsu] Cannot load normal-map shader {}; using base material", name, failure);
+            }
+        }
     }
 
     private void loadShader(ResourceProvider resourceManager, String name) throws IOException {
@@ -62,7 +72,9 @@ public class ShaderManager {
         ShaderInstance shaderInstance;
 
         if (useCustomShader) {
-            shaderInstance = shaders.get(materialProp.shaderName);
+            String name = materialProp.shaderName;
+            if (materialProp.normalTexture != null && shaders.containsKey(name + "_normal")) name += "_normal";
+            shaderInstance = shaders.get(name);
             materialProp.setupCompositeState();
         } else {
             RenderType renderType = materialProp.getBlazeRenderType();
@@ -117,6 +129,9 @@ public class ShaderManager {
             shaderInstance.SCREEN_SIZE.set((float) window.getWidth(), (float) window.getHeight());
         }
 
+        if (useCustomShader && materialProp.normalTexture != null) {
+            NormalMapShader.setupMaterial(shaderInstance, materialProp.normalTexture, materialProp.normalScale);
+        }
         RenderSystem.setupShaderLights(shaderInstance);
 
         shaderInstance.apply();

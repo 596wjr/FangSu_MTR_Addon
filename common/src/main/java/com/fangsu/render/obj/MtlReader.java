@@ -142,6 +142,13 @@ public class MtlReader {
             } else if (identifier.equalsIgnoreCase("map_Kd")) {
                 String mapKd = line.substring("map_Kd".length()).trim();
                 currentMtl.setMapKd(mapKd);
+            } else if (identifier.equalsIgnoreCase("norm")
+                    || identifier.equalsIgnoreCase("map_Kn")
+                    || identifier.equalsIgnoreCase("map_Bump")
+                    || identifier.equalsIgnoreCase("bump")) {
+                // bump/map_Bump 在此作为 RGB 法线声明的兼容别名，不读取灰度高度图。
+                if (currentMtl == null) throw new IOException("Normal map appears before newmtl");
+                readNormalMap(currentMtl, line.substring(identifier.length()).trim());
             } else if (identifier.equalsIgnoreCase("d")) {
                 float d = parse(st.nextToken());
                 currentMtl.setD(d);
@@ -151,6 +158,26 @@ public class MtlReader {
             }
         }
         return mtlList;
+    }
+
+    /** 读取法线资源路径和可选强度。 */
+    private static void readNormalMap(DefaultMtl material, String value) throws IOException {
+        float strength = 1.0f;
+        if (value.startsWith("-bm") && (value.length() == 3 || Character.isWhitespace(value.charAt(3)))) {
+            String[] parts = value.split("\\s+", 3);
+            if (parts.length != 3) throw new IOException("Expected -bm <strength> <normal texture>");
+            strength = parse(parts[1]);
+            value = parts[2].trim();
+        }
+        if (!Float.isFinite(strength) || strength < 0) throw new IOException("Invalid normal map strength");
+        if (value.startsWith("-")) throw new IOException("Unsupported normal map option: " + value);
+        // 带空格的资源路径可以使用双引号；资源名仍沿用 ResourceUtil 的规范化规则。
+        if (value.startsWith("\"") && value.endsWith("\"") && value.length() >= 2) {
+            value = value.substring(1, value.length() - 1);
+        }
+        if (value.isEmpty()) throw new IOException("Normal map texture is empty");
+        material.setMapNormal(value);
+        material.setNormalScale(strength);
     }
 
     /**

@@ -87,6 +87,9 @@ public class MtlWriter {
         if (mtl.getMapKd() != null) {
             writer.write("map_Kd " + mtl.getMapKd() + "\n");
         }
+        if (mtl.getMapNormal() != null) {
+            writer.write("norm -bm " + mtl.getNormalScale() + " \"" + mtl.getMapNormal() + "\"\n");
+        }
         writer.write("Ns " + mtl.getNs() + "\n");
         writer.write("d " + mtl.getD() + "\n");
 

@@ -61,6 +61,8 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
      * 在 {@link #whenRendering()} 中检查此标记，未完成时直接 return。
      */
     private volatile boolean loadingComplete = false;
+    private CompletableFuture<Void> resourceReloadFuture;
+    private long loadedResourceVersion = com.fangsu.utils.ResourceUtil.getReloadVersion();
 
     public FunctionalObjBlockEntity(BlockEntityType<?> blockEntityType, BlockPos blockPos, BlockState blockState) {
         super(blockEntityType, blockPos, blockState);
@@ -313,6 +315,41 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
     @Override
     protected boolean isRenderReady() {
         return loadingComplete;
+    }
+
+    @Override
+    protected boolean refreshResourcesIfNeeded() {
+        if (level == null || !level.isClientSide || disposed) return true;
+        // 部分子类恒定允许渲染，也必须等待本次资源重建完成。
+        if (resourceReloadFuture != null && !resourceReloadFuture.isDone()) return false;
+        long version = com.fangsu.utils.ResourceUtil.getReloadVersion();
+        if (loadedResourceVersion == version) return true;
+        // 等待旧加载自然结束；CompletableFuture.cancel 并不能停止其后台 Runnable。
+        if (!isAsyncLoadingDone()) return false;
+        loadedResourceVersion = version;
+        markedError = false;
+        // 清掉上一次提交的模型引用，等待新 whenRendering 填充。
+        scriptContext = new ObjBlockScriptContext(this);
+        triggerResourceReload();
+        return false;
+    }
+
+    private void triggerResourceReload() {
+        loadingComplete = false;
+        resourceReloadFuture = CompletableFuture.runAsync(() -> {
+            try {
+                whenResourceReloading();
+                whenLoading();
+            } catch (Exception e) {
+                Main.LOGGER.error("Failed to reload block entity {} at {}", getClass().getSimpleName(), getBlockPos(), e);
+            }
+        }, LOADING_EXECUTOR);
+        loadingFuture = resourceReloadFuture.thenRun(() -> loadingComplete = true);
+    }
+
+    /** 释放旧资源后重建，额外绘制状态由显示类方块补充重置。 */
+    protected void whenResourceReloading() {
+        whenDisposing();
     }
 
     public abstract void whenLoading();

@@ -26,23 +26,28 @@ public abstract class ScriptHolderBase {
 
     private final Object executionLock = new Object();
 
-    protected final Context context;
+    protected volatile Context context;
 
     public ScriptHolderBase() {
+        context = createContext();
+    }
+
+    private Context createContext() {
         Engine engine = ScriptManager.getInstance().engine;
-        context = Context.newBuilder("js")
+        Context newContext = Context.newBuilder("js")
                 .engine(engine)
                 .allowHostAccess(ScriptManager.getInstance().hostAccess)
                 .allowHostClassLookup(c -> true)
                 .allowCreateThread(true)
                 .build();
-        ScriptManager.initializeGlobalBindings(context);
+        ScriptManager.initializeGlobalBindings(newContext);
+        return newContext;
     }
 
     /**
      * 加载脚本内容
      */
-    protected synchronized void loadScript(ResourceLocation location, Value scope) {
+    protected void loadScript(ResourceLocation location, Value scope) {
 
 
         this.scriptName = location.toString();
@@ -122,23 +127,23 @@ public abstract class ScriptHolderBase {
      * 以便调用者（如 GraphicsTextureHelper）能正确感知绘制失败并重试。
      */
     public void runFunctionSync(String name, Runnable callback, Object... params) {
-        if (!isValid) {
-            throw new RuntimeException("Script " + scriptName + " is not valid");
-        }
-        // 失败冷却中：抛出专用异常并带上剩余冷却时间，让调用者"稍后"再重试。
-        // 注意不能抛普通 RuntimeException：绘制线程会把任何异常都算作一次失败，
-        // 于是 5 次重试会在 4 秒冷却期内被瞬间耗尽（每次都秒抛），脚本实际只执行了一次。
-        long remainingFailMs = remainingFailTimeout(name);
-        if (remainingFailMs > 0) {
-            throw new ScriptFailTimeoutException(
-                    "Script function " + name + " in " + scriptName + " is in fail timeout, will retry in "
-                            + remainingFailMs + "ms",
-                    remainingFailMs);
-        }
+        synchronized (executionLock) {
+            if (!isValid) {
+                throw new RuntimeException("Script " + scriptName + " is not valid");
+            }
+            // 失败冷却中：抛出专用异常并带上剩余冷却时间，让调用者"稍后"再重试。
+            // 注意不能抛普通 RuntimeException：绘制线程会把任何异常都算作一次失败，
+            // 于是 5 次重试会在 4 秒冷却期内被瞬间耗尽（每次都秒抛），脚本实际只执行了一次。
+            long remainingFailMs = remainingFailTimeout(name);
+            if (remainingFailMs > 0) {
+                throw new ScriptFailTimeoutException(
+                        "Script function " + name + " in " + scriptName + " is in fail timeout, will retry in "
+                                + remainingFailMs + "ms",
+                        remainingFailMs);
+            }
 
-        Value fn = functions.get(name);
-        if (fn != null) {
-            synchronized (executionLock) {
+            Value fn = functions.get(name);
+            if (fn != null) {
                 try {
                     fn.execute(params);
                     if (callback != null) callback.run();
@@ -146,10 +151,10 @@ public abstract class ScriptHolderBase {
                     recordFailure(name, e);
                     throw new RuntimeException("Script function " + name + " in " + scriptName + " failed", e);
                 }
+            } else {
+                Main.LOGGER.warn("Script function '{}' not found in {}", name, scriptName);
+                throw new RuntimeException("Script function '" + name + "' not found in " + scriptName);
             }
-        } else {
-            Main.LOGGER.warn("Script function '{}' not found in {}", name, scriptName);
-            throw new RuntimeException("Script function '" + name + "' not found in " + scriptName);
         }
     }
 
@@ -157,30 +162,30 @@ public abstract class ScriptHolderBase {
      * 执行 JS 函数 - 修改为使用独立作用域作为闭包环境
      */
     protected void runFunction(String name, Runnable callback, Object... params) {
-        if (!isValid || duringFailTimeout(name)) return;
+        synchronized (executionLock) {
+            if (!isValid || duringFailTimeout(name)) return;
 
-        Value fn = functions.get(name);
-        if (fn != null) {
-            synchronized (executionLock) {
+            Value fn = functions.get(name);
+            if (fn != null) {
                 try {
                     fn.execute(params);
                     if (callback != null) callback.run();
                 } catch (Throwable e) {
                     recordFailure(name, e);
                 }
-            }
-        } else Main.LOGGER.warn("Script {} is not valid", scriptName);
+            } else Main.LOGGER.warn("Script {} is not valid", scriptName);
+        }
     }
 
     /**
      * 执行 JS 函数并返回值
      */
     protected void runFunctionWithResult(String name, Consumer<Value> consumer, Object... params) {
-        if (!isValid || duringFailTimeout(name)) return;
+        synchronized (executionLock) {
+            if (!isValid || duringFailTimeout(name)) return;
 
-        Value fn = functions.get(name);
-        if (fn != null) {
-            synchronized (executionLock) {
+            Value fn = functions.get(name);
+            if (fn != null) {
                 try {
                     Value v = fn.execute(params);
                     consumer.accept(v);
@@ -190,6 +195,7 @@ public abstract class ScriptHolderBase {
             }
         }
     }
+
 
     /**
      * 检查函数是否存在
@@ -245,11 +251,23 @@ public abstract class ScriptHolderBase {
     /**
      * 清理资源
      */
-    protected synchronized void close() {
-        isValid = false;
-        context.close();
-        functions.clear();
-        failTime.clear();
+    protected void close() {
+        synchronized (executionLock) {
+            isValid = false;
+            functions.clear();
+            failTime.clear();
+            scriptScope = null;
+            context.close();
+        }
+    }
+
+    /** 重载必须创建新上下文，避免旧全局变量、函数以及图片/字体引用继续存活。 */
+    protected void reloadScript(ResourceLocation location) {
+        synchronized (executionLock) {
+            close();
+            context = createContext();
+            loadScript(location, null);
+        }
     }
 
     /**

@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.concurrent.*;
 
 public class ResourceUtil {
-    private static final Map<String, Object> register = new ConcurrentHashMap<>();
+    private static volatile Map<String, Object> register = new ConcurrentHashMap<>();
 
     /**
      * 后台线程池，用于异步加载 OBJ 模型文件，避免首次放置方块时阻塞主线程导致卡顿。
@@ -34,7 +34,17 @@ public class ResourceUtil {
         t.setDaemon(true);
         return t;
     });
-    private static ResourceManager resourceManager;
+    private static volatile ResourceManager resourceManager;
+    private static volatile long reloadVersion;
+
+    /** 仅在全部资源注册完成后发布，方块在下一次渲染前按版本重新加载。 */
+    public static void completeReload() {
+        reloadVersion++;
+    }
+
+    public static long getReloadVersion() {
+        return reloadVersion;
+    }
 
     public static final ResourceLocation ERROR_IMAGE = new ResourceLocation("fangsu:textures/gui/error.png");
 
@@ -42,6 +52,7 @@ public class ResourceUtil {
      * 从文件加载字符串数组
      */
     public static String[] loadStringAsArray(File file) throws IOException {
+        Map<String, Object> register = ResourceUtil.register;
         String GlobalRegisterKey = "File" + file.toPath() + "@StringArray";
         if (register.containsKey(GlobalRegisterKey)) {
             return (String[]) register.get(GlobalRegisterKey);
@@ -61,6 +72,7 @@ public class ResourceUtil {
      * 从资源包加载字符串数组
      */
     public static String[] loadStringAsArray(ResourceLocation location) throws IOException {
+        Map<String, Object> register = ResourceUtil.register;
         String GlobalRegisterKey = "Identifier" + location.toString() + "@StringArray";
         if (register.containsKey(GlobalRegisterKey)) {
             return (String[]) register.get(GlobalRegisterKey);
@@ -114,6 +126,7 @@ public class ResourceUtil {
      * 从资源包加载字符串
      */
     public static String loadString(ResourceLocation location) throws IOException {
+        Map<String, Object> register = ResourceUtil.register;
         String GlobalRegisterKey = "Identifier" + location.toString() + "@String";
         if (register.containsKey(GlobalRegisterKey)) {
             return (String) register.get(GlobalRegisterKey);
@@ -137,6 +150,7 @@ public class ResourceUtil {
      * 从文件加载图像
      */
     public static BufferedImage loadImage(File file) throws IOException {
+        Map<String, Object> register = ResourceUtil.register;
         String GlobalRegisterKey = "File" + file.toPath() + "@BufferedImage";
         if (register.containsKey(GlobalRegisterKey)) {
             return (BufferedImage) register.get(GlobalRegisterKey);
@@ -150,6 +164,7 @@ public class ResourceUtil {
      * 从资源包加载图像
      */
     public static BufferedImage loadImage(ResourceLocation location) throws IOException {
+        Map<String, Object> register = ResourceUtil.register;
         String GlobalRegisterKey = "Identifier" + location.toString() + "@BufferedImage";
         if (register.containsKey(GlobalRegisterKey)) {
             return (BufferedImage) register.get(GlobalRegisterKey);
@@ -174,6 +189,7 @@ public class ResourceUtil {
     }
 
     public static RawModel loadModel(ResourceLocation location, Boolean flipV) throws IOException {
+        Map<String, Object> register = ResourceUtil.register;
         String GlobalRegisterKey = "Identifier" + location.toString() + (flipV ? "_flipV" : "") + "@RawModel";
         if (register.containsKey(GlobalRegisterKey)) {
             return (RawModel) register.get(GlobalRegisterKey);
@@ -187,6 +203,7 @@ public class ResourceUtil {
     }
 
     public static Map<String, RawModel> loadPartedModel(ResourceLocation location, Boolean flipV) throws IOException {
+        Map<String, Object> register = ResourceUtil.register;
         String GlobalRegisterKey = "Identifier" + location.toString() + (flipV ? "_flipV" : "") + "@PartedModel";
         if (register.containsKey(GlobalRegisterKey)) {
             return (Map<String, RawModel>) register.get(GlobalRegisterKey);
@@ -228,6 +245,7 @@ public class ResourceUtil {
     }
 
     public static DynamicModelHolder loadDmh(ResourceLocation location, Boolean flipV) throws IOException {
+        Map<String, Object> register = ResourceUtil.register;
         String GlobalRegisterKey = "Identifier" + location.toString() + (flipV ? "_flipV" : "") + "@Dmh";
         DynamicModelHolder existing = (DynamicModelHolder) register.get(GlobalRegisterKey);
         if (existing != null) {
@@ -255,6 +273,7 @@ public class ResourceUtil {
     }
 
     public static Map<String, DynamicModelHolder> loadPartedDmh(ResourceLocation location, Boolean flipV) throws IOException {
+        Map<String, Object> register = ResourceUtil.register;
         String GlobalRegisterKey = "Identifier" + location.toString() + (flipV ? "_flipV" : "") + "@PartedDmh";
         @SuppressWarnings("unchecked")
         Map<String, DynamicModelHolder> existing = (Map<String, DynamicModelHolder>) register.get(GlobalRegisterKey);
@@ -277,6 +296,7 @@ public class ResourceUtil {
     }
 
     public static Font loadFont(ResourceLocation location) {
+        Map<String, Object> register = ResourceUtil.register;
         String key = "Identifier" + location + "@Font";
         if (register.containsKey(key)) {
             return (Font) register.get(key);
@@ -324,6 +344,7 @@ public class ResourceUtil {
      * 创建纯色图像
      */
     public static BufferedImage createSolidColorImage(int width, int height, Color color) {
+        Map<String, Object> register = ResourceUtil.register;
         String GlobalRegisterKey = "SolidColorImage" + width + "x" + height;
         if (register.containsKey(GlobalRegisterKey)) {
             return (BufferedImage) register.get(GlobalRegisterKey);
@@ -341,6 +362,7 @@ public class ResourceUtil {
      * 创建纯色图像
      */
     public static GraphicsTexture createSolidColorGT(int width, int height, Color color) {
+        Map<String, Object> register = ResourceUtil.register;
         String GlobalRegisterKey = "SolidColorImage" + width + "x" + height + "_" + color.toString();
         if (register.containsKey(GlobalRegisterKey)) {
             return (GraphicsTexture) register.get(GlobalRegisterKey);
@@ -356,6 +378,7 @@ public class ResourceUtil {
     }
 
     public static GraphicsTexture createSolidColorGT(int width, int height, int color) {
+        Map<String, Object> register = ResourceUtil.register;
         String GlobalRegisterKey = "SolidColorImage" + width + "x" + height + "_" + color;
         if (register.containsKey(GlobalRegisterKey)) {
             return (GraphicsTexture) register.get(GlobalRegisterKey);
@@ -372,6 +395,7 @@ public class ResourceUtil {
     }
 
     public static @NotNull JsonElement simpleLoadAsJson(ResourceLocation location) {
+        Map<String, Object> register = ResourceUtil.register;
         String GlobalRegisterKey = "Identifier" + location.toString() + "@SimpleJson";
         if (register.containsKey(GlobalRegisterKey)) {
             return (JsonElement) register.get(GlobalRegisterKey);
@@ -395,6 +419,7 @@ public class ResourceUtil {
      * @return 合并后的JsonElement
      */
     public static @NotNull JsonElement loadAsJSON(ResourceLocation location) {
+        Map<String, Object> register = ResourceUtil.register;
         String GlobalRegisterKey = "Identifier" + location.toString() + "@Json";
         if (register.containsKey(GlobalRegisterKey)) {
             return (JsonElement) register.get(GlobalRegisterKey);
@@ -618,10 +643,7 @@ public class ResourceUtil {
 
     public static void init(ResourceManager mgr) {
         resourceManager = mgr;
-        // 注意：这里只清引用，不主动 close 缓存中的 DynamicModelHolder。
-        // 已放置的方块仍直接持有这些共享 holder，强行 close 会让它们立刻丢失几何；
-        // 而 orphaned holder 的回收需要引用计数，属后续工作。共享 holder 的内存增长量级
-        // 与"模型种类数"而非"方块数量"相关，远小于逐方块泄漏。
-        register.clear();
+        // 替换整个缓存，隔离仍在后台完成的旧资源读取；共享模型由方块重载后换用新 holder。
+        register = new ConcurrentHashMap<>();
     }
 }

@@ -520,6 +520,14 @@ public abstract class BaseDisplayBlockEntity extends FunctionalObjBlockEntity {
     // ================================================================
 
     @Override
+    protected void whenResourceReloading() {
+        resetDrawingState();
+        drawState.clear();
+        firstInit = false;
+        super.whenResourceReloading();
+    }
+
+    @Override
     public void whenDisposing() {
         RotatableShapeHelper.getInstance().removeCache(getLevel(), getWorldPos());
         GraphicsTextureHelper.getInstance().removeDrawGraphic(getBlockPos());

@@ -475,6 +475,20 @@
   "fangsu.turnout.kind.three_way": "three-way",
   "fangsu.turnout.kind.single_slip": "single-slip",
   "fangsu.turnout.kind.scissors_crossover": "scissors crossover",
-  "ui.fangsu.turnout.three_way_signal": "0: center | 1-7: branch 1 | 8-15: branch 2"
+  "ui.fangsu.turnout.three_way_signal": "0: center | 1-7: branch 1 | 8-15: branch 2",
+  "rail.fangsu.fsrail.main_tp1": "[Rail] Standard Rail§l (Type 1)",
+  "rail.fangsu.fsrail.main_tp2": "[Rail] Standard Rail§l (Type 2)",
+  "rail.fangsu.fsrail.main_tp3": "[Rail] Standard Rail§l (Type 3)",
+  "rail.fangsu.fsrail.ex_dsg": "[Accessory] Third Rail",
+  "rail.fangsu.fsrail.ex_dsg_mr": "[Accessory] Third Rail§l (Mirrored)",
+  "rail.fangsu.fsrail.ex_bredge": "[Accessory] Bridge§l (Edge)",
+  "rail.fangsu.fsrail.ex_bredge_mr": "[Accessory] Bridge§l (Edge, Mirrored)",
+  "rail.fangsu.fsrail.ex_brmiddle": "[Accessory] Bridge§l (Middle)",
+  "rail.fangsu.fsrail.ex_brmiddle_mr": "[Accessory] Bridge§l (Middle, Mirrored)",
+  "rail.fangsu.fsrail.ex_brbar": "[Accessory] Bridge§l (Metro Railing)",
+  "rail.fangsu.fsrail.ex_brbar_mr": "[Accessory] Bridge§l (Metro Railing, Mirrored)",
+  "ui.fangsu.nte_rail.title": "NTE Rail Model Combination",
+  "ui.fangsu.nte_rail.primary": "Primary rail (choose one)",
+  "ui.fangsu.nte_rail.accessories": "Accessories (choose multiple; click to toggle)"
 }
 

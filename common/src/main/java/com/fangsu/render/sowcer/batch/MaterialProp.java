@@ -1,6 +1,7 @@
 package com.fangsu.render.sowcer.batch;
 
 import com.fangsu.render.sowcer.shader.BlazeRenderType;
+import com.fangsu.render.sowcer.shader.NormalMapShader;
 import com.fangsu.render.sowcer.vertex.VertAttrState;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
@@ -31,6 +32,10 @@ public class MaterialProp {
      * The texture to use. Null disables texture.
      */
     public ResourceLocation texture;
+
+    /** 切线空间 RGB 法线；null 时完整保留原有渲染路径。 */
+    public ResourceLocation normalTexture;
+    public float normalScale = 1.0f;
 
     /**
      * The vertex attribute values to use for those specified with VertAttrSrc MATERIAL.
@@ -76,6 +81,9 @@ public class MaterialProp {
         JsonObject mtlObj = (JsonObject) new JsonParser().parse(content);
         this.shaderName = mtlObj.get("shaderName").getAsString();
         this.texture = mtlObj.get("texture").isJsonNull() ? null : new ResourceLocation(mtlObj.get("texture").getAsString());
+        this.normalTexture = !mtlObj.has("normalTexture") || mtlObj.get("normalTexture").isJsonNull()
+                ? null : new ResourceLocation(mtlObj.get("normalTexture").getAsString());
+        this.normalScale = mtlObj.has("normalScale") ? mtlObj.get("normalScale").getAsFloat() : 1.0f;
         this.attrState.color = mtlObj.get("color").isJsonNull() ? null : mtlObj.get("color").getAsInt();
         this.attrState.lightmapUV = mtlObj.get("lightmapUV").isJsonNull() ? null : mtlObj.get("lightmapUV").getAsInt();
         this.translucent = mtlObj.has("translucent") && mtlObj.get("translucent").getAsBoolean();
@@ -113,6 +121,8 @@ public class MaterialProp {
     }
 
     public RenderType getBlazeRenderType() {
+        RenderType normalMapped = NormalMapShader.getRenderType(this);
+        if (normalMapped != null) return normalMapped;
         RenderType result;
         ResourceLocation textureToUse = texture == null ? WHITE_TEXTURE_LOCATION : texture;
         switch (shaderName) {
@@ -141,6 +151,8 @@ public class MaterialProp {
     public void copyFrom(MaterialProp other) {
         this.shaderName = other.shaderName;
         this.texture = other.texture;
+        this.normalTexture = other.normalTexture;
+        this.normalScale = other.normalScale;
         this.attrState = other.attrState.copy();
         this.translucent = other.translucent;
         this.writeDepthBuf = other.writeDepthBuf;
@@ -151,13 +163,15 @@ public class MaterialProp {
 
     public void serializeTo(DataOutputStream dos) throws IOException {
         JsonObject mtlObj = new JsonObject();
-        mtlObj.addProperty("version", 2);
+        mtlObj.addProperty("version", 3);
         mtlObj.addProperty("shaderName", shaderName);
         if (texture == null) {
             mtlObj.add("texture", new JsonNull());
         } else {
             mtlObj.addProperty("texture", texture.toString());
         }
+        mtlObj.addProperty("normalTexture", normalTexture == null ? null : normalTexture.toString());
+        mtlObj.addProperty("normalScale", normalScale);
         if (this.attrState.color == null) {
             mtlObj.add("color", new JsonNull());
         } else {
@@ -193,12 +207,14 @@ public class MaterialProp {
                 && billboard == that.billboard && cutoutHack == that.cutoutHack
                 && sheetElementsU == that.sheetElementsU && sheetElementsV == that.sheetElementsV
                 && Objects.equals(shaderName, that.shaderName) && Objects.equals(texture, that.texture)
+                && Objects.equals(normalTexture, that.normalTexture)
+                && Float.compare(normalScale, that.normalScale) == 0
                 && Objects.equals(attrState, that.attrState);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(shaderName, texture, attrState, translucent, writeDepthBuf, billboard,
-                cutoutHack, sheetElementsU, sheetElementsV);
+                cutoutHack, sheetElementsU, sheetElementsV, normalTexture, normalScale);
     }
 }

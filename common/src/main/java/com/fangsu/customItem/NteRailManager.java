@@ -110,6 +110,8 @@ public class NteRailManager {
     @Nullable
     public NteRail getRail(String id) {
         if (id == null) return null;
+        // NTE 组合模型的轨距、平交路口和道岔几何由主轨道决定。
+        if (NteRailModelSelection.isCombined(id)) id = NteRailModelSelection.decode(id).get(0);
         return switch (id) {
             case "default_3d", "mtr:default_3d", "nte_builtin_concrete_sleeper" -> rails.get("mtr:default");
             case "default_3d_siding", "mtr:default_3d_siding", "nte_builtin_depot" -> rails.get("mtr:siding");
@@ -119,7 +121,7 @@ public class NteRailManager {
 
     /** 判断指定 id 的轨道是否存在。 */
     public boolean hasRail(String id) {
-        return id != null && rails.containsKey(id);
+        return getRail(id) != null;
     }
 
     /** 返回全部已加载轨道的 id 集合（不可修改）。 */

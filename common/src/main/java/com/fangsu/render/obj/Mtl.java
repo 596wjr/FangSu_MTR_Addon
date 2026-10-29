@@ -48,6 +48,16 @@ public interface Mtl {
      */
     String getName();
 
+    /** 切线空间 RGB 法线贴图；未配置时返回 null。 */
+    String getMapNormal();
+
+    void setMapNormal(String mapNormal);
+
+    /** 法线 XY 分量的强度，对应 MTL 的 -bm，默认 1。 */
+    float getNormalScale();
+
+    void setNormalScale(float normalScale);
+
     /**
      * Returns the ambient component of the material
      *

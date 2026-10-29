@@ -90,6 +90,9 @@ public class MainClient {
         try {
 
             ResourceUtil.init(resourceManager);
+            // 必须先更换 ResourceUtil 缓存，再让已有 holder 重新读取 JS 和脚本内引用的资源。
+            ScriptManager.getInstance().reloadAllScripts();
+            com.fangsu.scripting.GifHelper.getInstance().disposeAll();
             Main.LOGGER.info("[FangSu] ResourceUtil initialized, starting CustomItems.init...");
 
             // 资源重载时释放旧的模型 / 图集缓存（对齐 ANTE 的 CustomResources 行为）。
@@ -180,6 +183,10 @@ public class MainClient {
                 Main.LOGGER.error("failed to load mtr sign items", e);
             }
 
+            // 丢弃旧方块纹理，避免相同绘制 ID 重新绑定到上一轮的静态图或失败条目。
+            com.fangsu.utils.GraphicsTextureHelper.getInstance().removeDrawGraphicsByPrefix("block_");
+            // 注册全部完成再发布代际，已放置方块下次渲染时会重新加载模型、配置及绘制状态。
+            ResourceUtil.completeReload();
             Main.LOGGER.info("[FangSu] initResources completed successfully");
         } catch (Exception e) {
             Main.LOGGER.error("[FangSu] initResources failed with unexpected exception", e);

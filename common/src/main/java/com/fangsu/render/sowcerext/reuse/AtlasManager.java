@@ -50,6 +50,8 @@ public class AtlasManager {
     }
 
     public void applyToMesh(RawMesh mesh) {
+        // 现有图集只包含颜色层，改写 UV 会使独立法线贴图错位。
+        if (mesh.materialProp.normalTexture != null) return;
         if (mesh.materialProp.texture == null || noAtlasList.contains(mesh.materialProp.texture)) return;
         AtlasSprite sprite = sprites.getOrDefault(mesh.materialProp.texture, null);
         if (sprite != null) sprite.applyToMesh(mesh);
@@ -57,6 +59,7 @@ public class AtlasManager {
 
     public void clear() {
         sprites.clear();
+        noAtlasList.clear();
     }
 
 }

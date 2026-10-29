@@ -326,6 +326,16 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
     }
 
     @Override
+    protected void whenResourceReloading() {
+        lastRegisteredDrawInfoId = "";
+        drawScriptKey = null;
+        shape = null;
+        GraphicsTextureHelper.getInstance().removeDrawGraphic(getBlockPos());
+        if (dmhDisp != null) dmhDisp.closeIfOwned();
+        super.whenResourceReloading();
+    }
+
+    @Override
     public void whenDisposing() {
         drawState.clear();
         pidsDrawing = null;

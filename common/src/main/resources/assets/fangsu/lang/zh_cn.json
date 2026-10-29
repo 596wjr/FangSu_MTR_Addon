@@ -463,6 +463,20 @@
   "fangsu.turnout.kind.three_way": "三开",
   "fangsu.turnout.kind.single_slip": "单交分",
   "fangsu.turnout.kind.scissors_crossover": "交叉渡线",
-  "ui.fangsu.turnout.three_way_signal": "三开信号：0 中股，1~7 第一曲股，8~15 第二曲股"
+  "ui.fangsu.turnout.three_way_signal": "三开信号：0 中股，1~7 第一曲股，8~15 第二曲股",
+  "rail.fangsu.fsrail.main_tp1": "[轨道] 标准轨道§l (类型1)",
+  "rail.fangsu.fsrail.main_tp2": "[轨道] 标准轨道§l (类型2)",
+  "rail.fangsu.fsrail.main_tp3": "[轨道] 标准轨道§l (类型3)",
+  "rail.fangsu.fsrail.ex_dsg": "[附属] 第三轨",
+  "rail.fangsu.fsrail.ex_dsg_mr": "[附属] 第三轨§l (镜像)",
+  "rail.fangsu.fsrail.ex_bredge": "[附属] 桥梁§l (边缘)",
+  "rail.fangsu.fsrail.ex_bredge_mr": "[附属] 桥梁§l (边缘, 镜像)",
+  "rail.fangsu.fsrail.ex_brmiddle": "[附属] 桥梁§l (中间)",
+  "rail.fangsu.fsrail.ex_brmiddle_mr": "[附属] 桥梁§l (中间, 镜像)",
+  "rail.fangsu.fsrail.ex_brbar": "[附属] 桥梁§l (地铁护栏)",
+  "rail.fangsu.fsrail.ex_brbar_mr": "[附属] 桥梁§l (地铁护栏, 镜像)",
+  "ui.fangsu.nte_rail.title": "NTE 轨道模型组合",
+  "ui.fangsu.nte_rail.primary": "主轨道（单选）",
+  "ui.fangsu.nte_rail.accessories": "附属模型（可多选，点击切换）"
 }
 

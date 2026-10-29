@@ -57,6 +57,9 @@ final class DefaultMtl implements Mtl {
      */
     private String mapKd;
 
+    private String mapNormal;
+    private float normalScale = 1.0f;
+
     /**
      * The shininess of this material
      */
@@ -131,6 +134,29 @@ final class DefaultMtl implements Mtl {
     @Override
     public String getMapKd() {
         return mapKd;
+    }
+
+    @Override
+    public String getMapNormal() {
+        return mapNormal;
+    }
+
+    @Override
+    public void setMapNormal(String mapNormal) {
+        this.mapNormal = mapNormal;
+    }
+
+    @Override
+    public float getNormalScale() {
+        return normalScale;
+    }
+
+    @Override
+    public void setNormalScale(float normalScale) {
+        if (!Float.isFinite(normalScale) || normalScale < 0) {
+            throw new IllegalArgumentException("Normal scale must be finite and non-negative");
+        }
+        this.normalScale = normalScale;
     }
 
     @Override

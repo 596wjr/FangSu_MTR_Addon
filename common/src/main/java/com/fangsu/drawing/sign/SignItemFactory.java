@@ -59,6 +59,7 @@ public final class SignItemFactory {
     }
 
     public static void init() {
+        EDITOR_ITEMS.clear();
         registerBuiltInSign();
         registerJsItems();
         JsonElement builtInSign = ResourceUtil.simpleLoadAsJson(new ResourceLocation("fangsu:sign/builtin_sign.json").getRaw());

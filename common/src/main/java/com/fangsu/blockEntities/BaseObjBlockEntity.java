@@ -229,9 +229,11 @@ public abstract class BaseObjBlockEntity extends BlockEntity {
      * @return 是否提交了新的后台渲染任务
      */
     public final boolean tryBeginRendering() {
+        // 重载必须等旧后台渲染结束，不能一边替换模型一边写入旧绘制结果。
+        if (renderingTask != null && !renderingTask.isDone()) return false;
+        if (!refreshResourcesIfNeeded()) return false;
         if (!isRenderReady()) return false;
         if (renderResultReady) return false;
-        if (renderingTask != null && !renderingTask.isDone()) return false;
         renderResultReady = false;
         renderingTask = java.util.concurrent.CompletableFuture.runAsync(() -> {
             try {
@@ -243,6 +245,11 @@ public abstract class BaseObjBlockEntity extends BlockEntity {
                 renderResultReady = true;
             }
         }, RENDERING_EXECUTOR);
+        return true;
+    }
+
+    /** 子类在资源代际变化时重新加载；返回 false 时暂缓后台渲染。 */
+    protected boolean refreshResourcesIfNeeded() {
         return true;
     }
 

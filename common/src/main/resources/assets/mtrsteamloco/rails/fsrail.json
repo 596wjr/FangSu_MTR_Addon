@@ -1,0 +1,47 @@
+{
+    "main_tp1": {
+        "name": "rail.fangsu.fsrail.main_tp1",
+        "model": "mtrsteamloco:fsrail/main_tp1.obj"
+    }
+    ,
+    "main_tp2": {
+        "name": "rail.fangsu.fsrail.main_tp2",
+        "model": "mtrsteamloco:fsrail/main_tp2.obj"
+    },
+    "main_tp3": {
+        "name": "rail.fangsu.fsrail.main_tp3",
+        "model": "mtrsteamloco:fsrail/main_tp3.obj"
+    },
+    "ex_dsg": {
+        "name": "rail.fangsu.fsrail.ex_dsg",
+        "model": "mtrsteamloco:fsrail/ex_dsg.obj"
+    },
+    "ex_dsg_mr": {
+        "name": "rail.fangsu.fsrail.ex_dsg_mr",
+        "model": "mtrsteamloco:fsrail/ex_dsg_mr.obj"
+    },
+    "ex_bredge": {
+        "name": "rail.fangsu.fsrail.ex_bredge",
+        "model": "mtrsteamloco:fsrail/ex_bredge.obj"
+    },
+    "ex_bredge_mr": {
+        "name": "rail.fangsu.fsrail.ex_bredge_mr",
+        "model": "mtrsteamloco:fsrail/ex_bredge_mr.obj"
+    },
+    "ex_brmiddle": {
+        "name": "rail.fangsu.fsrail.ex_brmiddle",
+        "model": "mtrsteamloco:fsrail/ex_brmiddle.obj"
+    },
+    "ex_brmiddle_mr": {
+        "name": "rail.fangsu.fsrail.ex_brmiddle_mr",
+        "model": "mtrsteamloco:fsrail/ex_brmiddle_mr.obj"
+    },
+    "ex_brbar": {
+        "name": "rail.fangsu.fsrail.ex_brbar",
+        "model": "mtrsteamloco:fsrail/ex_brbar.obj"
+    },
+    "ex_brbar_mr": {
+        "name": "rail.fangsu.fsrail.ex_brbar_mr",
+        "model": "mtrsteamloco:fsrail/ex_brbar_mr.obj"
+    }
+}
