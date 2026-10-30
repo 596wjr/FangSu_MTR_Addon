@@ -46,9 +46,10 @@ public class BlockMultiDirectionNode extends BlockNode implements EntityBlock {
     }
 
     /**
-     * 使用实体渲染（OBJ 模型由 BaseBlockEntityRender 绘制）；不生成静态方块模型。
+     * 使用实体渲染（OBJ 模型由 BaseBlockEntityRender 绘制）；不生成静态方块几何。
      * <p>
-     * 对应地，本项目不提供 blockstates/multi_direction_node.json，只提供物品模型。
+     * 对应的 blockstates/multi_direction_node.json 指向空模型 fangsu:block/base，
+     * 只为破坏/踩踏粒子提供贴图，不产生静态几何。
      */
     @Override
     public @NotNull RenderShape getRenderShape(@NotNull BlockState blockState) {
