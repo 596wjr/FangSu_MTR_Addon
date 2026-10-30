@@ -21,13 +21,25 @@ public class MtrLcd extends LcdBase {
 
     private static Font CJK_FONT;
     private static Font NON_CJK_FONT;
+    private static long fontResourceVersion = -1;
 
-    private static Font getCjkFont() {
+    private static void refreshFontVersion() {
+        final long version = ResourceUtil.getReloadVersion();
+        if (fontResourceVersion != version) {
+            CJK_FONT = null;
+            NON_CJK_FONT = null;
+            fontResourceVersion = version;
+        }
+    }
+
+    private static synchronized Font getCjkFont() {
+        refreshFontVersion();
         if (CJK_FONT == null) CJK_FONT = ResourceUtil.loadFont(new ResourceLocation("mtr:font/noto-serif-cjk-tc-semibold.ttf"));
         return CJK_FONT;
     }
 
-    private static Font getNonCjkFont() {
+    private static synchronized Font getNonCjkFont() {
+        refreshFontVersion();
         if (NON_CJK_FONT == null) NON_CJK_FONT = ResourceUtil.loadFont(new ResourceLocation("mtr:font/noto-sans-semibold.ttf"));
         return NON_CJK_FONT;
     }
@@ -235,67 +247,17 @@ public class MtrLcd extends LcdBase {
         drawDoorOpen(g, x, y, w, h, cjkFont, nonCjkFont, !isLeft, doorOnThisSide);
     }
 
-    /**
-     * 取「本次到站」的左右开门状态：{@code [left, right]}。
-     * <p>
-     * 数据来源按优先级：
-     * <ol>
-     *   <li>{@link TrainStatus#predictedDoorOpenSides}：按「站台 + 列车配置」查到的历史预测
-     *       （<b>规范帧</b>，写入时已按「发车车头、非反向」规范化，因此这里要按本车
-     *       {@code isReverse} 自行 {@code toOpposite} —— 翻转责任在调用方）。
-     *       它在「本站刚被观测到」时会被刷成实际方向，所以到站开门前后都以它为准；</li>
-     *   <li>预测没有本站记录（第一次运行）时，<b>只有门此刻真的开着</b>才退回实时观测
-     *       {@link TrainStatus#doorOpenSides}（原始帧）——否则跨站保留的实时值会把上一站的方向
-     *       误显示到本站。</li>
-     * </ol>
-     * 两者都拿不到具体值（该站台从未观测过）时返回全 {@code false}，调用方据此<b>不画</b>「请在…落车」。
-     */
+    /** 实时值必须来自本站；规范帧预测的左右换算统一由 TrainStatus 处理。 */
     private static boolean[] resolveOpenSides(TrainStatus status) {
         final boolean[] result = new boolean[]{false, false};
-        DoorOpenRecord.DoorOpenSide predicted = firstKnownSide(status.predictedDoorOpenSides);
-        if (predicted != null) {
-            if (status.isReverse) {
-                predicted = DoorOpenRecord.DoorOpenSide.toOpposite(predicted);
-            }
-            applyOpenSide(result, predicted);
-            return result;
-        }
-        // 首次运行、本站从来没有记录：门没开时什么都不显示；门开着才用刚观测到的实时值兜底
-        if (isDoorOpenNow(status)) {
-            final DoorOpenRecord.DoorOpenSide live = firstKnownSide(status.doorOpenSides);
-            if (live != null) {
-                applyOpenSide(result, live);
-            }
+        final int count = Math.max(status.doorOpenSides.length, status.predictedDoorOpenSides.length);
+        for (int car = 0; car < count; car++) {
+            final DoorOpenRecord.DoorOpenSide direction = status.getDoorOpenSide(car);
+            if (direction == DoorOpenRecord.DoorOpenSide.UNKNOWN || direction == DoorOpenRecord.DoorOpenSide.NONE) continue;
+            applyOpenSide(result, direction);
+            break;
         }
         return result;
-    }
-
-    /** 当前是否有任意车节的门真的开着（MTR3 的 flag 只在 doorValue>0 时为真；MTR4 用近似值但同样只在该窗口为真）。 */
-    private static boolean isDoorOpenNow(TrainStatus status) {
-        if (status.doorLeftOpen != null && status.doorRightOpen != null) {
-            final int length = Math.min(status.doorLeftOpen.length, status.doorRightOpen.length);
-            for (int i = 0; i < length; i++) {
-                if (status.doorLeftOpen[i] || status.doorRightOpen[i]) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    /** 数组里第一个「具体且不是 NONE」的方向（逐车节查找，前车不开门时顺延到下一节）；没有则 null。 */
-    private static DoorOpenRecord.DoorOpenSide firstKnownSide(DoorOpenRecord.DoorOpenSide[] sides) {
-        if (sides == null) {
-            return null;
-        }
-        for (final DoorOpenRecord.DoorOpenSide side : sides) {
-            if (side != null
-                    && side != DoorOpenRecord.DoorOpenSide.UNKNOWN
-                    && side != DoorOpenRecord.DoorOpenSide.NONE) {
-                return side;
-            }
-        }
-        return null;
     }
 
     /** 把单值方向展开成 {@code [leftOpen, rightOpen]}。 */

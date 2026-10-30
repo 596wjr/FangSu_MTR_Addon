@@ -25,13 +25,13 @@ public class TrainStatus {
      * 逐车节「最近一次实际观测」到的开门方向（<b>原始帧，不翻转</b>），下标 = 车节索引。
      * 数据源：{@link DoorSideObserverMtr3#lastSides(long)}（MTR3），全 UNKNOWN = 还没观测到。
      */
-    public DoorOpenRecord.DoorOpenSide[] doorOpenSides;
+    public volatile DoorOpenRecord.DoorOpenSide[] doorOpenSides;
 
     /**
      * 逐车节「规范帧」的开门方向预测，下标 = 车节索引。
-     * 数据源：{@link DoorOpenCacheClient#query(long, String, int, int)}，即按站台 + 列车配置查到的历史缓存。
+     * 数据源：{@link DoorOpenCacheClient#query(long, String, int, int)}，按站台 + 配置查询实际记录或本地停车预测。
      */
-    public DoorOpenRecord.DoorOpenSide[] predictedDoorOpenSides;
+    public volatile DoorOpenRecord.DoorOpenSide[] predictedDoorOpenSides;
 
     public final Matrix4f[] lastWorldPose;
     public final Vector3f[] lastCarPosition;
@@ -125,7 +125,7 @@ public class TrainStatus {
      * 世界内方块开门状态」，用于渲染）。本方法新增的是「逐车节的开门<i>方向</i>」：
      * <ul>
      *   <li>{@link #doorOpenSides}：最近一次实际观测的原始帧，来自 MTR3 观测器；</li>
-     *   <li>{@link #predictedDoorOpenSides}：按「站台 + 列车配置」查历史缓存得到的规范帧预测。</li>
+     *   <li>{@link #predictedDoorOpenSides}：按「站台 + 列车配置」查实际记录或停车模拟得到的规范帧预测。</li>
      * </ul>
      * 任何异常都只影响这两个数组，绝不能让 LCD 的路线渲染挂掉，因此全程 try/catch 兜底。
      */
@@ -143,22 +143,23 @@ public class TrainStatus {
         try {
             // 幂等兜底：契约未规定观测端 init() 的调用点，这里保证只要有 LCD 就一定已注册
             DoorSideObserverMtr3.init();
-            final DoorOpenRecord.DoorOpenSide[] live = DoorSideObserverMtr3.lastSides(train.id);
-            if (live != null && live.length == trainCars) {
-                doorOpenSides = live.clone();
-            }
+            final DoorOpenRecord.DoorOpenSide[] live = DoorSideObserverMtr3.lastSides(train.id,
+                    DoorSideObserverMtr3.currentPlatformId(train), isReverse);
+            doorOpenSides = train.getDoorValue() > 0.01 && live != null && live.length == trainCars
+                    ? live : unknownDoorSides(trainCars);
         } catch (Throwable t) {
             Main.LOGGER.warn("[FangSu 开门缓存] 读取 MTR3 实时开门方向失败（train={}）", train.id, t);
         }
 
         // —— 预测值：站台变化、或缓存被写入（含本站刚观测到的记录）时重查一次 ——
         try {
-            final long platformId = resolveNextPlatformId();
+            final long platformId = train.getDoorValue() > 0.01
+                    ? DoorSideObserverMtr3.currentPlatformId(train) : resolveNextPlatformId();
             final long cacheGeneration = DoorOpenCacheClient.generation();
             if (platformId != lastPredictedPlatformId || cacheGeneration != lastPredictedGeneration) {
                 lastPredictedPlatformId = platformId;
                 lastPredictedGeneration = cacheGeneration;
-                predictedDoorOpenSides = platformId > 0L
+                predictedDoorOpenSides = platformId != 0L
                         ? queryPredictedSides(platformId, trainCars)
                         : unknownDoorSides(trainCars);
             }
@@ -172,6 +173,9 @@ public class TrainStatus {
      * 尚未解析到站台（出库/回库/路线未就绪）时返回 0。
      */
     private long resolveNextPlatformId() {
+        // 先用列车真实停站路径，预测不需要等待线路/站序详情同步。
+        final long plannedPlatform = DoorSideObserverMtr3.nextPlatformId(train);
+        if (plannedPlatform != 0) return plannedPlatform;
         final List<PlatformInfo> platforms = getAllPlatforms();
         if (platforms == null || platforms.isEmpty()) {
             return 0L;
@@ -217,6 +221,11 @@ public class TrainStatus {
         final DoorOpenRecord.DoorOpenSide[] sides = new DoorOpenRecord.DoorOpenSide[Math.max(0, length)];
         Arrays.fill(sides, DoorOpenRecord.DoorOpenSide.UNKNOWN);
         return sides;
+    }
+
+    /** 当前车厢可用的开门方向（实时优先，预测按 isReverse 换算；未知保持 UNKNOWN）。 */
+    public DoorOpenRecord.DoorOpenSide getDoorOpenSide(int carIndex) {
+        return DoorSideResolver.resolve(doorOpenSides, predictedDoorOpenSides, carIndex, isReverse, train != null && doorValue() > 0.01);
     }
 
     public void update(int carIndex, boolean doorLeftOpen, boolean doorRightOpen, Matrix4f carPose) {

@@ -11,6 +11,7 @@
     "RenderTrainsMixin",
     "ClientDataMixin",
     "TrainClientDoorSideMixin",
+    "TrainDoorPredictionAccessor",
     "TrainClientRollMixin",
     "TrainClientConnectionRollMixin",
     "JonModelTrainRendererRollMixin",

@@ -164,6 +164,14 @@ public class GraphicsTextureHelper {
                 }
                 if (info.isClosed) continue;
                 if (info.drawing) continue;        // 正在绘制中，跳过
+                final long resourceVersion = ResourceUtil.getReloadVersion();
+                if (info.resourceVersion != resourceVersion) {
+                    info.resourceVersion = resourceVersion;
+                    info.retryCount = 0;
+                    info.retryAfterMs = 0;
+                    info.redrawNeeded = true;
+                    info.flameCompleted = true;
+                }
                 if (!info.flameCompleted) continue; // 本帧尚未完成，等待下一帧
 
                 // 脚本侧失败冷却中：等到冷却结束再重试。
@@ -603,6 +611,7 @@ public class GraphicsTextureHelper {
        ========================= */
 
     private static class GTInfo {
+        volatile long resourceVersion = ResourceUtil.getReloadVersion();
         List<String> ids = new ArrayList<>();   // 绑定的抽象 ID 列表
         GraphicsTexture gt;
 

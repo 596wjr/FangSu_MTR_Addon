@@ -7,11 +7,14 @@ import com.fangsu.render.scripting.AbstractDrawCalls;
 import com.fangsu.render.sowcer.math.Matrix4f;
 import com.fangsu.render.sowcer.math.PoseStackUtil;
 import com.fangsu.render.sowcer.math.Vector3f;
+import com.fangsu.render.sowcerext.model.ModelCluster;
 import com.fangsu.scripting.DisplayHelper;
 import com.fangsu.scripting.GraphicsTexture;
 import com.fangsu.userScripts.ScriptHolderBase;
 import com.fangsu.userScripts.ScriptManager;
+import org.graalvm.polyglot.proxy.ProxyObject;
 import com.fangsu.utils.GraphicsTextureHelper;
+import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -24,8 +27,25 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class FunctionalTrainRenderer extends TrainRendererBase {
+    private static final Map<Long, FunctionalTrainRenderer> ACTIVE_LCDS = new ConcurrentHashMap<>();
+    private final Object clientWorld = net.minecraft.client.Minecraft.getInstance().level;
+    private ModelCluster sourceModel;
+    private ModelCluster materialModel;
+
+    /** 配合观测端的客户端车辆快照回收已消失列车的独占纹理。 */
+    public static void purgeMissingTrains(Set<Long> alive) {
+        ACTIVE_LCDS.entrySet().removeIf(entry -> {
+            final long id = entry.getKey();
+            if (alive.contains(id) && entry.getValue().clientWorld == net.minecraft.client.Minecraft.getInstance().level) return false;
+            GraphicsTextureHelper.getInstance().removeDrawGraphic("train_" + id);
+            return true;
+        });
+    }
+
     private final TrainClient train;
     private final DisplayHelper dhBase;
     private final DisplayHelper dh;
@@ -33,7 +53,6 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
     private LcdBase lcd;
     private final LcdInfo lcdInfo;
 
-    private final Map<String, Object> drawState = new HashMap<>();
 
     public final TrainRendererBase baseRenderer;
 
@@ -93,6 +112,8 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
             }
         }
 
+        final Map<String, Object> drawState = new HashMap<>();
+        final long[] resourceVersion = {ResourceUtil.getReloadVersion()};
         GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
         // 绘制函数：路线数据未就绪时跳过绘制，保留纹理上一帧有效内容
         // 空回调：绘制完成后由 GraphicsTextureHelper.tick() 通过 needsUpload 机制统一上传，
@@ -102,12 +123,18 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
         GraphicsTextureHelper.DrawFunctionGt drawFn = (gt) -> {
             // 注意：不再清空 drawState——脚本侧用它做跨帧缓存（字体/时间），与 PIDS 脚本同语义；
             // Java 实现（MtrLcd）不使用 state，无副作用
+            final long version = ResourceUtil.getReloadVersion();
+            if (resourceVersion[0] != version) {
+                drawState.clear();
+                resourceVersion[0] = version;
+            }
             trainStatus.updateRoute();
             if (scriptLcd) {
                 // 脚本路径：每帧整张纹理重绘，无线路数据时由脚本自行处理
                 if (scriptHolder == null) return; // ScriptManager 未初始化：保持纹理为空
-                ScriptManager.getInstance().requestRunFunctionSync(scriptHolder, gt::upload, "draw",
-                        gt.graphics, drawState, trainStatus, scriptInfo, scriptExtra);
+                ScriptManager.getInstance().requestRunFunctionSync(scriptHolder, noopCallback, "draw",
+                        gt.graphics, ProxyObject.fromMap(drawState), trainStatus,
+                        LcdScriptSupport.toScriptValue(scriptInfo), LcdScriptSupport.toScriptValue(scriptExtra));
             } else {
                 var slots = lcdInfo.slotsInfo().getAsJsonArray("slots");
                 if (trainStatus.currentRoute != null && trainStatus.drawableRoute != null) {
@@ -126,19 +153,21 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
             }
         };
         // TrainClient 重建后（trainId 复用）替换绘制函数以捕获新的 trainStatus/drawState，保留旧纹理内容
-        if (gtHelper.hasDrawGraphic("train_" + (trainClient.trainId))) {
-            gtHelper.replaceDrawFunction("train_" + (trainClient.trainId), drawFn);
+        if (gtHelper.hasDrawGraphic("train_" + trainClient.id)) {
+            gtHelper.replaceDrawFunction("train_" + trainClient.id, drawFn);
         } else {
-            gtHelper.addDrawGraphicWithGt("train_" + (trainClient.trainId),
-                    new GraphicsTextureHelper.DrawInfo("train_lcd_" + trainClient.trainId,
+            gtHelper.addDrawGraphicWithGt("train_" + trainClient.id,
+                    new GraphicsTextureHelper.DrawInfo("train_lcd_" + trainClient.id,
                             lcdInfo.slotsInfo().getAsJsonArray("texSize").get(0).getAsInt(),
                             lcdInfo.slotsInfo().getAsJsonArray("texSize").get(1).getAsInt(),
                             false, true),
                     drawFn);
         }
-        var dh = dhBase.create(gtHelper.getGraphics("train_" + (trainClient.trainId)));
+        var dh = dhBase.create(gtHelper.getGraphics("train_" + trainClient.id));
 
-        return new FunctionalTrainRenderer(lcdInfo, instanceBaseRenderer, trainClient, lcd, dh, trainStatus);
+        final FunctionalTrainRenderer instance = new FunctionalTrainRenderer(lcdInfo, instanceBaseRenderer, trainClient, lcd, dh, trainStatus);
+        ACTIVE_LCDS.put(trainClient.id, instance);
+        return instance;
     }
 
     @Override
@@ -193,13 +222,18 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
             final int light = LightTexture.pack(world.getBrightness(LightLayer.BLOCK, posAverage), world.getBrightness(LightLayer.SKY, posAverage));
             Matrix4f drawPose = new Matrix4f(matrices.last().pose());
             if (dh != null && dh.model != null) {
-                GraphicsTexture texture = GraphicsTextureHelper.getInstance().getGraphics("train_" + (train.trainId));
+                GraphicsTexture texture = GraphicsTextureHelper.getInstance().getGraphics("train_" + train.id);
                 if (texture != null) {
                     dh.changeSharedGt(texture);
-                    var model = dh.model.getUploadedModel();
+                    final ModelCluster model = dh.model.getUploadedModel();
                     if (model != null) {
-                        model.replaceAllTexture(texture.identifier);
-                        new AbstractDrawCalls.ClusterDrawCall(model, Matrix4f.IDENTITY).commit(MainClient.drawScheduler, drawPose, light);
+                        // 只共享几何，材质独立；否则下一列同型号车会覆盖已经排队的贴图引用。
+                        if (sourceModel != model) {
+                            sourceModel = model;
+                            materialModel = model.copyForMaterialChanges();
+                        }
+                        materialModel.replaceAllTexture(texture.identifier);
+                        new AbstractDrawCalls.ClusterDrawCall(materialModel, Matrix4f.IDENTITY).commit(MainClient.drawScheduler, drawPose, light);
                     }
                 }
             }

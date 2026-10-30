@@ -47,6 +47,9 @@ public final class DoorOpenCacheClient {
     /** 站台 id → 记录列表（不可变快照，写时整表替换） */
     private static volatile Map<Long, List<DoorOpenRecord>> byPlatform = EMPTY;
 
+    /** 本次资源周期内的停车姿态预测；只在本地使用，实际观测记录始终优先。 */
+    private static volatile Map<Long, List<DoorOpenRecord>> predictions = EMPTY;
+
     private static Runnable ticker;
     private static TrainConfigSource configSource;
 
@@ -113,6 +116,7 @@ public final class DoorOpenCacheClient {
     public static void onWorldJoin() {
         // 新世界的缓存与服务端数据都可能不同：整表清空，等快照回来再填
         byPlatform = EMPTY;
+        predictions = EMPTY;
         lastRequestedConfigs = Collections.emptyList();
         // 主动拉一次「无优选配置」的全量快照：刚进世界时列车列表往往还没同步，
         // 而 requestRefreshIfTrainsChanged 在配置为空时直接跳过，会让「上次运行已有缓存」
@@ -130,6 +134,7 @@ public final class DoorOpenCacheClient {
 
     public static void onWorldLeave() {
         byPlatform = EMPTY;
+        predictions = EMPTY;
         lastRequestedConfigs = Collections.emptyList();
         lastRequestAt = 0L;
         generation++;
@@ -167,9 +172,9 @@ public final class DoorOpenCacheClient {
 
     /** 整份快照覆盖（服务端下发）：剔除非法条目，按契约上限裁剪。 */
     public static void applySnapshot(Map<Long, List<DoorOpenRecord>> map) {
-        generation++;
         if (map == null || map.isEmpty()) {
             byPlatform = EMPTY;
+            generation++;
             return;
         }
         final Map<Long, List<DoorOpenRecord>> next = new HashMap<>();
@@ -178,7 +183,7 @@ public final class DoorOpenCacheClient {
                 break;
             }
             final Long platformId = entry.getKey();
-            if (platformId == null || platformId <= 0L) {
+            if (platformId == null || platformId == 0L) {
                 continue;
             }
             final List<DoorOpenRecord> records = sanitize(entry.getValue());
@@ -188,6 +193,8 @@ public final class DoorOpenCacheClient {
             next.put(platformId, records);
         }
         byPlatform = next.isEmpty() ? EMPTY : Collections.unmodifiableMap(next);
+        // 先发布数据再发布版本，后台绘图不能看到新版本却读到旧快照。
+        generation++;
         Main.debug("[DoorOpenCache] 应用快照：{} 个站台", next.size());
     }
 
@@ -198,7 +205,7 @@ public final class DoorOpenCacheClient {
      * 单站台记录数不超过 {@link DoorOpenCacheData#MAX_PER_PLATFORM}。
      */
     public static void applyUpdate(long platformId, DoorOpenRecord record) {
-        if (platformId <= 0L || record == null) {
+        if (platformId == 0L || record == null) {
             return;
         }
         // 契约：缓存里不保存含 UNKNOWN 的记录（UNKNOWN 只由 query 在「无记录」时整组返回）
@@ -234,6 +241,36 @@ public final class DoorOpenCacheClient {
     /** 缓存内容版本号（见 {@link #generation} 的说明）；LCD 侧据此判断是否需要重新查询预测值。 */
     public static long generation() {
         return generation;
+    }
+
+    /** 仅发布预测，不冒充实际开门观测，不发包、不写存档。由客户端 tick 调用。 */
+    public static void applyPrediction(long platformId, DoorOpenRecord record) {
+        if (platformId == 0 || record == null || !isStorable(record)) return;
+        final Map<Long, List<DoorOpenRecord>> next = new HashMap<>(predictions);
+        final List<DoorOpenRecord> records = new ArrayList<>(next.getOrDefault(platformId, Collections.emptyList()));
+        records.removeIf(old -> old.matchesConsist(record.trainTypeId(), record.trainCars(), record.lengthMeters()));
+        records.add(0, record);
+        while (records.size() > DoorOpenCacheData.MAX_PER_PLATFORM) records.remove(records.size() - 1);
+        if (!next.containsKey(platformId) && next.size() >= DoorOpenCacheData.MAX_PLATFORMS) {
+            next.remove(next.keySet().iterator().next());
+        }
+        next.put(platformId, Collections.unmodifiableList(records));
+        predictions = Collections.unmodifiableMap(next);
+        generation++;
+    }
+
+    /** F3+T 后丢弃旧模型/旧车门几何的预测，下一 tick 重新模拟。 */
+    public static void clearPredictions() {
+        predictions = EMPTY;
+        generation++;
+    }
+
+    public static boolean hasUnknown(DoorOpenRecord.DoorOpenSide[] sides) {
+        if (sides == null || sides.length == 0) return true;
+        for (final DoorOpenRecord.DoorOpenSide side : sides) {
+            if (side == null || side == DoorOpenRecord.DoorOpenSide.UNKNOWN) return true;
+        }
+        return false;
     }
 
     // ==================== 快照请求 ====================
@@ -281,9 +318,9 @@ public final class DoorOpenCacheClient {
     /**
      * 查询某站台某配置的开门方向（每车节一个）。
      * <p>
-     * 评分：车型相同 +4、编组数相同 +2、长度差 ≤2m +1；同分取 {@code observedAt} 更新者。
-     * 该站台<b>完全没有记录</b>时整组返回 {@link DoorOpenRecord.DoorOpenSide#UNKNOWN}；
-     * 有记录时用 {@link DoorOpenRecord#sideAt(int)}（绝不返回 UNKNOWN，越界取末尾）。
+     * 仅匹配同车型、同编组、总长差 ≤2m 的记录；实际观测优先，未命中再取本地停车预测。
+     * 该站台没有匹配配置时整组返回 {@link DoorOpenRecord.DoorOpenSide#UNKNOWN}；
+     * 不允许通过越界取末节的方式拼出另一种编组的预测。
      */
     public static DoorOpenRecord.DoorOpenSide[] query(long platformId, String trainTypeId, int trainCars, int lengthMeters) {
         final int cars = Math.max(0, Math.min(trainCars, DoorOpenCacheData.MAX_CARS));
@@ -291,42 +328,29 @@ public final class DoorOpenCacheClient {
         for (int i = 0; i < cars; i++) {
             unknown[i] = DoorOpenRecord.DoorOpenSide.UNKNOWN;
         }
-        if (platformId <= 0L) {
+        if (platformId == 0L) {
             return unknown;
         }
-        final List<DoorOpenRecord> records = byPlatform.get(platformId);
-        if (records == null || records.isEmpty()) {
-            return unknown;
-        }
+        DoorOpenRecord best = newestMatching(byPlatform.get(platformId), trainTypeId, trainCars, lengthMeters, cars);
+        if (best == null) best = newestMatching(predictions.get(platformId), trainTypeId, trainCars, lengthMeters, cars);
+        if (best == null) return unknown;
+        return best.sides();
+    }
+
+    private static DoorOpenRecord newestMatching(List<DoorOpenRecord> records, String trainTypeId,
+                                                  int trainCars, int lengthMeters, int cars) {
+        if (records == null) return null;
         DoorOpenRecord best = null;
-        int bestScore = -1;
         for (final DoorOpenRecord record : records) {
             if (record == null) {
                 continue;
             }
-            int score = 0;
-            if (trainTypeId != null && trainTypeId.equals(record.trainTypeId())) {
-                score += 4;
-            }
-            if (record.trainCars() == trainCars) {
-                score += 2;
-            }
-            if (Math.abs(record.lengthMeters() - lengthMeters) <= 2) {
-                score += 1;
-            }
-            if (score > bestScore || (score == bestScore && best != null && record.observedAt() > best.observedAt())) {
-                best = record;
-                bestScore = score;
-            }
+            // 不借用其他车型/编组的逐车门侧，也不将短编组末节扩展到长编组。
+            if (!record.matchesConsist(trainTypeId, trainCars, lengthMeters)
+                    || record.sides().length != cars) continue;
+            if (best == null || record.observedAt() > best.observedAt()) best = record;
         }
-        if (best == null) {
-            return unknown;
-        }
-        final DoorOpenRecord.DoorOpenSide[] result = new DoorOpenRecord.DoorOpenSide[cars];
-        for (int i = 0; i < cars; i++) {
-            result[i] = best.sideAt(i);
-        }
-        return result;
+        return best;
     }
 
     // ==================== 内部工具 ====================

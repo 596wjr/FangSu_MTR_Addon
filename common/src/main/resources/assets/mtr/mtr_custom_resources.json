@@ -1,4 +1,123 @@
 {
+  "connectors": {
+    "fangsu_r_train_exterior": {
+      "texture": "fangsu:textures/train/connector/r_train_outer.png",
+      "side": "exterior",
+      "points": [
+        [
+          -0.5,
+          0
+        ],
+        [
+          -0.5,
+          1
+        ],
+        [
+          0.5,
+          1
+        ],
+        [
+          0.5,
+          0
+        ]
+      ],
+      "segments": 32,
+      "fold": {
+        "source": "texture",
+        "axis": "u",
+        "samples": 256,
+        "amplitude": 0.1,
+        "compress_gain": 0.5,
+        "polarity": "bright_out"
+      },
+      "id_mismatch": "fallback",
+      "offset": 0.04
+    },
+    "fangsu_r_train_interior_left": {
+      "side": "interior",
+      "texture": "mtr:textures/entity/sp1900_connector_side.png",
+      "points": [
+        [
+          -0.5,
+          0
+        ],
+        [
+          -0.5,
+          1
+        ]
+      ],
+      "closed": false,
+      "segments": 2,
+      "offset": 0,
+      "fold": {
+        "source": "none"
+      },
+      "light": "interior"
+    },
+    "fangsu_r_train_interior_right": {
+      "side": "interior",
+      "texture": "mtr:textures/entity/sp1900_connector_side.png",
+      "points": [
+        [
+          0.5,
+          1
+        ],
+        [
+          0.5,
+          0
+        ]
+      ],
+      "closed": false,
+      "segments": 2,
+      "offset": 0,
+      "fold": {
+        "source": "none"
+      },
+      "light": "interior"
+    },
+    "fangsu_r_train_interior_roof": {
+      "side": "interior",
+      "texture": "mtr:textures/entity/sp1900_connector_roof.png",
+      "points": [
+        [
+          -0.5,
+          1
+        ],
+        [
+          0.5,
+          1
+        ]
+      ],
+      "closed": false,
+      "segments": 2,
+      "offset": 0,
+      "fold": {
+        "source": "none"
+      },
+      "light": "interior"
+    },
+    "fangsu_r_train_interior_floor": {
+      "side": "interior",
+      "texture": "mtr:textures/entity/sp1900_connector_floor.png",
+      "points": [
+        [
+          0.5,
+          0
+        ],
+        [
+          -0.5,
+          0
+        ]
+      ],
+      "closed": false,
+      "segments": 2,
+      "offset": 0,
+      "fold": {
+        "source": "none"
+      },
+      "light": "interior"
+    }
+  },
   "custom_trains": {
     "r_train_fangsu_lcd": {
       "name": "R-TRAIN (LCD)",
@@ -10,31 +129,15 @@
       },
       "texture_id": "mtr:textures/entity/r_train",
       "base_train_type": "r_train",
-      "speed_sound_base_id": "c1141a"
-    },
-    "r_train_small_fangsu_lcd": {
-      "name": "R-TRAIN (LCD) (Small)",
-      "description": "Provided by FangSu Blocks",
-      "color": "6CB5E2",
-      "lcd": {
-        "id": "mtr",
-        "slots": "mtr:r_train/slots_small.json"
-      },
-      "texture_id": "mtr:textures/entity/r_train",
-      "base_train_type": "r_train_small",
-      "speed_sound_base_id": "c1141a"
-    },
-    "r_train_mini_fangsu_lcd": {
-      "name": "R-TRAIN (LCD) (Mini)",
-      "description": "Provided by FangSu Blocks",
-      "color": "6CB5E2",
-      "lcd": {
-        "id": "mtr",
-        "slots": "mtr:r_train/slots_mini.json"
-      },
-      "texture_id": "mtr:textures/entity/r_train",
-      "base_train_type": "r_train_mini",
-      "speed_sound_base_id": "c1141a"
+      "speed_sound_base_id": "c1141a",
+      "connector": [
+        "fangsu_r_train_exterior",
+        "fangsu_r_train_interior_left",
+        "fangsu_r_train_interior_right",
+        "fangsu_r_train_interior_roof",
+        "fangsu_r_train_interior_floor"
+      ],
+      "has_gangway_connection": true
     },
     "r_train_fangsu_js_lcd": {
       "name": "R-TRAIN (JS LCD)",
@@ -50,7 +153,103 @@
       },
       "texture_id": "mtr:textures/entity/r_train",
       "base_train_type": "r_train",
-      "speed_sound_base_id": "c1141a"
+      "speed_sound_base_id": "c1141a",
+      "connector": [
+        "fangsu_r_train_exterior",
+        "fangsu_r_train_interior_left",
+        "fangsu_r_train_interior_right",
+        "fangsu_r_train_interior_roof",
+        "fangsu_r_train_interior_floor"
+      ],
+      "has_gangway_connection": true
+    },
+    "r_train_small_fangsu_lcd": {
+      "name": "R-TRAIN (LCD) (Small)",
+      "description": "Provided by FangSu Blocks",
+      "color": "6CB5E2",
+      "lcd": {
+        "id": "mtr",
+        "slots": "mtr:r_train/slots_small.json"
+      },
+      "texture_id": "mtr:textures/entity/r_train",
+      "base_train_type": "r_train_small",
+      "speed_sound_base_id": "c1141a",
+      "connector": [
+        "fangsu_r_train_exterior",
+        "fangsu_r_train_interior_left",
+        "fangsu_r_train_interior_right",
+        "fangsu_r_train_interior_roof",
+        "fangsu_r_train_interior_floor"
+      ],
+      "has_gangway_connection": true
+    },
+    "r_train_small_fangsu_js_lcd": {
+      "name": "R-TRAIN (JS LCD) (Small)",
+      "description": "Provided by FangSu Blocks",
+      "color": "6CB5E2",
+      "lcd": {
+        "id": "mtr",
+        "slots": "mtr:r_train/slots_small.json",
+        "script": "fangsu:lcd/r_train_lcd.js",
+        "extraConfig": {
+          "font": "fangsu:fonts/ae.ttf"
+        }
+      },
+      "texture_id": "mtr:textures/entity/r_train",
+      "base_train_type": "r_train_small",
+      "speed_sound_base_id": "c1141a",
+      "connector": [
+        "fangsu_r_train_exterior",
+        "fangsu_r_train_interior_left",
+        "fangsu_r_train_interior_right",
+        "fangsu_r_train_interior_roof",
+        "fangsu_r_train_interior_floor"
+      ],
+      "has_gangway_connection": true
+    },
+    "r_train_mini_fangsu_lcd": {
+      "name": "R-TRAIN (LCD) (Mini)",
+      "description": "Provided by FangSu Blocks",
+      "color": "6CB5E2",
+      "lcd": {
+        "id": "mtr",
+        "slots": "mtr:r_train/slots_mini.json"
+      },
+      "texture_id": "mtr:textures/entity/r_train",
+      "base_train_type": "r_train_mini",
+      "speed_sound_base_id": "c1141a",
+      "connector": [
+        "fangsu_r_train_exterior",
+        "fangsu_r_train_interior_left",
+        "fangsu_r_train_interior_right",
+        "fangsu_r_train_interior_roof",
+        "fangsu_r_train_interior_floor"
+      ],
+      "has_gangway_connection": true
+    },
+    "r_train_mini_fangsu_js_lcd": {
+      "name": "R-TRAIN (JS LCD) (Mini)",
+      "description": "Provided by FangSu Blocks",
+      "color": "6CB5E2",
+      "lcd": {
+        "id": "mtr",
+        "slots": "mtr:r_train/slots_mini.json",
+        "script": "fangsu:lcd/r_train_lcd.js",
+        "extraConfig": {
+          "font": "fangsu:fonts/ae.ttf"
+        }
+      },
+      "texture_id": "mtr:textures/entity/r_train",
+      "base_train_type": "r_train_mini",
+      "speed_sound_base_id": "c1141a",
+      "connector": [
+        "fangsu_r_train_exterior",
+        "fangsu_r_train_interior_left",
+        "fangsu_r_train_interior_right",
+        "fangsu_r_train_interior_roof",
+        "fangsu_r_train_interior_floor"
+      ],
+      "has_gangway_connection": true
     }
   }
 }

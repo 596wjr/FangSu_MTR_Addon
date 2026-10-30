@@ -196,7 +196,6 @@ public abstract class ScriptHolderBase {
         }
     }
 
-
     /**
      * 检查函数是否存在
      */

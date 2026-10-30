@@ -164,6 +164,7 @@ public class MainClient {
             }
 
             try {
+                com.fangsu.train.connector.ConnectorRegistry.reload();
                 FunctionalCustomTrains.init(resourceManager);
             } catch (Exception e) {
                 Main.LOGGER.error("[FangSu] FunctionalCustomTrains.init failed", e);

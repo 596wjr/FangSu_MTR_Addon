@@ -242,7 +242,7 @@ public final class DoorOpenCacheNet {
                 return;
             }
             // 1) 范围校验：非法数据不入库、不广播
-            if (platformId <= 0L) {
+            if (platformId == 0L) {
                 Main.debug("[DoorOpenCache] 丢弃上报：platformId 非法（{}）", platformId);
                 return;
             }
@@ -375,7 +375,7 @@ public final class DoorOpenCacheNet {
         }
         for (final Map.Entry<Long, List<DoorOpenRecord>> entry : source.entrySet()) {
             final Long platformId = entry.getKey();
-            if (platformId == null || platformId <= 0L) {
+            if (platformId == null || platformId == 0L) {
                 continue;
             }
             final List<DoorOpenRecord> records = entry.getValue();

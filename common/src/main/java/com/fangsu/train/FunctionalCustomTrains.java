@@ -23,12 +23,15 @@ import java.util.function.Function;
 
 public class FunctionalCustomTrains implements IResourcePackCreatorProperties, ICustomResources {
     public static void init(ResourceManager resourceManager) {
-        readResource(resourceManager, mtr.MTR.MOD_ID + ":" + CUSTOM_RESOURCES_ID + ".json", jsonConfig -> {
+        java.util.Set<String> processed = new java.util.HashSet<>();
+        for (String source : new String[]{"fangsu:custom_trains.json", mtr.MTR.MOD_ID + ":" + CUSTOM_RESOURCES_ID + ".json"})
+        readResource(resourceManager, source, jsonConfig -> {
             try {
                 jsonConfig.get(CUSTOM_TRAINS_KEY).getAsJsonObject().entrySet().forEach(entry -> {
                     try {
                         final JsonObject jsonObject = entry.getValue().getAsJsonObject();
-                        if (!(jsonObject.has("lcd"))) return;
+                        if (!jsonObject.has("lcd") && !jsonObject.has("connector")) return;
+                        if (!processed.add(entry.getKey())) return;
                         final String trainId = CUSTOM_TRAIN_ID_PREFIX + entry.getKey();
 
                         TrainProperties prevTrainProp = TrainClientRegistry.getTrainProperties(trainId);
@@ -61,13 +64,23 @@ public class FunctionalCustomTrains implements IResourcePackCreatorProperties, I
                         String baseTrainType = dummyBaseTrain ? jsonObject.get("base_type").getAsString() : prevTrainProp.baseTrainType;
                         boolean hasGangwayConnection = getOrDefault(jsonObject, "has_gangway_connection",
                                 dummyBaseTrain || prevTrainProp.hasGangwayConnection, JsonElement::getAsBoolean);
+                        TrainRendererBase previousRenderer = prevTrainProp.renderer;
+                        // 重复 F3+T 时剥离上一轮的方速包装，避免逐层叠加 LCD 装饰器。
+                        while (true) {
+                            if (previousRenderer instanceof com.fangsu.train.connector.ConnectorTrainRendererMtr3 wrapper) previousRenderer = wrapper.baseRenderer;
+                            else if (previousRenderer instanceof FunctionalTrainRenderer wrapper) previousRenderer = wrapper.baseRenderer;
+                            else break;
+                        }
                         TrainRendererBase newRenderer;
                         if (lcdInfo != null) {
-                            newRenderer = new FunctionalTrainRenderer(lcdInfo, dummyBaseTrain ? null : prevTrainProp.renderer);
+                            newRenderer = new FunctionalTrainRenderer(lcdInfo, dummyBaseTrain ? null : previousRenderer);
                         } else {
-                            newRenderer = dummyBaseTrain ? null : prevTrainProp.renderer;
+                            newRenderer = dummyBaseTrain ? null : previousRenderer;
                         }
 
+                        if (com.fangsu.train.connector.ConnectorRegistry.train(entry.getKey()) != null) {
+                            newRenderer = new com.fangsu.train.connector.ConnectorTrainRendererMtr3(newRenderer, entry.getKey());
+                        }
                         mtr.client.TrainClientRegistry.register(trainId, new TrainProperties(
                                 baseTrainType, prevTrainProp.name,
                                 prevTrainProp.description, prevTrainProp.wikipediaArticle, prevTrainProp.color,

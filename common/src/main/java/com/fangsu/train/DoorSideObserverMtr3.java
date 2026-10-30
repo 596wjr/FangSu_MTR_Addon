@@ -16,7 +16,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * MTR3 端的「开门方向观测器」。
+ * MTR3 端的「开门方向观测器」：进站前补算 UNKNOWN，开门后同步真实方向。
  * <p>
  * <b>数据来源</b>：{@code mtr.data.TrainClient.simulateCar(...)}（见 {@link com.fangsu.mixin.TrainClientDoorSideMixin}）。
  * 该方法是每节车厢每帧唯一的入口，并且拿到了 {@code doorLeftOpen / doorRightOpen} 这对
@@ -58,12 +58,15 @@ public final class DoorSideObserverMtr3 {
 
     /** 每列车一个进行中的观测回合。 */
     private static final Map<Long, Episode> EPISODES = new ConcurrentHashMap<>();
+    private static final Map<Long, Integer> NEXT_PREDICTION_TICK = new ConcurrentHashMap<>();
 
     /** 每列车最近一次<b>实际上报</b>的原始（未规范化）开门方向数组，供 LCD 实时值使用。 */
-    private static final Map<Long, DoorOpenRecord.DoorOpenSide[]> LAST_SIDES = new ConcurrentHashMap<>();
+    private static final Map<Long, DoorSideObservation> LAST_SIDES = new ConcurrentHashMap<>();
 
     /** 客户端 tick 计数（只有 {@link #tick()} 会推进）。 */
     private static int tickCounter;
+    private static Object lastWorld;
+    private static long resourceVersion = -1;
 
     /** 是否已经把自己注册进 {@link DoorOpenCacheClient}。 */
     private static volatile boolean initialized;
@@ -116,6 +119,14 @@ public final class DoorSideObserverMtr3 {
      * @param carIndex 车节索引（0 = 车头方向的第一节，与 {@code TrainStatus} 的数组下标一致）
      */
     public static void onCarObserved(long trainId, int carIndex, boolean left, boolean right) {
+        final List<TrainClient> trains = snapshotTrains();
+        if (trains == null) return;
+        final TrainClient train = findTrain(trains, trainId);
+        if (train != null) onCarObserved(train, carIndex, left, right);
+    }
+
+    public static void onCarObserved(TrainClient train, int carIndex, boolean left, boolean right) {
+        final long trainId = train.id;
         try {
             if (!initialized) {
                 init();
@@ -124,7 +135,17 @@ public final class DoorSideObserverMtr3 {
             if (carIndex < 0 || carIndex > MAX_CAR_INDEX) {
                 return;
             }
-            final Episode episode = EPISODES.computeIfAbsent(trainId, id -> new Episode());
+            if (train.getDoorValue() <= 0.01) {
+                EPISODES.remove(trainId);
+                LAST_SIDES.remove(trainId);
+                return;
+            }
+            final long platform = resolvePlatformId(train);
+            if (platform == 0) return;
+            final boolean reversed = train.isReversed();
+            final Episode episode = EPISODES.compute(trainId, (id, previous) ->
+                    previous != null && previous.platformId == platform && previous.reversed == reversed
+                            ? previous : new Episode(platform, reversed));
             synchronized (episode) {
                 episode.ensureCapacity(carIndex + 1);
                 if (!episode.seen[carIndex]) {
@@ -149,6 +170,20 @@ public final class DoorSideObserverMtr3 {
      */
     public static void tick() {
         tickCounter++;
+        final Object world = net.minecraft.client.Minecraft.getInstance().level;
+        final long version = com.fangsu.utils.ResourceUtil.getReloadVersion();
+        if (world != lastWorld || version != resourceVersion) {
+            EPISODES.clear();
+            LAST_SIDES.clear();
+            NEXT_PREDICTION_TICK.clear();
+            DoorOpenCacheClient.clearPredictions();
+            lastWorld = world;
+            resourceVersion = version;
+        }
+        if (world == null) {
+            FunctionalTrainRenderer.purgeMissingTrains(java.util.Collections.emptySet());
+            return;
+        }
         try {
             final List<TrainClient> trains = snapshotTrains();
             if (trains == null) {
@@ -164,8 +199,15 @@ public final class DoorSideObserverMtr3 {
                         WATCHDOG_TICKS);
             }
 
-            if (EPISODES.isEmpty()) {
-                return;
+            for (final TrainClient train : trains) {
+                if (tickCounter >= NEXT_PREDICTION_TICK.getOrDefault(train.id, 0)) {
+                    NEXT_PREDICTION_TICK.put(train.id, tickCounter + 10);
+                    DoorSidePredictorMtr3.predict(train);
+                }
+                if (train.getDoorValue() <= 0.01) {
+                    EPISODES.remove(train.id);
+                    LAST_SIDES.remove(train.id);
+                }
             }
 
             // 清理已被销毁的列车（ClientData.TRAINS 是事实来源）
@@ -173,8 +215,10 @@ public final class DoorSideObserverMtr3 {
             for (final TrainClient train : trains) {
                 alive.add(train.id);
             }
+            FunctionalTrainRenderer.purgeMissingTrains(alive);
             EPISODES.keySet().removeIf(id -> !alive.contains(id));
             LAST_SIDES.keySet().removeIf(id -> !alive.contains(id));
+            NEXT_PREDICTION_TICK.keySet().removeIf(id -> !alive.contains(id));
 
             if (EPISODES.isEmpty()) {
                 return;
@@ -217,8 +261,22 @@ public final class DoorSideObserverMtr3 {
      * 返回副本，调用方可随意持有。
      */
     public static DoorOpenRecord.DoorOpenSide[] lastSides(long trainId) {
-        final DoorOpenRecord.DoorOpenSide[] sides = LAST_SIDES.get(trainId);
-        return sides == null ? null : sides.clone();
+        final DoorSideObservation observed = LAST_SIDES.get(trainId);
+        return observed == null ? null : observed.sides();
+    }
+
+    /** 只读本站、当前反向状态下的实时观测。 */
+    public static DoorOpenRecord.DoorOpenSide[] lastSides(long trainId, long platformId, boolean reversed) {
+        final DoorSideObservation observed = LAST_SIDES.get(trainId);
+        return observed == null ? null : observed.forStop(platformId, reversed);
+    }
+
+    public static long currentPlatformId(TrainClient train) {
+        return resolvePlatformId(train);
+    }
+
+    public static long nextPlatformId(TrainClient train) {
+        return DoorSidePredictorMtr3.nextPlatformId(train);
     }
 
     /**
@@ -263,17 +321,12 @@ public final class DoorSideObserverMtr3 {
             }
         }
 
-        if (allNone(raw)) {
-            // 全车节都不开门 → 没有缓存价值，不落库
-            synchronized (episode) {
-                episode.reported = true;
-                episode.lastReported = raw.clone();
-            }
-            return;
-        }
+        // NONE 也是有效的本站实时结果。门开过半后同步它，防止旧的停车预测在关门后复活。
+        LAST_SIDES.put(train.id, new DoorSideObservation(episode.platformId, episode.reversed, raw));
+        if (allNone(raw) && train.getDoorValue() < 0.5) return;
 
-        final long platformId = resolvePlatformId(train);
-        if (platformId <= 0) {
+        final long platformId = episode.platformId;
+        if (platformId == 0) {
             // 还没进入任何站台（例如出库途中），保持未上报，等下一次 tick 再试
             return;
         }
@@ -288,7 +341,7 @@ public final class DoorSideObserverMtr3 {
         ).normalized();
 
         // 原始数组（未规范化）留给 LCD 的实时值
-        LAST_SIDES.put(train.id, raw.clone());
+        LAST_SIDES.put(train.id, new DoorSideObservation(platformId, episode.reversed, raw));
         synchronized (episode) {
             episode.lastReported = raw.clone();
             episode.reported = true;
@@ -405,6 +458,14 @@ public final class DoorSideObserverMtr3 {
 
     /** 一列车一次「开门停留」的累积状态。 */
     private static final class Episode {
+        final long platformId;
+        final boolean reversed;
+
+        Episode(long platformId, boolean reversed) {
+            this.platformId = platformId;
+            this.reversed = reversed;
+        }
+
         /** 下标 = 车节索引；未观测到的位置保持 {@code UNKNOWN}。 */
         DoorOpenRecord.DoorOpenSide[] sides = new DoorOpenRecord.DoorOpenSide[0];
         /** 同下标的「是否已观测到」。 */

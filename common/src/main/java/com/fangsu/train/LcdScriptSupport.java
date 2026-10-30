@@ -6,6 +6,8 @@ import com.fangsu.userScripts.ScriptManager;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.minecraft.resources.ResourceLocation;
+import org.graalvm.polyglot.proxy.ProxyArray;
+import org.graalvm.polyglot.proxy.ProxyObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -16,18 +18,33 @@ import java.util.Map;
 /**
  * 列车 LCD 的 JS 脚本支撑：holder 获取 + 脚本可见参数（info/extraConfig）构建。
  * 双版本（MTR3/MTR4）内容一致，仅包路径差异。
- * <p>
+ *
  * 脚本入口契约（与 PIDS 脚本同风格）：
- * function draw(g, state, trainStatus, info, extraConfig)
- * g            : java.awt.Graphics2D（整张 LCD 纹理，本次调用需画满）
- * state        : 每列车持久的状态 Map（跨帧）
- * trainStatus  : TrainStatus（公共字段/方法直读）
- * info         : { id, script, texSize: [w,h], slots: [{name, texArea, pos, offsets...}] }
- * extraConfig  : lcd.extraConfig 配置（缺省 {}）
+ *   function draw(g, state, trainStatus, info, extraConfig)
+ *   g            : java.awt.Graphics2D（整张 LCD 纹理，本次调用需画满）
+ *   state        : 每列车持久的状态 Map（跨帧）
+ *   trainStatus  : TrainStatus（公共字段/方法直读）
+ *   info         : { id, script, texSize: [w,h], slots: [{name, texArea, pos, offsets...}] }
+ *   extraConfig  : lcd.extraConfig 配置（缺省 {}）
  */
 public final class LcdScriptSupport {
 
     private LcdScriptSupport() {
+    }
+
+    /** 保持脚本使用 state.foo / info.texSize[0] / extraConfig.foo 的普通对象调用方式。 */
+    public static Object toScriptValue(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            final Map<String, Object> members = new LinkedHashMap<>();
+            map.forEach((key, item) -> members.put(key.toString(), toScriptValue(item)));
+            return ProxyObject.fromMap(members);
+        }
+        if (value instanceof List<?> list) {
+            final List<Object> items = new ArrayList<>();
+            list.forEach(item -> items.add(toScriptValue(item)));
+            return ProxyArray.fromList(items);
+        }
+        return value;
     }
 
     /**

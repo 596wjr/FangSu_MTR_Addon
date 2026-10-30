@@ -170,16 +170,13 @@ public abstract class TrainMixin {
                             || block instanceof BlockPSDAPGBase
                             || (fangsu$foundMetropolis && fangsu$IBlockPlatformClass.isInstance(block))
                     ) {
-                        openDoors(world, block, pos, dwellTicks);
                         BlockEntity entity = world.getBlockEntity(pos);
+                        if (entity instanceof IPlatformDoor door && door.isLocked()) continue;
+                        openDoors(world, block, pos, dwellTicks);
                         hasPlatform = true;
                         if (entity instanceof IPlatformDoor be) {
-                            if (be.isLocked())
-                                hasPlatform = false;
-                            else {
-                                be.setDoorTarget(doorTarget);
-                                be.setDoorValue(doorValue);
-                            }
+                            be.setDoorTarget(doorTarget);
+                            be.setDoorValue(doorValue);
                         }
                     }
                     // ----- 处理 MTR Steam Loco 的 BlockEyeCandy（兼容） -----

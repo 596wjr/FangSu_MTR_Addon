@@ -64,6 +64,6 @@ public class TrainClientDoorSideMixin {
             boolean doorLeftOpen, boolean doorRightOpen, double realSpacing,
             CallbackInfo callbackInfo
     ) {
-        DoorSideObserverMtr3.onCarObserved(((TrainClient) (Object) this).id, ridingCar, doorLeftOpen, doorRightOpen);
+        DoorSideObserverMtr3.onCarObserved((TrainClient) (Object) this, ridingCar, doorLeftOpen, doorRightOpen);
     }
 }
