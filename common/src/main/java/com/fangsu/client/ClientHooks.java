@@ -50,6 +50,14 @@ public final class ClientHooks {
             = be -> {
         Main.LOGGER.error("打开方法没有被替换!");
     };
+    /** 当前客户端所在维度（仅客户端注入；服务端返回 null，避免启动期加载 ClientLevel）。 */
+    public static Supplier<net.minecraft.world.level.Level> GET_CLIENT_LEVEL = () -> null;
+
+    /** 打开混合构建器编辑器（仅客户端注入）。 */
+    public static Runnable OPEN_HYBRID_CREATOR_SCREEN = () -> {
+        Main.LOGGER.error("打开方法没有被替换!");
+    };
+
     /** 道岔配置界面（客户端注入；服务端不引入任何 Screen 类型）。 */
     public static Consumer<com.fangsu.blockEntities.BlockEntityTurnout> OPEN_TURNOUT_CONFIG_SCREEN
             = be -> {
@@ -103,6 +111,16 @@ public final class ClientHooks {
 
     public static void openRotatingRailConfigScreen(BaseObjBlockEntity be) {
         OPEN_ROTATING_RAIL_CONFIG_SCREEN.accept(be);
+    }
+
+    /** 当前客户端所在维度（服务端返回 null）。 */
+    public static net.minecraft.world.level.Level getClientLevel() {
+        return GET_CLIENT_LEVEL.get();
+    }
+
+    /** 打开混合构建器编辑器（客户端有效）。 */
+    public static void openHybridCreatorScreen() {
+        OPEN_HYBRID_CREATOR_SCREEN.run();
     }
 
     /** 打开道岔配置界面（客户端有效）。 */

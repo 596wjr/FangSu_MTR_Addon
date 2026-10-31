@@ -45,10 +45,8 @@ public class HybridCreatorPackets {
     }
 
     private static void handleOpenScreen(FriendlyByteBuf buf, NetworkManager.PacketContext ctx) {
-        ctx.queue(() -> {
-            final net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
-            minecraft.setScreen(com.fangsu.ui.HybridCreatorScreen.createScreen(null));
-        });
+        // 走客户端钩子：本类在服务端启动期就会被加载，不能出现 Screen / Minecraft 这类客户端类型。
+        ctx.queue(com.fangsu.client.ClientHooks::openHybridCreatorScreen);
     }
 
     /** 服务端：通知客户端打开混合构建器编辑器（MTR3 无 mapping holder，直接收原版 ServerPlayer） */

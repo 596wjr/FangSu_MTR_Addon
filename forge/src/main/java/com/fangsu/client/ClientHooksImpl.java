@@ -35,6 +35,14 @@ public final class ClientHooksImpl {
         );
     }
 
+    public static net.minecraft.world.level.Level getClientLevel() {
+        return Minecraft.getInstance().level;
+    }
+
+    public static void openHybridCreatorScreen() {
+        Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(com.fangsu.ui.HybridCreatorScreen.createScreen(null)));
+    }
+
     public static void openTurnoutConfigScreen(com.fangsu.blockEntities.BlockEntityTurnout turnout) {
         Minecraft.getInstance().setScreen(new TurnoutConfigScreen(turnout));
     }

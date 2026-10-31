@@ -23,7 +23,7 @@ public final class TurnoutBuildRequestPayload {
     public static void registerServer(){NetworkManager.registerReceiver(NetworkManager.Side.C2S,CHANNEL,TurnoutBuildRequestPayload::receive);}
     public static void sendToServer(Payload payload) {
         FriendlyByteBuf buf=new FriendlyByteBuf(Unpooled.buffer());buf.writeBlockPos(payload.pos());buf.writeUtf(payload.railModelId()==null?"":payload.railModelId());buf.writeBoolean(payload.unbind());TurnoutPackets.writeMarkers(buf,payload.markers());
-        var level=net.minecraft.client.Minecraft.getInstance().level;
+        net.minecraft.world.level.Level level=com.fangsu.client.ClientHooks.getClientLevel();
         List<TurnoutRailGraph.Link> hints=!payload.hints().isEmpty()?payload.hints():payload.unbind()||level==null?List.of():TurnoutTopology.candidates(level,payload.pos(),payload.markers());
         TurnoutPackets.writeLinks(buf,hints);NetworkManager.sendToServer(CHANNEL,buf);
     }
