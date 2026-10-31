@@ -30,6 +30,10 @@ public final class ClientHooksImpl {
         );
     }
 
+    public static void openTurnoutConfigScreen(com.fangsu.blockEntities.BlockEntityTurnout turnout) {
+        Minecraft.getInstance().setScreen(new TurnoutConfigScreen(turnout));
+    }
+
     public static void openRotatingRailModelSelectScreen(com.fangsu.blockEntities.BlockEntityRotatingRail rail) {
         Minecraft.getInstance().setScreen(new ModelSelectScreen(
                 com.fangsu.mappings.ComponentHelper.translatable("ui.fangsu.rotating_rail.rail"),

@@ -50,6 +50,11 @@ public final class ClientHooks {
             = be -> {
         Main.LOGGER.error("打开方法没有被替换!");
     };
+    /** 道岔配置界面（客户端注入；服务端不引入任何 Screen 类型）。 */
+    public static Consumer<com.fangsu.blockEntities.BlockEntityTurnout> OPEN_TURNOUT_CONFIG_SCREEN
+            = be -> {
+        Main.LOGGER.error("打开方法没有被替换!");
+    };
     public static Consumer<com.fangsu.blockEntities.BlockEntityRotatingRail> OPEN_ROTATING_RAIL_MODEL_SELECT_SCREEN
             = be -> {
         Main.LOGGER.error("打开方法没有被替换!");
@@ -98,6 +103,11 @@ public final class ClientHooks {
 
     public static void openRotatingRailConfigScreen(BaseObjBlockEntity be) {
         OPEN_ROTATING_RAIL_CONFIG_SCREEN.accept(be);
+    }
+
+    /** 打开道岔配置界面（客户端有效）。 */
+    public static void openTurnoutConfigScreen(com.fangsu.blockEntities.BlockEntityTurnout be) {
+        OPEN_TURNOUT_CONFIG_SCREEN.accept(be);
     }
 
     public static void openRotatingRailModelSelectScreen(com.fangsu.blockEntities.BlockEntityRotatingRail be) {

@@ -96,7 +96,7 @@ public class BlockEntityTurnout extends BaseObjBlockEntity {
     private void setSignal(int value){int next=Math.max(0,Math.min(15,value));if(next==signal)return;previousSignal=signal;signal=next;switchChangedAt=level==null?0:level.getGameTime();setChanged();syncToClient();}
     public float getSwitchProgress(float partial){if(level==null||switchChangedAt<=0)return 1;return Math.max(0,Math.min(1,(level.getGameTime()-switchChangedAt+partial)/SWITCH_TICKS));}
     private void syncToClient(){if(level!=null&&!level.isClientSide)markShapeDirty();}
-    @Override public InteractionResult useWithWrench(BlockState state,Level level,BlockPos pos,Player player,InteractionHand hand,BlockHitResult hit){if(level.isClientSide)net.minecraft.client.Minecraft.getInstance().setScreen(new com.fangsu.ui.TurnoutConfigScreen(this));return InteractionResult.sidedSuccess(level.isClientSide);}
+    @Override public InteractionResult useWithWrench(BlockState state,Level level,BlockPos pos,Player player,InteractionHand hand,BlockHitResult hit){if(level.isClientSide)com.fangsu.client.ClientHooks.openTurnoutConfigScreen(this);return InteractionResult.sidedSuccess(level.isClientSide);}
     @Override public InteractionResult whenUseWithBrush(Level level,BlockPos pos,Player player,InteractionHand hand,BlockHitResult hit){return useWithWrench(getBlockState(),level,pos,player,hand,hit);}
 
     @Override protected boolean isRenderReady() {

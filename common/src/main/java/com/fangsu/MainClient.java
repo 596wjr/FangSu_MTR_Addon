@@ -27,7 +27,6 @@ import net.fabricmc.api.Environment;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.packs.resources.ResourceManager;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Environment(EnvType.CLIENT)
@@ -40,7 +39,9 @@ public class MainClient {
 
     public static DrawContext drawContext = new DrawContext();
 
-    public static List<Runnable> resourceInitRunnables = new ArrayList<>();
+    // 真正的登记表放在两侧都能安全加载的 ClientBootstrap 里：扩展模组在 init() 阶段（服务端也会执行）
+    // 直接引用本类会被 Fabric 拒绝（本类带 @Environment(EnvType.CLIENT)），从而打挂服务端启动。
+    public static List<Runnable> resourceInitRunnables = com.fangsu.client.ClientBootstrap.resourceInitRunnables();
 
     public static void initClient() {
         ModBlocks.initClient();
@@ -195,6 +196,6 @@ public class MainClient {
     }
 
     public static void addResourceRunnable(Runnable runnable) {
-        resourceInitRunnables.add(runnable);
+        com.fangsu.client.ClientBootstrap.addResourceRunnable(runnable);
     }
 }

@@ -40,6 +40,7 @@ public final class MainFabricClient implements ClientModInitializer {
         ClientHooks.OPEN_STATION_SELECT_SCREEN = ClientHooksImpl::openStationSelectScreen;
         ClientHooks.OPEN_SCREENDOOR_CENTRAL_CONTROL_SCREEN = ClientHooksImpl::openScreendoorCentralControlScreen;
         ClientHooks.OPEN_ROTATING_RAIL_CONFIG_SCREEN = ClientHooksImpl::openRotatingRailConfigScreen;
+        ClientHooks.OPEN_TURNOUT_CONFIG_SCREEN = ClientHooksImpl::openTurnoutConfigScreen;
         ClientHooks.OPEN_ROTATING_RAIL_MODEL_SELECT_SCREEN = ClientHooksImpl::openRotatingRailModelSelectScreen;
         ClientHooks.OPEN_MULTI_DIRECTION_NODE_SCREEN = ClientHooksImpl::openMultiDirectionNodeScreen;
         ClientHooks.OPEN_MODULAR_EDITOR = ClientHooksImpl::openModularEditor;
