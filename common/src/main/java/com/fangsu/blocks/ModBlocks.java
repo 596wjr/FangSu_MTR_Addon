@@ -76,7 +76,7 @@ public class ModBlocks {
     public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_ROTATING_RAIL =
             RegisterUtil.addBlockEntity("block_entity_rotating_rail", BLOCK_ROTATING_RAIL, BlockEntityRotatingRail::new);
 
-    public static final RegistrySupplier<Item> ITEM_ROTATING_RAIL = RegisterUtil.addBlockItem("rotating_rail", BLOCK_ROTATING_RAIL);
+    public static final RegistrySupplier<Item> ITEM_ROTATING_RAIL = RegisterUtil.addItem("rotating_rail", () -> new ItemTurnout(BLOCK_ROTATING_RAIL.get(), RegisterUtil.tabProps(new Item.Properties())));
 
     // 平交路口：轨道+铺面一体的方块，几何按相邻方块缓存的快照生成
     public static final RegistrySupplier<Block> BLOCK_LEVEL_CROSSING =

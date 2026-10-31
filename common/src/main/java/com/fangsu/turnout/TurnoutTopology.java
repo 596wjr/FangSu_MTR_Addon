@@ -171,7 +171,7 @@ public final class TurnoutTopology {
     }
 
     /** 有界路径搜索；中间节点必须能按 MTR 的行进方向连通，不能在岔尖反向折返换股。 */
-    private static List<BlockPos> path(TurnoutRailGraph graph,BlockPos from,BlockPos to,Set<BlockPos> stops) {
+    public static List<BlockPos> path(TurnoutRailGraph graph,BlockPos from,BlockPos to,Set<BlockPos> stops) {
         record Step(BlockPos node,BlockPos previous,List<BlockPos> nodes,double length) { }
         PriorityQueue<Step> queue=new PriorityQueue<>(Comparator.comparingInt((Step s)->s.nodes().size()).thenComparingDouble(Step::length));
         queue.add(new Step(from,null,List.of(from),0));Map<String,Double> visited=new HashMap<>();

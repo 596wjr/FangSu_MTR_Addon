@@ -53,7 +53,7 @@ public class ModBlockClient {
         );
         BlockEntityRendererRegistry.register(
                 ModBlocks.BLOCK_ENTITY_ROTATING_RAIL.get(),
-                ctx -> new BaseBlockEntityRender<>(ctx.getBlockEntityRenderDispatcher())
+                ctx -> new TurnoutBlockEntityRenderer(ctx.getBlockEntityRenderDispatcher())
         );
         BlockEntityRendererRegistry.register(
                 ModBlocks.BLOCK_ENTITY_LEVEL_CROSSING.get(),

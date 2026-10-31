@@ -332,7 +332,7 @@
   "block.fangsu.adv_board.desc": "Advertising board. Use a Wrench to open the configuration screen and set an image or GIF to play",
   "block.fangsu.ticket_machine.desc": "Two-block-tall ticket vending machine. Right-click to open the purchase screen and buy Single Journey Tickets by quantity and price",
   "block.fangsu.screendoor_central_control.desc": "Central control for platform screen doors. Scans nearby screendoors on placement. Right-click to open the control screen to open/close or isolate the doors, with indicator lights showing the status",
-  "block.fangsu.rotating_rail.desc": "Special rail block. Use a Wrench to open the configuration screen to choose between straight/curved/rotating modes and a rail model. Redstone signals control the rail offset",
+  "block.fangsu.rotating_rail.desc": "Mark 2 red + 1 blue nodes for bending (switchable to translation), or 4 red nodes for rotation. Connect the marked nodes with rails first. Geometry is calculated automatically; redstone switches the position.",
   "block.fangsu.multi_direction_node.desc": "Omnidirectional rail node. Its direction can be any angle (not limited to the vanilla 16 x 22.5 degree steps): the model keeps spinning until bound. Bind it with a Wrench/Brush, or connect it with the Rail Connector and the direction is solved automatically. Two unbound nodes connect as a straight line; with one unbound end the maximum-radius tangent is used for a smooth joint",
   "block.fangsu.collision_compensation_block.desc": "Invisible helper block. Placing it near object blocks projects their collision shapes onto itself and fixes click interaction, for models with mismatched collision boxes. Visible while holding this block or a Brush",
   "item.fangsu.single_journey_ticket.desc": "A single journey ticket bought from a ticket machine. Right-click the front of a gate while holding it to enter, the fare is deducted by zone and the ticket is consumed on exit",
@@ -489,6 +489,12 @@
   "rail.fangsu.fsrail.ex_brbar_mr": "[Accessory] Bridge§l (Metro Railing, Mirrored)",
   "ui.fangsu.nte_rail.title": "NTE Rail Model Combination",
   "ui.fangsu.nte_rail.primary": "Primary rail (choose one)",
-  "ui.fangsu.nte_rail.accessories": "Accessories (choose multiple; click to toggle)"
+  "ui.fangsu.nte_rail.accessories": "Accessories (choose multiple; click to toggle)",
+  "ui.fangsu.rotating_rail.mode.bend": "Bend",
+  "ui.fangsu.rotating_rail.mode.translate": "Translate",
+  "ui.fangsu.rotating_rail.mode.rotate": "Rotate",
+  "ui.fangsu.rotating_rail.recalculate": "Recalculate from marked rails",
+  "ui.fangsu.rotating_rail.invalid_markers": "Requires 2 red + 1 blue nodes (bend/translate), or 4 red nodes (rotate)",
+  "ui.fangsu.rotating_rail.invalid_rotation": "Rotation requires two straight tracks of equal length sharing the same center"
 }
 

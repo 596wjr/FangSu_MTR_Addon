@@ -332,7 +332,7 @@
   "block.fangsu.adv_board.desc": "广告牌。扳手右键打开配置界面，设置图片或 GIF 即可播放广告内容",
   "block.fangsu.ticket_machine.desc": "两格高的售票机。右键打开购票界面，选择张数与价格购买单程票",
   "block.fangsu.screendoor_central_control.desc": "屏蔽门集中控制设备。放置后自动扫描周围屏蔽门，右键打开集控界面，可统一开关门、隔离门体，指示灯显示状态",
-  "block.fangsu.rotating_rail.desc": "特殊轨道方块。扳手右键打开配置界面，可选平移/弯曲/旋转三种模式并选择轨道模型；红石信号控制轨道偏移",
+  "block.fangsu.rotating_rail.desc": "先连接节点轨道，再标记 2 红 1 蓝（默认弯曲，可切换平移）或 4 红（旋转）；几何参数自动计算，红石切换位置。旧方块需标记后在配置中重新计算",
   "block.fangsu.multi_direction_node.desc": "轨道万向节点。方向可为任意角度（不受原版 16×22.5° 限制）：放置后模型持续旋转，用扳手/刷子打开角度界面绑定，或直接用轨道连接器连到另一个节点自动求解方向；未绑定的两端相连为直线，一端未绑定时按最大半径圆弧切向平滑衔接",
   "block.fangsu.collision_compensation_block.desc": "隐形辅助方块。放置在物件方块附近即可把它们的碰撞箱投影到自身位置并修正点击交互，用于修复自定义模型与碰撞箱不匹配的问题。手持本方块或刷子时可见",
   "item.fangsu.single_journey_ticket.desc": "从售票机购得的单程票。手持单程票在闸机正面右键刷卡入闸，出闸时按区间扣费并消耗",
@@ -477,6 +477,12 @@
   "rail.fangsu.fsrail.ex_brbar_mr": "[附属] 桥梁§l (地铁护栏, 镜像)",
   "ui.fangsu.nte_rail.title": "NTE 轨道模型组合",
   "ui.fangsu.nte_rail.primary": "主轨道（单选）",
-  "ui.fangsu.nte_rail.accessories": "附属模型（可多选，点击切换）"
+  "ui.fangsu.nte_rail.accessories": "附属模型（可多选，点击切换）",
+  "ui.fangsu.rotating_rail.mode.bend": "弯曲",
+  "ui.fangsu.rotating_rail.mode.translate": "平移",
+  "ui.fangsu.rotating_rail.mode.rotate": "旋转",
+  "ui.fangsu.rotating_rail.recalculate": "从标记轨道重新计算",
+  "ui.fangsu.rotating_rail.invalid_markers": "需要 2 红 1 蓝（弯曲/平移）或 4 红（旋转）节点",
+  "ui.fangsu.rotating_rail.invalid_rotation": "旋转需要两条等长且中心重合的直轨"
 }
 

@@ -17,6 +17,7 @@ import org.jetbrains.annotations.NotNull;
 
 /** 保留异步模型提交，额外按 MTR4 装饰方块方式绘制朝向视角的定位图标。 */
 public class TurnoutBlockEntityRenderer extends BaseBlockEntityRender<BaseObjBlockEntity> {
+    private static final ResourceLocation ROTATING_ICON=new ResourceLocation("fangsu","textures/item/rotating_rail.png");
     private static final ResourceLocation ICON=new ResourceLocation("fangsu","textures/item/turnout.png");
     public TurnoutBlockEntityRenderer(BlockEntityRenderDispatcher dispatcher){super(dispatcher);}
 
@@ -26,7 +27,7 @@ public class TurnoutBlockEntityRenderer extends BaseBlockEntityRender<BaseObjBlo
         if(!(entity instanceof BlockEntityTurnout)||minecraft.screen!=null||!BlockTurnout.isHoldingTool(minecraft.player))return;
         matrices.pushPose();matrices.translate(0.5D,0.5D,0.5D);
         matrices.mulPose(minecraft.gameRenderer.getMainCamera().rotation());
-        VertexConsumer out=buffers.getBuffer(RenderType.entityCutoutNoCull(ICON));PoseStack.Pose pose=matrices.last();
+        VertexConsumer out=buffers.getBuffer(RenderType.entityCutoutNoCull(entity instanceof com.fangsu.blockEntities.BlockEntityRotatingRail?ROTATING_ICON:ICON));PoseStack.Pose pose=matrices.last();
         iconVertex(out,pose,-0.5F,-0.5F,0,1);iconVertex(out,pose,0.5F,-0.5F,1,1);
         iconVertex(out,pose,0.5F,0.5F,1,0);iconVertex(out,pose,-0.5F,0.5F,0,0);
         matrices.popPose();

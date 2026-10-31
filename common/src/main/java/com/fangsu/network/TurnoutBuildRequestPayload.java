@@ -38,7 +38,7 @@ public final class TurnoutBuildRequestPayload {
             //#endif
             if(!level.hasChunkAt(pos)||player.distanceToSqr(pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5)>64||!(level.getBlockEntity(pos) instanceof BlockEntityTurnout entity))return;
             if(unbind){entity.clearBinding();TurnoutBindingPayload.sendSuccess(player,pos,null);return;}
-            TurnoutTopology.validateServer(level,pos,markers,model,hints,result->{
+            java.util.function.Consumer<TurnoutValidation> commit=result->{
                 //#if MC_VERSION >= 12000
                 if(player.level()!=level)return;
                 //#else
@@ -47,7 +47,9 @@ public final class TurnoutBuildRequestPayload {
                 if(!player.isAlive()||player.distanceToSqr(pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5)>64||level.getBlockEntity(pos)!=entity||entity.isRemoved()||!level.mayInteract(player,pos))return;
                 if(result.isSupported()){entity.setBinding(result.binding());entity.refreshPowered();TurnoutBindingPayload.sendSuccess(player,pos,result.binding());}
                 else TurnoutBindingPayload.sendFailure(player,pos,result.reasonKey(),"");
-            });
+            };
+            if(entity instanceof com.fangsu.blockEntities.BlockEntityRotatingRail)RotatingRailTopology.validateServer(level,pos,markers,model,hints,commit);
+            else TurnoutTopology.validateServer(level,pos,markers,model,hints,commit);
         });
     }
 }

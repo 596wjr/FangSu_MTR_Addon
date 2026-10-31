@@ -47,7 +47,9 @@ public class BlockEntityTurnout extends BaseObjBlockEntity {
     private int soundedSignal;
     private record UploadedBlade(DynamicModelHolder holder,TurnoutMesh.BladePart part) { }
     private record GeometryKey(TurnoutBinding binding,String model) { }
-    public BlockEntityTurnout(BlockPos pos,BlockState state){super(ModBlocks.BLOCK_ENTITY_TURNOUT.get(),pos,state);}
+    public BlockEntityTurnout(BlockPos pos,BlockState state){this(ModBlocks.BLOCK_ENTITY_TURNOUT.get(),pos,state);}
+    protected BlockEntityTurnout(net.minecraft.world.level.block.entity.BlockEntityType<?> type,BlockPos pos,BlockState state){super(type,pos,state);}
+    protected int getPreviousSignal(){return previousSignal;}
 
     @Override public void saveAdditional(CompoundTag tag){super.saveAdditional(tag);if(binding!=null)tag.put("turnout_binding",binding.toTag());tag.putString("turnout_rail_model",getRailModelId());tag.putInt("turnout_signal",signal);tag.putInt("turnout_previous_signal",previousSignal);tag.putBoolean("turnout_powered",signal>0);tag.putLong("turnout_switch_time",switchChangedAt);}
     @Override public synchronized void load(CompoundTag tag) {

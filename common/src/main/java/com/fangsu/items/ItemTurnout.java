@@ -29,7 +29,7 @@ public class ItemTurnout extends BlockItem {
         BlockPlaceContext placement=new BlockPlaceContext(context);
         if(!placement.canPlace())return InteractionResult.FAIL;
         var markers=NodeMarkerStore.getInstance().snapshot();
-        TurnoutValidation check=TurnoutTopology.validateClient(context.getLevel(),placement.getClickedPos(),markers,null);
+        TurnoutValidation check=getBlock() instanceof com.fangsu.blocks.BlockRotatingRail?com.fangsu.turnout.RotatingRailTopology.validateClient(context.getLevel(),placement.getClickedPos(),markers,null):TurnoutTopology.validateClient(context.getLevel(),placement.getClickedPos(),markers,null);
         if(!check.isSupported()){context.getPlayer().displayClientMessage(ComponentHelper.translatable(check.reasonKey()),true);return InteractionResult.FAIL;}
         TurnoutPlacementPayload.send(context,placement.getClickedPos(),markers,check.binding());
         return InteractionResult.SUCCESS;
@@ -42,5 +42,5 @@ public class ItemTurnout extends BlockItem {
         try{return super.place(context);}finally{AUTHORIZED.remove();}
     }
     @Nullable public static TurnoutBinding placementBinding(){return AUTHORIZED.get();}
-    @Override public void appendHoverText(ItemStack stack,@Nullable Level level,List<Component> tooltip,TooltipFlag flag){super.appendHoverText(stack,level,tooltip,flag);RegisterUtil.addDescTooltip(tooltip,"block.fangsu.turnout.desc");}
+    @Override public void appendHoverText(ItemStack stack,@Nullable Level level,List<Component> tooltip,TooltipFlag flag){super.appendHoverText(stack,level,tooltip,flag);RegisterUtil.addDescTooltip(tooltip,getBlock() instanceof com.fangsu.blocks.BlockRotatingRail?"block.fangsu.rotating_rail.desc":"block.fangsu.turnout.desc");}
 }

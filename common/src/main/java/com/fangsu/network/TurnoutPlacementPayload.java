@@ -50,7 +50,8 @@ public final class TurnoutPlacementPayload {
             BlockHitResult target=new BlockHitResult(hit,face,clicked,inside);
             BlockPlaceContext placement=new BlockPlaceContext(new UseOnContext(player,hand,target));BlockPos pos=placement.getClickedPos();
             if(!placement.canPlace()||!level.mayInteract(player,pos)){reject(player,pos);return;}
-            TurnoutTopology.validateServer(level,pos,markers,BlockEntityTurnout.DEFAULT_RAIL_MODEL,hints,result->{
+            boolean rotating=((ItemTurnout)player.getItemInHand(hand).getItem()).getBlock() instanceof com.fangsu.blocks.BlockRotatingRail;
+            java.util.function.Consumer<TurnoutValidation> commit=result->{
                 // TSC 回包期间玩家可能换手、离开或切换维度，提交前再检查一次。
                 //#if MC_VERSION >= 12000
                 boolean sameWorld=player.level()==level;
@@ -59,12 +60,14 @@ public final class TurnoutPlacementPayload {
                 //#endif
                 if(!sameWorld||!player.isAlive()||player.distanceToSqr(pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5)>64)return;
                 if(!result.isSupported()){TurnoutBindingPayload.sendFailure(player,pos,result.reasonKey(),"");return;}
-                if(!(player.getItemInHand(hand).getItem() instanceof ItemTurnout item)){reject(player,pos);return;}
+                if(!(player.getItemInHand(hand).getItem() instanceof ItemTurnout item)||(item.getBlock() instanceof com.fangsu.blocks.BlockRotatingRail)!=rotating){reject(player,pos);return;}
                 BlockPlaceContext current=new BlockPlaceContext(new UseOnContext(player,hand,target));
                 if(!current.getClickedPos().equals(pos)||!current.canPlace()||!level.mayInteract(player,pos)){reject(player,pos);return;}
                 if(!item.placeValidated(current,result.binding()).consumesAction()){reject(player,pos);return;}
                 if(level.getBlockEntity(pos) instanceof BlockEntityTurnout entity){if(!entity.hasBinding())entity.setBinding(result.binding());entity.refreshPowered();TurnoutBindingPayload.sendSuccess(player,pos,result.binding());}
-            });
+            };
+            if(rotating)RotatingRailTopology.validateServer(level,pos,markers,null,hints,commit);
+            else TurnoutTopology.validateServer(level,pos,markers,BlockEntityTurnout.DEFAULT_RAIL_MODEL,hints,commit);
         });
     }
     private static void reject(ServerPlayer player,BlockPos pos){TurnoutBindingPayload.sendFailure(player,pos,TurnoutValidation.HINT_CANNOT_PLACE,"");}
