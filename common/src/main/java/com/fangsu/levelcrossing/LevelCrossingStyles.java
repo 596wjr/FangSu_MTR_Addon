@@ -174,8 +174,14 @@ public enum LevelCrossingStyles {
         try {
             net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
             if (mc != null && mc.getResourceManager() != null && mc.isSameThread()) {
+                // 1.18.2 的 getResource 返回可空的 Resource，1.19+ 才返回 Optional<Resource>
+                // （与 utils/ResourceUtil.hasResources 同一条版本分界）。
+                //#if MC_VERSION >= 11900
                 return mc.getResourceManager()
                         .getResource(new ResourceLocation("fangsu", resPath)).isPresent();
+                //#else
+                //$$ return mc.getResourceManager().getResource(new ResourceLocation("fangsu", resPath)) != null;
+                //#endif
             }
         } catch (Throwable ignored) {
             // 非主线程 / 服务端 / 类缺失：走下面的类路径探测
