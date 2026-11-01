@@ -630,8 +630,7 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
     private void dumpCell(RawModel model, CellSnapshot snap, int verts, int faces) {
         try {
             BlockPos pos = getBlockPos();
-            java.nio.file.Path dir = net.minecraft.client.Minecraft.getInstance()
-                    .gameDirectory.toPath().resolve(LevelCrossingDump.DIR_NAME);
+            java.nio.file.Path dir = ClientAccess.dumpDirectory();
             String name = LevelCrossingDump.cellName(pos.getX(), pos.getY(), pos.getZ());
             LevelCrossingDump.write(dir, name, model, snap, neighbourCrossings());
             String railIds = snap == null || snap.tracks == null ? "-" : snap.tracks.stream()
@@ -849,7 +848,7 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
     public static void initBuildQueue() {
         if (buildQueueInstalled) return;
         buildQueueInstalled = true;
-        dev.architectury.event.events.client.ClientTickEvent.CLIENT_POST.register(client -> tickHooks());
+        ClientAccess.registerTickHook();
         Main.LOGGER.info("[levelcrossing] worker thread installed (fangsu-levelcrossing-worker)");
     }
 
@@ -863,7 +862,7 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
      */
     private static void tickHooks() {
         // 配额必须在消费队列前重置，否则达到上限后永远进不了 canSubmitNow。
-        net.minecraft.world.level.Level level = net.minecraft.client.Minecraft.getInstance().level;
+        net.minecraft.world.level.Level level = ClientAccess.getLevel();
         long tick = level == null ? Long.MIN_VALUE : level.getGameTime();
         if (submitBudgetTick != tick) {
             submitsThisTick = 0;
@@ -940,10 +939,9 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
     public static void submit(@Nullable BlockEntityLevelCrossing be, boolean sample, boolean priority) {
         if (be == null || be.isRemoved()) return;
         if (be.getLevel() == null || !be.getLevel().isClientSide) return;
-        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-        if (!mc.isSameThread()) {
+        if (!ClientAccess.isSameThread()) {
             final boolean requestedSample = sample;
-            mc.execute(() -> submit(be, requestedSample, priority));
+            ClientAccess.execute(() -> submit(be, requestedSample, priority));
             return;
         }
         if (sample) be.taskRevision++;
@@ -1136,7 +1134,7 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
                         be.getBlockPos(), elapsedMs, model == null ? 0 : model.getVertexCount());
             }
             // 切回主线程：只做必须主线程的几件事
-            net.minecraft.client.Minecraft.getInstance().execute(
+            ClientAccess.execute(
                     () -> {
                         if (revision == be.taskRevision) {
                             be.applyComputedResult(finalSnap, finalModel, finalSample);
@@ -1146,7 +1144,7 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
                         }
                     });
         } finally {
-            net.minecraft.client.Minecraft.getInstance().execute(() -> {
+            ClientAccess.execute(() -> {
                 be.pendingTask = false;
                 if (be.rerunRequested || be.pendingSample) {
                     boolean rerunSample = be.pendingSample;
@@ -1475,6 +1473,36 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
             return "slice:lateral";
         }
         return null;
+    }
+
+    /**
+     * 客户端 API 延迟到此类加载时再解析，公共方块实体注册时不会加载它。
+     * Minecraft.level 的实际类型是 ClientLevel；即使接收变量写成 Level，
+     * JVM 校验外部类时仍可能解析 ClientLevel，导致专用服务端在构造器引用处崩溃。
+     * tick 事件的 lambda 参数也含 Minecraft 类型，必须一并隔离。
+     * 此类只允许从客户端入口或已确认 level.isClientSide 的路径调用。
+     */
+    private static final class ClientAccess {
+        private static net.minecraft.world.level.Level getLevel() {
+            return net.minecraft.client.Minecraft.getInstance().level;
+        }
+
+        private static boolean isSameThread() {
+            return net.minecraft.client.Minecraft.getInstance().isSameThread();
+        }
+
+        private static void execute(Runnable task) {
+            net.minecraft.client.Minecraft.getInstance().execute(task);
+        }
+
+        private static java.nio.file.Path dumpDirectory() {
+            return net.minecraft.client.Minecraft.getInstance()
+                    .gameDirectory.toPath().resolve(LevelCrossingDump.DIR_NAME);
+        }
+
+        private static void registerTickHook() {
+            dev.architectury.event.events.client.ClientTickEvent.CLIENT_POST.register(client -> tickHooks());
+        }
     }
 
     private static boolean isFinite(double value) {
