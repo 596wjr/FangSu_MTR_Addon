@@ -511,5 +511,6 @@
   "ui.fangsu.level_crossing.deckTexture": "铺面贴图（留空使用样式）",
   "ui.fangsu.level_crossing.groundTexture": "地面贴图（留空使用默认）",
   "ui.fangsu.level_crossing.railTopTexture": "钢轨顶面贴图（留空使用默认）",
-  "ui.fangsu.level_crossing.railSideTexture": "钢轨侧面贴图（留空使用默认）"
+  "ui.fangsu.level_crossing.railSideTexture": "钢轨侧面贴图（留空使用默认）",
+  "ui.fangsu.nte_rail.hidden": "隐藏轨道模型"
 }

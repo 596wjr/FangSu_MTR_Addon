@@ -2,10 +2,9 @@ package com.fangsu.mixin;
 
 import com.fangsu.mtr.rail.NteRailTiltHelper;
 import mtr.data.Rail;
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Pseudo;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 
@@ -16,11 +15,11 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
  * NTE 0.5.2 在实例方法 {@code lambda$new$1} 中添加矩阵，ANTE 1.1.0
  * 将循环内联进构造器；两个可选钩子分别保留，矩阵类型用 Object 避免依赖 NTE。
  * <p>
- * issue #96：不能在构造器 HEAD 用静态 @Inject 建立上下文，Forge Mixin 0.8.5
- * 要求处理器与构造器静态性一致，而新版 Mixin 又要求 super() 前的处理器为静态。
- * 因此只在 add 前读取已经初始化的 rail 字段，旋转期间建立上下文，finally 清理；
- * 两个 @ModifyArg 都是实例处理器，且注入位置均在 super() 和 rail 赋值之后。
- * require = 0 只允许对应版本不存在该注入点，不能兜住静态性错误。
+ * issue #96/#98：Forge 0.8.5 与新版 Mixin 对构造器 HEAD 的静态性要求不同，
+ * 且正式发布的 NTE/ANTE BakedRail 不保证存在 rail 字段，不能 @Shadow 该字段。
+ * 在 super() 之后的 getModelKeyForRender(Rail) 调用前记录其参数，原样返回，
+ * 只写入方速自己的 @Unique 字段；截面旋转期间建立上下文，finally 清理。
+ * 三个调用目标分别覆盖未合包、Fabric、Forge 包名，缺失时允许跳过。
  */
 @Pseudo
 @Mixin(targets = {
@@ -30,9 +29,33 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 }, remap = false)
 public abstract class NteBakedRailMixin {
 
-    @Shadow(remap = false)
-    @Final
-    public Rail rail;
+    /** 不依赖外部类的字段布局；不设置初始化器，避免构造器注入顺序影响。 */
+    @Unique
+    private Rail fangsu$bakingRail;
+
+    @ModifyArg(method = "<init>", at = @At(value = "INVOKE",
+            target = "Lcn/zbx1425/mtrsteamloco/render/rail/RailRenderDispatcher;getModelKeyForRender(Lmtr/data/Rail;)Ljava/lang/String;"),
+            index = 0, require = 0, remap = false)
+    private Rail fangsu$captureRail(Rail rail) {
+        fangsu$bakingRail = rail;
+        return rail;
+    }
+
+    @ModifyArg(method = "<init>", at = @At(value = "INVOKE",
+            target = "Lfabric/cn/zbx1425/mtrsteamloco/render/rail/RailRenderDispatcher;getModelKeyForRender(Lmtr/data/Rail;)Ljava/lang/String;"),
+            index = 0, require = 0, remap = false)
+    private Rail fangsu$captureFabricRail(Rail rail) {
+        fangsu$bakingRail = rail;
+        return rail;
+    }
+
+    @ModifyArg(method = "<init>", at = @At(value = "INVOKE",
+            target = "Lforge/cn/zbx1425/mtrsteamloco/render/rail/RailRenderDispatcher;getModelKeyForRender(Lmtr/data/Rail;)Ljava/lang/String;"),
+            index = 0, require = 0, remap = false)
+    private Rail fangsu$captureForgeRail(Rail rail) {
+        fangsu$bakingRail = rail;
+        return rail;
+    }
 
     /** NTE 0.5.2：截面循环位于构造器的实例 lambda 中。 */
     @ModifyArg(
@@ -47,7 +70,7 @@ public abstract class NteBakedRailMixin {
             remap = true
     )
     private Object fangsu$tiltNteBakedSection(Object bakedSectionMatrix) {
-        NteRailTiltHelper.beginBake(rail);
+        NteRailTiltHelper.beginBake(fangsu$bakingRail);
         try {
             return NteRailTiltHelper.tiltBakedSection(bakedSectionMatrix);
         } finally {
@@ -55,7 +78,7 @@ public abstract class NteBakedRailMixin {
         }
     }
 
-    /** ANTE 1.1.0：截面循环内联进构造器，rail 已经赋值。 */
+    /** ANTE 1.1.0：截面循环内联进构造器，模型键查询时已捕获轨道。 */
     @ModifyArg(
             method = NteRailTiltHelper.BAKED_RAIL_SECTION_INLINE,
             at = @At(
@@ -68,7 +91,7 @@ public abstract class NteBakedRailMixin {
             remap = true
     )
     private Object fangsu$tiltNteBakedSectionInline(Object bakedSectionMatrix) {
-        NteRailTiltHelper.beginBake(rail);
+        NteRailTiltHelper.beginBake(fangsu$bakingRail);
         try {
             return NteRailTiltHelper.tiltBakedSectionInline(bakedSectionMatrix);
         } finally {

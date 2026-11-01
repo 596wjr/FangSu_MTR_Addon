@@ -459,6 +459,11 @@ public final class NteRailTiltHelper {
 
     /** 截面旋转前记录当前轨道；调用方必须在 finally 中调用 endBake。 */
     public static void beginBake(Rail rail) {
+        // 参数捕获钩子缺失时不把入口标记为成功，让看门狗仍能报告降级。
+        if (rail == null) {
+            BAKING_RAIL.remove();
+            return;
+        }
         bakeHookAlive = true;
         BAKING_RAIL.set(rail);
     }
