@@ -507,5 +507,9 @@
   "ui.fangsu.collision.step": "物件步长",
   "ui.fangsu.collision.inherit": "跟随模组设置",
   "ui.fangsu.collision.rebuild": "立即重算碰撞",
-  "ui.fangsu.collision.hint": "自动模式在停止调整后重算；手动模式需点击重算。"
+  "ui.fangsu.collision.hint": "自动模式在停止调整后重算；手动模式需点击重算。",
+  "ui.fangsu.level_crossing.deckTexture": "铺面贴图（留空使用样式）",
+  "ui.fangsu.level_crossing.groundTexture": "地面贴图（留空使用默认）",
+  "ui.fangsu.level_crossing.railTopTexture": "钢轨顶面贴图（留空使用默认）",
+  "ui.fangsu.level_crossing.railSideTexture": "钢轨侧面贴图（留空使用默认）"
 }

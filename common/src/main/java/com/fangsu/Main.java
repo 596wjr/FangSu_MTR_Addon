@@ -51,6 +51,7 @@ public final class Main {
         ModEvents.init();
         // 节点标记右键交互（MTR 节点方块会吞掉右键并返回 FAIL，必须走交互事件）
         NodeMarkerInteractions.init();
+        com.fangsu.levelcrossing.LevelCrossingInteractions.init();
     }
 
     /**

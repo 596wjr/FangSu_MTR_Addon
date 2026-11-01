@@ -9,6 +9,7 @@ import com.fangsu.extraConfig.ConfigSpec;
 import com.fangsu.extraConfig.EnumConfig;
 import com.fangsu.extraConfig.NumberInputConfig;
 import com.fangsu.extraConfig.RunnableConfig;
+import com.fangsu.extraConfig.ResourceConfig;
 import com.fangsu.levelcrossing.CellSnapshot;
 import com.fangsu.levelcrossing.CrossingSettings;
 import com.fangsu.levelcrossing.LevelCrossingDump;
@@ -51,6 +52,17 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
 
     // extraConfig 键集中在这里，避免 UI、采样、存盘各处手写字符串写歪
     public static final String KEY_STYLE = "styleId";
+    public static final String KEY_DECK_TEXTURE = "deckTexture";
+    public static final String KEY_GROUND_TEXTURE = "groundTexture";
+    public static final String KEY_RAIL_TOP_TEXTURE = "railTopTexture";
+    public static final String KEY_RAIL_SIDE_TEXTURE = "railSideTexture";
+    private static final String[] TEXTURE_KEYS = {
+            KEY_DECK_TEXTURE, KEY_GROUND_TEXTURE, KEY_RAIL_TOP_TEXTURE, KEY_RAIL_SIDE_TEXTURE};
+    // 主线程维护任务版本，旧任务不能覆盖之后的刷新/配置。
+    private int taskRevision;
+    private boolean rerunRequested;
+    private RawModel cachedGeometry;
+
     public static final String KEY_OUTER_EXTEND = "outerExtend";
     public static final String KEY_STEP_COUNT = "stepCount";
     public static final String KEY_BEVEL_WIDTH = "bevelWidth";
@@ -293,6 +305,7 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
 
     private void ensureDefaults() {
         ensureExtraConfig(KEY_STYLE, LevelCrossingStyles.ASPHALT.id());
+        for (String key : TEXTURE_KEYS) ensureExtraConfig(key, "");
         ensureExtraConfig(KEY_OUTER_EXTEND, "0");
         ensureExtraConfig(KEY_STEP_COUNT, "8");
         ensureExtraConfig(KEY_BEVEL_WIDTH, "1.0");
@@ -339,8 +352,19 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
 
     @Override
     public void load(@NotNull CompoundTag tag) {
+        CellSnapshot previous = snapshot;
+        Map<String, String> previousConfig = geometryConfig();
         super.load(tag);
+        ensureDefaults();
         snapshot = tag.contains(NBT_SNAPSHOT) ? CellSnapshot.fromTag(tag.getCompound(NBT_SNAPSHOT)) : null;
+        // C2S 回环或只改贴图时保留几何与碰撞，避免再做一次相同的布尔运算。
+        if (previous != null && snapshot != null && previous.toTag().equals(snapshot.toTag())
+                && previousConfig.equals(geometryConfig())) {
+            refreshTextures();
+            return;
+        }
+        taskRevision++;
+        cachedGeometry = null;
         meshDirty = true;
         // 服务端永远不会自己采样（没有轨道数据），碰撞箱只能靠存盘快照重建；
         // 快照缺失/过期时保持整格，宁可挡路也不要让玩家掉进方块。
@@ -380,10 +404,23 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
                         extra.getOrDefault(KEY_STYLE, LevelCrossingStyles.ASPHALT.id()))),
                 idx -> {
                     extra.put(KEY_STYLE, styleValues.get(idx));
-                    invalidateMesh();
+                    refreshTextures();
                     sendUpdateC2S();
                 }
         ).setSaveOnChange(true));
+
+        for (String key : TEXTURE_KEYS) {
+            configs.add(new ResourceConfig(
+                    ComponentHelper.translatable("ui.fangsu.level_crossing." + key),
+                    new ConfigSpec("resource"),
+                    () -> getExtraConfig(key, ""),
+                    value -> {
+                        extra.put(key, value.trim());
+                        refreshTextures();
+                        sendUpdateC2S();
+                    }, List.of(".png")
+            ).setSaveOnChange(true));
+        }
 
         configs.add(new NumberInputConfig(
                 ComponentHelper.translatable("ui.fangsu.level_crossing.outer_extend"),
@@ -518,7 +555,7 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
             // 而 recompute() 会 markShapeDirty()/sendBlockUpdated() 与 sendUpdateC2S()（网络），
             // 这些必须在主线程。所以排队到主线程，并且只排一次（initialComputeScheduled）。
             // 兜底：把「采样 + 构网」提交到工作线程（提交速率受限，主线程零计算）
-            if (!initialComputeScheduled && level != null && level.isClientSide && canSubmitNow(level)) {
+            if (!initialComputeScheduled && level != null && level.isClientSide) {
                 initialComputeScheduled = true;
                 submit(this, true);
             }
@@ -650,7 +687,8 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
         if (meshHolder == null) {
             meshHolder = new DynamicModelHolder();
         }
-        meshHolder.uploadLater(model);
+        cachedGeometry = model;
+        meshHolder.uploadLater(texturedModel(model));
         meshDirty = false;
         // 记下「这份几何对应哪个快照版本」：同一版本不再重复构建
         builtVersion = snapshotVersion;
@@ -824,6 +862,13 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
      * 每 tick 一次：把上一 tick 因配额被推迟的提交补上（每 tick 最多 2 个，<b>优先队列先</b>）。
      */
     private static void tickHooks() {
+        // 配额必须在消费队列前重置，否则达到上限后永远进不了 canSubmitNow。
+        net.minecraft.world.level.Level level = net.minecraft.client.Minecraft.getInstance().level;
+        long tick = level == null ? Long.MIN_VALUE : level.getGameTime();
+        if (submitBudgetTick != tick) {
+            submitsThisTick = 0;
+            submitBudgetTick = tick;
+        }
         drainSubmitQueue(PRIORITY_SUBMITS);
         drainSubmitQueue(PENDING_SUBMITS);
         // 每 200 tick 汇总一次「有快照但没建出网格」的方块数（替代每个方块一条 warn）
@@ -895,8 +940,25 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
     public static void submit(@Nullable BlockEntityLevelCrossing be, boolean sample, boolean priority) {
         if (be == null || be.isRemoved()) return;
         if (be.getLevel() == null || !be.getLevel().isClientSide) return;
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        if (!mc.isSameThread()) {
+            final boolean requestedSample = sample;
+            mc.execute(() -> submit(be, requestedSample, priority));
+            return;
+        }
+        if (sample) be.taskRevision++;
         if (be.pendingTask) {
-            if (sample) be.pendingSample = true;
+            if (sample) {
+                be.pendingSample |= sample;
+                be.rerunRequested = true;
+            }
+            return;
+        }
+        // 已排队的采样不能被渲染提交的普通构建覆盖。
+        sample |= be.pendingSample;
+        if (be.submitQueued) {
+            be.pendingSample |= sample;
+            if (priority && PENDING_SUBMITS.remove(be)) PRIORITY_SUBMITS.addLast(be);
             return;
         }
         // <b>去重</b>：只要不重新采样且「网格已对应当前快照版本、也没被标脏」，就没什么可做的。
@@ -930,6 +992,7 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
             }
             return;
         }
+        be.pendingSample = false;
         startTask(be, sample);
     }
 
@@ -939,10 +1002,13 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
     private static void startTask(BlockEntityLevelCrossing be, boolean sample) {
         be.refreshNeighbourCache();
         be.pendingSettings = CrossingSettings.from(be);
-        be.pendingSample = sample;
+        be.pendingSample = false;
         be.pendingTask = true;
         try {
-            LC_EXECUTOR.submit(() -> work(be));
+            int revision = be.taskRevision;
+            CrossingSettings settings = be.pendingSettings;
+            CellSnapshot snapshot = be.snapshot;
+            LC_EXECUTOR.submit(() -> work(be, revision, sample, settings, snapshot));
         } catch (java.util.concurrent.RejectedExecutionException e) {
             be.pendingTask = false;
             Main.LOGGER.warn("[levelcrossing] worker rejected pos={}", be.getBlockPos());
@@ -960,7 +1026,7 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
      * 兼容旧调用点：重算（采样 + 构网）。
      */
     public static void requestRecompute(@Nullable BlockEntityLevelCrossing be) {
-        submit(be, true);
+        submit(be, true, true);
     }
 
     /**
@@ -971,123 +1037,124 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
      * 邻居状态用主线程刷新好的 {@link #pendingSettings}，采样器的「NTE 模型高度」分支已改为
      * 非主线程直接退回默认高度（见 {@code LevelCrossingSampler#modelTop} 注释）。
      */
-    private static void work(BlockEntityLevelCrossing be) {
+    private static void work(BlockEntityLevelCrossing be, int revision, boolean sample,
+                             CrossingSettings settings, @Nullable CellSnapshot snap) {
         try {
-            while (true) {
-                long taskStartedAt = System.nanoTime();
-                boolean sample;
-                CrossingSettings settings;
-                synchronized (be) {
-                    if (!be.pendingTask) return;
-                    sample = be.pendingSample;
-                    be.pendingTask = false;
-                    be.pendingSample = false;
-                    settings = be.pendingSettings;
+            long taskStartedAt = System.nanoTime();
+            if (be.isRemoved()) return;
+            net.minecraft.world.level.Level level = be.getLevel();
+            if (level == null) return;
+            sample |= snap == null;
+            // 分段计时用：采样前的槽铣切累计耗时（构网阶段才知道 cuts 占多少）
+            long cutsNanosBefore = GroovedRailProfile.auditSlotCutNanos();
+            long subtractCallsBefore = GroovedRailProfile.auditSubtractCalls();
+            if (sample || snap == null) {
+                try {
+                    snap = LevelCrossingSampler.snapshot(level, be.getBlockPos(), settings);
+                } catch (RuntimeException e) {
+                    Main.LOGGER.warn("[levelcrossing] worker sample failed pos={} error={}",
+                            be.getBlockPos(), e.getClass().getSimpleName(), e);
+                    return;
                 }
-                if (be.isRemoved()) return;
-                net.minecraft.world.level.Level level = be.getLevel();
-                if (level == null) return;
-                if (settings == null) settings = CrossingSettings.from(be);
-                CellSnapshot snap = be.snapshot;
-                // 分段计时用：采样前的槽铣切累计耗时（构网阶段才知道 cuts 占多少）
-                long cutsNanosBefore = GroovedRailProfile.auditSlotCutNanos();
-                long subtractCallsBefore = GroovedRailProfile.auditSubtractCalls();
-                if (sample || snap == null) {
-                    try {
-                        snap = LevelCrossingSampler.snapshot(level, be.getBlockPos(), settings);
-                    } catch (RuntimeException e) {
-                        Main.LOGGER.warn("[levelcrossing] worker sample failed pos={} error={}",
-                                be.getBlockPos(), e.getClass().getSimpleName(), e);
-                        continue;
-                    }
-                    if (snap == null || invalidReason(snap) != null) {
-                        Main.LOGGER.warn("[levelcrossing] worker snapshot rejected pos={} reason={}",
-                                be.getBlockPos(), snap == null ? "null" : invalidReason(snap));
-                        continue;
+                if (snap == null || invalidReason(snap) != null) {
+                    Main.LOGGER.warn("[levelcrossing] worker snapshot rejected pos={} reason={}",
+                            be.getBlockPos(), snap == null ? "null" : invalidReason(snap));
+                    return;
+                }
+            }
+            long sampleDoneAt = System.nanoTime();
+            RawModel model = null;
+            if (snap != null) {
+                try {
+                    // degradeLevel 只在「上一次 build 超预算」之后才为 1：同一次里绝不建两遍
+                    // 钢轨两个桶各自一张图：水平面 = rail_top（完整 0→1），竖直面 = rail_side（随机窗口）
+                    model = CrossingMeshBuilder.build(snap, settings,
+                            LevelCrossingStyles.ASPHALT.topTexture(),
+                            LevelCrossingStyles.RAIL_TOP_TEXTURE,
+                            LevelCrossingStyles.RAIL_SIDE_TEXTURE,
+                            LevelCrossingStyles.GROUND_TEXTURE,
+                            be.degradeLevel,
+                            be.getBlockPos().asLong());
+                } catch (RuntimeException e) {
+                    Main.LOGGER.warn("[levelcrossing] worker build failed pos={} error={}",
+                            be.getBlockPos(), e.getClass().getSimpleName(), e);
+                }
+            }
+            long buildDoneAt = System.nanoTime();
+            // ---- 对齐数值（定标唯一依据，每方块只打一次 info）----
+            // railTopWorld = 采样到的原版轨顶世界 Y（未加 bias）；steelTopWorld = 我们的钢轨顶面世界 Y；
+            // dy = 两者之差（应等于 railTopBias）；latCenterDist = 断面相对原版中心线的横向偏移；
+            // deckWorld = 沥青面世界 Y。用户在直线段放一块、把这行发来就能精确知道差多少、往哪边调。
+            if (model != null && snap != null && !be.alignLogged) {
+                be.alignLogged = true;
+                TrackSlice mainSlice = null;
+                if (snap.tracks != null) {
+                    for (TrackSlice s : snap.tracks) {
+                        if (s == null) continue;
+                        if (mainSlice == null || s.primary) mainSlice = s;
+                        if (s.primary) break;
                     }
                 }
-                long sampleDoneAt = System.nanoTime();
-                RawModel model = null;
-                if (snap != null) {
-                    try {
-                        // degradeLevel 只在「上一次 build 超预算」之后才为 1：同一次里绝不建两遍
-                        // 钢轨两个桶各自一张图：水平面 = rail_top（完整 0→1），竖直面 = rail_side（随机窗口）
-                        model = CrossingMeshBuilder.build(snap, settings,
-                                LevelCrossingStyles.byId(settings.styleId).topTexture(),
-                                LevelCrossingStyles.railTopTexture(),
-                                LevelCrossingStyles.railSideTexture(),
-                                LevelCrossingStyles.GROUND_TEXTURE,
-                                be.degradeLevel,
-                                be.getBlockPos().asLong());
-                    } catch (RuntimeException e) {
-                        Main.LOGGER.warn("[levelcrossing] worker build failed pos={} error={}",
-                                be.getBlockPos(), e.getClass().getSimpleName(), e);
-                    }
+                if (mainSlice != null) {
+                    int blockY = be.getBlockPos().getY();
+                    double railTopWorld = blockY + mainSlice.railTopY;
+                    double steelTopWorld = railTopWorld + snap.railTopBias;
+                    Main.LOGGER.info("[levelcrossing] align pos={} railId={} railTopWorld={} steelTopWorld={}"
+                                    + " dy={} latCenterDist={} deckWorld={}",
+                            be.getBlockPos(), mainSlice.railId,
+                            String.format(java.util.Locale.ROOT, "%.6f", railTopWorld),
+                            String.format(java.util.Locale.ROOT, "%.6f", steelTopWorld),
+                            String.format(java.util.Locale.ROOT, "%.6f", steelTopWorld - railTopWorld),
+                            String.format(java.util.Locale.ROOT, "%.6f", Math.abs(mainSlice.lateralOffset)),
+                            String.format(java.util.Locale.ROOT, "%.6f", blockY + snap.deckTopY));
                 }
-                long buildDoneAt = System.nanoTime();
-                // ---- 对齐数值（定标唯一依据，每方块只打一次 info）----
-                // railTopWorld = 采样到的原版轨顶世界 Y（未加 bias）；steelTopWorld = 我们的钢轨顶面世界 Y；
-                // dy = 两者之差（应等于 railTopBias）；latCenterDist = 断面相对原版中心线的横向偏移；
-                // deckWorld = 沥青面世界 Y。用户在直线段放一块、把这行发来就能精确知道差多少、往哪边调。
-                if (model != null && snap != null && !be.alignLogged) {
-                    be.alignLogged = true;
-                    TrackSlice mainSlice = null;
-                    if (snap.tracks != null) {
-                        for (TrackSlice s : snap.tracks) {
-                            if (s == null) continue;
-                            if (mainSlice == null || s.primary) mainSlice = s;
-                            if (s.primary) break;
+            }
+            final CellSnapshot finalSnap = snap;
+            final RawModel finalModel = model;
+            final boolean finalSample = sample;
+            // ---- 分段计时（热点定位）----
+            // total / sample / cuts / build 四段：cuts = 槽铣切（slotCuts + 补集裁片）累计耗时，
+            // build = 构网总耗时，sample = 采样。任务总耗时 > 100ms 才打，避免刷屏。
+            long totalMs = (buildDoneAt - taskStartedAt) / 1_000_000L;
+            if (totalMs > 100L) {
+                long sampleMs = (sampleDoneAt - taskStartedAt) / 1_000_000L;
+                long cutsMs = (GroovedRailProfile.auditSlotCutNanos() - cutsNanosBefore) / 1_000_000L;
+                long buildMs = (buildDoneAt - sampleDoneAt) / 1_000_000L;
+                Main.LOGGER.warn("[levelcrossing] stage times pos={} total={}ms sample={}ms cuts={}ms build={}ms verts={}",
+                        be.getBlockPos(), totalMs, sampleMs, cutsMs, buildMs,
+                        model == null ? 0 : model.getVertexCount());
+                Main.debug("[levelcrossing] stage times detail pos={} subtract={} calls={}",
+                        be.getBlockPos(),
+                        GroovedRailProfile.auditSubtractCalls() - subtractCallsBefore,
+                        GroovedRailProfile.auditSlotCutCalls());
+            }
+            // 慢任务定位：单个任务 > 200ms 就 warn 一次（每 BE 一次），下次卡顿可以直接对着 pos 查
+            long elapsedMs = (System.nanoTime() - taskStartedAt) / 1_000_000L;
+            if (elapsedMs > SLOW_TASK_MS && !be.slowTaskLogged) {
+                be.slowTaskLogged = true;
+                Main.LOGGER.warn("[levelcrossing] slow task pos={} ms={} verts={}",
+                        be.getBlockPos(), elapsedMs, model == null ? 0 : model.getVertexCount());
+            }
+            // 切回主线程：只做必须主线程的几件事
+            net.minecraft.client.Minecraft.getInstance().execute(
+                    () -> {
+                        if (revision == be.taskRevision) {
+                            be.applyComputedResult(finalSnap, finalModel, finalSample);
+                        } else {
+                            be.rerunRequested = true;
+                            be.pendingSample |= finalSample;
                         }
-                    }
-                    if (mainSlice != null) {
-                        int blockY = be.getBlockPos().getY();
-                        double railTopWorld = blockY + mainSlice.railTopY;
-                        double steelTopWorld = railTopWorld + snap.railTopBias;
-                        Main.LOGGER.info("[levelcrossing] align pos={} railId={} railTopWorld={} steelTopWorld={}"
-                                        + " dy={} latCenterDist={} deckWorld={}",
-                                be.getBlockPos(), mainSlice.railId,
-                                String.format(java.util.Locale.ROOT, "%.6f", railTopWorld),
-                                String.format(java.util.Locale.ROOT, "%.6f", steelTopWorld),
-                                String.format(java.util.Locale.ROOT, "%.6f", steelTopWorld - railTopWorld),
-                                String.format(java.util.Locale.ROOT, "%.6f", Math.abs(mainSlice.lateralOffset)),
-                                String.format(java.util.Locale.ROOT, "%.6f", blockY + snap.deckTopY));
-                    }
-                }
-                final CellSnapshot finalSnap = snap;
-                final RawModel finalModel = model;
-                final boolean finalSample = sample;
-                // ---- 分段计时（热点定位）----
-                // total / sample / cuts / build 四段：cuts = 槽铣切（slotCuts + 补集裁片）累计耗时，
-                // build = 构网总耗时，sample = 采样。任务总耗时 > 100ms 才打，避免刷屏。
-                long totalMs = (buildDoneAt - taskStartedAt) / 1_000_000L;
-                if (totalMs > 100L) {
-                    long sampleMs = (sampleDoneAt - taskStartedAt) / 1_000_000L;
-                    long cutsMs = (GroovedRailProfile.auditSlotCutNanos() - cutsNanosBefore) / 1_000_000L;
-                    long buildMs = (buildDoneAt - sampleDoneAt) / 1_000_000L;
-                    Main.LOGGER.warn("[levelcrossing] stage times pos={} total={}ms sample={}ms cuts={}ms build={}ms verts={}",
-                            be.getBlockPos(), totalMs, sampleMs, cutsMs, buildMs,
-                            model == null ? 0 : model.getVertexCount());
-                    Main.debug("[levelcrossing] stage times detail pos={} subtract={} calls={}",
-                            be.getBlockPos(),
-                            GroovedRailProfile.auditSubtractCalls() - subtractCallsBefore,
-                            GroovedRailProfile.auditSlotCutCalls());
-                }
-                // 慢任务定位：单个任务 > 200ms 就 warn 一次（每 BE 一次），下次卡顿可以直接对着 pos 查
-                long elapsedMs = (System.nanoTime() - taskStartedAt) / 1_000_000L;
-                if (elapsedMs > SLOW_TASK_MS && !be.slowTaskLogged) {
-                    be.slowTaskLogged = true;
-                    Main.LOGGER.warn("[levelcrossing] slow task pos={} ms={} verts={}",
-                            be.getBlockPos(), elapsedMs, model == null ? 0 : model.getVertexCount());
-                }
-                // 切回主线程：只做必须主线程的几件事
-                net.minecraft.client.Minecraft.getInstance().execute(
-                        () -> be.applyComputedResult(finalSnap, finalModel, finalSample));
-            }
+                    });
         } finally {
-            synchronized (be) {
+            net.minecraft.client.Minecraft.getInstance().execute(() -> {
                 be.pendingTask = false;
-                be.pendingSample = false;
-            }
+                if (be.rerunRequested || be.pendingSample) {
+                    boolean rerunSample = be.pendingSample;
+                    be.rerunRequested = false;
+                    be.pendingSample = false;
+                    submit(be, rerunSample, true);
+                }
+            });
         }
     }
 
@@ -1116,6 +1183,8 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
      */
     public void invalidateMesh() {
         this.meshDirty = true;
+        this.taskRevision++;
+        this.cachedGeometry = null;
         this.neighbourCacheTick = -1L;
         // 标脏的同时入队：不依赖「下一帧会不会被渲染到」，否则背对/被遮挡的方块会永远不重建
         enqueueBuild();
@@ -1177,6 +1246,7 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
     public void whenDisposing() {
         DynamicModelHolder holder = this.meshHolder;
         this.meshHolder = null;
+        this.cachedGeometry = null;
         if (holder != null) {
             // 不 close 会让 ModelCluster 持有的 VAO/VBO 永远留在显存里（仓库已知坑）
             holder.close();
@@ -1186,6 +1256,82 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
     @Override
     public String getMainModelKey() {
         return "levelCrossing";
+    }
+
+    /** 只复制材质，不复制顶点，更换贴图无需重新采样、切槽或计算碰撞。 */
+    private RawModel texturedModel(RawModel geometry) {
+        RawModel result = geometry.copyForMaterialChanges();
+        net.minecraft.resources.ResourceLocation deck = texture(KEY_DECK_TEXTURE,
+                LevelCrossingStyles.byId(getExtraConfig(KEY_STYLE, "asphalt")).topTexture());
+        net.minecraft.resources.ResourceLocation ground = texture(KEY_GROUND_TEXTURE, LevelCrossingStyles.GROUND_TEXTURE);
+        net.minecraft.resources.ResourceLocation railTop = texture(KEY_RAIL_TOP_TEXTURE, LevelCrossingStyles.railTopTexture());
+        net.minecraft.resources.ResourceLocation railSide = texture(KEY_RAIL_SIDE_TEXTURE, LevelCrossingStyles.railSideTexture());
+        LevelCrossingStyles.ensureNearestFilter(deck, ground, railTop, railSide);
+        List<RawMesh> meshes = new ArrayList<>(result.meshList.values());
+        result.meshList.clear();
+        for (RawMesh mesh : meshes) {
+            net.minecraft.resources.ResourceLocation original = mesh.materialProp.texture;
+            if (LevelCrossingStyles.ASPHALT.topTexture().equals(original)) mesh.materialProp.texture = deck;
+            else if (LevelCrossingStyles.GROUND_TEXTURE.equals(original)) mesh.materialProp.texture = ground;
+            else if (LevelCrossingStyles.RAIL_TOP_TEXTURE.equals(original)) mesh.materialProp.texture = railTop;
+            else if (LevelCrossingStyles.RAIL_SIDE_TEXTURE.equals(original)) mesh.materialProp.texture = railSide;
+            // 材质是 HashMap 的键，改图后重新入表，避免改变键的 hash 后查不到桶。
+            RawMesh existing = result.meshList.get(mesh.materialProp);
+            if (existing == null) {
+                result.meshList.put(mesh.materialProp, mesh);
+            } else {
+                // 两个部位选同一贴图时合并桶，且不能改动缓存共享的顶点列表。
+                RawMesh merged = new RawMesh(mesh.materialProp);
+                merged.append(existing);
+                merged.append(mesh);
+                result.meshList.put(merged.materialProp, merged);
+            }
+        }
+        return result;
+    }
+
+    private net.minecraft.resources.ResourceLocation texture(String key, net.minecraft.resources.ResourceLocation fallback) {
+        String value = getExtraConfig(key, "").trim();
+        if (value.isEmpty()) return fallback;
+        try {
+            net.minecraft.resources.ResourceLocation id = new net.minecraft.resources.ResourceLocation(value);
+            String path = id.getPath();
+            if (!path.startsWith("textures/")) path = "textures/" + path;
+            if (!path.endsWith(".png")) path += ".png";
+            return new net.minecraft.resources.ResourceLocation(id.getNamespace(), path);
+        } catch (RuntimeException ignored) {
+            return fallback;
+        }
+    }
+
+    private Map<String, String> geometryConfig() {
+        Map<String, String> config = new java.util.HashMap<>(extraConfigs);
+        config.remove(KEY_STYLE);
+        for (String key : TEXTURE_KEYS) config.remove(key);
+        return config;
+    }
+
+    private void refreshTextures() {
+        if (level == null || !level.isClientSide) return;
+        if (cachedGeometry != null && meshHolder != null) {
+            meshHolder.uploadLater(texturedModel(cachedGeometry));
+        }
+    }
+
+    @Override
+    public net.minecraft.world.InteractionResult whenUseWithBrush(net.minecraft.world.level.Level level,
+            BlockPos pos, net.minecraft.world.entity.player.Player player,
+            net.minecraft.world.InteractionHand hand, net.minecraft.world.phys.BlockHitResult hit) {
+        if (level.isClientSide) {
+            LevelCrossingStyles[] styles = LevelCrossingStyles.values();
+            LevelCrossingStyles current = LevelCrossingStyles.byId(getExtraConfig(KEY_STYLE, "asphalt"));
+            extraConfigs.put(KEY_STYLE, styles[(current.ordinal() + 1) % styles.length].id());
+            // 刷子切回内置铺面，自定义的地面和钢轨材质仍然保留。
+            extraConfigs.put(KEY_DECK_TEXTURE, "");
+            refreshTextures();
+            sendUpdateC2S();
+        }
+        return net.minecraft.world.InteractionResult.sidedSuccess(level.isClientSide);
     }
 
     // ==================== 网络同步 ====================
@@ -1202,6 +1348,8 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
 
     @Override
     public void readC2S(FriendlyByteBuf buf) {
+        CellSnapshot previous = snapshot;
+        Map<String, String> previousConfig = geometryConfig();
         super.readC2S(buf);
         CompoundTag tag = buf.readBoolean() ? buf.readNbt() : null;
         CellSnapshot incoming = tag == null ? null : CellSnapshot.fromTag(tag);
@@ -1210,12 +1358,18 @@ public class BlockEntityLevelCrossing extends FunctionalObjBlockEntity {
             Main.LOGGER.warn("[FangSu] Level crossing: rejecting malformed snapshot at {}", getBlockPos());
             return;
         }
-        setSnapshot(incoming);
-        rebuildCollision(incoming, CrossingSettings.from(this));
+        boolean geometryChanged = previous == null || !previous.toTag().equals(incoming.toTag())
+                || !previousConfig.equals(geometryConfig());
+        if (geometryChanged) {
+            setSnapshot(incoming);
+            rebuildCollision(incoming, CrossingSettings.from(this));
+        } else {
+            refreshTextures();
+        }
         // 客户端收到同步快照只标记 dirty，不同步构建网格：
         // 同步构建会在网络包处理路径上占主线程（老存档一次性同步很多块时同样会卡），
         // 交给 whenRendering()（RENDERING_EXECUTOR + 每 tick 预算）按可见性摊开。
-        if (level != null && level.isClientSide) {
+        if (geometryChanged && level != null && level.isClientSide) {
             meshDirty = true;
             enqueueBuild();
         }

@@ -68,8 +68,13 @@ public class BlockLevelCrossing extends BaseObjBlock {
     public void setPlacedBy(@NotNull Level level, @NotNull BlockPos pos, @NotNull BlockState state,
                             @Nullable LivingEntity placer, @NotNull ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
-        if (level.isClientSide && level.getBlockEntity(pos) instanceof BlockEntityLevelCrossing crossing) {
-            crossing.recompute();
+        if (level.getBlockEntity(pos) instanceof BlockEntityLevelCrossing crossing) {
+            net.minecraft.nbt.CompoundTag blockTag = stack.getTagElement("BlockEntityTag");
+            if (blockTag != null) {
+                net.minecraft.nbt.CompoundTag config = blockTag.getCompound("extraConfig");
+                for (String key : config.getAllKeys()) crossing.setExtraConfig(key, config.getString(key));
+            }
+            if (level.isClientSide) crossing.recompute();
         }
     }
 
@@ -105,19 +110,26 @@ public class BlockLevelCrossing extends BaseObjBlock {
             if (level.isClientSide) {
                 // <b>只能入队，不能同步 recompute</b>：5×5=25 块各做一次全量轨道采样 + 碰撞 + 构网
                 // 会把主线程压死（用户实测「shift 右键严重卡顿」）。
-                // 队列每 tick 处理 2 块，与构建共享 3ms 时间预算。
-                for (int dx = -RECOMPUTE_RADIUS; dx <= RECOMPUTE_RADIUS; dx++) {
-                    for (int dz = -RECOMPUTE_RADIUS; dz <= RECOMPUTE_RADIUS; dz++) {
-                        BlockEntity blockEntity = level.getBlockEntity(pos.offset(dx, 0, dz));
-                        if (blockEntity instanceof BlockEntityLevelCrossing crossing) {
-                            BlockEntityLevelCrossing.requestRecompute(crossing);
-                        }
-                    }
-                }
+                // 队列每 tick 最多提交 2 块，实际计算在工作线程。
+                refreshNearby(level, pos);
             }
             return InteractionResult.sidedSuccess(level.isClientSide);
         }
         // 其余交互（扳手 → 配置屏、刷子等）保持基类行为
         return super.use(state, level, pos, player, hand, hit);
+    }
+    /** 主线程批量入队，中心优先，保证手中有物品时潜行也可刷新。 */
+    public static void refreshNearby(Level level, BlockPos pos) {
+        if (!level.isClientSide) return;
+        if (level.getBlockEntity(pos) instanceof BlockEntityLevelCrossing center) center.recompute();
+        for (int dx = -RECOMPUTE_RADIUS; dx <= RECOMPUTE_RADIUS; dx++) {
+            for (int dz = -RECOMPUTE_RADIUS; dz <= RECOMPUTE_RADIUS; dz++) {
+                if (dx == 0 && dz == 0) continue;
+                BlockEntity blockEntity = level.getBlockEntity(pos.offset(dx, 0, dz));
+                if (blockEntity instanceof BlockEntityLevelCrossing crossing) {
+                    BlockEntityLevelCrossing.requestRecompute(crossing);
+                }
+            }
+        }
     }
 }

@@ -124,11 +124,13 @@ public enum LevelCrossingStyles {
      * 必须在<b>主线程 / GL 线程</b>调用（{@code applyComputedResult} 就是主线程）；每个 RL 只处理一次；
      * 任何异常只 debug 一次，绝不影响渲染（贴图未加载时 getTexture 会创建占位）。
      */
-    public static void ensureNearestFilter() {
+    public static void ensureNearestFilter(ResourceLocation... additionalTextures) {
         try {
             net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
             if (mc == null || mc.getTextureManager() == null) return;
-            for (ResourceLocation rl : allTextures()) {
+            java.util.List<ResourceLocation> textures = allTextures();
+            java.util.Collections.addAll(textures, additionalTextures);
+            for (ResourceLocation rl : textures) {
                 if (rl == null) continue;
                 if (!FILTERED.add(rl.toString())) continue;
                 try {
