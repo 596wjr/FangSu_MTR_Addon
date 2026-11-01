@@ -1,569 +1,83 @@
 package com.fangsu.shape;
 
-import com.fangsu.config.FangSuConfig;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-
-import net.minecraft.world.phys.shapes.BooleanOp;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
-// 弧度制
-public class RotatableShapeHelper {
-    private static final RotatableShapeHelper instance = new RotatableShapeHelper();
-    private static final int MAX_SUB_BOXES = 4096;
-
-    /**
-     * 缓存条目上限。超过后按 LRU 淘汰最久未被访问的条目。
-     * <p>
-     * 因为每个条目最多只有一个在飞计算任务（见 {@link #initForBlock} 的去重），
-     * 该上限同时限制了计算线程的排队长度 —— 旧实现允许同一位置被反复重复提交，
-     * 队列可以无界增长。
-     * <p>
-     * 单条目的内存与形状复杂度相关（单位立方体在 0.25 步长下最多切 64 盒，跨多方块的
-     * 原始形状最多 4096 盒），所以默认值取 512 而非更大；确实需要时可放宽：
-     * {@code -Dfangsu.shapeCacheSize=<n>}。
-     */
-    private static final int MAX_CACHE_ENTRIES = Integer.getInteger("fangsu.shapeCacheSize", 512);
-
-    // 异步计算线程池：单线程守护线程，不会阻止 JVM 退出
-    private static final ExecutorService COMPUTATION_THREAD = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "RotatedShape-Compute");
-        t.setDaemon(true);
-        return t;
-    });
-
-    public static RotatableShapeHelper getInstance() {
-        return instance;
-    }
-
-    // ======== 缓存 ========
-
-    /**
-     * 真正的 LRU：accessOrder = true 才会在 get 时刷新访问顺序。
-     * 之前的 {@code new LinkedHashMap<>()} 是插入顺序（FIFO），刚更新过的条目仍可能被当作"最老"淘汰。
-     */
-    private final Map<ShapeKey, ShapeCacheEntry> cache = new LinkedHashMap<>(256, 0.75f, true) {
+/** ShapeCollection 的统一旋转入口，支持同一方块的多个独立形状。 */
+public final class RotatableShapeHelper {
+    private static final RotatableShapeHelper INSTANCE = new RotatableShapeHelper();
+    private record Key(Level level, long pos, Object slot) { }
+    private record Source(ShapeCollection collection, List<AABB> boxes) { }
+    private final Map<Key, Source> sources = new LinkedHashMap<>(128, 0.75f, true) {
         @Override
-        protected boolean removeEldestEntry(Map.Entry<ShapeKey, ShapeCacheEntry> eldest) {
-            if (size() <= MAX_CACHE_ENTRIES) return false;
-            // 淘汰时取消在飞计算，避免计算线程队列无界增长
-            eldest.getValue().cancelPending();
+        protected boolean removeEldestEntry(Map.Entry<Key, Source> eldest) {
+            if (size() <= ShapeRotationCache.capacity()) return false;
+            ShapeRotationCache.remove(eldest.getKey().level, eldest.getKey().pos, eldest.getKey().slot);
             return true;
         }
     };
 
-    /**
-     * 缓存键：维度 + 方块坐标。
-     * 旧实现只按 BlockPos 缓存，不同维度同坐标的方块会互相顶掉形状。
-     */
-    private record ShapeKey(@Nullable ResourceKey<Level> dimension, long posLong) {
-        static ShapeKey of(@Nullable Level level, BlockPos pos) {
-            return new ShapeKey(level == null ? null : level.dimension(), pos.asLong());
-        }
+    public static RotatableShapeHelper getInstance() { return INSTANCE; }
+
+    public synchronized void initForBlock(@Nullable Level level, BlockPos pos,
+                                          float tx, float ty, float tz, float rx, float ry, float rz,
+                                          ShapeCollection shape) {
+        List<AABB> boxes = shape.toAabbs();
+        sources.put(new Key(level, pos.asLong(), "collection"), new Source(shape, boxes));
+        getShapeForBlock(level, pos, tx, ty, tz, rx, ry, rz);
     }
 
-    private static class ShapeCacheEntry {
-        final PosInfo posInfo;
-        final ShapeCollection shapeCollection;
-        volatile Future<VoxelShape> futureShape; // 异步旋转计算结果
-        final VoxelShape originalShape;          // 未旋转的原始碰撞箱，异步未完成时返回
-
-        ShapeCacheEntry(PosInfo posInfo, ShapeCollection shapeCollection,
-                        Future<VoxelShape> futureShape, VoxelShape originalShape) {
-            this.posInfo = posInfo;
-            this.shapeCollection = shapeCollection;
-            this.futureShape = futureShape;
-            this.originalShape = originalShape;
-        }
-
-        /**
-         * 取消尚未开始执行的计算任务。
-         * 使用 {@link FutureTask}（ExecutorService.submit 的返回值）而非 CompletableFuture，
-         * 因为只有 FutureTask.cancel 会把任务从执行队列里真正移除。
-         */
-        void cancelPending() {
-            Future<VoxelShape> f = futureShape;
-            if (f != null && !f.isDone()) {
-                f.cancel(true);
-            }
-        }
-
-        /**
-         * 提交新的旋转计算任务。
-         * <p>
-         * 无论 {@code highQualityShape} 如何都会执行旋转：关闭时只是不做细分，
-         * 方块朝向（90° 整数倍）等旋转仍然照常生效。
-         */
-        void submitRotation(ShapeCollection collection, float rx, float ry, float rz) {
-            // 显式声明为 Callable，避免 Runnable / Callable 重载歧义
-            futureShape = COMPUTATION_THREAD.submit(
-                    (Callable<VoxelShape>) () -> buildRotatedShape(collection, rx, ry, rz));
-        }
-    }
-
-    private final Object cacheLock = new Object();
-
-    /**
-     * 初始化指定方块位置的碰撞箱（异步计算）。
-     * 立即存入未旋转原始形状作为降级，旋转计算在后台线程执行，绝不阻塞调用线程。
-     * <p>
-     * 去重：若同一位置已有参数完全一致且尚未完成的计算任务，则直接复用，不重复提交
-     * （避免密集摆放时把计算线程的队列撑爆）。
-     */
-    public void initForBlock(@Nullable Level level, BlockPos pos,
-                             float tx, float ty, float tz, float rx, float ry, float rz,
-                             ShapeCollection shape) {
-        ShapeKey key = ShapeKey.of(level, pos);
-        synchronized (cacheLock) {
-            ShapeCacheEntry existing = cache.get(key);
-            if (existing != null
-                    && existing.shapeCollection == shape
-                    && existing.posInfo.matches(tx, ty, tz, rx, ry, rz)
-                    && existing.futureShape != null
-                    && !existing.futureShape.isDone()) {
-                // 参数未变且计算仍在排队/执行中：复用，不重复提交
-                return;
-            }
-            if (existing != null) {
-                existing.cancelPending();
-            }
-
-            ShapeCacheEntry entry = new ShapeCacheEntry(
-                    new PosInfo(tx, ty, tz, rx, ry, rz),
-                    shape,
-                    null,
-                    shape.asVoxelShape()
-            );
-            entry.submitRotation(shape, rx, ry, rz);
-            cache.put(key, entry);
-        }
-    }
-
-    /**
-     * 传入形状集合并直接取得旋转后的碰撞箱：形状实例或变换参数变化时会自动重新初始化缓存。
-     * <p>
-     * 与 {@link #getShapeForBlock} 相比，本方法会校验 {@code shape} 是否为缓存中的同一实例，
-     * 因此适合形状随方块状态（开门、换模型等）变化的方块，避免读到过期形状。
-     */
-    public VoxelShape getOrInitShapeForBlock(@Nullable Level level, BlockPos pos, ShapeCollection shape,
-                                             float tx, float ty, float tz, float rx, float ry, float rz) {
+    public synchronized VoxelShape getOrInitShapeForBlock(@Nullable Level level, BlockPos pos, ShapeCollection shape,
+                                                          float tx, float ty, float tz, float rx, float ry, float rz) {
         if (shape == null || shape.isEmpty()) return Shapes.empty();
-
-        ShapeKey key = ShapeKey.of(level, pos);
-        synchronized (cacheLock) {
-            ShapeCacheEntry entry = cache.get(key);
-            if (entry != null
-                    && entry.shapeCollection == shape
-                    && entry.posInfo.matches(tx, ty, tz, rx, ry, rz)) {
-                return readFinishedShape(entry);
-            }
-        }
-
-        initForBlock(level, pos, tx, ty, tz, rx, ry, rz, shape);
-
-        synchronized (cacheLock) {
-            ShapeCacheEntry entry = cache.get(key);
-            return entry == null ? Shapes.empty() : readFinishedShape(entry);
-        }
+        Source source = sources.get(new Key(level, pos.asLong(), "collection"));
+        if (source == null || source.collection != shape) initForBlock(level, pos, tx, ty, tz, rx, ry, rz, shape);
+        return getShapeForBlock(level, pos, tx, ty, tz, rx, ry, rz);
     }
 
-
     /**
-     * 获取指定方块位置缓存的碰撞箱。
-     * 若异步旋转计算尚未完成，则返回未旋转的原始碰撞箱，防止阻塞主线程。
+     * 多部件方块使用固定 slot（如主体/门扇/标志分段）区分缓存。
+     * 旋转围绕方块中心，位移由调用方叠加；形状实例变化时重新生成快照。
      */
+    public synchronized VoxelShape getRotatedShape(@Nullable Level level, BlockPos pos, Object slot,
+                                                   ShapeCollection shape, float rx, float ry, float rz) {
+        if (shape == null || shape.isEmpty()) return Shapes.empty();
+        Key key = new Key(level, pos.asLong(), slot);
+        Source source = sources.get(key);
+        if (source == null || source.collection != shape) {
+            source = new Source(shape, shape.toAabbs());
+            sources.put(key, source);
+        }
+        return ShapeRotationCache.get(slot, source.boxes, Vec3.ZERO, rx, ry, rz,
+                CollisionShapeContext.current(level, pos.asLong()));
+    }
+
     @Nullable
-    public VoxelShape getShapeForBlock(@Nullable Level level, BlockPos pos,
-                                       float tx, float ty, float tz, float rx, float ry, float rz) {
-        ShapeKey key = ShapeKey.of(level, pos);
-        synchronized (cacheLock) {
-            ShapeCacheEntry entry = cache.get(key); // accessOrder 会在此刷新 LRU 顺序
-            if (entry == null) return null;
-
-            boolean changed = entry.posInfo.checkAndUpdate(tx, ty, tz, rx, ry, rz);
-            if (changed) {
-                // 参数有变化：先返回旧碰撞箱（旧异步已完成则返回旧旋转结果，否则返回旧原始形状）
-                VoxelShape previousShape = readFinishedShape(entry);
-                // 取消旧任务并提交新的异步任务（同一位置始终最多一个在飞任务）
-                entry.cancelPending();
-                entry.submitRotation(entry.shapeCollection, rx, ry, rz);
-                return previousShape;
-            }
-
-            return readFinishedShape(entry);
-        }
+    public synchronized VoxelShape getShapeForBlock(@Nullable Level level, BlockPos pos,
+                                                    float tx, float ty, float tz, float rx, float ry, float rz) {
+        Source source = sources.get(new Key(level, pos.asLong(), "collection"));
+        if (source == null) return null;
+        // 位移由调用方 move 叠加，不参与旋转缓存，纯平移不会重复细分。
+        return ShapeRotationCache.get("collection", source.boxes, Vec3.ZERO, rx, ry, rz,
+                CollisionShapeContext.current(level, pos.asLong()));
     }
 
-    /**
-     * 读取条目已完成的旋转结果；未完成（或失败）时降级返回原始未旋转形状，绝不阻塞。
-     */
-    private static VoxelShape readFinishedShape(ShapeCacheEntry entry) {
-        Future<VoxelShape> future = entry.futureShape;
-        if (future != null && future.isDone()) {
-            try {
-                return future.get(); // 已完成，立即返回，不会阻塞
-            } catch (InterruptedException | ExecutionException | CancellationException e) {
-                // 被取消或计算失败，降级返回原始形状
-                return entry.originalShape;
-            }
-        }
-        return entry.originalShape;
+    public synchronized void removeCache(@Nullable Level level, BlockPos pos) {
+        sources.keySet().removeIf(key -> key.level == level && key.pos == pos.asLong());
+        ShapeRotationCache.remove(level, pos.asLong());
     }
 
-    /**
-     * 清除指定方块位置的缓存（同时取消在飞计算）。
-     */
-    public void removeCache(@Nullable Level level, BlockPos pos) {
-        synchronized (cacheLock) {
-            ShapeCacheEntry removed = cache.remove(ShapeKey.of(level, pos));
-            if (removed != null) removed.cancelPending();
-        }
+    public synchronized void clearAll() {
+        sources.clear();
+        ShapeRotationCache.clear();
     }
-
-    /**
-     * 清空全部缓存并取消所有在飞计算。用于维度切换 / 断线 / 资源重载。
-     */
-    public void clearAll() {
-        synchronized (cacheLock) {
-            for (ShapeCacheEntry entry : cache.values()) {
-                entry.cancelPending();
-            }
-            cache.clear();
-        }
-    }
-
-    // ======== 旋转算法（从 CollisionBoxUtil 移植并简化） ========
-
-    /**
-     * 对 ShapeCollection 中的所有 RawShape 执行旋转，合并为一个 VoxelShape。
-     * 每个 RawShape 的坐标是像素值（0~16），旋转时以方块中心 (8, 0, 8) 为枢轴。
-     * <p>
-     * 是否细分取自 {@code config/fangsu.properties} 的 {@code highQualityShape}，
-     * 细分步长取自 {@code shapeStep}；90° 整数倍（方块朝向）始终整块旋转、不细分。
-     */
-    private static VoxelShape buildRotatedShape(ShapeCollection shapeCollection, float rx, float ry, float rz) {
-        if (shapeCollection == null || shapeCollection.isEmpty()) return Shapes.empty();
-
-        boolean subdivide = FangSuConfig.highQualityShape();
-        double stepSize = FangSuConfig.shapeStep();
-
-        VoxelShape result = Shapes.empty();
-        for (RawShape raw : shapeCollection.getShapes()) {
-            AABB box = raw.asAABB();
-            // RawShape 使用世界坐标 (0~1)，直接使用
-            AABB normalizedBox = new AABB(
-                    box.minX, box.minY, box.minZ,
-                    box.maxX, box.maxY, box.maxZ
-            );
-            VoxelShape part = rotatedShape(normalizedBox, rx, ry, rz, stepSize, subdivide);
-            result = Shapes.joinUnoptimized(result, part, BooleanOp.OR);
-        }
-        return result.optimize();
-    }
-
-    /**
-     * 对单个 AABB（世界坐标）应用旋转，返回旋转后的 VoxelShape。
-     * 枢轴为方块中心 (0.5, 0, 0.5)。
-     * <p>
-     * 两种情况不需要细分（整块旋转即可）：
-     * <ul>
-     *     <li>旋转角全部是 90° 的整数倍 —— 典型来源就是方块朝向（东西南北），
-     *     此时 AABB 旋转后仍是 AABB，整块变换是精确结果；</li>
-     *     <li>{@code highQualityShape=false} —— 统一走粗粒度整块旋转，
-     *     保留朝向等信息但不做细分。</li>
-     * </ul>
-     *
-     * @param subdivide 是否允许按 {@code stepSize} 细分（即 highQualityShape）
-     */
-    private static VoxelShape rotatedShape(AABB localBox, float rx, float ry, float rz,
-                                           double stepSize, boolean subdivide) {
-        if (localBox == null) return Shapes.empty();
-
-        // 枢轴：方块中心 (0.5, 0, 0.5)
-        Vec3 pivotWorld = new Vec3(0.5, 0.0, 0.5);
-
-        // 将局部盒变换到以枢轴为原点的局部坐标系
-        AABB workingLocal = new AABB(
-                localBox.minX - 0.5, localBox.minY, localBox.minZ - 0.5,
-                localBox.maxX - 0.5, localBox.maxY, localBox.maxZ - 0.5
-        );
-
-        // 无旋转特判
-        if (rx == 0f && ry == 0f && rz == 0f) {
-            return Shapes.create(workingLocal.move(pivotWorld)).optimize();
-        }
-
-        // 90° 整数倍（方块自带朝向）不需要细分；关闭高质量时所有旋转都不细分
-        boolean rightAngle = isRightAngle(rx) && isRightAngle(ry) && isRightAngle(rz);
-        if (rightAngle || !subdivide) {
-            AABB world = transformBox(new LocalBox(
-                    new Vec3(workingLocal.minX, workingLocal.minY, workingLocal.minZ),
-                    new Vec3(workingLocal.maxX, workingLocal.maxY, workingLocal.maxZ)
-            ), pivotWorld, rx, ry, rz);
-            return Shapes.create(world).optimize();
-        }
-
-        boolean xRot = rx != 0f;
-        boolean yRot = ry != 0f;
-        boolean zRot = rz != 0f;
-        int axes = (xRot ? 1 : 0) + (yRot ? 1 : 0) + (zRot ? 1 : 0);
-
-        // 收集所有旋转后的 AABB，避免在循环中反复调用昂贵的 Shapes.or()
-        List<AABB> worldBoxes = new ArrayList<>();
-        if (axes == 1) {
-            for (LocalBox part : split1D(workingLocal, stepSize, xRot, yRot, zRot)) {
-                worldBoxes.add(transformBox(part, pivotWorld, rx, ry, rz));
-                if (worldBoxes.size() >= MAX_SUB_BOXES) break;
-            }
-        } else {
-            for (LocalBox part : split3D(workingLocal, stepSize)) {
-                worldBoxes.add(transformBox(part, pivotWorld, rx, ry, rz));
-                if (worldBoxes.size() >= MAX_SUB_BOXES) break;
-            }
-        }
-
-        // 用 joinUnoptimized 批量合并，最后只 optimize 一次
-        VoxelShape shape = Shapes.empty();
-        for (AABB world : worldBoxes) {
-            shape = Shapes.joinUnoptimized(shape, Shapes.create(world), BooleanOp.OR);
-        }
-        return shape.optimize();
-    }
-
-    // ======== 内部结构 ========
-
-    /**
-     * 判断旋转角是否为 90° 的整数倍（弧度制，带浮点容差）。
-     * 方块朝向（FACING）产生的就是这类角度，AABB 旋转后仍是 AABB。
-     */
-    private static boolean isRightAngle(float rad) {
-        double quarter = Math.PI / 2.0;
-        double q = rad / quarter;
-        return Math.abs(q - Math.round(q)) < 1e-4;
-    }
-
-    private record LocalBox(Vec3 min, Vec3 max) {
-    }
-
-    // ======== 切分策略 ========
-
-    private static List<LocalBox> split3D(AABB box, double stepSize) {
-        List<LocalBox> list = new ArrayList<>();
-
-        double rangeX = box.maxX - box.minX;
-        double rangeY = box.maxY - box.minY;
-        double rangeZ = box.maxZ - box.minZ;
-
-        int nx = Math.max(1, (int) Math.ceil(rangeX / stepSize));
-        int ny = Math.max(1, (int) Math.ceil(rangeY / stepSize));
-        int nz = Math.max(1, (int) Math.ceil(rangeZ / stepSize));
-
-        double dx = rangeX / nx;
-        double dy = rangeY / ny;
-        double dz = rangeZ / nz;
-
-        for (int ix = 0; ix < nx; ix++) {
-            for (int iy = 0; iy < ny; iy++) {
-                for (int iz = 0; iz < nz; iz++) {
-                    Vec3 min = new Vec3(
-                            box.minX + dx * ix,
-                            box.minY + dy * iy,
-                            box.minZ + dz * iz
-                    );
-                    list.add(new LocalBox(min, min.add(dx, dy, dz)));
-                }
-            }
-        }
-
-        return list;
-    }
-
-    private static List<LocalBox> split1D(AABB box, double stepSize, boolean rx, boolean ry, boolean rz) {
-        List<LocalBox> list = new ArrayList<>();
-
-        if (ry) {
-            // 切 XZ，整条 Y
-            double rangeX = box.maxX - box.minX;
-            double rangeZ = box.maxZ - box.minZ;
-            int nx = Math.max(1, (int) Math.ceil(rangeX / stepSize));
-            int nz = Math.max(1, (int) Math.ceil(rangeZ / stepSize));
-            double dx = rangeX / nx;
-            double dz = rangeZ / nz;
-
-            for (int ix = 0; ix < nx; ix++) {
-                for (int iz = 0; iz < nz; iz++) {
-                    Vec3 min = new Vec3(
-                            box.minX + dx * ix,
-                            box.minY,
-                            box.minZ + dz * iz
-                    );
-                    list.add(new LocalBox(min, new Vec3(min.x + dx, box.maxY, min.z + dz)));
-                }
-            }
-            return list;
-        }
-
-        if (rx) {
-            // 切 YZ，整条 X
-            double rangeY = box.maxY - box.minY;
-            double rangeZ = box.maxZ - box.minZ;
-            int ny = Math.max(1, (int) Math.ceil(rangeY / stepSize));
-            int nz = Math.max(1, (int) Math.ceil(rangeZ / stepSize));
-            double dy = rangeY / ny;
-            double dz = rangeZ / nz;
-
-            for (int iy = 0; iy < ny; iy++) {
-                for (int iz = 0; iz < nz; iz++) {
-                    Vec3 min = new Vec3(
-                            box.minX,
-                            box.minY + dy * iy,
-                            box.minZ + dz * iz
-                    );
-                    list.add(new LocalBox(min, new Vec3(box.maxX, min.y + dy, min.z + dz)));
-                }
-            }
-            return list;
-        }
-
-        // rz == true
-        double rangeX = box.maxX - box.minX;
-        double rangeY = box.maxY - box.minY;
-        int nx = Math.max(1, (int) Math.ceil(rangeX / stepSize));
-        int ny = Math.max(1, (int) Math.ceil(rangeY / stepSize));
-        double dx = rangeX / nx;
-        double dy = rangeY / ny;
-
-        for (int ix = 0; ix < nx; ix++) {
-            for (int iy = 0; iy < ny; iy++) {
-                Vec3 min = new Vec3(
-                        box.minX + dx * ix,
-                        box.minY + dy * iy,
-                        box.minZ
-                );
-                list.add(new LocalBox(min, new Vec3(min.x + dx, min.y + dy, box.maxZ)));
-            }
-        }
-
-        return list;
-    }
-
-    // ======== 变换 ========
-
-    private static AABB transformBox(LocalBox box, Vec3 pivotWorld, float rx, float ry, float rz) {
-        Vec3[] corners = new Vec3[]{
-                new Vec3(box.min.x, box.min.y, box.min.z),
-                new Vec3(box.min.x, box.min.y, box.max.z),
-                new Vec3(box.min.x, box.max.y, box.min.z),
-                new Vec3(box.min.x, box.max.y, box.max.z),
-                new Vec3(box.max.x, box.min.y, box.min.z),
-                new Vec3(box.max.x, box.min.y, box.max.z),
-                new Vec3(box.max.x, box.max.y, box.min.z),
-                new Vec3(box.max.x, box.max.y, box.max.z)
-        };
-
-        double minX = Double.POSITIVE_INFINITY, minY = minX, minZ = minX;
-        double maxX = Double.NEGATIVE_INFINITY, maxY = maxX, maxZ = maxX;
-
-        for (Vec3 c : corners) {
-            Vec3 w = applyTransform(c, pivotWorld, rx, ry, rz);
-            minX = Math.min(minX, w.x);
-            minY = Math.min(minY, w.y);
-            minZ = Math.min(minZ, w.z);
-            maxX = Math.max(maxX, w.x);
-            maxY = Math.max(maxY, w.y);
-            maxZ = Math.max(maxZ, w.z);
-        }
-
-        return new AABB(minX, minY, minZ, maxX, maxY, maxZ);
-    }
-
-    private static Vec3 applyTransform(Vec3 v, Vec3 pivotWorld, float rx, float ry, float rz) {
-        Vec3 r = rotateX(v, -rx);
-        r = rotateY(r, ry);
-        r = rotateZ(r, rz);
-        return r.add(pivotWorld);
-    }
-
-    // ======== 旋转工具 ========
-
-    private static Vec3 rotateX(Vec3 v, float r) {
-        float c = (float) Math.cos(r), s = (float) Math.sin(r);
-        return new Vec3(v.x, v.y * c - v.z * s, v.y * s + v.z * c);
-    }
-
-    private static Vec3 rotateY(Vec3 v, float r) {
-        float c = (float) Math.cos(r), s = (float) Math.sin(r);
-        return new Vec3(v.x * c + v.z * s, v.y, -v.x * s + v.z * c);
-    }
-
-    private static Vec3 rotateZ(Vec3 v, float r) {
-        float c = (float) Math.cos(r), s = (float) Math.sin(r);
-        return new Vec3(v.x * c - v.y * s, v.x * s + v.y * c, v.z);
-    }
-
-    // ======== 内部数据结构 ========
-
-    private static class PosInfo {
-        private static final float EPSILON = 1e-6f;
-
-        private float tx, ty, tz;
-        private float rx, ry, rz;
-
-        public PosInfo(float tx, float ty, float tz, float rx, float ry, float rz) {
-            this.tx = tx;
-            this.ty = ty;
-            this.tz = tz;
-            this.rx = rx;
-            this.ry = ry;
-            this.rz = rz;
-        }
-
-        /**
-         * 只读比较，不修改任何状态。用于 initForBlock 的去重判断。
-         */
-        public boolean matches(float tx, float ty, float tz, float rx, float ry, float rz) {
-            return floatEquals(this.tx, tx) && floatEquals(this.ty, ty)
-                    && floatEquals(this.tz, tz) && floatEquals(this.rx, rx)
-                    && floatEquals(this.ry, ry) && floatEquals(this.rz, rz);
-        }
-
-        public boolean checkAndUpdate(float tx, float ty, float tz, float rx, float ry, float rz) {
-            boolean changed = !matches(tx, ty, tz, rx, ry, rz);
-
-            this.tx = tx;
-            this.ty = ty;
-            this.tz = tz;
-            this.rx = rx;
-            this.ry = ry;
-            this.rz = rz;
-            return changed;
-        }
-
-        private static boolean floatEquals(float a, float b) {
-            return Math.abs(a - b) < EPSILON;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(tx, ty, tz, rx, ry, rz);
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) return true;
-            if (obj == null || getClass() != obj.getClass()) return false;
-            PosInfo o = (PosInfo) obj;
-            return floatEquals(tx, o.tx) && floatEquals(ty, o.ty) && floatEquals(tz, o.tz)
-                    && floatEquals(rx, o.rx) && floatEquals(ry, o.ry) && floatEquals(rz, o.rz);
-        }
-    }
-
 }

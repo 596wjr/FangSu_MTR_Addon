@@ -595,11 +595,7 @@ public abstract class BaseDisplayBlockEntity extends FunctionalObjBlockEntity {
         float rotZ = this.rotateZ;
 
         RotatableShapeHelper helper = RotatableShapeHelper.getInstance();
-        VoxelShape rotated = helper.getShapeForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
-        if (rotated == null) {
-            helper.initForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ, shape);
-            rotated = helper.getShapeForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
-        }
-        return rotated.move(trans.x, trans.y, trans.z).optimize();
+        VoxelShape rotated = helper.getOrInitShapeForBlock(getLevel(), getWorldPos(), shape, translateX, translateY, translateZ, rotX, rotY, rotZ);
+        return rotated.move(trans.x, trans.y, trans.z);
     }
 }

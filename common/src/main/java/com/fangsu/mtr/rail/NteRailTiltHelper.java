@@ -115,7 +115,7 @@ import java.lang.reflect.Method;
  * <b>逐位无操作保证</b>：下列任一情况，{@link #tiltBakedSection(Object)} <b>把收到的同一个对象原样返回</b>，
  * 一个浮点运算都不做、一次反射都不做：
  * <ul>
- *   <li>不在 NTE 的烘焙窗口内（{@code BAKED_RAIL_INIT} 的 HEAD 钩子没挂上）；</li>
+ *   <li>不在 NTE 的截面处理窗口内（未设置当前轨道）；</li>
  *   <li>该轨道没有附加姿态，或姿态没有滚转（{@link RailTiltRenderHelper#frameFor} 返回 {@code null}，
  *       它在这一步之前就返回，连内核都不构建）；</li>
  *   <li>该相位处滚转为 0、角度非有限、或矩阵类上找不到 {@code rotateZ(float)}。</li>
@@ -150,7 +150,7 @@ public final class NteRailTiltHelper {
     };
 
     /**
-     * {@code BakedRail.<init>(mtr.data.Rail)} —— 烘焙窗口（以及「当前正在烘焙哪条轨道」的来源）。
+     * {@code BakedRail.<init>(mtr.data.Rail)} —— 原始烘焙入口，供诊断使用。
      * <p>
      * {@code javap -p -s} 核实（NTE 0.5.2+1.20.1，{@code fabric}/{@code forge} 两份相同）：
      * {@code public fabric.cn.zbx1425.mtrsteamloco.render.rail.BakedRail(mtr.data.Rail)}
@@ -194,7 +194,7 @@ public final class NteRailTiltHelper {
      * 这就是测试者日志里路径 B「既不生效也不报警」的机制。
      * <p>
      * 描述符与 {@link #BAKED_RAIL_INIT} <b>逐字符相同</b>（{@code (Lmtr/data/Rail;)V}），
-     * 但两者是<b>两个不同的注入点</b>：{@code BAKED_RAIL_INIT} 用于 HEAD/RETURN 的烘焙窗口，
+     * 但两者用途不同：{@code BAKED_RAIL_INIT} 用于标识原始烘焙入口，
      * 本常量用于「截面矩阵落库的那次 {@code add}」。<b>刻意不合并成一个常量</b>：
      * 合并之后代码上就看不出「到底哪个版本的哪个钩子没挂上」，而本次故障的教训正是
      * 「静默失效必须能从代码与日志上看出来」。
@@ -255,7 +255,7 @@ public final class NteRailTiltHelper {
     /** NTE 是否存在（由 {@code MainClient.initClient()} 经 {@link #reportNtePresence} 告知）。 */
     private static boolean ntePresent = false;
 
-    /** {@code BakedRail.<init>} 的 HEAD 钩子是否触发过（= 烘焙窗口建立过）。 */
+    /** 截面处理时是否建立过当前轨道上下文。 */
     private static volatile boolean bakeHookAlive = false;
 
     /**
@@ -341,24 +341,9 @@ public final class NteRailTiltHelper {
     }
 
     /**
-     * 每帧一次的看门狗（由 {@code RenderTrainsMixin} 在 {@code RenderTrains.render} 的 HEAD 调用）。
-     * <p>
-     * 需要被看见的失效有<b>两种</b>，且都必须由「不依赖注入器自身」的时钟来报：
-     * <ol>
-     *   <li><b>连烘焙窗口都没建立</b>：{@code BakedRail.<init>} 的 HEAD 钩子从未触发
-     *       （目标类不存在、类名变了、构造器描述符变了……）；</li>
-     *   <li><b>烘焙窗口活了，但截面钩子没活</b>：这正是 ANTE 1.1.0 上的真实故障 ——
-     *       ANTE 把逐截面循环从 {@code lambda$new$1} 内联进了 {@code <init>}，
-     *       老的选择器找不到目标，而 {@code require = 0} 把它静默跳过；
-     *       同时 {@code <init>} 的 HEAD/RETURN 钩子照常挂得上，于是只看
-     *       {@code bakeHookAlive} 的判据<b>永远不会响</b>，日志一片安静。</li>
-     * </ol>
-     * 所以判据必须是 {@code bakeHookAlive && sectionHookAlive} 的<b>合取</b>：
-     * 少看任何一项，都会留下一种「轨面永远是平的、日志却没事」的静默失效。
-     * <p>
-     * 阈值取得很大（{@link #WATCHDOG_FRAMES}），并且措辞明确写着「若此时视野内有轨道」，
-     * 避免「视野里没有轨道」被误判成钩子失效。<b>本方法最多打一条日志</b>
-     * （{@link #watchdogWarned} 门闩），不随帧数刷屏。
+     * 每帧检查截面钩子与轨道上下文是否生效，最多告警一次。
+     * issue #96 后上下文与截面旋转在同一钩子内完成，不再依赖构造器 HEAD/RETURN。
+     * 阈值较大且提示需有可见轨道，避免没有轨道时误判。
      */
     public static void tickFrameWatchdog(boolean nteLoaded) {
         if (!nteLoaded || (bakeHookAlive && sectionHookAlive) || watchdogWarned) {
@@ -370,13 +355,12 @@ public final class NteRailTiltHelper {
         watchdogWarned = true;
         if (!bakeHookAlive) {
             Main.LOGGER.warn("[P5-4] 已安装 NTE/ANTE，但约 {} 帧内没有观察到任何 NTE 轨道烘焙"
-                            + "（{} 上的 {} 钩子未触发）。若这段时间里视野内确实有轨道，说明路径 B 的入口钩子没生效，"
+                            + "（{} 的逐截面钩子未触发，原始烘焙入口 {}）。若这段时间里视野内确实有轨道，说明路径 B 的入口钩子没生效，"
                             + "轨面会保持水平（中心线与车体仍按 P5-1/P5-6 变化）。",
                     WATCHDOG_FRAMES, BAKED_RAIL_TARGETS[1], BAKED_RAIL_INIT);
             return;
         }
-        // 走到这里说明：烘焙窗口建立过（说明目标类与 <init>(Lmtr/data/Rail;)V 都被命中了），
-        // 但「截面矩阵」钩子一次都没被调用 —— 两个版本形态的截面注入器一个都没挂上。
+        // 兼容外部探针单独调用 beginBake 的情况：建立上下文不代表矩阵钩子已命中。
         Main.LOGGER.warn("[P5-4] 已安装 NTE/ANTE、烘焙窗口也已建立（{} 钩子生效），但约 {} 帧内从未观察到"
                         + "「逐截面矩阵」钩子被调用：两个版本形态的截面注入器都没挂上 —— "
                         + "NTE 0.5.2 形态是 {} 上的 {}，ANTE 1.1.0 内联形态是 {} 内偏移 248 处的同一个调用。"
@@ -473,24 +457,13 @@ public final class NteRailTiltHelper {
 
     // ==================== 钩子 1 / 2：烘焙窗口 ====================
 
-    /**
-     * {@code BakedRail.<init>(Rail)} 的 {@code @At("HEAD")}：记下「正在烘焙哪条轨道」。
-     * <p>
-     * <b>严格只读</b>：只压一个 {@link ThreadLocal}，不碰构造器参数，也不碰目标对象的任何字段
-     * （此刻 {@code coveredChunks} 还没初始化）。烘焙一定发生在客户端渲染线程，
-     * 而这个 {@link ThreadLocal} 只被 {@link #tiltBakedSection(Object, int)}（同一个线程、同一次构造过程）读取。
-     */
+    /** 截面旋转前记录当前轨道；调用方必须在 finally 中调用 endBake。 */
     public static void beginBake(Rail rail) {
         bakeHookAlive = true;
         BAKING_RAIL.set(rail);
     }
 
-    /**
-     * {@code BakedRail.<init>(Rail)} 的 {@code @At("RETURN")}：结束烘焙窗口。
-     * <p>
-     * 目标构造器有<b>两处</b> {@code return}（{@code modelKey.equals("null")} 时的早退与正常返回），
-     * {@code @At("RETURN")} 会覆盖全部返回点，因此不会留下残值。
-     */
+    /** 旋转结束或抛出异常时清理当前线程的轨道引用。 */
     public static void endBake() {
         BAKING_RAIL.remove();
     }
@@ -629,7 +602,7 @@ public final class NteRailTiltHelper {
 
     // ==================== 供探针 / 诊断读取 ====================
 
-    /** 供诊断读取：{@code BakedRail.<init>} 的钩子是否触发过。 */
+    /** 供诊断读取：截面处理上下文是否建立过。 */
     public static boolean wasBakeHookAlive() {
         return bakeHookAlive;
     }

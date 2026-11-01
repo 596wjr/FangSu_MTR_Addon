@@ -32,7 +32,13 @@ configurations {
     shadowCommon
 }
 
+repositories {
+    maven { url = "https://maven.terraformersmc.com/releases/" }
+}
+
 dependencies {
+    modCompileOnly("com.terraformersmc:modmenu:$rootProject.mod_menu_version") { transitive = false }
+
     modImplementation "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version"
 
     // Fabric API. This is technically optional, but you probably want it anyway.

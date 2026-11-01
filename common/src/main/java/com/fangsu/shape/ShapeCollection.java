@@ -1,5 +1,6 @@
 package com.fangsu.shape;
 
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
@@ -37,6 +38,48 @@ public class ShapeCollection {
 
     public ShapeCollection(Collection<RawShape> shapes) {
         this.shapes = new ArrayList<>(shapes);
+    }
+
+    /**
+     * 从资源包的像素坐标读取单盒或多盒列表；RawShape 内部统一使用方块坐标。
+     * 与直接接收方块坐标的构造器区分，避免迁移后形状被放大 16 倍。
+     */
+    public static ShapeCollection fromPixels(List<?> coordinates) {
+        ShapeCollection result = new ShapeCollection();
+        if (coordinates == null || coordinates.isEmpty()) return result;
+        if (coordinates.get(0) instanceof Number) {
+            result.addPixelBox(coordinates);
+        } else {
+            for (Object row : coordinates) {
+                if (row instanceof List<?> box) result.addPixelBox(box);
+            }
+        }
+        return result;
+    }
+
+    private void addPixelBox(List<?> coordinates) {
+        if (coordinates.size() < 6) return;
+        double[] box = new double[6];
+        for (int i = 0; i < box.length; i++) {
+            if (!(coordinates.get(i) instanceof Number number)) return;
+            box[i] = number.doubleValue() / 16d;
+            if (!Double.isFinite(box[i])) return;
+        }
+        shapes.add(new RawShape(box));
+    }
+
+    /** VoxelShape 已经使用方块坐标，不再做像素换算。 */
+    public static ShapeCollection fromVoxelShape(VoxelShape shape) {
+        ShapeCollection result = new ShapeCollection();
+        for (AABB box : shape.toAabbs()) {
+            result.add(new RawShape(box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ));
+        }
+        return result;
+    }
+
+    /** 提交异步计算前生成不可变快照，后台不读取可变的 RawShape 集合。 */
+    public List<AABB> toAabbs() {
+        return shapes.stream().map(RawShape::asAABB).toList();
     }
 
     public ShapeCollection add(RawShape shape) {

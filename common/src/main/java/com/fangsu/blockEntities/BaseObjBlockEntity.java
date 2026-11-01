@@ -307,11 +307,13 @@ public abstract class BaseObjBlockEntity extends BlockEntity {
     }
 
     public final VoxelShape getShapeInternal(BlockState state) {
-        return setShape(state); // 浣犲凡鏈夌殑閫昏緫
+        return this instanceof FunctionalObjBlockEntity functional
+                ? functional.queryConfiguredShape(state, false) : setShape(state);
     }
 
     public final VoxelShape getCollisionShapeInternal(BlockState state) {
-        return setCollisionShape(state);
+        return this instanceof FunctionalObjBlockEntity functional
+                ? functional.queryConfiguredShape(state, true) : setCollisionShape(state);
     }
 
     @Override
@@ -394,6 +396,7 @@ public abstract class BaseObjBlockEntity extends BlockEntity {
     public void setRemoved() {
         disposed = true;
         cancelPendingRendering();
+        com.fangsu.shape.RotatableShapeHelper.getInstance().removeCache(level, worldPosition);
         super.setRemoved();
     }
 

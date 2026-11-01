@@ -155,6 +155,19 @@ public abstract class BasicConfigScreen extends Screen {
         return label;
     }
 
+    /** 按当前面板宽度换行，窄窗口下提示文字也能完整显示。 */
+    protected int addWrappedText(int x, int y, int width, Component message, int color) {
+        String remaining = message.getString();
+        while (!remaining.isEmpty()) {
+            String line = font.plainSubstrByWidth(remaining, Math.max(1, width));
+            if (line.isEmpty()) break;
+            addEntry(createTextLabel(x, y, ComponentHelper.literal(line), TextLabel.Align.LEFT, color, false), y);
+            remaining = remaining.substring(line.length()).stripLeading();
+            y += 12;
+        }
+        return y;
+    }
+
     protected void addEntry(AbstractWidget widget, int baseY) {
         entries.add(new ScrollEntry(widget, baseY));
     }

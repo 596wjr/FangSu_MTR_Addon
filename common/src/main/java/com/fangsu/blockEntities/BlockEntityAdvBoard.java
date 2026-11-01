@@ -225,13 +225,8 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
         float rotZ = this.rotateZ;
 
         RotatableShapeHelper helper = RotatableShapeHelper.getInstance();
-        VoxelShape rotated = helper.getShapeForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
-        if (rotated == null) {
-            // 棣栨璋冪敤鏃剁紦瀛樺皻鏈垵濮嬪寲锛岀洿鎺ュ熀浜庡師濮嬪舰鐘舵瀯锟?
-            helper.initForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ, this.shape);
-            rotated = helper.getShapeForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
-        }
-        return rotated.move(trans.x, trans.y, trans.z).optimize();
+        VoxelShape rotated = helper.getOrInitShapeForBlock(getLevel(), getWorldPos(), shape, translateX, translateY, translateZ, rotX, rotY, rotZ);
+        return rotated.move(trans.x, trans.y, trans.z);
     }
 
     @Override

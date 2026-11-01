@@ -501,13 +501,8 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
         float rotZ = this.rotateZ;
 
         RotatableShapeHelper helper = RotatableShapeHelper.getInstance();
-        VoxelShape rotated = helper.getShapeForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
-        if (rotated == null) {
-            // 首次调用时缓存尚未初始化，直接基于原始形状构建
-            helper.initForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ, this.shape);
-            rotated = helper.getShapeForBlock(getLevel(), getWorldPos(), translateX, translateY, translateZ, rotX, rotY, rotZ);
-        }
-        return rotated.move(trans.x, trans.y, trans.z).optimize();
+        VoxelShape rotated = helper.getOrInitShapeForBlock(getLevel(), getWorldPos(), shape, translateX, translateY, translateZ, rotX, rotY, rotZ);
+        return rotated.move(trans.x, trans.y, trans.z);
     }
 
     @Override

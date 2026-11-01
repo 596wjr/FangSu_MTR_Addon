@@ -140,3 +140,9 @@ def mtrMinVersions = [
 ]
 rootProject.ext.mtr_min_version = mtrMinVersions[minecraft_version] ?: "0"
 rootProject.ext.mtr_min_version = mtrMinVersions[minecraft_version]
+
+// 可选的 Fabric 配置界面入口依赖，按 MC 版本选择；不打包 Mod Menu。
+rootProject.ext.mod_menu_version = [
+        "1.18.2": "3.2.5", "1.19.2": "4.1.2", "1.19.3": "5.1.0",
+        "1.19.4": "6.3.1", "1.20.1": "7.2.2", "1.20.4": "9.2.0"
+][minecraft_version]

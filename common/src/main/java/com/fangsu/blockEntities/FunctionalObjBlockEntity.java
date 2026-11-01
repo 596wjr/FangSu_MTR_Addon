@@ -68,6 +68,54 @@ public abstract class FunctionalObjBlockEntity extends BaseObjBlockEntity implem
         super(blockEntityType, blockPos, blockState);
     }
 
+    public static final String COLLISION_MODE = "fangsuCollisionMode";
+    public static final String COLLISION_STEP = "fangsuCollisionStep";
+    private static final String COLLISION_BAKED_POSE = "fangsuCollisionBakedPose";
+    private static final String COLLISION_REVISION = "fangsuCollisionRevision";
+
+    /** 自动/简化/手动均随 extraConfig 存档和同步，动态门状态不属于手动冻结的姿态。 */
+    public String collisionMode() {
+        String mode = getExtraConfig(COLLISION_MODE, "auto");
+        return "simple".equals(mode) || "manual".equals(mode) ? mode : "auto";
+    }
+
+    public double collisionStep() {
+        try {
+            double value = Double.parseDouble(getExtraConfig(COLLISION_STEP, "0"));
+            return Double.isFinite(value) && value >= 0.01 && value <= 1 ? value : 0;
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private String collisionPoseKey() {
+        return translateX + "," + translateY + "," + translateZ + "," + rotateX + "," + rotateY + "," + rotateZ
+                + "," + mainModel + "," + getExtraConfig(COLLISION_STEP, "0");
+    }
+
+    public void rebuildCollision() {
+        setExtraConfig(COLLISION_BAKED_POSE, collisionPoseKey());
+        setExtraConfig(COLLISION_REVISION, java.util.UUID.randomUUID().toString());
+        com.fangsu.shape.RotatableShapeHelper.getInstance().removeCache(level, worldPosition);
+        sendUpdateC2S();
+    }
+
+    /** 统一设置快照，应用到所有 Shape 查询；选择框保持可选中，简化模式不会让物件无法编辑。 */
+    public net.minecraft.world.phys.shapes.VoxelShape queryConfiguredShape(BlockState state, boolean collision) {
+        String mode = collisionMode();
+        if ("simple".equals(mode) || ("manual".equals(mode)
+                && !collisionPoseKey().equals(getExtraConfig(COLLISION_BAKED_POSE, "")))) {
+            return net.minecraft.world.phys.shapes.Shapes.block().move(translateX, translateY, translateZ);
+        }
+        double override = collisionStep();
+        var settings = new com.fangsu.shape.CollisionShapeContext.Settings(level, worldPosition.asLong(),
+                override > 0 || com.fangsu.config.FangSuConfig.highQualityShape(),
+                override > 0 ? override : com.fangsu.config.FangSuConfig.shapeStep(),
+                getExtraConfig(COLLISION_REVISION, ""), "manual".equals(mode) ? 0 : 300);
+        return com.fangsu.shape.CollisionShapeContext.with(settings,
+                () -> collision ? setCollisionShape(state) : setShape(state));
+    }
+
     // ==================== ExtraConfig 存取 ====================
 
     public final String getExtraConfig(String key) {

@@ -20,7 +20,7 @@ import com.fangsu.drawing.sign.SignFaceData;
 import com.fangsu.drawing.sign.SignItem;
 import com.fangsu.drawing.sign.SignItemFactory;
 import com.fangsu.shape.RotatableShapeHelper;
-import com.fangsu.utils.CollisionBoxUtil;
+import com.fangsu.shape.ShapeCollection;
 import com.fangsu.utils.ContentInfoUtil;
 import com.fangsu.utils.CustomItemHelper;
 import com.fangsu.utils.GraphicsTextureHelper;
@@ -59,7 +59,7 @@ public class BlockEntitySignOnWall extends FunctionalObjBlockEntity {
 
 
     private DynamicModelHolder dmhLeft, dmhCenter, dmhRight;
-    private CollisionBoxUtil.CollisionBox shapeLeft, shapeCenter, shapeRight;
+    private ShapeCollection shapeLeft, shapeCenter, shapeRight;
     private int unit = 8;
 
     private double length = 2;
@@ -123,6 +123,7 @@ public class BlockEntitySignOnWall extends FunctionalObjBlockEntity {
                 markedError = true;
                 return;
             }
+            shapeLeft = shapeCenter = shapeRight = null;
             Map<String, DynamicModelHolder> models = ResourceUtil.loadPartedDmh(new ResourceLocation(displayInfo.model()), displayInfo.flipV());
             unit = displayInfo.unit();
             {
@@ -130,7 +131,7 @@ public class BlockEntitySignOnWall extends FunctionalObjBlockEntity {
                 String modelKey = (String) main.get("subModel");
                 dmhCenter = models.get(modelKey);
                 if (main.containsKey("shape") && main.get("shape") instanceof List<?> l)
-                    shapeCenter = new CollisionBoxUtil.CollisionBox(l);
+                    shapeCenter = ShapeCollection.fromPixels(l);
             }
             {
                 Map<?, ?> side = displayInfo.side();
@@ -138,14 +139,14 @@ public class BlockEntitySignOnWall extends FunctionalObjBlockEntity {
                     String modelKey = (String) left.get("subModel");
                     dmhLeft = models.get(modelKey);
                     if (left.containsKey("shape") && left.get("shape") instanceof List<?> l) {
-                        shapeLeft = new CollisionBoxUtil.CollisionBox(l);
+                        shapeLeft = ShapeCollection.fromPixels(l);
                     }
                 }
                 if (side.get("right") instanceof Map<?, ?> right) {
                     String modelKey = (String) right.get("subModel");
                     dmhRight = models.get(modelKey);
                     if (right.containsKey("shape") && right.get("shape") instanceof List<?> l) {
-                        shapeRight = new CollisionBoxUtil.CollisionBox(l);
+                        shapeRight = ShapeCollection.fromPixels(l);
                     }
                 }
             }
@@ -338,7 +339,6 @@ public class BlockEntitySignOnWall extends FunctionalObjBlockEntity {
         float rotX = this.rotateX;
         float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
         float rotZ = this.rotateZ;
-        long posLong = worldPosition.asLong();
 
         VoxelShape shape = Shapes.empty();
         double startX = -0.5 * unit * length / 16d;
@@ -351,7 +351,8 @@ public class BlockEntitySignOnWall extends FunctionalObjBlockEntity {
         };
 
         if (shapeLeft != null) {
-            VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeLeft, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+            VoxelShape s = RotatableShapeHelper.getInstance().getRotatedShape(getLevel(), worldPosition, "sign:left",
+                    shapeLeft, rotX, rotY, rotZ);
             Vec3 offset = localToWorld.apply(startX);
             shape = Shapes.or(shape, s.move(offset.x + trans.x, trans.y, offset.z + trans.z));
         }
@@ -359,7 +360,8 @@ public class BlockEntitySignOnWall extends FunctionalObjBlockEntity {
             if (shapeCenter != null) {
                 double localOffsetX = startX + unit / 32d + i * unit / 16d;
                 Vec3 offset = localToWorld.apply(localOffsetX);
-                VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeCenter, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+                VoxelShape s = RotatableShapeHelper.getInstance().getRotatedShape(getLevel(), worldPosition, "sign:center",
+                    shapeCenter, rotX, rotY, rotZ);
                 shape = Shapes.or(shape, s.move(offset.x + trans.x, trans.y, offset.z + trans.z));
             }
         }
@@ -367,7 +369,8 @@ public class BlockEntitySignOnWall extends FunctionalObjBlockEntity {
             // right鍦ㄦ覆鏌撲腑鐨勪綅锟? startX + n * unit/16
             double rightLocalX = startX + n * unit / 16d;
             Vec3 offset = localToWorld.apply(rightLocalX);
-            VoxelShape s = CollisionBoxUtil.cachedRotatedShape(posLong, shapeRight, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+            VoxelShape s = RotatableShapeHelper.getInstance().getRotatedShape(getLevel(), worldPosition, "sign:right",
+                    shapeRight, rotX, rotY, rotZ);
             shape = Shapes.or(shape, s.move(offset.x + trans.x, trans.y, offset.z + trans.z));
         }
         return shape;

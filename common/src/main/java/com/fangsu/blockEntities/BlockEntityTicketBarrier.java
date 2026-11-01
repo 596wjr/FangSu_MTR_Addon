@@ -1,6 +1,8 @@
 package com.fangsu.blockEntities;
 
 import com.fangsu.mappings.ComponentHelper;
+import com.fangsu.shape.ShapeCollection;
+import com.fangsu.shape.RotatableShapeHelper;
 import com.fangsu.render.scripting.util.DynamicModelHolder;
 import com.fangsu.render.sowcer.math.Matrices;
 
@@ -31,7 +33,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -63,12 +64,11 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
 
     /** 复用的临时矩阵，避免每帧为每个门子模型分配新的 Matrices。 */
     private final Matrices scratchMatrices = new Matrices();
-    private CollisionBoxUtil.CollisionBox shape, collisionShape, doorCloseShape, doorCloseCollisionShape;
+    private ShapeCollection shape, collisionShape, doorCloseShape, doorCloseCollisionShape;
     private String shapeSerialized = "";
     private String collisionShapeSerialized = "";
     private String doorCloseShapeSerialized = "";
     private String doorCloseCollisionShapeSerialized = "";
-//    private AABB ticketBox, cardBox;
 
     public BlockEntityTicketBarrier(BlockPos blockPos, BlockState blockState) {
         super(BLOCK_ENTITY_TICKET_BARRIER.get(), blockPos, blockState);
@@ -101,21 +101,22 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
                 subInfo = new TicketBarrierDoorRenderInfo(doorInfo);
             }
 
+            shape = doorCloseShape = null;
             if (!content.getShape().isEmpty()) {
-                shape = new CollisionBoxUtil.CollisionBox(content.getShape());
+                shape = ShapeCollection.fromPixels(content.getShape());
             }
             if (!content.getCollisionShape().isEmpty()) {
-                collisionShape = new CollisionBoxUtil.CollisionBox(content.getCollisionShape());
+                collisionShape = ShapeCollection.fromPixels(content.getCollisionShape());
             } else {
-                collisionShape = new CollisionBoxUtil.CollisionBox(List.of(List.of(-1, 0, 0, 1, 24, 16), List.of(15, 0, 0, 17, 24, 16)));
+                collisionShape = ShapeCollection.fromPixels(List.of(List.of(-1, 0, 0, 1, 24, 16), List.of(15, 0, 0, 17, 24, 16)));
             }
             if (!content.getDoorCloseShape().isEmpty()) {
-                doorCloseShape = new CollisionBoxUtil.CollisionBox(content.getDoorCloseShape());
+                doorCloseShape = ShapeCollection.fromPixels(content.getDoorCloseShape());
             }
             if (!content.getDoorCloseCollisionShape().isEmpty()) {
-                doorCloseCollisionShape = new CollisionBoxUtil.CollisionBox(content.getDoorCloseCollisionShape());
+                doorCloseCollisionShape = ShapeCollection.fromPixels(content.getDoorCloseCollisionShape());
             } else {
-                doorCloseCollisionShape = new CollisionBoxUtil.CollisionBox(List.of(List.of(1, 0, 12, 15, 24, 15)));
+                doorCloseCollisionShape = ShapeCollection.fromPixels(List.of(List.of(1, 0, 12, 15, 24, 15)));
             }
             shapeSerialized = ShapeSerializer.serialize(content.getShape());
             collisionShapeSerialized = ShapeSerializer.serialize(content.getCollisionShape());
@@ -462,13 +463,14 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
         float rotX = this.rotateX;
         float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
         float rotZ = this.rotateZ;
-        long posLong = worldPosition.asLong();
-        VoxelShape openShape = CollisionBoxUtil.cachedRotatedShape(posLong, shape, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+        VoxelShape openShape = RotatableShapeHelper.getInstance().getRotatedShape(getLevel(), worldPosition, "barrier:outline:open",
+                shape, rotX, rotY, rotZ);
         openShape = openShape.move(trans.x, trans.y, trans.z);
         if (isOpen || doorCloseShape == null) {
             return openShape;
         }
-        VoxelShape closeShape = CollisionBoxUtil.cachedRotatedShape(posLong, doorCloseShape, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+        VoxelShape closeShape = RotatableShapeHelper.getInstance().getRotatedShape(getLevel(), worldPosition, "barrier:outline:closed",
+                doorCloseShape, rotX, rotY, rotZ);
         closeShape = closeShape.move(trans.x, trans.y, trans.z);
         return Shapes.or(openShape, closeShape);
     }
@@ -485,24 +487,28 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
             VoxelShape closeShape = resolveSerializedShape(closeShapeRaw, state);
             return Shapes.or(openShape, closeShape);
         }
-        CollisionBoxUtil.CollisionBox baseCollision = collisionShape != null ? collisionShape : shape;
+        ShapeCollection baseCollision = collisionShape != null ? collisionShape : shape;
         if (baseCollision == null) return null;
-        CollisionBoxUtil.CollisionBox closeCollision = doorCloseCollisionShape != null ? doorCloseCollisionShape : doorCloseShape;
+        ShapeCollection closeCollision = doorCloseCollisionShape != null ? doorCloseCollisionShape : doorCloseShape;
         Direction facing = state.getValue(BaseObjBlock.FACING);
         Vec3 trans = transformOffset(facing, new Vec3(translateX, translateY, translateZ));
         float rotX = this.rotateX;
         float rotY = this.rotateY + (float) Math.toRadians(-facing.toYRot());
         float rotZ = this.rotateZ;
-        long posLong = worldPosition.asLong();
-        VoxelShape openShape = CollisionBoxUtil.cachedRotatedShape(posLong, baseCollision, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+        VoxelShape openShape = RotatableShapeHelper.getInstance().getRotatedShape(getLevel(), worldPosition, "barrier:collision:open",
+                baseCollision, rotX, rotY, rotZ);
         openShape = openShape.move(trans.x, trans.y, trans.z);
         if (isOpen || closeCollision == null) {
             return openShape;
         }
-        VoxelShape closeShape = CollisionBoxUtil.cachedRotatedShape(posLong, closeCollision, Vec3.ZERO, rotX, rotY, rotZ, 0.1f);
+        VoxelShape closeShape = RotatableShapeHelper.getInstance().getRotatedShape(getLevel(), worldPosition, "barrier:collision:closed",
+                closeCollision, rotX, rotY, rotZ);
         closeShape = closeShape.move(trans.x, trans.y, trans.z);
         return Shapes.or(openShape, closeShape);
     }
+
+    /** 序列化外形和碰撞形状可各自缓存，避免同坐标多个形状互相覆盖。 */
+    private record SerializedShapeKey(String serialized, int facingRotation) { }
 
     private VoxelShape resolveSerializedShape(String serialized, BlockState state) {
         try {
@@ -512,14 +518,9 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
             VoxelShape shape = ShapeSerializer.getShape(serialized, yRot);
 
             if (rotateX != 0 || rotateY != 0 || rotateZ != 0) {
-                VoxelShape rotated = Shapes.empty();
-                long posLong = worldPosition.asLong();
-                for (AABB box : shape.toAabbs()) {
-                    CollisionBoxUtil.CollisionBox collisionBox = new CollisionBoxUtil.CollisionBox(box.minX * 16, box.minY * 16, box.minZ * 16, box.maxX * 16, box.maxY * 16, box.maxZ * 16);
-                    VoxelShape part = CollisionBoxUtil.cachedRotatedShape(posLong, collisionBox, Vec3.ZERO, rotateX, rotateY, rotateZ, 0.1f);
-                    rotated = Shapes.or(rotated, part);
-                }
-                shape = rotated.optimize();
+                ShapeCollection rawShape = ShapeCollection.fromVoxelShape(shape);
+                shape = RotatableShapeHelper.getInstance().getRotatedShape(getLevel(), worldPosition,
+                        new SerializedShapeKey(serialized, yRot), rawShape, rotateX, rotateY, rotateZ);
             }
 
             return shape.move(trans.x, trans.y, trans.z);

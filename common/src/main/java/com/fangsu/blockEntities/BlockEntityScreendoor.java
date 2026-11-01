@@ -381,7 +381,7 @@ public class BlockEntityScreendoor extends FunctionalObjBlockEntity implements I
         VoxelShape shape = RotatableShapeHelper.getInstance().getOrInitShapeForBlock(
                 getLevel(), getWorldPos(), doorShape,
                 translateX, translateY, translateZ, rotX, rotY, rotZ);
-        return shape.move(trans.x, trans.y, trans.z).optimize();
+        return shape.move(trans.x, trans.y, trans.z);
     }
 
     @Override

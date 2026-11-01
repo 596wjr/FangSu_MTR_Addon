@@ -15,7 +15,8 @@
     "environment": "*",
     "entrypoints": {
         "main": ["com.fangsu.fabric.MainFabric"],
-        "client": ["com.fangsu.fabric.client.MainFabricClient"]
+        "client": ["com.fangsu.fabric.client.MainFabricClient"],
+        "modmenu": ["com.fangsu.fabric.FangSuModMenu"]
     },
     "mixins": ["fangsu.mixins.json"],
     "depends": {

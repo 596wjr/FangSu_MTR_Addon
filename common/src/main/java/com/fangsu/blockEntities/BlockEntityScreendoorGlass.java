@@ -415,7 +415,7 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
         VoxelShape shape = RotatableShapeHelper.getInstance().getOrInitShapeForBlock(
                 getLevel(), getWorldPos(), glassShape,
                 translateX, translateY, translateZ, rotX, rotY, rotZ);
-        return shape.move(trans.x, trans.y, trans.z).optimize();
+        return shape.move(trans.x, trans.y, trans.z);
     }
 
     @Override

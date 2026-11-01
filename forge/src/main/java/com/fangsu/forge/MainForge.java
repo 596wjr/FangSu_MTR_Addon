@@ -1,14 +1,13 @@
 package com.fangsu.forge;
 
-import com.fangsu.MainClient;
 import dev.architectury.platform.forge.EventBuses;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 import com.fangsu.Main;
 import net.minecraftforge.fml.loading.FMLEnvironment;
+import net.minecraftforge.fml.DistExecutor;
 
 @Mod(Main.MOD_ID)
 @SuppressWarnings("removal")
@@ -20,19 +19,10 @@ public final class MainForge {
         // Run our common setup.
         Main.init();
 
+        // 外层判断也覆盖开发环境：服务端不会执行 SafeReferent 验证、创建客户端方法引用。
         if (FMLEnvironment.dist == Dist.CLIENT) {
-            FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onClientSetup);
+            DistExecutor.safeRunWhenOn(Dist.CLIENT,
+                    () -> com.fangsu.forge.client.FangSuConfigRegistration::register);
         }
-    }
-
-    private void onClientSetup(FMLClientSetupEvent event) {
-        event.enqueueWork(() -> {
-            try {
-                // 客户端初始化（只运行一次，注册 BlockEntityRenderers 等）
-                MainClient.initClient();
-            } catch (Exception e) {
-                Main.LOGGER.error("[FangSu] Failed to initialize client", e);
-            }
-        });
     }
 }

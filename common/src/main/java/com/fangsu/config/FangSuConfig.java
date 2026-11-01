@@ -142,13 +142,13 @@ public final class FangSuConfig {
 
     /** 旋转碰撞箱是否细分；false 时整块旋转（朝向仍然生效，只是不做细分）。 */
     public static boolean highQualityShape() {
-        init();
+        if (!initialized) init();
         return highQualityShape;
     }
 
     /** 细分时的切分步长（方块单位，已保证落在合法范围内）。 */
     public static double shapeStep() {
-        init();
+        if (!initialized) init();
         return shapeStep;
     }
 
@@ -158,7 +158,7 @@ public final class FangSuConfig {
      * 只在「玩家确实坐在一辆带滚转的车厢里」时才有意义：不满足时相机与原生逐位一致。
      */
     public static boolean cameraTiltEnabled() {
-        init();
+        if (!initialized) init();
         return cameraTiltEnabled;
     }
 
@@ -169,8 +169,37 @@ public final class FangSuConfig {
      * {@code 2.0} = 两倍，用来在游戏里一眼确认特性确实生效；{@code 0.0} 等价于关闭。
      */
     public static double cameraTiltStrength() {
-        init();
+        if (!initialized) init();
         return cameraTiltStrength;
+    }
+
+    /** 保存成功后才发布新设置；保留文件中不属于本界面的键。 */
+    public static synchronized boolean saveAndApply(boolean quality, double step, boolean tilt, double strength) {
+        init();
+        if (!Double.isFinite(step) || step < MIN_SHAPE_STEP || step > MAX_SHAPE_STEP
+                || !Double.isFinite(strength) || strength < MIN_CAMERA_TILT_STRENGTH
+                || strength > MAX_CAMERA_TILT_STRENGTH) return false;
+        Properties properties = new Properties();
+        Path path = configPath();
+        if (path == null) return false;
+        try {
+            if (Files.isRegularFile(path)) {
+                try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+                    properties.load(reader);
+                }
+            }
+        } catch (Exception e) {
+            Main.LOGGER.warn("Failed to read config before saving", e);
+            return false;
+        }
+        if (!save(properties, quality, step, tilt, strength)) return false;
+        highQualityShape = quality;
+        shapeStep = step;
+        cameraTiltEnabled = tilt;
+        cameraTiltStrength = strength;
+        // 查询按需重建：已放置方块无需重新放置或重进世界。
+        com.fangsu.shape.RotatableShapeHelper.getInstance().clearAll();
+        return true;
     }
 
     private static Path configPath() {
@@ -184,27 +213,46 @@ public final class FangSuConfig {
         }
     }
 
-    private static void save(Properties properties) {
+    private static boolean save(Properties properties) {
+        return save(properties, highQualityShape, shapeStep, cameraTiltEnabled, cameraTiltStrength);
+    }
+
+    private static boolean save(Properties properties, boolean quality, double step, boolean tilt, double strength) {
         Path path = configPath();
-        if (path == null) return;
+        if (path == null) return false;
 
-        properties.setProperty(KEY_HIGH_QUALITY_SHAPE, Boolean.toString(highQualityShape));
-        properties.setProperty(KEY_SHAPE_STEP, Double.toString(shapeStep));
-        properties.setProperty(KEY_CAMERA_TILT_ENABLED, Boolean.toString(cameraTiltEnabled));
-        properties.setProperty(KEY_CAMERA_TILT_STRENGTH, Double.toString(cameraTiltStrength));
+        properties.setProperty(KEY_HIGH_QUALITY_SHAPE, Boolean.toString(quality));
+        properties.setProperty(KEY_SHAPE_STEP, Double.toString(step));
+        properties.setProperty(KEY_CAMERA_TILT_ENABLED, Boolean.toString(tilt));
+        properties.setProperty(KEY_CAMERA_TILT_STRENGTH, Double.toString(strength));
 
+        Path temporary = null;
         try {
             Path parent = path.getParent();
             if (parent != null) Files.createDirectories(parent);
-            try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
+            temporary = Files.createTempFile(parent, "fangsu-", ".properties.tmp");
+            try (Writer writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8)) {
                 properties.store(writer, "FangSu config. highQualityShape: rotate collision shapes (true/false); "
                         + "shapeStep: sub-box step used when rotating (" + MIN_SHAPE_STEP + "~" + MAX_SHAPE_STEP + "); "
                         + "cameraTiltEnabled: roll camera/horizon while riding a banked train (true/false); "
                         + "cameraTiltStrength: camera roll multiplier ("
                         + MIN_CAMERA_TILT_STRENGTH + "~" + MAX_CAMERA_TILT_STRENGTH + ")");
             }
+            try {
+                Files.move(temporary, path, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+                Files.move(temporary, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            return true;
         } catch (Exception e) {
             Main.LOGGER.warn("Failed to write config {}: {}", FILE_NAME, e.toString());
+            return false;
+        } finally {
+            if (temporary != null) {
+                try { Files.deleteIfExists(temporary); }
+                catch (Exception e) { Main.LOGGER.debug("Failed to remove temporary config file", e); }
+            }
         }
     }
 

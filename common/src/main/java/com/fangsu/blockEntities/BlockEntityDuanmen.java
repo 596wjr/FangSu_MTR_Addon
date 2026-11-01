@@ -232,14 +232,9 @@ public class BlockEntityDuanmen extends FunctionalObjBlockEntity {
             helper.removeCache(getLevel(), shapePos);
             cachedOpenState = isOpen;
         }
-        VoxelShape rotated = helper.getShapeForBlock(getLevel(), shapePos, translateX, translateY, translateZ, rotX, rotY, rotZ);
-        if (rotated == null) {
-            // 首次调用时缓存尚未初始化，直接基于原始形状构建
-            helper.initForBlock(getLevel(), shapePos, translateX, translateY, translateZ, rotX, rotY, rotZ, shape);
-            rotated = helper.getShapeForBlock(getLevel(), shapePos, translateX, translateY, translateZ, rotX, rotY, rotZ);
-        }
+        VoxelShape rotated = helper.getOrInitShapeForBlock(getLevel(), shapePos, shape, translateX, translateY, translateZ, rotX, rotY, rotZ);
         // 位移（扳手平移）必须叠加在旋转结果之上，否则碰撞箱会留在原位不随模型移动
-        return rotated.move(trans.x, trans.y, trans.z).optimize();
+        return rotated.move(trans.x, trans.y, trans.z);
     }
 
     @Override
