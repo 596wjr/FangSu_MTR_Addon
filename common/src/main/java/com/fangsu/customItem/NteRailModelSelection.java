@@ -63,7 +63,8 @@ public final class NteRailModelSelection {
         LinkedHashSet<String> keys = new LinkedHashSet<>();
         keys.add(primary);
         for (String accessory : accessories) {
-            if (isAccessory(accessory)) keys.add(accessory);
+            // 界面限制可新增的附件；原选择中的未知键也要保留，避免缺失资源包时打开即丢失配置。
+            if (accessory != null) keys.add(accessory);
         }
         return keys.size() == 1 ? primary : PREFIX + GSON.toJson(keys);
     }

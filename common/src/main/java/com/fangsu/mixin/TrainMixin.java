@@ -25,19 +25,25 @@ import java.util.Set;
 @Mixin(value = Train.class, remap = false, priority = 100)  // ① 降低优先级，确保后执行
 public abstract class TrainMixin {
 
+    // issue #99：Mixin 0.8.5 追加 <clinit> 时不会复制 try/catch 异常表。
+    // 这里不能有 static 块或静态字段初始化器，否则随后合并的 ANTE 探测会失去异常保护。
+    // 可选依赖改为首次扫描时探测，普通方法中的异常表可由 Mixin 完整保留。
+    @Unique
+    private static volatile boolean fangsu$platformCompatibilityDetected;
+
     // ==================== 检测 Metropolis 模组 ====================
     @Unique
-    private static Class<?> fangsu$IBlockPlatformClass = Void.class;
+    private static Class<?> fangsu$IBlockPlatformClass;
     @Unique
-    private static boolean fangsu$foundMetropolis = false;
+    private static boolean fangsu$foundMetropolis;
 
     // ==================== 检测 ANTE 模组的 BlockEyeCandy ====================
     @Unique
-    private static Class<?> fangsu$BlockEyeCandyClass = Void.class;
+    private static Class<?> fangsu$BlockEyeCandyClass;
     @Unique
-    private static Class<?> fangsu$BlockEyeCandyEntityClass = Void.class;
+    private static Class<?> fangsu$BlockEyeCandyEntityClass;
     @Unique
-    private static boolean fangsu$foundEyeCandy = false;
+    private static boolean fangsu$foundEyeCandy;
     @Unique
     private static Method fangsu$isPlatformMethod;
     @Unique
@@ -45,7 +51,9 @@ public abstract class TrainMixin {
     @Unique
     private static Method fangsu$setDoorValueMethod;
 
-    static {
+    @Unique
+    private static synchronized void fangsu$detectPlatformCompatibility() {
+        if (fangsu$platformCompatibilityDetected) return;
         // Metropolis
         try {
             fangsu$IBlockPlatformClass = Class.forName(
@@ -55,7 +63,7 @@ public abstract class TrainMixin {
             );
             Main.LOGGER.info("Loaded metropolis IBlockPlatformClass");
             fangsu$foundMetropolis = true;
-        } catch (Exception ignored) {
+        } catch (Exception | LinkageError ignored) {
         }
 
         // ANTE
@@ -77,8 +85,10 @@ public abstract class TrainMixin {
             fangsu$setDoorValueMethod = fangsu$BlockEyeCandyEntityClass.getMethod("setDoorValue", float.class);
             Main.LOGGER.info("Loaded mtrsteamloco BlockEyeCandy: " + fangsu$BlockEyeCandyClass.getName());
             fangsu$foundEyeCandy = true;
-        } catch (Exception ignored) {
+        } catch (Exception | LinkageError ignored) {
         }
+        // volatile 发布完整结果，客户端与集成服务器并发首次扫描时只探测一次。
+        fangsu$platformCompatibilityDetected = true;
     }
 
     /**
@@ -135,6 +145,7 @@ public abstract class TrainMixin {
             return;
         }
 
+        if (!fangsu$platformCompatibilityDetected) fangsu$detectPlatformCompatibility();
         boolean hasPlatform = false;
         final boolean isClientSide = world.isClientSide();
 

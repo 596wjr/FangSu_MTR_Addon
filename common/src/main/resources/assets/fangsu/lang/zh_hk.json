@@ -368,5 +368,13 @@
   "ui.fangsu.level_crossing.groundTexture": "地面貼圖（留空使用預設）",
   "ui.fangsu.level_crossing.railTopTexture": "鋼軌頂面貼圖（留空使用預設）",
   "ui.fangsu.level_crossing.railSideTexture": "鋼軌側面貼圖（留空使用預設）",
-  "ui.fangsu.nte_rail.hidden": "隱藏軌道模型"
+  "ui.fangsu.nte_rail.hidden": "隱藏軌道模型",
+  "ui.fangsu.common.search": "搜尋…",
+  "ui.fangsu.common.no_results": "沒有相符項目",
+  "ui.fangsu.nte_rail.sources": "軌道來源（JSON）",
+  "ui.fangsu.nte_rail.models": "軌道模型",
+  "ui.fangsu.nte_rail.other_sources": "其他模型（來源不明）",
+  "ui.fangsu.nte_rail.primary_label": "主軌道 · 單選",
+  "ui.fangsu.nte_rail.accessory_label": "附屬模型 · 多選",
+  "ui.fangsu.rail_model_tool.builtin": "內建模型"
 }

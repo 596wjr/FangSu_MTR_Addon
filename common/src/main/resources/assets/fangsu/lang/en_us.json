@@ -524,5 +524,13 @@
   "ui.fangsu.level_crossing.groundTexture": "Ground texture (empty: default)",
   "ui.fangsu.level_crossing.railTopTexture": "Rail top texture (empty: default)",
   "ui.fangsu.level_crossing.railSideTexture": "Rail side texture (empty: default)",
-  "ui.fangsu.nte_rail.hidden": "Hide rail model"
+  "ui.fangsu.nte_rail.hidden": "Hide rail model",
+  "ui.fangsu.common.search": "Search…",
+  "ui.fangsu.common.no_results": "No matches",
+  "ui.fangsu.nte_rail.sources": "Rail sources (JSON)",
+  "ui.fangsu.nte_rail.models": "Rail models",
+  "ui.fangsu.nte_rail.other_sources": "Other models (unknown source)",
+  "ui.fangsu.nte_rail.primary_label": "Primary · choose one",
+  "ui.fangsu.nte_rail.accessory_label": "Accessory · choose multiple",
+  "ui.fangsu.rail_model_tool.builtin": "Built-in models"
 }

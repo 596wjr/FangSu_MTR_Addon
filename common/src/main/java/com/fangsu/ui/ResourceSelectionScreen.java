@@ -8,6 +8,7 @@ import com.fangsu.utils.ResourceUtil;
 import net.minecraft.client.gui.GuiGraphics;
 //#endif
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -20,8 +21,9 @@ import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -43,6 +45,7 @@ public class ResourceSelectionScreen extends Screen {
     /* ===================== 常量 ===================== */
 
     private static final int PATH_BAR_HEIGHT = 18;
+    private static final int SEARCH_BAR_HEIGHT = 26;
     private static final int ITEM_HEIGHT = 16;
     private static final int ITEM_PADDING = 4;
     private static final int BOTTOM_BAR_HEIGHT = 38;
@@ -67,6 +70,11 @@ public class ResourceSelectionScreen extends Screen {
     /** 当前目录下的子文件夹名列表 */
     private List<String> currentSubDirs = Collections.emptyList();
 
+    /** 当前目录完整条目；搜索只改变 displayEntries，不改变选择。 */
+    private List<String> directoryEntries = Collections.emptyList();
+    private String searchQuery = "";
+    private EditBox searchField;
+
     /** 当前目录下的所有可显示条目（合并 dirs + files，用于渲染索引） */
     private List<String> displayEntries = Collections.emptyList();
 
@@ -74,15 +82,14 @@ public class ResourceSelectionScreen extends Screen {
     private final Map<String, String> entryToResourceId = new HashMap<>();
 
     /** 已选中的完整资源ID集合（格式 "namespace:path"） */
-    private final Set<String> selectedResourceIds = new HashSet<>();
+    private final Set<String> selectedResourceIds = new LinkedHashSet<>();
 
     /** 滚动偏移量（像素） */
     private int scrollOffset = 0;
 
     /** 滚动条是否正在被拖拽 */
     private boolean scrollbarDragging = false;
-    private int scrollbarDragStartY = 0;
-    private int scrollbarDragStartOffset = 0;
+    private double scrollbarGrabOffset;
 
     /* ===================== 预览状态 ===================== */
 
@@ -116,17 +123,37 @@ public class ResourceSelectionScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        scrollbarDragging = false;
+        Component placeholder = ComponentHelper.translatable("ui.fangsu.common.search");
+        searchField = new EditBox(font, 8, PATH_BAR_HEIGHT * 2 + 4, Math.max(1, width - 16), 18, placeholder);
+        searchField.setMaxLength(256);
+        searchField.setValue(searchQuery);
+        searchField.setSuggestion(searchQuery.isEmpty() ? placeholder.getString() : null);
+        searchField.setResponder(value -> {
+            searchQuery = value;
+            searchField.setSuggestion(value.isEmpty() ? placeholder.getString() : null);
+            scrollOffset = 0;
+            scrollbarDragging = false;
+            applySearch();
+        });
+        addRenderableWidget(searchField);
         refreshCurrentDirectory();
     }
+
+    //#if MC_VERSION < 12003
+    @Override
+    public void tick() {
+        super.tick();
+        if (!previewMode && searchField != null) searchField.tick();
+    }
+    //#endif
 
     /* ===================== 目录导航 ===================== */
 
     /** 进入指定相对路径的目录 */
     private void navigateTo(String path) {
         currentPath = path;
-        selectedResourceIds.clear();
-        scrollOffset = 0;
-        closePreview();
+        resetDirectoryView();
         refreshCurrentDirectory();
     }
 
@@ -136,9 +163,7 @@ public class ResourceSelectionScreen extends Screen {
             // 根目录再向上 → 回到命名空间选择层
             if (selectedNamespace != null) {
                 selectedNamespace = null;
-                selectedResourceIds.clear();
-                scrollOffset = 0;
-                closePreview();
+                resetDirectoryView();
                 refreshCurrentDirectory();
             }
             return;
@@ -160,7 +185,8 @@ public class ResourceSelectionScreen extends Screen {
             }
             currentSubDirs = new ArrayList<>(nsSet);
             entryToResourceId.clear();
-            displayEntries = new ArrayList<>(currentSubDirs);
+            directoryEntries = new ArrayList<>(currentSubDirs);
+            applySearch();
             return;
         }
 
@@ -197,12 +223,48 @@ public class ResourceSelectionScreen extends Screen {
 
         currentSubDirs = new ArrayList<>(dirSet);
 
-        displayEntries = new ArrayList<>();
+        directoryEntries = new ArrayList<>();
         if (!currentPath.isEmpty()) {
-            displayEntries.add("..");
+            directoryEntries.add("..");
         }
-        displayEntries.addAll(currentSubDirs);
-        displayEntries.addAll(fileSet);
+        directoryEntries.addAll(currentSubDirs);
+        directoryEntries.addAll(fileSet);
+        applySearch();
+    }
+
+    /** 切换目录时重置视图，跨目录选择保留到用户主动取消或替换。 */
+    private void resetDirectoryView() {
+        scrollOffset = 0;
+        scrollbarDragging = false;
+        closePreview();
+        searchQuery = "";
+        if (searchField != null) searchField.setValue("");
+    }
+
+    private void applySearch() {
+        final String query = searchQuery.trim().toLowerCase(Locale.ROOT);
+        final String[] words = query.isEmpty() ? new String[0] : query.split("\\s+");
+        displayEntries = new ArrayList<>();
+        for (String entry : directoryEntries) {
+            // 返回上级入口始终可见；文件夹可按名字或所在路径查找。
+            if ("..".equals(entry)) {
+                displayEntries.add(entry);
+                continue;
+            }
+            String id = entryToResourceId.get(entry);
+            if (id == null) id = selectedNamespace == null ? entry + ":"
+                    : selectedNamespace + ":" + (currentPath.isEmpty() ? "" : currentPath + "/") + entry;
+            String searchable = (entry + " " + id).toLowerCase(Locale.ROOT);
+            boolean matches = true;
+            for (String word : words) {
+                if (!searchable.contains(word)) {
+                    matches = false;
+                    break;
+                }
+            }
+            if (matches) displayEntries.add(entry);
+        }
+        clampScroll();
     }
 
     /* ===================== 条目工具方法 ===================== */
@@ -320,7 +382,6 @@ public class ResourceSelectionScreen extends Screen {
             buildPreviewTexture();
             renderBackground(guiGraphics);
             renderPreview(g);
-            super.render(guiGraphics, mouseX, mouseY, partialTick);
             return;
         }
 
@@ -333,7 +394,6 @@ public class ResourceSelectionScreen extends Screen {
         //$$         buildPreviewTexture();
         //$$         renderBackground(poseStack);
         //$$         renderPreview(g);
-        //$$         super.render(poseStack, mouseX, mouseY, partialTick);
         //$$         return;
         //$$     }
         //$$     renderBackground(poseStack);
@@ -348,9 +408,12 @@ public class ResourceSelectionScreen extends Screen {
         // 路径面包屑
         renderPathBar(g);
 
+        // 搜索栏固定在列表外，不随内容滚动。
+        g.fill(0, PATH_BAR_HEIGHT * 2, width, listTop(), 0xFF2D2D2D);
+
         // 文件列表区
-        final int listTop = PATH_BAR_HEIGHT + PATH_BAR_HEIGHT;
-        final int listBottom = height - BOTTOM_BAR_HEIGHT;
+        final int listTop = listTop();
+        final int listBottom = listBottom();
         if (listBottom > listTop) {
             renderFileList(g, listTop, listBottom, mouseX, mouseY);
         }
@@ -386,42 +449,80 @@ public class ResourceSelectionScreen extends Screen {
 
     private void renderFileList(GraphicContext g, int listTop, int listBottom, int mouseX, int mouseY) {
         final int listHeight = listBottom - listTop;
-        final int contentHeight = displayEntries.size() * ITEM_HEIGHT;
-        final int maxScroll = Math.max(0, contentHeight - listHeight);
-
-        // 列表背景
+        clampScroll();
         g.fill(0, listTop, width, listBottom, 0xFF252525);
-
-        // 空状态
-        if (displayEntries.isEmpty()) {
-            g.drawString(font, ComponentHelper.translatable("ui.fangsu.common.empty"), width / 2 - 20, listTop + listHeight / 2 - 4, 0xFF666666, false);
-            return;
+        g.enableScissor(0, listTop, Math.max(0, width - SCROLLBAR_WIDTH), listBottom);
+        try {
+            int first = scrollOffset / ITEM_HEIGHT;
+            int end = Math.min(displayEntries.size(), (scrollOffset + listHeight + ITEM_HEIGHT - 1) / ITEM_HEIGHT);
+            for (int i = first; i < end; i++) {
+                final String entry = displayEntries.get(i);
+                final int y = listTop + i * ITEM_HEIGHT - scrollOffset;
+                final boolean isDir = isDirectoryEntry(entry);
+                final boolean isSelected = !isDir && selectedResourceIds.contains(entryToResourceId.get(entry));
+                final boolean hovered = isInList(mouseX, mouseY) && mouseY >= y && mouseY < y + ITEM_HEIGHT
+                        && mouseX < width - SCROLLBAR_WIDTH;
+                renderFileItem(g, entry, i, 0, y, width - SCROLLBAR_WIDTH, ITEM_HEIGHT, isDir, isSelected, hovered);
+            }
+            // 搜索无匹配时仍保留返回上级；空状态显示在该入口下方。
+            if (displayEntries.isEmpty() || (displayEntries.size() == 1 && "..".equals(displayEntries.get(0)))) {
+                int messageTop = listTop + (displayEntries.isEmpty() ? 0 : ITEM_HEIGHT);
+                Component message = ComponentHelper.translatable(searchQuery.trim().isEmpty()
+                        ? "ui.fangsu.common.empty" : "ui.fangsu.common.no_results");
+                if (messageTop < listBottom) {
+                    g.drawCenteredString(font, message, (width - SCROLLBAR_WIDTH) / 2,
+                            messageTop + Math.max(0, (listBottom - messageTop - font.lineHeight) / 2), 0xFF888888);
+                }
+            }
+        } finally {
+            g.disableScissor();
         }
-
-        // 滚动裁剪
-        g.enableScissor(0, listTop, width, listBottom);
-
-        int y = listTop - scrollOffset;
-        for (int i = 0; i < displayEntries.size(); i++) {
-            final String entry = displayEntries.get(i);
-            final boolean isDir = isDirectoryEntry(entry);
-            final boolean isSelected = !isDir && selectedResourceIds.contains(entryToResourceId.get(entry));
-            final boolean hovered = mouseY >= y && mouseY < y + ITEM_HEIGHT && mouseX >= 0 && mouseX < width - SCROLLBAR_WIDTH;
-
-            renderFileItem(g, entry, i, 0, y, width - SCROLLBAR_WIDTH, ITEM_HEIGHT, isDir, isSelected, hovered);
-
-            y += ITEM_HEIGHT;
-        }
-
-        g.disableScissor();
-
-        // 滚动条
-        if (maxScroll > 0) {
-            final int scrollBarHeight = Math.max(20, listHeight * listHeight / contentHeight);
-            final int scrollBarY = listTop + (listHeight - scrollBarHeight) * scrollOffset / maxScroll;
+        if (maxScroll() > 0) {
+            int thumbY = scrollbarY();
             g.fill(width - SCROLLBAR_WIDTH, listTop, width, listBottom, 0xFF3A3A3A);
-            g.fill(width - SCROLLBAR_WIDTH, scrollBarY, width, scrollBarY + scrollBarHeight, 0xFF666666);
+            g.fill(width - SCROLLBAR_WIDTH, thumbY, width, thumbY + scrollbarHeight(), 0xFF888888);
         }
+    }
+
+    private int listTop() {
+        return PATH_BAR_HEIGHT * 2 + SEARCH_BAR_HEIGHT;
+    }
+
+    private int listBottom() {
+        return Math.max(listTop(), height - BOTTOM_BAR_HEIGHT);
+    }
+
+    private int listHeight() {
+        return listBottom() - listTop();
+    }
+
+    private int maxScroll() {
+        return Math.max(0, displayEntries.size() * ITEM_HEIGHT - listHeight());
+    }
+
+    private void clampScroll() {
+        scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset));
+    }
+
+    private int scrollbarHeight() {
+        if (listHeight() == 0) return 0;
+        return Math.min(listHeight(), Math.max(20,
+                (int) ((long) listHeight() * listHeight() / Math.max(1, displayEntries.size() * ITEM_HEIGHT))));
+    }
+
+    private int scrollbarY() {
+        return listTop() + (int) ((long) (listHeight() - scrollbarHeight()) * scrollOffset / Math.max(1, maxScroll()));
+    }
+
+    private boolean isInList(double mouseX, double mouseY) {
+        return mouseX >= 0 && mouseX < width && mouseY >= listTop() && mouseY < listBottom();
+    }
+
+    private void dragScrollbar(double mouseY) {
+        int travel = listHeight() - scrollbarHeight();
+        if (travel <= 0) return;
+        double ratio = (mouseY - scrollbarGrabOffset - listTop()) / travel;
+        scrollOffset = (int) Math.round(Math.max(0, Math.min(1, ratio)) * maxScroll());
     }
 
     private void renderFileItem(GraphicContext g, String entry, int index, int x, int y, int width, int height,
@@ -438,9 +539,9 @@ public class ResourceSelectionScreen extends Screen {
 
         // 图标 + 文件名（超出宽度自动截断）
         final String displayText = getEntryDisplayText(entry);
-        final int maxTextWidth = width - ITEM_PADDING * 2;
+        final int maxTextWidth = Math.max(0, width - ITEM_PADDING * 2);
         final String clippedText = font.width(displayText) > maxTextWidth
-                ? font.plainSubstrByWidth(displayText, maxTextWidth - 6) + "..."
+                ? font.plainSubstrByWidth(displayText, Math.max(0, maxTextWidth - 6)) + "..."
                 : displayText;
         final int textColor;
         if (isDir) {
@@ -489,24 +590,24 @@ public class ResourceSelectionScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 32) {
-            if (previewMode) {
-                closePreview();
-                return true;
-            }
-            if (selectedResourceIds.size() == 1) {
-                String resourceId = selectedResourceIds.iterator().next();
-                if (isImageFile(resourceId) || isFontFile(resourceId)) {
-                    startPreview(resourceId);
-                    return true;
-                }
-            }
-        }
-        if (previewMode && keyCode == 256) {
-            closePreview();
+        if (previewMode) {
+            if (keyCode == 32 || keyCode == 256) closePreview();
             return true;
         }
+        // 输入搜索词中的空格由输入框处理，不能触发文件预览。
+        if ((searchField == null || !searchField.isFocused()) && keyCode == 32 && selectedResourceIds.size() == 1) {
+            String resourceId = selectedResourceIds.iterator().next();
+            if (isImageFile(resourceId) || isFontFile(resourceId)) {
+                startPreview(resourceId);
+                return true;
+            }
+        }
         return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char codePoint, int modifiers) {
+        return previewMode || super.charTyped(codePoint, modifiers);
     }
 
     /* ===================== 鼠标事件 ===================== */
@@ -517,34 +618,30 @@ public class ResourceSelectionScreen extends Screen {
             closePreview();
             return true;
         }
-        if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
+        if (super.mouseClicked(mouseX, mouseY, button)) return true;
+        if (button != 0) return false;
+        if (searchField != null) searchField.setFocused(false);
+        setFocused(null);
+        if (mouseX < 0 || mouseX >= width || mouseY < 0 || mouseY >= height) return false;
+        clampScroll();
 
-        final int listTop = PATH_BAR_HEIGHT + PATH_BAR_HEIGHT;
-        final int listBottom = height - BOTTOM_BAR_HEIGHT;
+        final int listTop = listTop();
 
         // 点击路径栏 — 返回上级（根目录时回到命名空间选择）
-        if (mouseY >= PATH_BAR_HEIGHT && mouseY < PATH_BAR_HEIGHT + PATH_BAR_HEIGHT) {
+        if (mouseY >= PATH_BAR_HEIGHT && mouseY < PATH_BAR_HEIGHT * 2) {
             navigateUp();
             return true;
         }
 
-        // 滚轮条点击拖拽
-        if (mouseY >= listTop && mouseY < listBottom) {
+        // 列表与拖条使用同一组可视边界，裁剪外的条目不会响应点击。
+        if (isInList(mouseX, mouseY)) {
             if (mouseX >= width - SCROLLBAR_WIDTH) {
-                final int listHeight = listBottom - listTop;
-                final int contentHeight = displayEntries.size() * ITEM_HEIGHT;
-                final int maxScroll = Math.max(0, contentHeight - listHeight);
-                if (maxScroll > 0) {
-                    final int scrollBarHeight = Math.max(20, listHeight * listHeight / contentHeight);
-                    final int scrollBarY = listTop + (listHeight - scrollBarHeight) * scrollOffset / maxScroll;
-                    if (mouseY >= scrollBarY && mouseY < scrollBarY + scrollBarHeight) {
-                        scrollbarDragging = true;
-                        scrollbarDragStartY = (int) mouseY;
-                        scrollbarDragStartOffset = scrollOffset;
-                    } else {
-                        double ratio = (mouseY - listTop - scrollBarHeight / 2.0) / (listHeight - scrollBarHeight);
-                        scrollOffset = (int) Math.max(0, Math.min(maxScroll, ratio * maxScroll));
-                    }
+                if (maxScroll() > 0 && listHeight() > scrollbarHeight()) {
+                    int thumbY = scrollbarY();
+                    scrollbarGrabOffset = mouseY >= thumbY && mouseY < thumbY + scrollbarHeight()
+                            ? mouseY - thumbY : scrollbarHeight() / 2.0;
+                    scrollbarDragging = true;
+                    dragScrollbar(mouseY);
                 }
                 return true;
             }
@@ -575,7 +672,7 @@ public class ResourceSelectionScreen extends Screen {
             }
         }
 
-        return super.mouseClicked(mouseX, mouseY, button);
+        return false;
     }
 
     private void handleEntryClick(int index) {
@@ -589,8 +686,7 @@ public class ResourceSelectionScreen extends Screen {
         // 命名空间选择层：点击选中命名空间
         if (selectedNamespace == null) {
             selectedNamespace = entry;
-            selectedResourceIds.clear();
-            scrollOffset = 0;
+            resetDirectoryView();
             refreshCurrentDirectory();
             return;
         }
@@ -621,18 +717,9 @@ public class ResourceSelectionScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
-        if (scrollbarDragging) {
-            final int listTop = PATH_BAR_HEIGHT + PATH_BAR_HEIGHT;
-            final int listBottom = height - BOTTOM_BAR_HEIGHT;
-            final int listHeight = listBottom - listTop;
-            final int contentHeight = displayEntries.size() * ITEM_HEIGHT;
-            final int maxScroll = Math.max(0, contentHeight - listHeight);
-            if (maxScroll > 0) {
-                final int scrollBarHeight = Math.max(20, listHeight * listHeight / contentHeight);
-                double deltaY = mouseY - scrollbarDragStartY;
-                double ratio = deltaY / (listHeight - scrollBarHeight);
-                scrollOffset = (int) Math.max(0, Math.min(maxScroll, scrollbarDragStartOffset + ratio * maxScroll));
-            }
+        if (previewMode) return true;
+        if (scrollbarDragging && button == 0) {
+            dragScrollbar(mouseY);
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dx, dy);
@@ -640,28 +727,37 @@ public class ResourceSelectionScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (scrollbarDragging) {
+        if (scrollbarDragging && button == 0) {
             scrollbarDragging = false;
             return true;
         }
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
+    //#if MC_VERSION < 12003
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        final int listTop = PATH_BAR_HEIGHT + PATH_BAR_HEIGHT;
-        final int listBottom = height - BOTTOM_BAR_HEIGHT;
-        final int listHeight = listBottom - listTop;
-        final int contentHeight = displayEntries.size() * ITEM_HEIGHT;
-        final int maxScroll = Math.max(0, contentHeight - listHeight);
-
-        scrollOffset = (int) Math.max(0, Math.min(maxScroll, scrollOffset - delta * ITEM_HEIGHT));
-        return true;
+    //#else
+    //$$ @Override
+    //$$ public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double delta) {
+    //#endif
+        if (previewMode) return true;
+        if (isInList(mouseX, mouseY)) {
+            scrollbarDragging = false;
+            scrollOffset = (int) Math.round(Math.max(0, Math.min(maxScroll(), scrollOffset - delta * ITEM_HEIGHT)));
+            return true;
+        }
+        //#if MC_VERSION < 12003
+        return super.mouseScrolled(mouseX, mouseY, delta);
+        //#else
+        //$$ return super.mouseScrolled(mouseX, mouseY, horizontalAmount, delta);
+        //#endif
     }
 
     /* ===================== 按钮操作 ===================== */
 
     private void onConfirm() {
+        if (selectedResourceIds.isEmpty()) return;
         final List<ResourceLocation> result = new ArrayList<>();
         for (final String resourceId : selectedResourceIds) {
             result.add(new ResourceLocation(resourceId));
@@ -672,6 +768,12 @@ public class ResourceSelectionScreen extends Screen {
 
     private void onCancel() {
         Minecraft.getInstance().setScreen(parent);
+    }
+
+    @Override
+    public void removed() {
+        closePreview();
+        super.removed();
     }
 
     @Override

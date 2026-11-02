@@ -5,6 +5,7 @@ import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.utils.GraphicContext;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
@@ -255,7 +256,6 @@ public abstract class NumericInputConfigScreen extends BasicConfigScreen {
         final int index = numericFields.size();
         final int boxWidth = valueBoxWidth(rowWidth);
         final NumericRow row = new NumericRow(index, current);
-        row.rowTop = y;
 
         // 滑块模式整行只有滑块，所以滑块直接占满行宽（不再给数值区留位置）；
         // 高度与 y 都不变，因此切换输入方式时行高不变、其他行也不动
@@ -312,7 +312,6 @@ public abstract class NumericInputConfigScreen extends BasicConfigScreen {
         final int index = numericFields.size();
         final int boxWidth = Math.max(VALUE_BOX_MIN_WIDTH, rowWidth);
         final NumericRow row = new NumericRow(index, current);
-        row.rowTop = y;
 
         final NumericField box = new NumericField(areaLeft, y, boxWidth, index, setter, current, onChanged, row);
         row.box = box;
@@ -366,11 +365,34 @@ public abstract class NumericInputConfigScreen extends BasicConfigScreen {
         row.box.setFocused(true);
     }
 
+    /** 点击数值按钮后，容器应把键盘事件交给刚打开的输入框。 */
+    @Override
+    public void setFocused(@Nullable GuiEventListener focused) {
+        // 容器在 mouseClicked 回调结束后才设置焦点，不能只在 beginEdit 中给输入框置焦。
+        if (focused instanceof ValueButton button && button.rowIndex == editingIndex && editingField != null) {
+            focused = editingField;
+        }
+        // 新版 MC 会先通知旧控件失焦；重复点击同一输入框时不能因此提交并收起它。
+        if (getFocused() != focused) {
+            super.setFocused(focused);
+        }
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        // Screen 默认先处理 Esc 关闭界面，编辑时应优先取消当前输入。
+        if (keyCode == 256 && editingField != null) {
+            cancelEdit();
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
     /**
      * 提交并退出编辑态（回车的落库路径）。
      * <p>
-     * {@link NumericField#commit()} 已经把「可解析 → 落库 + 规范化文本 / 不可解析 → 文本回滚」
-     * 做完，这里只负责收尾（收起输入框、显示数值框、清掉状态与焦点）。
+     * 先清编辑状态，再由 {@link NumericField#commit()} 落库或回滚文本，
+     * 最后收起输入框、显示数值框并清掉焦点。
      * <p>
      * <b>为什么还要在界面层收尾</b>：MC 1.18.2 的 {@code AbstractWidget.setFocused} 是 protected，
      * 且容器的 {@code setFocused} 只改自己的引用字段、<b>不</b>通知旧控件（1.19.4+ 才回调），
@@ -391,6 +413,8 @@ public abstract class NumericInputConfigScreen extends BasicConfigScreen {
         if (field != null) {
             field.commit();
             field.visible = false;
+            field.setFocused(false);
+            if (getFocused() == field) setFocused(null);
         }
         if (row != null && row.button != null) {
             // 恢复数值框时同样过一遍模式判定：输入模式才显示，滑块模式保持隐藏（见 isValueBoxVisible）
@@ -421,6 +445,7 @@ public abstract class NumericInputConfigScreen extends BasicConfigScreen {
                 row.writeFieldSilently(formatCompact(row.current.get()));
             }
             field.setFocused(false);
+            if (getFocused() == field) setFocused(null);
         }
         if (row != null && row.button != null) {
             // 同 finishEdit：恢复可见性也要过模式判定，滑块模式下不能把数值框重新显示出来
@@ -485,8 +510,6 @@ public abstract class NumericInputConfigScreen extends BasicConfigScreen {
         private final int index;
         /** 读取「已落库真值」的取值器：数值框文本、提交规范化、回滚都用它。 */
         private final FloatGetter current;
-        /** 这一行控件的 baseY（构建时的逻辑 y，不含滚动偏移）：只用于「点击是否在本行内」的判定。 */
-        private int rowTop;
         private SliderWidget slider;
         private NumericField box;
         private ValueButton button;
@@ -788,10 +811,11 @@ public abstract class NumericInputConfigScreen extends BasicConfigScreen {
         /** 提交：可解析 → 落库并规范化文本；不可解析 → 值不变、文本回滚。提交后收起输入框。 */
         void commit() {
             if (this.visible) {
-                commitValue();
-                // 提交即退出编辑态（「点别处 / 回车」都走这里），数值框重新显示当前真值
+                // finishEdit 清状态后再提交，保证 Enter / 失焦只写值和刷新一次。
                 if (editingField == this) {
                     finishEdit();
+                } else {
+                    commitValue();
                 }
             }
         }
@@ -823,10 +847,8 @@ public abstract class NumericInputConfigScreen extends BasicConfigScreen {
      * （见 {@link #finishEdit()} 的说明），而是用「任何一次鼠标点击」这一在 1.18.2~1.20.1 上
      * 行为完全一致的事件作为提交时机。
      * <p>
-     * 点在<b>同一行</b>上时跳过提交：滑块与数值区是同一行，点滑块只是改值 / 继续看这一行，
-     * 若在这里提交，输入框会立刻收起（用户会觉得「点一下滑块编辑就没了」）。
-     * 判定用构建时记录的 {@link NumericRow#rowTop}（逻辑 y，不含滚动偏移），
-     * 不依赖焦点也不依赖各版本不一致的坐标访问器，语义在 1.18.2~1.20.1 上一致。
+     * 点在<b>当前输入框</b>内时跳过提交，以便正常移动光标或选择文本。
+     * 使用控件滚动后的实际边界，同时检查横纵坐标，避免点击另一列或滚动后误判。
      * <p>
      * <b>事件顺序（容易写错的地方）</b>：{@code super.mouseClicked} 会把点击派发给子控件，
      * 也就是说「点了某个数值框」的 {@link ValueButton#mouseClicked} → {@link #beginEdit(int)}
@@ -840,12 +862,10 @@ public abstract class NumericInputConfigScreen extends BasicConfigScreen {
         final int editingBeforeClick = editingIndex;
         if (editingBeforeClick >= 0) {
             final NumericRow row = valueRows.get(editingBeforeClick);
-            // 点在编辑行自己身上（滑块或数值区）→ 不提交；点在别处 → 提交并退出编辑态。
-            // 用构建时记录的 rowTop（而非 getY()）：getY() 在 1.18.2 上不存在。
-            final boolean insideRow = row != null
-                    && mouseY >= row.rowTop - 2
-                    && mouseY <= row.rowTop + ROW_HEIGHT;
-            if (!insideRow) {
+            // 直接使用控件滚动后的实际边界；另一列同一高度和原始 rowTop 都不能算作框内。
+            final boolean insideField = row != null && row.box != null && row.box.visible
+                    && row.box.isMouseOver(mouseX, mouseY);
+            if (!insideField) {
                 finishEdit();
             }
         }

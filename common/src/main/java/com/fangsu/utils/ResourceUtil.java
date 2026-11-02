@@ -616,7 +616,12 @@ public class ResourceUtil {
         result.sort(Comparator.comparing(ResourceLocation::toString));
         return result;
         //#else
-        //$$ return Collections.emptyList();
+        //$$ List<ResourceLocation> result = new ArrayList<>(resourceManager.listResources(
+        //$$         pathPrefix != null ? pathPrefix : "",
+        //$$         path -> suffixes == null || suffixes.isEmpty() || suffixes.stream().anyMatch(path::endsWith)));
+        //$$ if (namespace != null) result.removeIf(location -> !location.getNamespace().equals(namespace));
+        //$$ result.sort(Comparator.comparing(ResourceLocation::toString));
+        //$$ return result;
         //#endif
     }
 

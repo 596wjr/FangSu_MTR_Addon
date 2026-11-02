@@ -4,6 +4,7 @@ import com.fangsu.customItem.NteRailModelSelection;
 import com.fangsu.mappings.ComponentHelper;
 import net.minecraft.network.chat.Component;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -11,18 +12,20 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
-/** 主轨道单选，附属独立开关；关闭时一次性交回 NTE 原来的保存回调。 */
-public class NteRailModelSelectScreen extends BasicConfigScreen {
+/** JSON 来源、轨道模型、已选模型三栏，主轨道单选，附属模型独立开关。 */
+public class NteRailModelSelectScreen extends BaseSelectionScreen {
     private final Runnable returnToParent;
     private final Consumer<String> save;
     private final Map<String, Component> models;
+    private final Map<String, List<NteRailModelCatalog.Model>> sources;
     private String primary;
     private final Set<String> accessories = new LinkedHashSet<>();
+    private final Set<String> originalAccessories = new LinkedHashSet<>();
     private boolean saved;
 
     public NteRailModelSelectScreen(Map<String, Component> models, String initial,
                                     Consumer<String> save, Runnable returnToParent) {
-        super(ComponentHelper.translatable("ui.fangsu.nte_rail.title"));
+        super(ComponentHelper.translatable("ui.fangsu.nte_rail.title"), 2, Integer.MAX_VALUE);
         this.models = new LinkedHashMap<>(models);
         this.save = save;
         this.returnToParent = returnToParent;
@@ -32,49 +35,85 @@ public class NteRailModelSelectScreen extends BasicConfigScreen {
             accessories.add(primary);
             primary = "null";
         }
-        for (int i = 1; i < keys.size(); i++) accessories.add(keys.get(i));
+        for (int i = 1; i < keys.size(); i++) {
+            String key = keys.get(i);
+            if (!key.isEmpty() && !"null".equals(key)) accessories.add(key);
+        }
+        originalAccessories.addAll(accessories);
+        this.models.putIfAbsent("", ComponentHelper.translatable("rail.mtrsteamloco.default"));
+        // 特殊隐藏键始终可选，不依赖注册表是否公开它。
+        this.models.put("null", ComponentHelper.translatable("ui.fangsu.nte_rail.hidden"));
         // 未安装或被资源包移除的模型仍显示 ID，避免打开界面就丢失选择。
         this.models.putIfAbsent(primary, ComponentHelper.literal(primary));
         for (String key : accessories) this.models.putIfAbsent(key, ComponentHelper.literal(key));
+        sources = NteRailModelCatalog.load(this.models);
+        titles = List.of(ComponentHelper.translatable("ui.fangsu.nte_rail.sources"),
+                ComponentHelper.translatable("ui.fangsu.nte_rail.models"),
+                ComponentHelper.translatable("ui.fangsu.common.selected"));
+        // 初次进入定位到当前主模型所属文件；后续选择来源与搜索互不影响。
+        for (Map.Entry<String, List<NteRailModelCatalog.Model>> source : sources.entrySet()) {
+            if (source.getValue().stream().anyMatch(model -> model.key().equals(primary))) {
+                selected.set(0, source.getKey());
+                break;
+            }
+        }
+        refreshSelected();
     }
 
     @Override
-    protected void buildScrollableContent(ContentLayout layout) {
-        addHeading(layout, "ui.fangsu.nte_rail.primary");
-        // 隐藏是 NTE 的特殊模型键，不依赖注册表是否把它作为普通模型公开。
-        addPrimaryChoice(layout, "null", ComponentHelper.translatable("ui.fangsu.nte_rail.hidden"));
-        for (Map.Entry<String, Component> entry : models.entrySet()) {
-            if ("null".equals(entry.getKey()) || NteRailModelSelection.isAccessory(entry.getKey())) continue;
-            String key = entry.getKey();
-            addPrimaryChoice(layout, key, entry.getValue());
+    public void updateColumn() {
+        List<SelectionItem> files = new ArrayList<>();
+        List<SelectionItem> choices = new ArrayList<>();
+        for (Map.Entry<String, List<NteRailModelCatalog.Model>> source : sources.entrySet()) {
+            StringBuilder search = new StringBuilder(source.getKey());
+            for (NteRailModelCatalog.Model model : source.getValue()) {
+                search.append(' ').append(model.key()).append(' ').append(model.name().getString());
+                if (source.getKey().equals(selected.get(0))) choices.add(modelItem(model.key()));
+            }
+            files.add(new SelectionItem(NteRailModelCatalog.sourceName(source.getKey()), source.getKey(), null, search.toString()));
         }
-        layout.y += 8;
-        addHeading(layout, "ui.fangsu.nte_rail.accessories");
-        for (Map.Entry<String, Component> entry : models.entrySet()) {
-            if (!NteRailModelSelection.isAccessory(entry.getKey())) continue;
-            String key = entry.getKey();
-            addEntry(addButton(layout.areaLeft, layout.y, layout.areaRight - layout.areaLeft, 20,
-                    ComponentHelper.literal(accessories.contains(key) ? "[✓] " : "[ ] ").append(entry.getValue()), btn -> {
-                        if (!accessories.remove(key)) accessories.add(key);
-                        requestRebuild();
-                    }), layout.y);
-            layout.y += 24;
-        }
+        items = List.of(files, choices);
     }
 
-    private void addPrimaryChoice(ContentLayout layout, String key, Component label) {
-        addEntry(addButton(layout.areaLeft, layout.y, layout.areaRight - layout.areaLeft, 20,
-                ComponentHelper.literal(key.equals(primary) ? "[✓] " : "[ ] ").append(label), button -> {
-                    primary = key;
-                    requestRebuild();
-                }), layout.y);
-        layout.y += 24;
+    private SelectionItem modelItem(String key) {
+        String name = models.get(key).getString();
+        String role = ComponentHelper.translatableString(isAccessoryModel(key)
+                ? "ui.fangsu.nte_rail.accessory_label" : "ui.fangsu.nte_rail.primary_label");
+        return new SelectionItem(name + "\n" + role, key, null, name + " " + key + " " + role);
     }
 
-    private void addHeading(ContentLayout layout, String key) {
-        addEntry(createTextLabel(layout.areaLeft, layout.y, ComponentHelper.translatable(key),
-                TextLabel.Align.LEFT, 0x303030, true), layout.y);
-        layout.y += 22;
+    private boolean isAccessoryModel(String key) {
+        return NteRailModelSelection.isAccessory(key) || originalAccessories.contains(key);
+    }
+
+    private void refreshSelected() {
+        selectedItems.clear();
+        selectedItems.add(modelItem(primary));
+        for (String key : accessories) selectedItems.add(modelItem(key));
+    }
+
+    @Override
+    protected void onItemActivated(int index, SelectionItem item) {
+        if (index == 0) {
+            super.onItemActivated(index, item);
+            return;
+        }
+        String key = item.value();
+        if (index == 1) {
+            if (isAccessoryModel(key)) {
+                if (!accessories.remove(key)) accessories.add(key);
+            } else {
+                primary = key;
+            }
+        } else if (index == 2) {
+            if (!accessories.remove(key) && primary.equals(key)) primary = "null";
+        }
+        refreshSelected();
+    }
+
+    @Override
+    protected boolean isItemSelected(int index, SelectionItem item) {
+        return index == 1 ? primary.equals(item.value()) || accessories.contains(item.value()) : super.isItemSelected(index, item);
     }
 
     @Override
