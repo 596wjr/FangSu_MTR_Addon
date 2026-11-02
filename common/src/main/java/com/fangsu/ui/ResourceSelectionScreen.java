@@ -620,7 +620,12 @@ public class ResourceSelectionScreen extends Screen {
         }
         if (super.mouseClicked(mouseX, mouseY, button)) return true;
         if (button != 0) return false;
+        // 旧版 EditBox 通过 setFocus 公开焦点控制，1.19.4 起改为 setFocused。
+        //#if MC_VERSION >= 11904
         if (searchField != null) searchField.setFocused(false);
+        //#else
+        //$$ if (searchField != null) searchField.setFocus(false);
+        //#endif
         setFocused(null);
         if (mouseX < 0 || mouseX >= width || mouseY < 0 || mouseY >= height) return false;
         clampScroll();

@@ -401,7 +401,12 @@ public class ModelSelectScreen extends Screen {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (super.mouseClicked(mouseX, mouseY, button)) return true;
+        // 旧版 EditBox 通过 setFocus 公开焦点控制，1.19.4 起改为 setFocused。
+        //#if MC_VERSION >= 11904
         searchBox.setFocused(false);
+        //#else
+        //$$ searchBox.setFocus(false);
+        //#endif
         setFocused(null);
         clampScrollOffsets();
         // 搜索与滚轮可在两帧之间改变布局，命中检测不能复用上一帧的滚动条坐标。

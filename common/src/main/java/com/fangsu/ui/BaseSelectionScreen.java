@@ -212,7 +212,12 @@ public abstract class BaseSelectionScreen extends Screen {
         if (super.mouseClicked(mouseX, mouseY, button)) return true;
         int index = columnAt(mouseX, mouseY);
         if (index < 0 || button != 0) return false;
+        // 旧版 EditBox 通过 setFocus 公开焦点控制，1.19.4 起改为 setFocused。
+        //#if MC_VERSION >= 11904
         for (EditBox field : searchFields) field.setFocused(false);
+        //#else
+        //$$ for (EditBox field : searchFields) field.setFocus(false);
+        //#endif
         setFocused(null);
         ColumnView view = getView(index);
         clampScroll(index, view);
