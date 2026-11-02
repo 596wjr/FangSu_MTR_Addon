@@ -189,6 +189,7 @@ fangsu/
 - **Zbx1425** — 参考并使用了 [mtr-nte](https://github.com/zbx1425/mtr-nte) 的渲染组件（`sowcer` / `sowcerext`）及构建脚本逻辑
 - **javagl** — OBJ 模型加载与解析库
 - **Minecraft Transit Railway (MTR)** — 为本模组提供基础的轨道交通系统
+- **[子悦解说](https://github.com/ZiYueCommentary)** 提供了翻译服务
 - **感谢测试** — 感谢以下玩家在测试中的大力支持，帮助我们发现并修复了众多 Bug
 
     <img src="docs/images/avatars/yinliaoya341.png" width="32" height="32" style="border-radius:50%"> [yinliaoya341](https://github.com/yinliaoya341)
