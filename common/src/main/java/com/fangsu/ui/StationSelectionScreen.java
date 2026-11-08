@@ -36,9 +36,12 @@ public class StationSelectionScreen extends BaseSelectionScreen {
         else this.items = new ArrayList<>();
         List<SelectionItem> items = new ArrayList<>();
 
-        // 鎸夎窛绂讳粠杩戝埌杩滄帓锟?
+        // 按距离从近到远排序，缺少角点的车站排在末尾。
         double px = pos.getX(), pz = pos.getZ();
         raw.sort(Comparator.comparingDouble(station -> {
+            if (station.corner1 == null || station.corner2 == null) {
+                return Double.POSITIVE_INFINITY;
+            }
             double sx = (station.corner1.getA() + station.corner2.getA()) / 2.0;
             double sz = (station.corner1.getB() + station.corner2.getB()) / 2.0;
             double dx = sx - px, dz = sz - pz;

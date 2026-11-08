@@ -129,6 +129,12 @@ public class TurnoutConfigScreen extends Screen {
         return options;
     }
 
+    @Override public void tick() {
+        super.tick();
+        // 回包和客户端几何构建都是异步的，不能只在打开界面时读取一次状态。
+        refreshLabels();
+    }
+
     private void refreshLabels() {
         if (modelButton != null) modelButton.setMessage(modelLabel());
         if (statusButton != null) statusButton.setMessage(statusLabel());
@@ -143,8 +149,17 @@ public class TurnoutConfigScreen extends Screen {
 
     private Component statusLabel() {
         if (turnout == null) return ComponentHelper.empty();
-        if (turnout.isBuilding()) {
+        if (turnout.isAwaitingServer()) {
             return ComponentHelper.translatable("ui.fangsu.turnout.status_building");
+        }
+        if (turnout.hasServerRequestTimedOut()) {
+            return ComponentHelper.translatable("ui.fangsu.turnout.status_server_timeout");
+        }
+        if (turnout.isBuildingGeometry()) {
+            return ComponentHelper.translatable("ui.fangsu.turnout.status_geometry");
+        }
+        if (turnout.hasGeometryFailure()) {
+            return ComponentHelper.translatable("ui.fangsu.turnout.status_geometry_failed");
         }
         if (!turnout.hasBinding()) {
             return ComponentHelper.translatable("ui.fangsu.turnout.status_unbound");

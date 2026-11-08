@@ -58,6 +58,14 @@ public final class FangSuConfig {
     private static volatile boolean cameraTiltEnabled = DEFAULT_CAMERA_TILT_ENABLED;
     private static volatile double cameraTiltStrength = DEFAULT_CAMERA_TILT_STRENGTH;
 
+    private static final String KEY_OPTIMIZE_TRANSLUCENT_FACES = "optimizeTranslucentFaces";
+    private static volatile boolean optimizeTranslucentFaces;
+
+    public static boolean optimizeTranslucentFaces() {
+        if (!initialized) init();
+        return optimizeTranslucentFaces;
+    }
+
     private FangSuConfig() {
     }
 
@@ -79,7 +87,9 @@ public final class FangSuConfig {
             }
         }
 
-        boolean needSave = false;
+        String optimize = properties.getProperty(KEY_OPTIMIZE_TRANSLUCENT_FACES);
+        optimizeTranslucentFaces = Boolean.parseBoolean(optimize == null ? "" : optimize.trim());
+        boolean needSave = optimize == null;
 
         String quality = properties.getProperty(KEY_HIGH_QUALITY_SHAPE);
         if (quality == null || quality.trim().isEmpty()) {
@@ -174,7 +184,7 @@ public final class FangSuConfig {
     }
 
     /** 保存成功后才发布新设置；保留文件中不属于本界面的键。 */
-    public static synchronized boolean saveAndApply(boolean quality, double step, boolean tilt, double strength) {
+    public static synchronized boolean saveAndApply(boolean quality, double step, boolean tilt, double strength, boolean optimize) {
         init();
         if (!Double.isFinite(step) || step < MIN_SHAPE_STEP || step > MAX_SHAPE_STEP
                 || !Double.isFinite(strength) || strength < MIN_CAMERA_TILT_STRENGTH
@@ -192,11 +202,12 @@ public final class FangSuConfig {
             Main.LOGGER.warn("Failed to read config before saving", e);
             return false;
         }
-        if (!save(properties, quality, step, tilt, strength)) return false;
+        if (!save(properties, quality, step, tilt, strength, optimize)) return false;
         highQualityShape = quality;
         shapeStep = step;
         cameraTiltEnabled = tilt;
         cameraTiltStrength = strength;
+        optimizeTranslucentFaces = optimize;
         // 查询按需重建：已放置方块无需重新放置或重进世界。
         com.fangsu.shape.RotatableShapeHelper.getInstance().clearAll();
         return true;
@@ -214,10 +225,10 @@ public final class FangSuConfig {
     }
 
     private static boolean save(Properties properties) {
-        return save(properties, highQualityShape, shapeStep, cameraTiltEnabled, cameraTiltStrength);
+        return save(properties, highQualityShape, shapeStep, cameraTiltEnabled, cameraTiltStrength, optimizeTranslucentFaces);
     }
 
-    private static boolean save(Properties properties, boolean quality, double step, boolean tilt, double strength) {
+    private static boolean save(Properties properties, boolean quality, double step, boolean tilt, double strength, boolean optimize) {
         Path path = configPath();
         if (path == null) return false;
 
@@ -225,6 +236,7 @@ public final class FangSuConfig {
         properties.setProperty(KEY_SHAPE_STEP, Double.toString(step));
         properties.setProperty(KEY_CAMERA_TILT_ENABLED, Boolean.toString(tilt));
         properties.setProperty(KEY_CAMERA_TILT_STRENGTH, Double.toString(strength));
+        properties.setProperty(KEY_OPTIMIZE_TRANSLUCENT_FACES, Boolean.toString(optimize));
 
         Path temporary = null;
         try {

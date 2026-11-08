@@ -19,7 +19,7 @@ public final class CompoundTurnoutBuilder {
     private record Fragment(Rail rail,double from,double to,RailMesh mesh) { }
 
     public static TurnoutMesh build(TurnoutBinding binding,List<List<Station>> routes,TurnoutRailParams input) {
-        FsrailParts.Asset asset=FsrailParts.load(input.modelResource());
+        FsrailParts.Asset asset=FsrailParts.load(input);
         if(asset==null||asset.rail()==null||routes.size()!=binding.tracks().size())return TurnoutMesh.EMPTY;
         TurnoutRailParams p=new ObjRailProfile(asset,1).apply(input);
         List<Crossing> crossings=crossings(routes,p);

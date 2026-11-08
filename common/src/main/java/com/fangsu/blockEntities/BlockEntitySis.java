@@ -7,6 +7,7 @@ import com.fangsu.customItem.SubModelDispInfo;
 import com.fangsu.customItem.SubModelMethodInfo;
 import com.fangsu.customItem.contents.StationInfoSignContent;
 import com.fangsu.drawing.sis.BaseSisDrawing;
+import com.fangsu.drawing.sis.MtrSisDrawing;
 import com.fangsu.drawing.sis.SisDrawManager;
 import com.fangsu.extraConfig.*;
 import com.fangsu.mtr.LocalRoute;
@@ -93,24 +94,25 @@ public class BlockEntitySis extends BaseDisplayBlockEntity {
     private void initDrawingAsync() {
         if (!firstInit || content == null) return;
 
-        // 如果车站数据还未加载完成（rawStn == null 或名称为"?"），跳过本次绘制注册
-        if (stn.getRaw() == null || "?".equals(stn.name)) {
+        String scriptPath = content.getScript();
+        boolean builtIn = MtrSisDrawing.KEY.equals(scriptPath);
+        LocalStation station = stn;
+        if (!builtIn && (station.getRaw() == null || "?".equals(station.name))) {
             return;
         }
 
-        String scriptPath = content.getScript();
         BaseSisDrawing drawing = SisDrawManager.createDrawing(scriptPath);
         if (drawing == null) return;
 
         // 在注册绘制前构建路线并检查数据是否完整，避免在lambda中使用到不完整数据
         List<LocalRoute> routes = new ArrayList<>();
-        if (stn.getRaw() != null) {
-            for (mtr.data.Platform plat : MtrUtil.getPlatformByStation(stn.getRaw())) {
+        if (!builtIn) {
+            for (mtr.data.Platform plat : MtrUtil.getPlatformByStation(station.getRaw())) {
                 routes.addAll(MtrUtil.getRouteByPlatform(plat));
             }
-        }
-        if (routes.isEmpty()) {
-            return;
+            if (routes.isEmpty()) {
+                return;
+            }
         }
 
         sisDrawing = drawing;
@@ -118,7 +120,9 @@ public class BlockEntitySis extends BaseDisplayBlockEntity {
         LocalRoute[] routeArray = routes.toArray(new LocalRoute[0]);
         int arrowDirection = getExtraConfigInt("arrowDirection", 0);
         String extraConfigStr = userExtraConfigs != null ? userExtraConfigs.toString() : "";
-        String drawInfoId = "SIS_" + scriptPath + "_" + stn.id + "_" + arrowDirection + "_" + extraConfigStr;
+        String drawInfoId = builtIn
+                ? "SIS_" + scriptPath + "_" + station.id + "_" + station.color + "_" + station.name
+                : "SIS_" + scriptPath + "_" + station.id + "_" + arrowDirection + "_" + extraConfigStr;
 
         tryRegisterDrawing(drawInfoId, texW, texH,
                 gt -> {
@@ -126,7 +130,7 @@ public class BlockEntitySis extends BaseDisplayBlockEntity {
                     if (drawer == null) return;
 
                     SISDrawInfo drawInfo = new SISDrawInfo(
-                            new int[]{0, 0, texW, texH}, stn, routeArray, new BlockInfo(this), this);
+                            new int[]{0, 0, texW, texH}, station, routeArray, new BlockInfo(this), this);
 
                     drawer.draw(gt, drawState, arrowDirection, texW, texH, drawInfo);
                 }

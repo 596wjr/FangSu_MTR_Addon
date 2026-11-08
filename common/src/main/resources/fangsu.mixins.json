@@ -9,6 +9,7 @@
     "LiftClientMixin",
     "LiftCustomizationScreenMixin",
     "RenderTrainsMixin",
+    "MtrTrainTranslucencyMixin",
     "ClientDataMixin",
     "TrainClientDoorSideMixin",
     "TrainDoorPredictionAccessor",

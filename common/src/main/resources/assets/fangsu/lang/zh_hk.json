@@ -349,6 +349,7 @@
   "ui.fangsu.config.standard": "标准",
   "ui.fangsu.config.fine": "精細",
   "ui.fangsu.config.step_hint": "步長越小越精細，複雜形狀會自動降低精度。",
+  "ui.fangsu.config.optimize_translucent": "優化半透明面",
   "ui.fangsu.config.tilt": "乘車鏡頭傾斜",
   "ui.fangsu.config.strength": "傾斜強度（0–2）",
   "ui.fangsu.config.defaults": "恢復預設值（儲存後生效）",

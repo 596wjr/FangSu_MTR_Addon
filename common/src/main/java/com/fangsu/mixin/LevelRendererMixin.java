@@ -2,6 +2,8 @@ package com.fangsu.mixin;
 
 import com.fangsu.MainClient;
 import com.fangsu.render.NodeHighlightRenderer;
+import com.fangsu.render.MtrTranslucentPass;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.fangsu.render.sowcerext.model.integration.BufferSourceProxy;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Camera;
@@ -10,6 +12,7 @@ import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.RenderBuffers;
+import net.minecraft.client.renderer.RenderType;
 //#if MC_VERSION >= 11903
 import org.joml.Matrix4f;
 //#else
@@ -29,6 +32,22 @@ public class LevelRendererMixin {
     @Final
     private RenderBuffers renderBuffers;
 
+    @Shadow
+    private RenderTarget translucentTarget;
+
+    @Inject(method = "renderLevel", at = @At("HEAD"))
+    private void fangsu$beginMtrTranslucentPass(CallbackInfo ci) {
+        MtrTranslucentPass.begin();
+    }
+
+    @Inject(method = "renderChunkLayer", at = @At("HEAD"))
+    private void fangsu$drawMtrTranslucentPass(RenderType layer, PoseStack poseStack,
+                                              double x, double y, double z, Matrix4f projection, CallbackInfo ci) {
+        if (layer == RenderType.translucent()) {
+            MtrTranslucentPass.flush(Minecraft.useShaderTransparency() ? translucentTarget : null);
+        }
+    }
+
     @Inject(method = "renderLevel", at = @At(value = "CONSTANT", args = "stringValue=destroyProgress", ordinal = 0))
     private void afterBlockEntities(PoseStack poseStack, float f, long l, boolean bl, Camera camera, GameRenderer gameRenderer, LightTexture lightTexture, Matrix4f matrix4f, CallbackInfo ci) {
         Minecraft.getInstance().level.getProfiler().popPush("FangSuBlockEntities");
@@ -44,6 +63,8 @@ public class LevelRendererMixin {
 
     @Inject(method = "renderLevel", at = @At("TAIL"))
     private void renderLevelLast(PoseStack poseStack, float f, long l, boolean bl, Camera camera, GameRenderer gameRenderer, LightTexture lightTexture, Matrix4f matrix4f, CallbackInfo ci) {
+        // 兼容替换了区块层调用的渲染器，避免将队列带入下一帧。
+        MtrTranslucentPass.flush(null);
         MainClient.drawContext.resetFrameProfiler();
     }
 

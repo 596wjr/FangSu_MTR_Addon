@@ -3,6 +3,7 @@ package com.fangsu.items;
 import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.ticketSystem.FareInfo;
 import com.fangsu.ticketSystem.FareType;
+import com.fangsu.ticketSystem.MtrTicketSystem;
 import com.fangsu.ticketSystem.SingleJourneyTicketData;
 import com.fangsu.utils.RegisterUtil;
 import net.minecraft.nbt.CompoundTag;
@@ -57,7 +58,10 @@ public class ItemSingleJourneyTicket extends Item implements TicketItem {
         }
 
         if (info.type() == FareType.MTR || info.type() == FareType.CUSTOM) {
-            int fare = Math.abs(SingleJourneyTicketData.getEntryZone(stack) - info.value());
+            int entryZone = SingleJourneyTicketData.getEntryZone(stack);
+            int fare = info.type() == FareType.MTR
+                    ? MtrTicketSystem.calcFare(info.value(), entryZone)
+                    : Math.abs(entryZone - info.value());
             if (SingleJourneyTicketData.getPrice(stack) < fare) {
                 player.displayClientMessage(ComponentHelper.translatable("ui.fangsu.ticket.error"), true);
                 return false;

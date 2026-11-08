@@ -81,7 +81,8 @@ public class BlockEntityScreendoor extends FunctionalObjBlockEntity implements I
     protected String mainModel;
     protected String subModel;
 
-    protected double dispDoorValue;
+    // 门灯可见性由渲染线程检查，动画进度由共享后台线程更新。
+    protected volatile double dispDoorValue;
     private boolean cacheDispIsOpen;
     private long lastRenderTime;
 

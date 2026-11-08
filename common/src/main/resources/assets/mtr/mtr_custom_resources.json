@@ -250,6 +250,66 @@
         "fangsu_r_train_interior_floor"
       ],
       "has_gangway_connection": true
+    },
+    "s_train_fangsu_led": {
+      "has_gangway_connection": true,
+      "connector": [
+        "fangsu_r_train_exterior",
+        "fangsu_r_train_interior_left",
+        "fangsu_r_train_interior_right",
+        "fangsu_r_train_interior_roof",
+        "fangsu_r_train_interior_floor"
+      ],
+      "name": "S-Train (LED, 5 doors)",
+      "description": "Provided by FangSu Blocks",
+      "color": "C1CD23",
+      "texture_id": "mtr:textures/entity/s_train",
+      "base_train_type": "s_train",
+      "speed_sound_base_id": "s_train",
+      "lcd": {
+        "id": "s_train_led",
+        "slots": "mtr:s_train/slots.json"
+      }
+    },
+    "s_train_small_fangsu_led": {
+      "has_gangway_connection": true,
+      "connector": [
+        "fangsu_r_train_exterior",
+        "fangsu_r_train_interior_left",
+        "fangsu_r_train_interior_right",
+        "fangsu_r_train_interior_roof",
+        "fangsu_r_train_interior_floor"
+      ],
+      "name": "S-Train (LED, 4 doors)",
+      "description": "Provided by FangSu Blocks",
+      "color": "C1CD23",
+      "texture_id": "mtr:textures/entity/s_train",
+      "base_train_type": "s_train_small",
+      "speed_sound_base_id": "s_train",
+      "lcd": {
+        "id": "s_train_led",
+        "slots": "mtr:s_train/slots_small.json"
+      }
+    },
+    "s_train_mini_fangsu_led": {
+      "has_gangway_connection": true,
+      "connector": [
+        "fangsu_r_train_exterior",
+        "fangsu_r_train_interior_left",
+        "fangsu_r_train_interior_right",
+        "fangsu_r_train_interior_roof",
+        "fangsu_r_train_interior_floor"
+      ],
+      "name": "S-Train (LED, 2 doors)",
+      "description": "Provided by FangSu Blocks",
+      "color": "C1CD23",
+      "texture_id": "mtr:textures/entity/s_train",
+      "base_train_type": "s_train_mini",
+      "speed_sound_base_id": "s_train",
+      "lcd": {
+        "id": "s_train_led",
+        "slots": "mtr:s_train/slots_mini.json"
+      }
     }
   }
 }

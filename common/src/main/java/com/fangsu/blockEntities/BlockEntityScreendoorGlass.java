@@ -61,7 +61,31 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
     DynamicModelHolder dhmDoorLightLeft, dhmDoorLightRight;
 
     // auto 寤惰繜 / 閲嶇畻鎺у埗
-    private boolean pendingAuto = false;
+    private volatile boolean pendingAuto = false;
+
+    // 只缓存本地模型列表；世界变换、光照和实际绘制仍逐帧提交。
+    private static final boolean REUSE_DRAW_RESULT = Boolean.parseBoolean(
+            System.getProperty("fangsu.reuseScreendoorGlass", "true"));
+    private boolean modelAndShapeLoaded;
+    private boolean drawResultBuilt;
+    private boolean drawnLightLeft, drawnLightRight;
+
+    @Override
+    protected boolean needsRenderUpdate() {
+        if (!REUSE_DRAW_RESULT || pendingAuto || !drawResultBuilt) return true;
+        boolean changed = drawnLightLeft != lightOn(true) || drawnLightRight != lightOn(false);
+        if (!changed) com.fangsu.utils.ScreendoorRenderProbe.reused();
+        return changed;
+    }
+
+    private boolean lightOn(boolean left) {
+        return (left ? dhmDoorLightLeft : dhmDoorLightRight) != null
+                && isDoorLightOn(adjacentDoorValue(left));
+    }
+
+    private static boolean uploaded(DynamicModelHolder model) {
+        return model == null || (model.getUploadedModel() != null && !model.getUploadedModel().isClosed());
+    }
 
     public BlockEntityScreendoorGlass(BlockPos blockPos, BlockState blockState) {
         super(BLOCK_ENTITY_SCREENDOOR_GLASS.get(), blockPos, blockState);
@@ -69,6 +93,8 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
 
     @Override
     public void whenLoading() {
+        modelAndShapeLoaded = false;
+        drawResultBuilt = false;
         mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
         subModelLeft = CustomItemHelper.checkSubModel(this, "subModelLeft", DEFAULT_SUB_MODEL_LEFT);
         subModelRight = CustomItemHelper.checkSubModel(this, "subModelRight", DEFAULT_SUB_MODEL_RIGHT);
@@ -116,6 +142,11 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
 
     // 锟?鎶藉嚭锟?auto 閲嶇畻閫昏緫
     private void recomputeAuto() {
+        pendingAuto = false;
+        com.fangsu.utils.ScreendoorRenderProbe.autoRecomputed();
+        // 必须在覆盖 actual 之前保存上次解析结果，不能拿 "auto" 与结果比较。
+        String prevLeft = actualSubModelLeft;
+        String prevRight = actualSubModelRight;
         subModelLeft = subModels.getOrDefault("subModelLeft", DEFAULT_SUB_MODEL_LEFT);
         subModelRight = subModels.getOrDefault("subModelRight", DEFAULT_SUB_MODEL_RIGHT);
         actualSubModelLeft = subModelLeft;
@@ -125,9 +156,6 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
         Map<String, Object> b = loadedRight.get(subModelRight);
         boolean leftIsAuto = a != null && a.containsKey("auto");
         boolean rightIsAuto = b != null && b.containsKey("auto");
-
-        String prevLeft = actualSubModelLeft;
-        String prevRight = actualSubModelRight;
 
         try {
             if (leftIsAuto || rightIsAuto) {
@@ -190,14 +218,17 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
                 }
             }
 
-            reloadModelAndShape();
-
             // 结果变了才通知邻居
             boolean changed =
                     !Objects.equals(prevLeft, actualSubModelLeft) ||
                             !Objects.equals(prevRight, actualSubModelRight);
 
+            if (changed || !modelAndShapeLoaded) {
+                reloadModelAndShape();
+                drawResultBuilt = false;
+            }
             if (changed) {
+                com.fangsu.utils.ScreendoorRenderProbe.neighborsNotified();
                 notifyNeighborsForAuto();
             }
 
@@ -266,6 +297,8 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
         // 门灯模型：从各自子模型配置读取 doorlight（model / subModel），复用主模型的 parted dmh
         dhmDoorLightLeft = loadDoorLightModel(left, models, modelInfo);
         dhmDoorLightRight = loadDoorLightModel(right, models, modelInfo);
+        modelAndShapeLoaded = true;
+        com.fangsu.utils.ScreendoorRenderProbe.shapeRebuilt();
     }
 
     /** 根据子模型配置中的 doorlight 段加载门灯 DynamicModelHolder；无配置时返回 null。 */
@@ -310,17 +343,26 @@ public class BlockEntityScreendoorGlass extends FunctionalObjBlockEntity {
             recomputeAuto();
         }
 
+        // 在 drawModel 之前检查：上传可能与后台任务并发，不能在漏画之后才判定可缓存。
+        boolean modelsReady = uploaded(dhmLeft) && uploaded(dhmRight)
+                && uploaded(dhmDoorLightLeft) && uploaded(dhmDoorLightRight);
+        boolean lightLeft = lightOn(true);
+        boolean lightRight = lightOn(false);
         ObjBlockScriptContext ctx = this.scriptContext;
         if (dhmLeft != null) ctx.drawModel(dhmLeft, null);
         if (dhmRight != null) ctx.drawModel(dhmRight, null);
 
         // 门灯：左侧灯看左邻门，右侧灯看右邻门；开门/关门过程中闪烁，全开后常亮（还原旧版 doorlight.js）
-        if (dhmDoorLightLeft != null && isDoorLightOn(adjacentDoorValue(true))) {
+        if (lightLeft) {
             ctx.drawModel(dhmDoorLightLeft, null);
         }
-        if (dhmDoorLightRight != null && isDoorLightOn(adjacentDoorValue(false))) {
+        if (lightRight) {
             ctx.drawModel(dhmDoorLightRight, null);
         }
+        drawnLightLeft = lightLeft;
+        drawnLightRight = lightRight;
+        // 上传是延迟执行的：不能把上传前的空列表永久缓存。
+        drawResultBuilt = modelAndShapeLoaded && modelsReady;
     }
 
     /**

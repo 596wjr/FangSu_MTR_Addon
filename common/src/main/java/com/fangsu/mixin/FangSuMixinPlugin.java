@@ -64,6 +64,7 @@ public class FangSuMixinPlugin implements IMixinConfigPlugin {
 
     /** 需要按「NTE 家族是否存在」门控的 mixin 的<b>简单类名</b>（与 mixins.json 里写法一致）。 */
     private static final String GATED_MIXIN = "TrainClientConnectionRollMixin";
+    private static final String TRANSLUCENCY_MIXIN = "MtrTrainTranslucencyMixin";
 
     /**
      * NTE / ANTE 家族的<b>主类</b>候选二进制名。
@@ -143,13 +144,11 @@ public class FangSuMixinPlugin implements IMixinConfigPlugin {
      * <p>
      * {@code mixinName} 是配置里写的简单类名，{@code targetClassName} 是运行期命名空间下的目标类名
      * （在 Fabric 生产环境里形如 {@code net.minecraft.class_1937}）。
-     * 本方法对别的 mixin <b>一律返回 true</b>：除了 {@link #GATED_MIXIN}，本模组的 mixin 集合
-     * 与「NTE 在不在」无关（{@code @Inject} 在 NTE 的合并方法上照常工作，真实日志已证实
-     * {@code captureCar} / {@code endCar} 两个钩子在 ANTE 环境下没有任何报错）。
+     * NTE / ANTE 接管列车渲染时，同时跳过原版列车玻璃的缓冲替换。
      */
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinName) {
-        if (mixinName == null || !mixinName.endsWith(GATED_MIXIN)) {
+        if (mixinName == null || (!mixinName.endsWith(GATED_MIXIN) && !mixinName.endsWith(TRANSLUCENCY_MIXIN))) {
             return true;
         }
         // 注意：这里返回 false 时，Mixin 会<b>完全跳过</b>该 mixin 的解析与注入准备，

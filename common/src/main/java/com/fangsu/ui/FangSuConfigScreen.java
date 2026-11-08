@@ -12,6 +12,7 @@ import net.minecraft.network.chat.Component;
 public final class FangSuConfigScreen extends BasicConfigScreen {
     private final Screen parent;
     private boolean quality = FangSuConfig.highQualityShape();
+    private boolean optimizeTranslucent = FangSuConfig.optimizeTranslucentFaces();
     private boolean tilt = FangSuConfig.cameraTiltEnabled();
     private String step = Double.toString(FangSuConfig.shapeStep());
     private String strength = Double.toString(FangSuConfig.cameraTiltStrength());
@@ -68,7 +69,13 @@ public final class FangSuConfigScreen extends BasicConfigScreen {
         y += 26;
         numberField(x, y, width, "ui.fangsu.config.strength", strength, value -> strength = value);
         y += 30;
+        addEntry(addButton(x, y, width, 20, toggleLabel("ui.fangsu.config.optimize_translucent", optimizeTranslucent), button -> {
+            optimizeTranslucent = !optimizeTranslucent;
+            button.setMessage(toggleLabel("ui.fangsu.config.optimize_translucent", optimizeTranslucent));
+        }), y);
+        y += 26;
         addEntry(addButton(x, y, width, 20, ComponentHelper.translatable("ui.fangsu.config.defaults"), button -> {
+            optimizeTranslucent = false;
             quality = FangSuConfig.DEFAULT_HIGH_QUALITY_SHAPE;
             step = Double.toString(FangSuConfig.DEFAULT_SHAPE_STEP);
             tilt = FangSuConfig.DEFAULT_CAMERA_TILT_ENABLED;
@@ -103,7 +110,7 @@ public final class FangSuConfigScreen extends BasicConfigScreen {
                     || !Double.isFinite(parsedStrength) || parsedStrength < 0 || parsedStrength > 2) {
                 status = "ui.fangsu.config.value_error";
             } else {
-                status = FangSuConfig.saveAndApply(quality, parsedStep, tilt, parsedStrength)
+                status = FangSuConfig.saveAndApply(quality, parsedStep, tilt, parsedStrength, optimizeTranslucent)
                         ? "ui.fangsu.config.applied" : "ui.fangsu.config.save_error";
             }
         } catch (NumberFormatException e) {

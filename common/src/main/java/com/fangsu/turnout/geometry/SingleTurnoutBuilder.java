@@ -14,7 +14,7 @@ public final class SingleTurnoutBuilder {
 
     public static TurnoutMesh build(List<TurnoutGeometry.Station> straight,List<TurnoutGeometry.Station> branch,
                                     TurnoutRailParams input,int sign,boolean sampled) {
-        FsrailParts.Asset asset=FsrailParts.load(input.modelResource());
+        FsrailParts.Asset asset=FsrailParts.load(input);
         if(asset==null||asset.rail()==null) {
             Main.LOGGER.warn("[turnout] 找不到钢轨 OBJ，无法生成与普通轨道一致的道岔：{}",input.modelResource());
             return TurnoutMesh.EMPTY;

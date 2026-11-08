@@ -1,0 +1,239 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "free",
+    "box_uv": false
+  },
+  "name": "Wall-mounted station information sign",
+  "resolution": {
+    "width": 16,
+    "height": 4
+  },
+  "elements": [
+    {
+      "name": "Wall mount",
+      "type": "cube",
+      "uuid": "00000000-0000-0000-0000-000000000001",
+      "from": [
+        -4.5,
+        -2.5,
+        -8
+      ],
+      "to": [
+        4.5,
+        14.5,
+        -7.5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            13,
+            1,
+            15,
+            3
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            13,
+            1,
+            15,
+            3
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            13,
+            1,
+            15,
+            3
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            13,
+            1,
+            15,
+            3
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            13,
+            1,
+            15,
+            3
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            13,
+            1,
+            15,
+            3
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "Aluminium case",
+      "type": "cube",
+      "uuid": "00000000-0000-0000-0000-000000000002",
+      "from": [
+        -6,
+        -4,
+        -7.5
+      ],
+      "to": [
+        6,
+        16,
+        -6.9
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            1,
+            1,
+            3,
+            3
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            1,
+            1,
+            3,
+            3
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            5,
+            1,
+            7,
+            3
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            1,
+            1,
+            3,
+            3
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            1,
+            1,
+            3,
+            3
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            1,
+            1,
+            3,
+            3
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "Inset face",
+      "type": "cube",
+      "uuid": "00000000-0000-0000-0000-000000000003",
+      "from": [
+        -5.75,
+        -3.75,
+        -6.9
+      ],
+      "to": [
+        5.75,
+        15.75,
+        -6.82
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            9,
+            1,
+            11,
+            3
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            9,
+            1,
+            11,
+            3
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            9,
+            1,
+            11,
+            3
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            9,
+            1,
+            11,
+            3
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            9,
+            1,
+            11,
+            3
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            9,
+            1,
+            11,
+            3
+          ],
+          "texture": 0
+        }
+      }
+    }
+  ],
+  "outliner": [
+    "00000000-0000-0000-0000-000000000001",
+    "00000000-0000-0000-0000-000000000002",
+    "00000000-0000-0000-0000-000000000003"
+  ],
+  "textures": [
+    {
+      "name": "mtr_station_case.png",
+      "relative_path": "mtr_station_case.png",
+      "id": "0"
+    }
+  ]
+}

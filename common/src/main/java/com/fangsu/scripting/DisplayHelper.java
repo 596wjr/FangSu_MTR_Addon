@@ -45,8 +45,7 @@ public class DisplayHelper {
         int version = cfg.get("version").getAsInt();
         if (version == 1) {
             String renderType = cfg.has("renderType") ? cfg.get("renderType").getAsString() : "interior";
-            RawMeshBuilder meshBuilder = new RawMeshBuilder(4, renderType, new ResourceLocation("minecraft:textures/misc/white.png"));
-            meshBuilder.color(255, 255, 255, 255);
+            RawModel rawModel = new RawModel();
 
             if (!cfg.has("slots") || !cfg.has("texSize")) {
                 Main.LOGGER.warn("DisplayHelper: JSON config missing 'slots' or 'texSize' field");
@@ -59,6 +58,10 @@ public class DisplayHelper {
 
             for (JsonElement slotElem : slots) {
                 JsonObject slotCfg = slotElem.getAsJsonObject();
+                // LED 的底板与灯层可以独立选择渲染阶段；旧配置沿用全局设置。
+                String slotRenderType = slotCfg.has("renderType") ? slotCfg.get("renderType").getAsString() : renderType;
+                RawMeshBuilder meshBuilder = new RawMeshBuilder(4, slotRenderType, new ResourceLocation("minecraft:textures/misc/white.png"));
+                meshBuilder.color(255, 255, 255, 255);
                 JsonArray texArea = slotCfg.getAsJsonArray("texArea");
                 int taX = texArea.get(0).getAsInt();
                 int taY = texArea.get(1).getAsInt();
@@ -107,10 +110,9 @@ public class DisplayHelper {
                         }
                     }
                 }
+                rawModel.append(meshBuilder.getMesh());
             }
 
-            RawModel rawModel = new RawModel();
-            rawModel.append(meshBuilder.getMesh());
             rawModel.triangulate();
             this.baseModel = new DynamicModelHolder();
             this.baseModel.uploadLater(rawModel);

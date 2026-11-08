@@ -161,6 +161,7 @@ public class MainClient {
             }
             try {
                 LcdManager.getInstance().injectLcd("mtr", MtrLcd::new);
+                LcdManager.getInstance().injectLcd("s_train_led", com.fangsu.train.lcds.STrainLed::new);
             } catch (Exception e) {
                 Main.LOGGER.error("[FangSu] LcdManager init failed", e);
             }

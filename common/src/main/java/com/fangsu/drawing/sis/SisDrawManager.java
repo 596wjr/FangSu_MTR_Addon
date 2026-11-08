@@ -20,6 +20,7 @@ public final class SisDrawManager {
     public static void preload() {
         drawOptions.clear();
         drawingCache.clear();
+        registerJavaDrawing(MtrSisDrawing.KEY, MtrSisDrawing::new);
 //        drawingClassMap.clear();
     }
 

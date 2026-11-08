@@ -195,8 +195,9 @@ public abstract class BaseObjBlockEntity extends BlockEntity {
      * （如 {@code BlockEntityRotatingRail}）会在渲染线程上阻塞等待该池 —— 那是一条每帧硬卡顿的路径。
      * 现在所有方块实体统一走这里的"非阻塞 + 上一帧结果兜底"模型。
      */
-    private static final java.util.concurrent.ExecutorService RENDERING_EXECUTOR =
-            java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+    private static final java.util.concurrent.ThreadPoolExecutor RENDERING_EXECUTOR =
+            new java.util.concurrent.ThreadPoolExecutor(1, 1, 0L, java.util.concurrent.TimeUnit.MILLISECONDS,
+                    new java.util.concurrent.LinkedBlockingQueue<>(), r -> {
                 Thread t = new Thread(r, "fangsu-rendering-async");
                 t.setDaemon(true);
                 return t;
@@ -220,6 +221,16 @@ public abstract class BaseObjBlockEntity extends BlockEntity {
         return true;
     }
 
+    /** 实际执行器队列长度，包含尚未出队的已取消任务。 */
+    public static int getRenderingQueueSize() {
+        return RENDERING_EXECUTOR.getQueue().size();
+    }
+
+    /** 已提交结果不变时允许子类复用；只在旧任务结束且结果已消费后检查。 */
+    protected boolean needsRenderUpdate() {
+        return true;
+    }
+
     /**
      * 尝试在后台线程执行一次 whenRendering，绝不阻塞 GL 渲染线程。
      * <p>
@@ -234,14 +245,18 @@ public abstract class BaseObjBlockEntity extends BlockEntity {
         if (!refreshResourcesIfNeeded()) return false;
         if (!isRenderReady()) return false;
         if (renderResultReady) return false;
+        if (!needsRenderUpdate()) return false;
         renderResultReady = false;
+        final long submittedAt = com.fangsu.utils.ScreendoorRenderProbe.submitted(this instanceof BlockEntityScreendoorGlass);
         renderingTask = java.util.concurrent.CompletableFuture.runAsync(() -> {
+            final long startedAt = com.fangsu.utils.ScreendoorRenderProbe.started(submittedAt);
             try {
                 this.whenRendering();
             } catch (Exception e) {
                 Main.LOGGER.error("Async whenRendering error for {} at {}: {}",
                         getClass().getSimpleName(), getBlockPos(), e.getMessage());
             } finally {
+                com.fangsu.utils.ScreendoorRenderProbe.completed(startedAt);
                 renderResultReady = true;
             }
         }, RENDERING_EXECUTOR);

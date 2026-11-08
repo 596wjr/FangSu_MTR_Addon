@@ -39,7 +39,11 @@ public class ItemTurnout extends BlockItem {
     public InteractionResult placeValidated(BlockPlaceContext context,TurnoutBinding binding) {
         if(context.getLevel().isClientSide||binding==null)return InteractionResult.FAIL;
         AUTHORIZED.set(binding);
-        try{return super.place(context);}finally{AUTHORIZED.remove();}
+        // 这里绕过了原版游戏模式交互入口，创造模式的物品数量也必须在此恢复。
+        ItemStack stack=context.getItemInHand();
+        int count=stack.getCount();
+        boolean creative=context.getPlayer()!=null&&context.getPlayer().getAbilities().instabuild;
+        try{return super.place(context);}finally{if(creative)stack.setCount(count);AUTHORIZED.remove();}
     }
     @Nullable public static TurnoutBinding placementBinding(){return AUTHORIZED.get();}
     @Override public void appendHoverText(ItemStack stack,@Nullable Level level,List<Component> tooltip,TooltipFlag flag){super.appendHoverText(stack,level,tooltip,flag);RegisterUtil.addDescTooltip(tooltip,getBlock() instanceof com.fangsu.blocks.BlockRotatingRail?"block.fangsu.rotating_rail.desc":"block.fangsu.turnout.desc");}

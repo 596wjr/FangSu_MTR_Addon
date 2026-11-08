@@ -137,7 +137,7 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
                         LcdScriptSupport.toScriptValue(scriptInfo), LcdScriptSupport.toScriptValue(scriptExtra));
             } else {
                 var slots = lcdInfo.slotsInfo().getAsJsonArray("slots");
-                if (trainStatus.currentRoute != null && trainStatus.drawableRoute != null) {
+                if (lcd.canDrawWithoutRoute() || (trainStatus.currentRoute != null && trainStatus.drawableRoute != null)) {
                     for (JsonElement slot : slots) {
                         JsonObject obj = slot.getAsJsonObject();
                         String name = obj.get("name").getAsString();

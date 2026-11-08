@@ -45,6 +45,7 @@ public class DynamicModelHolder {
             ModelCluster lastUploadedModel = uploadedModel;
             try {
                 uploadedModel = new ModelCluster(finalRawModel, ModelManager.DEFAULT_MAPPING, MainClient.modelManager);
+                com.fangsu.utils.ScreendoorRenderProbe.modelUploaded();
             } catch (Throwable t) {
                 // <b>热修（2026-07）</b>：旧实现是「capture → 上传 → restore」的直线写法，没有 try/finally。
                 // 只要上传抛一次异常，GlStateTracker.restore() 就被跳过，捕获状态永久残留 →

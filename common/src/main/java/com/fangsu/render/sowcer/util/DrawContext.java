@@ -25,6 +25,7 @@ public class DrawContext {
     private List<String> debugInfoCF = new ArrayList<>();
 
     public void resetFrameProfiler() {
+        com.fangsu.utils.ScreendoorRenderProbe.frame(drawCallCountCF, blazeFaceCountCF);
         drawCallCount = drawCallCountCF;
         batchCount = batchCountCF;
         singleFaceCount = singleFaceCountCF;

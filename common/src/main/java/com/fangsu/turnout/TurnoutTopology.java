@@ -10,7 +10,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 import java.util.function.Consumer;
 
-/** 七种道岔的共用判定。连接必须来自真实 MTR 轨道，不再使用 0.5~35 度的弦夹角门槛。 */
+/** 八种道岔的共用判定。连接必须来自真实 MTR 轨道，不再使用 0.5~35 度的弦夹角门槛。 */
 public final class TurnoutTopology {
     public static final double MAX_DISTANCE=32D;
     public static final int MAX_MARKERS=64,MAX_HOPS=16;
@@ -131,11 +131,23 @@ public final class TurnoutTopology {
         int[] main=matchings.get(0);boolean crossing=crosses(graph.points(routes.get(main[0]).nodes()),graph.points(routes.get(main[1]).nodes()));
         TurnoutKind kind;
         if(routes.size()==2) {if(!crossing)return fail(TurnoutValidation.HINT_INVALID_NODES);kind=TurnoutKind.DIAMOND;}
-        else if(routes.size()==3) {if(!crossing)return fail(TurnoutValidation.HINT_INVALID_NODES);kind=TurnoutKind.SINGLE_SLIP;}
+        else if(routes.size()==3) {
+            if(crossing)kind=TurnoutKind.SINGLE_SLIP;
+            else {
+                // 单渡线：两条不相交的正线，以及连接两个蓝色岔尖的一条渡线。
+                long blues=selected.stream().filter(m->m.color()==MarkerColor.BLUE).count();
+                TurnoutTrack connector=routes.get(3-main[0]-main[1]);
+                if(blues!=2||selected.stream().filter(m->m.color()==MarkerColor.BLUE)
+                        .anyMatch(m->!m.pos().equals(connector.start())&&!m.pos().equals(connector.end())))
+                    return fail(TurnoutValidation.HINT_INVALID_NODES);
+                kind=TurnoutKind.SINGLE_CROSSOVER;
+            }
+        }
         else if(crossing)kind=TurnoutKind.DOUBLE_SLIP;
         else {
             boolean alternate=false;for(int[] pair:matchings)alternate|=crosses(graph.points(routes.get(pair[0]).nodes()),graph.points(routes.get(pair[1]).nodes()));
-            if(!alternate)return fail(TurnoutValidation.HINT_INVALID_NODES);kind=TurnoutKind.SCISSORS_CROSSOVER;
+            if(!alternate||selected.stream().anyMatch(m->m.color()!=MarkerColor.BLUE))return fail(TurnoutValidation.HINT_INVALID_NODES);
+            kind=TurnoutKind.SCISSORS_CROSSOVER;
         }
         return bind(kind,chains(routes,stops),selected,model,graph);
     }

@@ -36,7 +36,9 @@ public final class TurnoutBuildRequestPayload {
             //#else
             //$$ Level level=player.level;
             //#endif
-            if(!level.hasChunkAt(pos)||player.distanceToSqr(pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5)>64||!(level.getBlockEntity(pos) instanceof BlockEntityTurnout entity))return;
+            if(!level.hasChunkAt(pos)||player.distanceToSqr(pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5)>64||!(level.getBlockEntity(pos) instanceof BlockEntityTurnout entity)||!level.mayInteract(player,pos)){
+                TurnoutBindingPayload.sendFailure(player,pos,TurnoutValidation.HINT_CANNOT_PLACE,"");return;
+            }
             if(unbind){entity.clearBinding();TurnoutBindingPayload.sendSuccess(player,pos,null);return;}
             java.util.function.Consumer<TurnoutValidation> commit=result->{
                 //#if MC_VERSION >= 12000
@@ -44,7 +46,9 @@ public final class TurnoutBuildRequestPayload {
                 //#else
                 //$$ if(player.level!=level)return;
                 //#endif
-                if(!player.isAlive()||player.distanceToSqr(pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5)>64||level.getBlockEntity(pos)!=entity||entity.isRemoved()||!level.mayInteract(player,pos))return;
+                if(!player.isAlive()||player.distanceToSqr(pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5)>64||level.getBlockEntity(pos)!=entity||entity.isRemoved()||!level.mayInteract(player,pos)){
+                    TurnoutBindingPayload.sendFailure(player,pos,TurnoutValidation.HINT_CANNOT_PLACE,"");return;
+                }
                 if(result.isSupported()){entity.setBinding(result.binding());entity.refreshPowered();TurnoutBindingPayload.sendSuccess(player,pos,result.binding());}
                 else TurnoutBindingPayload.sendFailure(player,pos,result.reasonKey(),"");
             };

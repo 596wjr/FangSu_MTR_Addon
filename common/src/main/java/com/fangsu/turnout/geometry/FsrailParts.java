@@ -125,6 +125,18 @@ public final class FsrailParts {
         return asset.isEmpty() ? null : asset;
     }
 
+    /** MTR 资源可直接声明贴图，不要求 OBJ 同时带 MTL。 */
+    public static Asset load(com.fangsu.turnout.TurnoutRailParams params) {
+        Asset asset=load(params.modelResource());
+        if(asset==null||params.textureResource()==null||params.textureResource().isEmpty())return asset;
+        ResourceLocation texture=new ResourceLocation(params.textureResource());
+        Map<String,ResourceLocation> textures=new HashMap<>(asset.textures());
+        for(Part part:new Part[]{asset.rail(),asset.sleeper(),asset.spikes()}) {
+            if(part!=null)for(Tri tri:part.tris())textures.put(tri.material(),texture);
+        }
+        return new Asset(asset.source(),asset.rail(),asset.sleeper(),asset.spikes(),asset.railLeft(),asset.railRight(),textures);
+    }
+
     public static void clearCache() {
         CACHE.clear();
     }
@@ -151,7 +163,7 @@ public final class FsrailParts {
     // ==================== OBJ 解析 ====================
 
     private static Asset parse(String resourcePath) {
-        InputStream stream = FsrailParts.class.getResourceAsStream(resourcePath);
+        InputStream stream = openResource(resourcePath);
         if (stream == null) {
             warnOnce(resourcePath, "找不到素材 " + resourcePath + "，回退程序化断面");
             return new Asset(resourcePath, null, null, null, null, null, new HashMap<>());
@@ -189,13 +201,14 @@ public final class FsrailParts {
                     }
                     case "usemtl" -> material = token.length >= 2 ? token[1] : "";
                     case "mtllib" -> mtlLib = token.length >= 2 ? token[1] : "";
-                    case "o" -> {
+                    case "o", "g" -> {
                         current = new ArrayList<>();
                         groups.add(current);
                         groupNames.add(token.length >= 2 ? token[1] : "");
                     }
                     case "f" -> {
-                        if (current == null || token.length < 4) break;
+                        if (token.length < 4) break;
+                        if(current==null){current=new ArrayList<>();groups.add(current);groupNames.add("");}
                         int[] corners = new int[token.length - 1];
                         for (int i = 0; i < corners.length; i++) corners[i] = i + 1;
                         for (int i = 1; i + 1 < corners.length; i++) {
@@ -222,9 +235,23 @@ public final class FsrailParts {
             String name = groupNames.get(i) == null ? "" : groupNames.get(i).toLowerCase(Locale.ROOT);
             Part part = toPart(groupNames.get(i), groups.get(i));
             if (part == null) continue;
-            if (name.contains("zhenmu") || name.contains("sleeper")) sleeper = part;
-            else if (name.contains("daoding") || name.contains("spike") || name.contains("fastener")) spikes = part;
-            else if (name.contains("rail")) rail = part;
+            if (name.contains("zhenmu") || name.contains("sleeper")) sleeper = merge(sleeper, part);
+            else if (name.contains("daoding") || name.contains("spike") || name.contains("fastener")) spikes = merge(spikes, part);
+            else if (name.contains("rail")) rail = merge(rail, part);
+        }
+        // 非预设 OBJ 未必按 rail/sleeper 命名：先按横向位置与高度尝试分离钢轨和枕木。
+        if(rail==null) {
+            List<Tri> steel=new ArrayList<>(),ties=new ArrayList<>();
+            float top=-Float.MAX_VALUE;
+            for(List<Tri> group:groups)for(Tri tri:group)for(Vertex v:List.of(tri.a(),tri.b(),tri.c()))top=Math.max(top,v.y());
+            for(List<Tri> group:groups)for(Tri tri:group) {
+                double x=(tri.a().x()+tri.b().x()+tri.c().x())/3D;
+                double y=(tri.a().y()+tri.b().y()+tri.c().y())/3D;
+                if(Math.abs(x)>0.35D&&Math.abs(x)<1.1D&&y>top*0.35D)steel.add(tri);
+                else ties.add(tri);
+            }
+            rail=toPart("rail",steel);
+            if(sleeper==null)sleeper=toPart("sleeper",ties);
         }
         Part railRight = splitRail(rail, true);
         Part railLeft = splitRail(rail, false);
@@ -233,6 +260,12 @@ public final class FsrailParts {
         Main.LOGGER.info("[turnout] fsrail parts {} rail={}t zhenmu={}t daoding={}t materials={}",
                 resourcePath, tris(rail), tris(sleeper), tris(spikes), textures.keySet());
         return asset;
+    }
+
+    private static Part merge(Part a,Part b) {
+        if(a==null)return b;
+        List<Tri> tris=new ArrayList<>(a.tris());tris.addAll(b.tris());
+        return new Part(a.name(),tris,Math.min(a.minY(),b.minY()),Math.max(a.maxY(),b.maxY()));
     }
 
     private static int tris(Part part) {
@@ -366,7 +399,7 @@ public final class FsrailParts {
         if (mtlLib == null || mtlLib.isEmpty()) return out;
         int slash = resourcePath.lastIndexOf('/');
         String mtlPath = (slash < 0 ? "/" : resourcePath.substring(0, slash + 1)) + mtlLib;
-        InputStream stream = FsrailParts.class.getResourceAsStream(mtlPath);
+        InputStream stream = openResource(mtlPath);
         if (stream == null) {
             warnOnce(mtlPath, "找不到材质文件 " + mtlPath + "，贴图回退平交路口钢轨贴图");
             return out;
@@ -409,8 +442,21 @@ public final class FsrailParts {
         return null;
     }
 
+    private static InputStream openResource(String path) {
+        if(path.startsWith("/assets/")) {
+            String relative=path.substring(8);
+            int slash=relative.indexOf('/');
+            if(slash>0)try {
+                byte[] bytes=com.fangsu.utils.ResourceUtil.loadResourceBytes(
+                        new ResourceLocation(relative.substring(0,slash),relative.substring(slash+1)));
+                if(bytes!=null)return new java.io.ByteArrayInputStream(bytes);
+            } catch(java.io.IOException ignored) { }
+        }
+        return FsrailParts.class.getResourceAsStream(path);
+    }
+
     private static boolean classpathExists(String path) {
-        InputStream stream = FsrailParts.class.getResourceAsStream(path);
+        InputStream stream = openResource(path);
         if (stream == null) return false;
         try {
             stream.close();

@@ -34,6 +34,8 @@ public class BlockEntityTurnout extends BaseObjBlockEntity {
     private volatile long switchChangedAt;
     private volatile long drawnSwitchTime=Long.MIN_VALUE;
     private volatile boolean building,buildingGeometry;
+    private long serverRequestStarted;
+    private boolean serverRequestTimedOut;
     private volatile TurnoutMesh mesh;
     private volatile GeometryKey builtKey;
     private volatile long nextRetryTick;
@@ -58,7 +60,7 @@ public class BlockEntityTurnout extends BaseObjBlockEntity {
         String model=tag.getString("turnout_rail_model");if(model.isEmpty())model=DEFAULT_RAIL_MODEL;
         if(!Objects.equals(binding,incoming)||!model.equals(railModelId)){invalidateGeometry();}
         binding=incoming;railModelId=model;signal=tag.contains("turnout_signal")?tag.getInt("turnout_signal"):(tag.getBoolean("turnout_powered")?15:0);
-        previousSignal=tag.contains("turnout_previous_signal")?tag.getInt("turnout_previous_signal"):signal;switchChangedAt=tag.getLong("turnout_switch_time");building=false;
+        previousSignal=tag.contains("turnout_previous_signal")?tag.getInt("turnout_previous_signal"):signal;switchChangedAt=tag.getLong("turnout_switch_time");building=false;serverRequestTimedOut=false;
         if(oldSignal!=signal||oldTime!=switchChangedAt)drawDirty=true;
         if(incoming==null)releaseModels();
     }
@@ -66,7 +68,7 @@ public class BlockEntityTurnout extends BaseObjBlockEntity {
     @Nullable public TurnoutBinding getBinding(){return binding;}
     public synchronized void setBinding(@Nullable TurnoutBinding value) {
         if(!Objects.equals(binding,value)){invalidateGeometry();}
-        binding=value;building=false;if(value!=null&&value.railModelId()!=null&&!value.railModelId().isEmpty())railModelId=value.railModelId();
+        binding=value;building=false;serverRequestTimedOut=false;if(value!=null&&value.railModelId()!=null&&!value.railModelId().isEmpty())railModelId=value.railModelId();
         if(value==null)releaseModels();
         setChanged();syncToClient();
     }
@@ -74,16 +76,28 @@ public class BlockEntityTurnout extends BaseObjBlockEntity {
     public String getRailModelId(){return railModelId==null||railModelId.isEmpty()?DEFAULT_RAIL_MODEL:railModelId;}
     public synchronized void setRailModelId(String model){String next=model==null||model.isEmpty()?DEFAULT_RAIL_MODEL:model;if(!next.equals(railModelId)){railModelId=next;invalidateGeometry();}}
     public boolean isBuilding(){return building||buildingGeometry;}
-    public void markBuildFinished(){building=false;}
+    public boolean isAwaitingServer(){
+        // 用单调时钟计时，服务器卡顿或暂停时也能结束无限等待提示。
+        if(building&&System.nanoTime()-serverRequestStarted>java.util.concurrent.TimeUnit.SECONDS.toNanos(15)) {
+            building=false;serverRequestTimedOut=true;
+            Main.LOGGER.warn("[turnout] 等待服务端构建回包超时 pos={}",worldPosition);
+        }
+        return building;
+    }
+    public boolean hasServerRequestTimedOut(){return serverRequestTimedOut;}
+    private void beginServerRequest(){serverRequestStarted=System.nanoTime();serverRequestTimedOut=false;building=true;}
+    public boolean isBuildingGeometry(){return buildingGeometry||awaitingUpload;}
+    public boolean hasGeometryFailure(){return !buildingGeometry&&mesh!=null&&mesh.totalFaces()==0;}
+    public void markBuildFinished(){building=false;serverRequestTimedOut=false;}
     public void requestRebuild() {
         if(level==null||!level.isClientSide)return;
         List<NodeMarker> markers=binding==null?NodeMarkerStore.getInstance().snapshot():binding.markers();
         List<TurnoutRailGraph.Link> links=new ArrayList<>();
         if(binding!=null)for(TurnoutTrack track:binding.tracks())for(int i=1;i<track.nodes().size();i++)links.add(new TurnoutRailGraph.Link(track.nodes().get(i-1),track.nodes().get(i)));
-        building=true;invalidateGeometry();if(binding!=null)TurnoutGeometryBuilder.invalidate(binding,getRailModelId());
+        beginServerRequest();invalidateGeometry();if(binding!=null)TurnoutGeometryBuilder.invalidate(binding,getRailModelId());
         TurnoutBuildRequestPayload.sendToServer(new TurnoutBuildRequestPayload.Payload(worldPosition,markers,getRailModelId(),false,List.copyOf(new LinkedHashSet<>(links))));
     }
-    public void requestUnbind(){if(level==null||!level.isClientSide)return;building=true;TurnoutBuildRequestPayload.sendToServer(TurnoutBuildRequestPayload.Payload.ofUnbind(worldPosition,getRailModelId()));}
+    public void requestUnbind(){if(level==null||!level.isClientSide)return;beginServerRequest();TurnoutBuildRequestPayload.sendToServer(TurnoutBuildRequestPayload.Payload.ofUnbind(worldPosition,getRailModelId()));}
     // 兼容旧调用入口；初次放置不再依赖客户端 tick 或渲染回调发包。
     public void requestInitialBuild(){ }
     public void clientTick(){ }
