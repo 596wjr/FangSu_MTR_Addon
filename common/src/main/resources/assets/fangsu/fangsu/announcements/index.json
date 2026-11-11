@@ -1,0 +1,317 @@
+{
+  "schemaVersion": 1,
+  "voices": [
+    {
+      "id": "fangsu:bjmtr_zh",
+      "revision": 4,
+      "displayName": {
+        "zh-CN": "港铁中文播音员",
+        "en-US": "MTR Chinese announcer"
+      },
+      "mode": "reference_audio",
+      "samples": {
+        "zh-CN": {
+          "resource": "fangsu:fangsu/announcements/voice_samples/bjmtr_zh.wav",
+          "text": "宛平城，本次列车的终点站。请所有乘客离开车厢。感谢您搭乘京港地铁。列车即将到站，请小心列车与站台之间的空隙。本次列车开往北安河及沿途各站。"
+        }
+      }
+    },
+    {
+      "id": "fangsu:bjmtr_en",
+      "revision": 4,
+      "displayName": {
+        "zh-CN": "港铁英语播音员",
+        "en-US": "MTR English announcer"
+      },
+      "mode": "reference_audio",
+      "samples": {
+        "en-US": {
+          "resource": "fangsu:fangsu/announcements/voice_samples/bjmtr_en.wav",
+          "text": "Wanpingcheng, This train has now stopped service. Please exit from the train. Thank you for traveling on Beijing MTR. The train is arriving. Please mind the gap between the train and the platform. This trian stops service at Beianhe station.",
+          "chineseNamesResource": "fangsu:fangsu/announcements/voice_samples/bjmtr_en_with_zh_names.wav",
+          "chineseNamesText": "Wanpingcheng, This train has now stopped service. Please exit from the train. Thank you for traveling on Beijing MTR. The train is arriving. Please mind the gap between the train and the platform. This trian stops service at Beianhe station. 二里沟，甘家口。"
+        }
+      }
+    }
+  ],
+  "templates": [
+    {
+      "id": "fangsu:platform_arrival_a",
+      "revision": 3,
+      "event": "platform.approaching",
+      "defaultVariant": "standard",
+      "variants": [
+        {
+          "id": "standard",
+          "languageVoices": {
+            "zh-CN": {
+              "voice": "fangsu:bjmtr_zh"
+            },
+            "en-US": {
+              "voice": "fangsu:bjmtr_en"
+            }
+          }
+        }
+      ],
+      "locales": {
+        "zh-CN": {
+          "segments": [
+            {
+              "when": "allStops",
+              "text": "列车即将到站，请小心列车与站台之间的空隙。本次列车去往{tripDestination}及沿途各站。"
+            },
+            {
+              "when": "shortTurn",
+              "text": "去往{fullServiceDestination}的乘客，请等候下次列车。"
+            },
+            {
+              "when": "limitedService",
+              "text": "列车即将进站，请小心列车与站台之间的空隙。"
+            }
+          ]
+        },
+        "en-US": {
+          "segments": [
+            {
+              "text": "The train is arriving. Please mind the gap between the train and the platform. This train will stop service at {tripDestination}."
+            },
+            {
+              "when": "shortTurn",
+              "text": "For {fullServiceDestination}, please wait for the next train."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "fangsu:platform_arrival_b",
+      "revision": 3,
+      "event": "platform.approaching",
+      "defaultVariant": "standard",
+      "variants": [
+        {
+          "id": "standard",
+          "languageVoices": {
+            "zh-CN": {
+              "voice": "fangsu:bjmtr_zh"
+            },
+            "en-US": {
+              "voice": "fangsu:bjmtr_en"
+            }
+          }
+        }
+      ],
+      "locales": {
+        "zh-CN": {
+          "segments": [
+            {
+              "when": "allStops",
+              "text": "去往{tripDestination}及沿途各站的列车即将进站，请小心站台空隙。"
+            },
+            {
+              "when": "shortTurn",
+              "text": "去往{fullServiceDestination}的乘客，请等候下次列车。"
+            },
+            {
+              "when": "limitedService",
+              "text": "列车即将进站，请小心列车与站台之间的空隙。"
+            }
+          ]
+        },
+        "en-US": {
+          "segments": [
+            {
+              "text": "The train to {tripDestination} is arriving. Please mind the gap when boarding."
+            },
+            {
+              "when": "shortTurn",
+              "text": "For {fullServiceDestination}, please wait for the next train."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "fangsu:train_next",
+      "revision": 4,
+      "event": "train.next",
+      "defaultVariant": "standard",
+      "variants": [
+        {
+          "id": "standard",
+          "languageVoices": {
+            "zh-CN": {
+              "voice": "fangsu:bjmtr_zh"
+            },
+            "en-US": {
+              "voice": "fangsu:bjmtr_en"
+            }
+          }
+        }
+      ],
+      "locales": {
+        "zh-CN": {
+          "segments": [
+            {
+              "text": "乘客您好, 欢迎您搭乘方速轨道交通, 希望您有一个愉快的旅程.",
+              "when": "firstStop"
+            },
+            {
+              "text": "本次列车去往"
+            },
+            {
+              "text": "{tripDestination}"
+            },
+            {
+              "text": "及沿途各站",
+              "when": "notTerminal"
+            },
+            {
+              "text": "下一站"
+            },
+            {
+              "text": "{nextStation}"
+            },
+            {
+              "text": "乘客可换乘",
+              "when": "hasInterchanges"
+            },
+            {
+              "text": "{interchanges}",
+              "when": "hasInterchanges"
+            },
+            {
+              "text": "将会开启左侧车门.",
+              "when": "leftDoors"
+            },
+            {
+              "text": "将会开启右侧车门.",
+              "when": "rightDoors"
+            }
+          ]
+        },
+        "en-US": {
+          "segments": [
+            {
+              "text": "Welcome to FangSu Railway. We hope you have a pleasant journey.",
+              "when": "firstStop"
+            },
+            {
+              "text": "This train is bound for"
+            },
+            {
+              "text": "{tripDestination}"
+            },
+            {
+              "text": "Next station"
+            },
+            {
+              "text": "{nextStation}"
+            },
+            {
+              "text": "Interchange station for",
+              "when": "hasInterchanges"
+            },
+            {
+              "text": "{interchanges}",
+              "when": "hasInterchanges"
+            },
+            {
+              "text": "Doors will open on the left.",
+              "when": "leftDoors"
+            },
+            {
+              "text": "Doors will open on the right.",
+              "when": "rightDoors"
+            }
+          ]
+        }
+      },
+      "requiredVariables": [
+        "tripDestination",
+        "nextStation"
+      ]
+    },
+    {
+      "id": "fangsu:train_approaching",
+      "revision": 4,
+      "event": "train.approaching",
+      "defaultVariant": "standard",
+      "variants": [
+        {
+          "id": "standard",
+          "languageVoices": {
+            "zh-CN": {
+              "voice": "fangsu:bjmtr_zh"
+            },
+            "en-US": {
+              "voice": "fangsu:bjmtr_en"
+            }
+          }
+        }
+      ],
+      "locales": {
+        "zh-CN": {
+          "segments": [
+            {
+              "text": "{station}"
+            },
+            {
+              "text": "站",
+              "when": "stationSuffixNeeded"
+            },
+            {
+              "text": "本次列车的终点站, 请所有乘客离开车厢. 感谢您搭乘方速轨道交通.",
+              "when": "terminal"
+            }
+          ]
+        },
+        "en-US": {
+          "segments": [
+            {
+              "text": "{station}"
+            },
+            {
+              "text": "Station",
+              "when": "stationSuffixNeeded"
+            },
+            {
+              "text": "This train stops service here. Thank you for taking FangSu Railway.",
+              "when": "terminal"
+            }
+          ]
+        }
+      },
+      "requiredVariables": [
+        "station"
+      ]
+    },
+    {
+      "id": "fangsu:train_arrived",
+      "revision": 4,
+      "event": "train.arrived",
+      "defaultVariant": "standard",
+      "variants": [
+        {
+          "id": "standard",
+          "languageVoices": {
+            "zh-CN": {
+              "voice": "fangsu:bjmtr_zh"
+            },
+            "en-US": {
+              "voice": "fangsu:bjmtr_en"
+            }
+          }
+        }
+      ],
+      "locales": {
+        "zh-CN": {
+          "segments": []
+        },
+        "en-US": {
+          "segments": []
+        }
+      }
+    }
+  ]
+}

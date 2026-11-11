@@ -199,7 +199,7 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
     }
 
     public void handleServerInteraction(Level level, Player player) {
-        TicketBarrierHandler.handle(
+        TicketBarrierHandler.Outcome result = TicketBarrierHandler.handleResult(
                 level,
                 worldPosition,
                 player,
@@ -208,6 +208,12 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
                 extraConfigs,
                 this::sendUpdateC2S
         );
+        if (result == TicketBarrierHandler.Outcome.ACCEPTED) {
+            com.fangsu.network.BarrierSoundPackets.emit(level, worldPosition, extraConfigs, "accepted");
+            com.fangsu.network.BarrierSoundPackets.emit(level, worldPosition, extraConfigs, "opening");
+        } else if (result == TicketBarrierHandler.Outcome.REJECTED || result == TicketBarrierHandler.Outcome.REJECTED_HANDLED) {
+            com.fangsu.network.BarrierSoundPackets.emit(level, worldPosition, extraConfigs, "rejected");
+        }
     }
 
     @Override
@@ -311,6 +317,7 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
                 Level level = getLevel();
                 BlockPos pos = getBlockPos();
                 checkSideClose(level, pos);
+                com.fangsu.network.BarrierSoundPackets.emit(level, pos, extraConfigs, "closing");
                 sendUpdateC2S();
             }
         }
@@ -339,6 +346,19 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
     public List<ConfigEntry<?>> getConfigs() {
         List<ConfigEntry<?>> configs = new ArrayList<>();
         Map<String, String> extra = this.extraConfigs;
+        for (String event : List.of("accepted", "rejected", "opening", "closing")) {
+            configs.add(new StringConfig(ComponentHelper.translatable("ui.fangsu.barrierSound." + event), new ConfigSpec("string"),
+                    () -> extra.getOrDefault(event + "Sound", ""), v -> extra.put(event + "Sound", v)));
+            configs.add(new RunnableConfig(ComponentHelper.translatable("ui.fangsu.barrierSound.preview"), new ConfigSpec("runnable"),
+                    () -> com.fangsu.announcements.playback.ResourceSoundPlayback.play(extra.getOrDefault(event + "Sound", ""), worldPosition,
+                            Math.max(0, Math.min(2, getExtraConfigFloat("soundVolume", 1))), Math.max(.5f, Math.min(2, getExtraConfigFloat("soundPitch", 1))))));
+        }
+        configs.add(new NumberInputConfig(ComponentHelper.translatable("ui.fangsu.barrierSound.volume"), new ConfigSpec("number_input")
+                .setParam("min", new JsonPrimitive(0)).setParam("max", new JsonPrimitive(2)),
+                () -> getExtraConfigFloat("soundVolume", 1), v -> extra.put("soundVolume", v.toString())));
+        configs.add(new NumberInputConfig(ComponentHelper.translatable("ui.fangsu.barrierSound.pitch"), new ConfigSpec("number_input")
+                .setParam("min", new JsonPrimitive(.5)).setParam("max", new JsonPrimitive(2)),
+                () -> getExtraConfigFloat("soundPitch", 1), v -> extra.put("soundPitch", v.toString())));
         configs.add(new EnumConfig(
                 ComponentHelper.translatable("ui.fangsu.ticketbarrier.mode"),
                 new ConfigSpec("list"),

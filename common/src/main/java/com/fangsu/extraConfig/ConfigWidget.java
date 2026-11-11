@@ -13,6 +13,8 @@ public class ConfigWidget extends AbstractWidget {
 
     private final List<AbstractWidget> children = new ArrayList<>();
     private final int labelWidth;
+    private int labelColor=0x202020;
+    public ConfigWidget setLabelColor(int color){labelColor=color;return this;}
 
     public ConfigWidget(
             int x,
@@ -101,7 +103,7 @@ public class ConfigWidget extends AbstractWidget {
                 ? font.plainSubstrByWidth(getMessage().getString(), maxWidth)
                 : getMessage().getString();
         int textY = getY() + (height - 8) / 2;
-        gui.drawString(font, label, getX(), textY, 0x202020, false);
+        gui.drawString(font, label, getX(), textY, labelColor, false);
         for (AbstractWidget w : children) {
             w.render(gui, mouseX, mouseY, partialTick);
         }
@@ -115,7 +117,7 @@ public class ConfigWidget extends AbstractWidget {
     //$$            ? font.plainSubstrByWidth(getMessage().getString(), maxWidth)
     //$$            : getMessage().getString();
     //$$    int textY = getY() + (height - 8) / 2;
-    //$$    font.draw(poseStack, label, (float) getX(), (float) textY, 0x202020);
+    //$$    font.draw(poseStack, label, (float) getX(), (float) textY, labelColor);
     //$$    for (AbstractWidget w : children) {
     //$$        w.render(poseStack, mouseX, mouseY, partialTick);
     //$$    }
@@ -129,7 +131,7 @@ public class ConfigWidget extends AbstractWidget {
     //$$            ? font.plainSubstrByWidth(getMessage().getString(), maxWidth)
     //$$            : getMessage().getString();
     //$$    int textY = getY() + (height - 8) / 2;
-    //$$    font.draw(poseStack, label, (float) getX(), (float) textY, 0x202020);
+    //$$    font.draw(poseStack, label, (float) getX(), (float) textY, labelColor);
     //$$    for (AbstractWidget w : children) {
     //$$        w.render(poseStack, mouseX, mouseY, partialTick);
     //$$    }
@@ -143,7 +145,7 @@ public class ConfigWidget extends AbstractWidget {
     //$$            ? font.plainSubstrByWidth(getMessage().getString(), maxWidth)
     //$$            : getMessage().getString();
     //$$    int textY = this.y + (height - 8) / 2;
-    //$$    font.draw(poseStack, label, (float) this.x, (float) textY, 0x202020);
+    //$$    font.draw(poseStack, label, (float) this.x, (float) textY, labelColor);
     //$$    for (AbstractWidget w : children) {
     //$$        w.render(poseStack, mouseX, mouseY, partialTick);
     //$$    }

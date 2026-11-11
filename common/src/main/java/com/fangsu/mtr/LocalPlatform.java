@@ -19,4 +19,5 @@ public class LocalPlatform {
     public Platform getRaw() {
         return raw;
     }
+    public String getName(){return raw==null?"":raw.name;}
 }

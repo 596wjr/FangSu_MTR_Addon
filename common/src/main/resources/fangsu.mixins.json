@@ -5,7 +5,12 @@
   "minVersion": "0.8",
   "plugin": "com.fangsu.mixin.FangSuMixinPlugin",
   "client": [
-    "LevelRendererMixin", "TurnoutRailToolMixin", "NteRailSelectionScreenMixin", "NteRailLayersMixin",
+    "AnnouncementSoundStreamMixin",
+    "LegacyRecordingsSoundMixin",
+    "LevelRendererMixin",
+    "TurnoutRailToolMixin",
+    "NteRailSelectionScreenMixin",
+    "NteRailLayersMixin",
     "LiftClientMixin",
     "LiftCustomizationScreenMixin",
     "RenderTrainsMixin",
@@ -20,19 +25,27 @@
     "NteBakedRailMixin",
     "VehicleRidingClientRollMixin",
     "GameRendererTiltMixin",
-    "TrainRendererBaseCameraMixin"
+    "TrainRendererBaseCameraMixin",
+    "PlatformOverlayWorldMixin",
+    "PlatformFrustumAccessor"
   ],
   "mixins": [
     "CustomResourcesMixin",
     "LiftMixin",
     "TrainMixin",
+    "AnnouncementTrainDistancesAccessor",
     "RailwayDataRailActionsModuleMixin",
     "MetropolisTurnstileMixin",
     "RailAngleMixin",
     "RailPoseExtraMixin",
     "RailGeometryMixin",
     "ItemNodeModifierBaseMixin",
-    "ItemRailModifierMixin"
+    "ItemRailModifierMixin",
+    "PlatformOverlayShapeMixin",
+    "PlatformOverlayStateMixin",
+    "PlatformOverlayPlacementMixin",
+    "PlatformOverlayMtrContextMixin",
+    "PlatformOverlayMtrDoorMixin"
   ],
   "injectors": {
     "defaultRequire": 1

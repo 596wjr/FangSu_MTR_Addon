@@ -37,6 +37,10 @@ repositories {
 }
 
 dependencies {
+    // common 同时进入 compileClasspath、runtimeClasspath 与 developmentFabric/Forge。
+    // shadowBundle 只负责成品打包，不能供开发环境的 Architectury 帧转换读取类型。
+    common files(project(":common").file("libs/potato-platform-geometry-1.1.2.jar"), project(":common").file("libs/jts-core-1.20.0.jar"))
+    shadowBundle files(project(":common").file("libs/potato-platform-geometry-1.1.2.jar"), project(":common").file("libs/jts-core-1.20.0.jar"))
     modCompileOnly("com.terraformersmc:modmenu:$rootProject.mod_menu_version") { transitive = false }
 
     modImplementation "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version"
@@ -105,6 +109,8 @@ processResources {
 }
 
 shadowJar {
+    relocate "dev.potato.curvedplatform.geometry", "com.fangsu.shadow.potato.geometry"
+    relocate "org.locationtech.jts", "com.fangsu.shadow.potato.jts"
     configurations = [project.configurations.shadowBundle]
     archiveClassifier = 'dev-shadow'
 

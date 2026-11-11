@@ -304,7 +304,7 @@ public class MtrUtil {
                         destination,
                         customDestination,
                         stationNames,
-                        currentPlatformName
+                        currentPlatformName,platformId,Long.MIN_VALUE
                 ));
             }
         }
@@ -315,6 +315,7 @@ public class MtrUtil {
 
     public static final class PidsArrivalInfo {
         public final long arrivalMillis;
+        public final long platformId,departureIndex;
         public final int trainCars;
         public final long routeId;
         public final int currentStationIndex;
@@ -333,6 +334,11 @@ public class MtrUtil {
                 List<String> stationNames,
                 String currentPlatformName
         ) {
+            this(arrivalMillis,trainCars,routeId,currentStationIndex,destination,customDestination,stationNames,currentPlatformName,0,Long.MIN_VALUE);
+        }
+        public PidsArrivalInfo(long arrivalMillis,int trainCars,long routeId,int currentStationIndex,String destination,String customDestination,
+                List<String> stationNames,String currentPlatformName,long platformId,long departureIndex){
+            this.platformId=platformId;this.departureIndex=departureIndex;
             this.arrivalMillis = arrivalMillis;
             this.trainCars = trainCars;
             this.routeId = routeId;

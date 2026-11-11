@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "mode": "cloud",
+  "preset": "bjmtr",
+  "variant": "standard",
+  "languages": [
+    "zh-CN",
+    "en-US"
+  ],
+  "languageVoices": {
+    "zh-CN": "fangsu:bjmtr_zh",
+    "en-US": "fangsu:bjmtr_en"
+  }
+}

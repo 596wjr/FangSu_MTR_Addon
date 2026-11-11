@@ -291,7 +291,21 @@ public abstract class BasicConfigScreen extends Screen {
                 }
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        // 只分发给对应区域的可见控件，隐藏的滚动项不能盖住固定导航按钮。
+        if (mouseX >= getContentLeft() && mouseX <= getContentRight()
+                && mouseY >= getContentTop() && mouseY <= getContentBottom()) {
+            for (ScrollEntry entry : entries) {
+                entry.applyScroll(scrollOffset);
+                if (entry.widget.mouseClicked(mouseX, mouseY, button)) {
+                    setFocused(entry.widget); if (button == 0) setDragging(true); return true;
+                }
+            }
+        } else {
+            for (AbstractWidget widget : fixedWidgets) if (widget.mouseClicked(mouseX, mouseY, button)) {
+                setFocused(widget); if (button == 0) setDragging(true); return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -342,6 +356,7 @@ public abstract class BasicConfigScreen extends Screen {
         int areaRight = getPanelRight();
         int areaBottom = getPanelBottom();
         g.fill(areaLeft, areaTop, areaRight, areaBottom, 0xCCFFFFFF);
+        g.drawCenteredString(font, getTitle(), this.width / 2, Math.max(4, areaTop - 18), 0xFFFFFFFF);
     }
 
     protected int getPanelLeft() {
@@ -363,6 +378,7 @@ public abstract class BasicConfigScreen extends Screen {
     protected int getContentPadding() {
         return 12;
     }
+    protected int getLayoutMargin(){return (int)(width*.1);}
 
     protected int getContentLeft() {
         return getPanelLeft() + getContentPadding();
@@ -422,8 +438,8 @@ public abstract class BasicConfigScreen extends Screen {
             this.screen = screen;
             this.centerX = screen.width / 2;
             this.y = screen.getContentTop();
-            this.areaLeft = (int) (screen.getPanelLeft() + screen.width * 0.1);
-            this.areaRight = (int) (screen.getPanelRight() - screen.width * 0.1);
+            this.areaLeft = screen.getPanelLeft() + screen.getLayoutMargin();
+            this.areaRight = screen.getPanelRight() - screen.getLayoutMargin();
             this.contentWidth = areaRight - areaLeft;
             this.labelWidth = (int) (contentWidth * 0.4f);
             this.fieldWidth = contentWidth - labelWidth;

@@ -87,8 +87,9 @@ public class BlockEntityScreendoor extends FunctionalObjBlockEntity implements I
     private long lastRenderTime;
 
     public BlockEntityScreendoor(BlockPos blockPos, BlockState blockState) {
-        super(BLOCK_ENTITY_SCREENDOOR.get(), blockPos, blockState);
+        this(BLOCK_ENTITY_SCREENDOOR.get(), blockPos, blockState);
     }
+    protected BlockEntityScreendoor(net.minecraft.world.level.block.entity.BlockEntityType<?> type,BlockPos pos,BlockState state){super(type,pos,state);}
 
     @Override
     public void whenLoading() {
@@ -151,11 +152,7 @@ public class BlockEntityScreendoor extends FunctionalObjBlockEntity implements I
         long delta = date.getTime() - lastRenderTime;
         lastRenderTime = date.getTime();
 
-        if (getDoorTarget() || getDoorValue() >= 0.4f) {
-            dispDoorValue = Math.min(1.0, dispDoorValue + delta / 1000.0 * 0.6);
-        } else {
-            dispDoorValue = Math.max(0.0, dispDoorValue - delta / 1000.0 * 0.6);
-        }
+        dispDoorValue = displayDoorProgress(delta);
 
         // 锟?淇鍚庣殑寮€闂ㄦ柟鍚戝垽锟?
         int dir =
@@ -178,6 +175,9 @@ public class BlockEntityScreendoor extends FunctionalObjBlockEntity implements I
             sendUpdateC2S();
         }
     }
+
+    /** 组合宿主可提供服务端一致的进度；独立门保留原有动画。 */
+    protected double displayDoorProgress(long delta){return getDoorTarget()||getDoorValue()>=.4f?Math.min(1,dispDoorValue+delta/1000d*.6):Math.max(0,dispDoorValue-delta/1000d*.6);}
 
     // 鎶藉嚭鏉ワ紝鏂逛究 auto 閲嶇畻鍚庤皟锟?
     private void reloadModels() {
@@ -388,6 +388,7 @@ public class BlockEntityScreendoor extends FunctionalObjBlockEntity implements I
     @Override
     public void whenDisposing() {
         RotatableShapeHelper.getInstance().removeCache(getLevel(), getWorldPos());
+        super.whenDisposing();
     }
 
     private static class DoorRenderInfo {

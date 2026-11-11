@@ -186,6 +186,8 @@ fangsu/
 
 ## 致谢
 
+- **Potato 土豆泥 / Potato Curved Platform contributors** — 允许将 **Potato Platform 1.1.2** 的曲线站台移植到方速；感谢提供几何构建、碰撞与材质设计参考。保留 [MIT 许可及来源说明](third_party/potato-platform/README.md)。
+
 - **Zbx1425** — 参考并使用了 [mtr-nte](https://github.com/zbx1425/mtr-nte) 的渲染组件（`sowcer` / `sowcerext`）及构建脚本逻辑
 - **javagl** — OBJ 模型加载与解析库
 - **Minecraft Transit Railway (MTR)** — 为本模组提供基础的轨道交通系统

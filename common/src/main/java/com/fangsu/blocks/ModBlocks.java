@@ -15,6 +15,15 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import java.util.List;
 
 public class ModBlocks {
+    public static final RegistrySupplier<Block> BLOCK_AUTO_PLATFORM_COMPONENT = RegisterUtil.addBlock("auto_platform_component", BlockAutoPlatformComponent::new);
+    public static final RegistrySupplier<BlockEntityType<BlockEntityAutoPlatformComponent>> BLOCK_ENTITY_AUTO_PLATFORM_COMPONENT = RegisterUtil.addBlockEntity("auto_platform_component", BLOCK_AUTO_PLATFORM_COMPONENT, BlockEntityAutoPlatformComponent::new);
+    public static final RegistrySupplier<Item> ITEM_AUTO_PLATFORM_COMPONENT = RegisterUtil.addBlockItem("auto_platform_component", BLOCK_AUTO_PLATFORM_COMPONENT);
+    public static final RegistrySupplier<Block> BLOCK_CURVED_PLATFORM = RegisterUtil.addBlock("curved_platform", BlockCurvedPlatform::new);
+    public static final RegistrySupplier<BlockEntityType<BlockEntityCurvedPlatform>> BLOCK_ENTITY_CURVED_PLATFORM = RegisterUtil.addBlockEntity("curved_platform", BLOCK_CURVED_PLATFORM, BlockEntityCurvedPlatform::new);
+    public static final RegistrySupplier<Block> BLOCK_ANNOUNCEMENT_SPEAKER = RegisterUtil.addBlock("announcement_speaker", BlockAnnouncementSpeaker::new);
+    public static final RegistrySupplier<BlockEntityType<BlockEntityAnnouncementSpeaker>> BLOCK_ENTITY_ANNOUNCEMENT_SPEAKER =
+            RegisterUtil.addBlockEntity("announcement_speaker", BLOCK_ANNOUNCEMENT_SPEAKER, BlockEntityAnnouncementSpeaker::new);
+    public static final RegistrySupplier<Item> ITEM_ANNOUNCEMENT_SPEAKER = RegisterUtil.addBlockItem("announcement_speaker", BLOCK_ANNOUNCEMENT_SPEAKER);
     public static final RegistrySupplier<Block> BLOCK_TICKET_BARRIER = RegisterUtil.addBlock("ticket_barrier", BlockTicketBarrier::new);
     public static final RegistrySupplier<Block> BLOCK_SCREENDOOR = RegisterUtil.addBlock("screendoor_door", BlockScreendoor::new);
     public static final RegistrySupplier<Block> BLOCK_SCREENDOOR_GLASS = RegisterUtil.addBlock("screendoor_glass", BlockScreendoorGlass::new);

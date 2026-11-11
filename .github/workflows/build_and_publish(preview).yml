@@ -1,0 +1,189 @@
+# =============================================================================
+# FangSu for MTR 3（[MTR3]） 预览版（内测）构建 + 推送到自建下载站
+# -----------------------------------------------------------------------------
+# 用途：
+#   手动触发，按 MC 版本 × 平台矩阵构建模组，把产物直接 POST 到自建下载站，
+#   供内测用户下载。只做「构建 → 推送」，不产出任何公开工件。
+#
+# 触发方式：
+#   Actions → Build & Publish Preview (内测) → Run workflow → 选择分支后手动运行。
+#   本工作流只有 workflow_dispatch 一个触发器，日常 push / PR 都不会触发。
+#
+# 所需配置（Settings → Secrets and variables → Actions）：
+#   Variables：
+#     PREVIEW_SERVER        下载站根地址，例如 https://dl.example.com（结尾不要带斜杠）
+#   Secrets：
+#     PREVIEW_UPLOAD_TOKEN  下载站上传令牌，作为 X-Preview-Token 请求头发送
+#   两者任一为空时，工作流第一步即以中文错误信息失败退出，不会静默跳过。
+#
+# 与 release 工作流的区别：
+#   - 不创建版本发布（Release）、不上传 Actions 构建工件（artifact）、
+#     不推送任何第三方模组平台、不打印任何可直链下载的地址
+#     （日志里只有服务器返回的 JSON）；
+#   - 产物只落在自建下载站：version = gradle.properties 的 mod_version，
+#     另带 build 时间戳与 commit 短 SHA 供内测区分版本；
+#   - 只新增本文件，release / alpha 等既有工作流完全不变。
+# =============================================================================
+name: Build & Publish Preview (内测)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 同一时间只跑一个预览部署，避免两次运行并发覆盖下载站上的同名文件
+concurrency:
+  group: preview-mtr3
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    name: Preview ${{ matrix.game_version }} / ${{ matrix.platform }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        game_version: [ "1.18.2", "1.19.2", "1.19.3", "1.19.4", "1.20.1" ]
+        platform: [ "fabric", "forge" ]
+
+    steps:
+      # ---------------------------------------------------------------------
+      # 0. 配置校验：变量 / 密钥缺失时立即硬失败，不浪费 10 次构建
+      # ---------------------------------------------------------------------
+      - name: 校验下载站配置
+        env:
+          PREVIEW_SERVER: ${{ vars.PREVIEW_SERVER }}
+          PREVIEW_UPLOAD_TOKEN: ${{ secrets.PREVIEW_UPLOAD_TOKEN }}
+        run: |
+          set -euo pipefail
+          missing=0
+          if [ -z "${PREVIEW_SERVER:-}" ]; then
+            echo "::error::未配置仓库变量 PREVIEW_SERVER（下载站根地址）。请前往 Settings → Secrets and variables → Actions → Variables 添加。"
+            missing=1
+          fi
+          if [ -z "${PREVIEW_UPLOAD_TOKEN:-}" ]; then
+            echo "::error::未配置仓库密钥 PREVIEW_UPLOAD_TOKEN（下载站上传令牌）。请前往 Settings → Secrets and variables → Actions → Secrets 添加。"
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            echo "预览分发所需配置不完整，已中止本次运行。"
+            exit 1
+          fi
+          echo "下载站配置校验通过。"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build ${{ matrix.platform }} for ${{ matrix.game_version }}
+        run: ./gradlew :${{ matrix.platform }}:build -Pgame_version=${{ matrix.game_version }} --no-daemon
+
+      # ---------------------------------------------------------------------
+      # 1. 定位唯一的可分发 jar（排除 sources / dev-shadow；多个则报错）
+      # ---------------------------------------------------------------------
+      - name: 定位构建产物 jar
+        id: locate
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          jars=( "${{ matrix.platform }}/build/libs/"*.jar )
+          candidates=()
+          for jar in "${jars[@]}"; do
+            case "$jar" in
+              *-sources.jar) continue ;;
+              *-dev-shadow.jar) continue ;;
+            esac
+            candidates+=( "$jar" )
+          done
+
+          if [ "${#candidates[@]}" -eq 0 ]; then
+            echo "::error::在 ${{ matrix.platform }}/build/libs/ 下没有找到可分发的 jar（已排除 *-sources.jar 与 *-dev-shadow.jar）。"
+            exit 1
+          fi
+          if [ "${#candidates[@]}" -gt 1 ]; then
+            echo "::error::在 ${{ matrix.platform }}/build/libs/ 下找到多个候选 jar，无法确定要分发哪一个，请先人工排查构建产物："
+            for c in "${candidates[@]}"; do echo "  - $c"; done
+            exit 1
+          fi
+          JAR_PATH="${candidates[0]}"
+
+          MOD_VERSION="$(grep -E '^[[:space:]]*mod_version[[:space:]]*=' gradle.properties | head -n 1 | cut -d'=' -f2- | tr -d '[:space:]')"
+          if [ -z "$MOD_VERSION" ]; then
+            echo "::error::无法从 gradle.properties 读取 mod_version。"
+            exit 1
+          fi
+
+          JAR_BASENAME="$(basename "$JAR_PATH")"
+          BUILD_STAMP=""
+          if [[ "$JAR_BASENAME" =~ -build([0-9]{8,14})[.]jar$ ]]; then
+            BUILD_STAMP="${BASH_REMATCH[1]}"
+          fi
+          if [ -z "$BUILD_STAMP" ]; then
+            BUILD_STAMP="$(date -u +%Y%m%d%H%M%S)"
+            echo "未能从 jar 文件名解析 build 时间戳，回退为当前 UTC 时间：$BUILD_STAMP"
+          fi
+
+          COMMIT_SHORT="${GITHUB_SHA:0:7}"
+
+          {
+            echo "JAR_PATH=$JAR_PATH"
+            echo "MOD_VERSION=$MOD_VERSION"
+            echo "BUILD_STAMP=$BUILD_STAMP"
+            echo "COMMIT_SHORT=$COMMIT_SHORT"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "待分发文件：$JAR_BASENAME"
+          echo "  mc=${{ matrix.game_version }} platform=${{ matrix.platform }} version=$MOD_VERSION build=$BUILD_STAMP commit=$COMMIT_SHORT"
+
+      # ---------------------------------------------------------------------
+      # 2. 推送到自建下载站（内测通道）
+      #    目标 URL : ${{ vars.PREVIEW_SERVER }}/index.php?action=upload
+      #    请求头   : X-Preview-Token: ${{ secrets.PREVIEW_UPLOAD_TOKEN }}
+      #    通过 env 传入，取值与契约完全一致，同时避免密钥出现在脚本正文里。
+      # ---------------------------------------------------------------------
+      - name: 推送到下载站（内测）
+        env:
+          PREVIEW_SERVER: ${{ vars.PREVIEW_SERVER }}
+          PREVIEW_UPLOAD_TOKEN: ${{ secrets.PREVIEW_UPLOAD_TOKEN }}
+          JAR_PATH: ${{ steps.locate.outputs.JAR_PATH }}
+          MOD_VERSION: ${{ steps.locate.outputs.MOD_VERSION }}
+          BUILD_STAMP: ${{ steps.locate.outputs.BUILD_STAMP }}
+          COMMIT_SHORT: ${{ steps.locate.outputs.COMMIT_SHORT }}
+        run: |
+          set -euo pipefail
+          response_file="$(mktemp)"
+          status=0
+          curl -sS -f -m 120 \
+            -H "X-Preview-Token: ${PREVIEW_UPLOAD_TOKEN}" \
+            -F "file=@${JAR_PATH}" \
+            -F "mod=mtr3" \
+            -F "mc=${{ matrix.game_version }}" \
+            -F "platform=${{ matrix.platform }}" \
+            -F "version=${MOD_VERSION}" \
+            -F "build=${BUILD_STAMP}" \
+            -F "commit=${COMMIT_SHORT}" \
+            "${PREVIEW_SERVER}/index.php?action=upload" \
+            -o "$response_file" || status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "::error::上传到下载站失败（curl 退出码 $status，目标 mc=${{ matrix.game_version }} platform=${{ matrix.platform }}）。请检查 PREVIEW_SERVER 是否可访问、PREVIEW_UPLOAD_TOKEN 是否正确、下载站上传接口是否正常。"
+            if [ -s "$response_file" ]; then
+              echo "服务器响应："
+              cat "$response_file"
+            fi
+            rm -f "$response_file"
+            exit 1
+          fi
+          cat "$response_file"
+          rm -f "$response_file"

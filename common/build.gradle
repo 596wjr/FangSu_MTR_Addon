@@ -3,6 +3,9 @@ architectury {
 }
 
 dependencies {
+    implementation files("libs/potato-platform-geometry-1.1.2.jar", "libs/jts-core-1.20.0.jar")
+    // 复用 Minecraft 自带 ICU 的汉字转拼音；仅编译依赖，不再打包一份 ICU。
+    compileOnly "com.ibm.icu:icu4j:61.1"
     // We depend on Fabric Loader here to use the Fabric @Environment annotations,
     // which get remapped to the correct annotations on each platform.
     // Do NOT use other classes from Fabric Loader.

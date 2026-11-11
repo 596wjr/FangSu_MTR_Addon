@@ -69,10 +69,27 @@ apply from: "build_process.gradle"
 println "[Build] Current platform = ${platform}"
 //println "[Build] Build for ANTE : ${buildForAnte}"
 
+// 在 Project 作用域解析地址；Loom 扩展的 rootProject 是布尔属性。
+def metadataBase = providers.gradleProperty("fangsu_minecraft_metadata_base")
+        .getOrElse("https://bmclapi2.bangbang93.com")
+def minecraftMetadataUrl = metadataBase == "official" ? null :
+        "${metadataBase.replaceAll('/+$', '')}/version/${project.property('minecraft_version')}/json".toString()
+
 subprojects {
+    // 必须在应用 Loom 前设置，它会立即注册自己的 Mojang 库仓库。
+    // 单独添加 BMCLAPI Maven 仓库不会替换这个优先访问的官方仓库。
+    def librariesBase = providers.gradleProperty("fangsu_minecraft_libraries_base")
+            .getOrElse("https://bmclapi2.bangbang93.com/maven/")
+    if (librariesBase != "official") {
+        ext.loom_libraries_base = librariesBase.replaceAll('/+$', '') + "/"
+    }
     apply plugin: 'dev.architectury.loom'
     apply plugin: 'architectury-plugin'
     apply plugin: 'maven-publish'
+
+    if (project.name == 'forge') {
+        apply from: rootProject.file('build_network.gradle')
+    }
 
     base {
         archivesName = "$rootProject.archives_name"
@@ -130,6 +147,12 @@ subprojects {
     }
 
     loom {
+        // Maven 镜像不会覆盖 Loom 的 Minecraft 元数据下载。
+        // 直接读取目标版本，避免配置期等待 Mojang 全量版本清单超时。
+        // 如需恢复官方源：-Pfangsu_minecraft_metadata_base=official
+        if (minecraftMetadataUrl != null) {
+            customMinecraftMetadata.set(minecraftMetadataUrl)
+        }
         silentMojangMappingsLicense()
     }
 

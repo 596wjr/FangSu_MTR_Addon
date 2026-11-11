@@ -6,6 +6,10 @@ import dev.architectury.registry.registries.RegistrySupplier;
 import net.minecraft.world.item.Item;
 
 public class ModItems {
+    public static final RegistrySupplier<Item> ITEM_CURVED_PLATFORM = RegisterUtil.addItem("curved_platform_tool", ItemCurvedPlatform::new);
+    public static final RegistrySupplier<Item> ITEM_PLATFORM_RAIL_SELECTOR = RegisterUtil.addItem("platform_rail_selector", ItemPlatformRailSelector::new);
+    public static final RegistrySupplier<Item> ITEM_PLATFORM_CONFIGURATOR = RegisterUtil.addItem("platform_configurator", () -> new ItemPlatformTool(ItemPlatformTool.Role.CONFIGURE));
+    public static final RegistrySupplier<Item> ITEM_SCREENDOOR_CONFIGURATOR = RegisterUtil.addItem("screendoor_configurator", () -> new ItemPlatformTool(ItemPlatformTool.Role.SCREEN_DOOR));
     public static final RegistrySupplier<Item> ITEM_SINGLE_JOURNEY_TICKET = RegisterUtil.addItem("single_journey_ticket", ItemSingleJourneyTicket::new);
     public static final RegistrySupplier<Item> ITEM_IC_CARD = RegisterUtil.addItem("ic_card", ItemIcCard::new);
     public static final RegistrySupplier<Item> ITEM_WRENCH = RegisterUtil.addItem("wrench", ItemWrench::new);

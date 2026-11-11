@@ -247,6 +247,7 @@ public class TrainStatus {
 
         int routeIndex = 0;
         List<PlatformInfo> currentRoutePlatforms = new ArrayList<>();
+        final java.util.List<Double> announcementDistances = ((com.fangsu.mixin.AnnouncementTrainDistancesAccessor) train).fangsu$announcementDistances();
         for (int pathIndex = 0; pathIndex < train.path.size(); pathIndex++) {
             if (train.path.get(pathIndex).dwellTime <= 0) continue;
             if (train.path.get(pathIndex).rail.railType != RailType.PLATFORM) continue;
@@ -266,7 +267,7 @@ public class TrainStatus {
             Station lastStation = ClientData.DATA_CACHE.platformIdToStation.get(thisRoute.getLastPlatformId());
             PlatformInfo platformInfo = new PlatformInfo(thisRoute, thisStation, thisPlatform, lastStation,
                     customDestination != null ? customDestination : (lastStation != null ? lastStation.name : ""),
-                    0, reverseAtThisPlatform);
+                    pathIndex < announcementDistances.size() ? announcementDistances.get(pathIndex) : Double.NaN, reverseAtThisPlatform);
 
             result.pathToPlatformIndex.put(pathIndex, result.platforms.size());
             result.platforms.add(platformInfo);

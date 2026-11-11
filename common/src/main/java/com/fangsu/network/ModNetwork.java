@@ -72,6 +72,10 @@ public class ModNetwork {
     public static final ResourceLocation TURNOUT_BINDING = TurnoutBindingPayload.CHANNEL;
 
     public static void init() {
+        com.fangsu.platform.CurvedPlatformPackets.registerServer();
+        com.fangsu.platform.PlatformDoorPackets.registerServer();
+        com.fangsu.platform.PlatformDoorTrainDriver.register();
+        AnnouncementSpeakerPackets.register();
         NetworkManager.registerReceiver(
                 NetworkManager.Side.C2S,
                 BE_SYNC,
@@ -114,6 +118,9 @@ public class ModNetwork {
      * 注册时会把客户端处理函数挂到客户端网络栈上。
      */
     public static void initClient() {
+        com.fangsu.platform.CurvedPlatformPackets.registerClient();
+        com.fangsu.platform.PlatformDoorPackets.registerClient();
+        BarrierSoundPackets.registerClient();
         TurnoutBindingPayload.registerClient();
     }
 

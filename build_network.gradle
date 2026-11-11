@@ -1,0 +1,100 @@
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+import org.gradle.api.artifacts.transform.TransformAction
+import org.gradle.api.artifacts.transform.TransformOutputs
+import org.gradle.api.artifacts.transform.TransformParameters
+import org.gradle.api.artifacts.transform.InputArtifact
+import org.gradle.api.artifacts.type.ArtifactTypeDefinition
+import org.gradle.api.file.FileSystemLocation
+import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
+
+/** MCP 的显式 repo 会绕过 Gradle，以无超时的 URLConnection 重复下载工具。 */
+abstract class FangsuMcpGradleTools implements TransformAction<TransformParameters.None> {
+    @InputArtifact
+    @PathSensitive(PathSensitivity.NAME_ONLY)
+    abstract Provider<FileSystemLocation> getInputArtifact()
+
+    void transform(TransformOutputs outputs) {
+        def input = inputArtifact.get().asFile
+        def output = outputs.file(input.name)
+        new ZipInputStream(new FileInputStream(input)).withCloseable { source ->
+            new ZipOutputStream(new FileOutputStream(output)).withCloseable { target ->
+                ZipEntry entry
+                while ((entry = source.nextEntry) != null) {
+                    def copy = new ZipEntry(entry.name)
+                    copy.time = 0
+                    target.putNextEntry(copy)
+                    if (!entry.directory) {
+                        byte[] bytes = source.readAllBytes()
+                        if (entry.name == 'config.json') {
+                            def config = new JsonSlurper().parseText(new String(bytes, 'UTF-8'))
+                            config.functions?.values()?.each { function ->
+                                if (function.repo == 'https://maven.minecraftforge.net/') {
+                                    // 只为 MCP 工具使用独立坐标，避免影响 Forge 本身的依赖元数据。
+                                    function.version = 'com.fangsu.mcp-tools:' +
+                                            function.version.substring(function.version.indexOf(':') + 1) + '@jar'
+                                    function.repo = null
+                                }
+                            }
+                            bytes = JsonOutput.toJson(config).getBytes('UTF-8')
+                        }
+                        target.write(bytes)
+                    }
+                    target.closeEntry()
+                    source.closeEntry()
+                }
+            }
+        }
+    }
+}
+
+def artifactType = ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE
+dependencies.registerTransform(FangsuMcpGradleTools) { spec ->
+    spec.from.attribute(artifactType, 'zip')
+    spec.to.attribute(artifactType, 'fangsu-mcp-gradle-tools')
+}
+configurations.configureEach { configuration ->
+    if (configuration.name == 'mcp') {
+        configuration.attributes.attribute(artifactType, 'fangsu-mcp-gradle-tools')
+        configuration.incoming.afterResolve {
+            // Loom 另存了一份解包缓存；首次启用变换时只刷新发生变化的 MCP 派生副本。
+            configuration.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                if (artifact.moduleVersion.id.group == 'de.oceanlabs.mcp' && artifact.name == 'mcp_config') {
+                    def minecraftProvider = project.extensions.getByName('loom').minecraftProvider
+                    def cachedZip = new File(minecraftProvider.dir('mcp', artifact.moduleVersion.id.version), 'mcp.zip')
+                    if (cachedZip.isFile() && java.nio.file.Files.mismatch(cachedZip.toPath(), artifact.file.toPath()) != -1L) {
+                        def backup = new File(cachedZip.parentFile, 'mcp.zip.before-gradle-tools')
+                        if (!backup.exists()) {
+                            java.nio.file.Files.copy(cachedZip.toPath(), backup.toPath())
+                        }
+                        // 缺少此副本时，Loom 会自行复制变换后的 ZIP 并重新解包。
+                        java.nio.file.Files.delete(cachedZip.toPath())
+                    }
+                }
+            }
+        }
+    }
+}
+
+// 镜像的动态版本列表可能滞后；仅用固定文件入口提供 MCP 的独立工具坐标。
+// 其余 Forge 依赖仍使用 Loom 注册的官方 Maven 仓库。
+def toolsBase = providers.gradleProperty('fangsu_mcp_tools_base')
+        .getOrElse('https://mirror.nju.edu.cn/bmclapi/')
+repositories.exclusiveContent { exclusive ->
+    exclusive.forRepository {
+        repositories.ivy { repository ->
+            repository.name = 'FangsuMcpTools'
+            repository.url = toolsBase
+            repository.patternLayout { layout ->
+                layout.artifact('net/minecraftforge/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]')
+            }
+            repository.metadataSources { sources -> sources.artifact() }
+        }
+    }
+    exclusive.filter { filter -> filter.includeGroup('com.fangsu.mcp-tools') }
+}
