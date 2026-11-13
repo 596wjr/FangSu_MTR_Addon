@@ -1,49 +1,45 @@
 package com.fangsu.events;
 
+import com.fangsu.announcements.AnnouncementClient;
+import com.fangsu.announcements.provider.ClientTokens;
+import com.fangsu.announcements.ui.TtsProviderScreen;
 import com.fangsu.mappings.ComponentHelper;
 import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.*;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.Style;
 
-public class JoinInMessage {
+import java.io.IOException;
 
-    private static final String FEEDBACK_URL = "https://github.com/596wjr/FangSu_MTR_Addon/issues";
+/** 每次进入单人存档或连接服务器时，在本地检查当前报站服务。 */
+public final class JoinInMessage {
+    private static final ClickEvent OPEN_TTS_SETTINGS = new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/fangsu:open_tts_settings");
+    private static ClientPacketListener lastConnection;
 
-    protected static void sendJoinMessage(ServerPlayer player) {
-        // 鍒涘缓鍙偣鍑荤殑閾炬帴缁勪欢 - 浣跨敤 translatable
-        Component link = ComponentHelper.translatable("msg.fangsu.join.link")
-                .withStyle(style -> style
-                        .withColor(ChatFormatting.GREEN)
-                        .withUnderlined(true)
-                        .withClickEvent(new ClickEvent(
-                                ClickEvent.Action.OPEN_URL,
-                                FEEDBACK_URL
-                        ))
-                        .withHoverEvent(new HoverEvent(
-                                HoverEvent.Action.SHOW_TEXT,
-                                ComponentHelper.translatable("msg.fangsu.join.link.hover")
-                                        .withStyle(ChatFormatting.YELLOW)
-                        ))
-                );
+    private JoinInMessage() { }
 
-        // Build complete message
-        Component message = ComponentHelper.empty()
-                .append(ComponentHelper.translatable("msg.fangsu.join.prefix")
-                        .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD))
-                .append(ComponentHelper.translatable("msg.fangsu.join.warning")
-                        .withStyle(ChatFormatting.YELLOW))
-                .append(ComponentHelper.literal("\n"))
-                .append(ComponentHelper.translatable("msg.fangsu.join.feedback.prefix")
-                        .withStyle(ChatFormatting.GRAY))
-                .append(link)
-                .append(ComponentHelper.translatable("msg.fangsu.join.feedback.suffix")
-                        .withStyle(ChatFormatting.GRAY));
+    public static void tick(Minecraft client) {
+        var connection = client.getConnection();
+        if (connection == null) { lastConnection = null; return; }
+        if (client.player == null || client.level == null || lastConnection == connection) return;
+        lastConnection = connection;
+        var settings = AnnouncementClient.settings();
+        try {
+            String key = ClientTokens.resolve(settings.provider, settings.accountNamespace);
+            if (key != null && !key.isBlank()) return;
+        } catch (IOException ignored) { /* 无法读取本地凭据时也提供设置入口。 */ }
+        var link = ComponentHelper.translatable("msg.fangsu.join.tts_configure").withStyle(style ->
+                style.withColor(ChatFormatting.GREEN).withUnderlined(true).withClickEvent(OPEN_TTS_SETTINGS));
+        client.player.displayClientMessage(ComponentHelper.translatable("msg.fangsu.join.tts_missing", link)
+                .withStyle(ChatFormatting.YELLOW), false);
+    }
 
-        // Send message to player
-        //#if MC_VERSION >= 11900
-        player.sendSystemMessage(message);
-        //#else
-        //$$ player.displayClientMessage(message, false);
-        //#endif
+    public static boolean handleClick(Style style) {
+        // 只处理由本客户端创建的链接，服务器发来的同名聊天命令保持原有行为。
+        if (style == null || style.getClickEvent() != OPEN_TTS_SETTINGS) return false;
+        var client = Minecraft.getInstance();
+        client.setScreen(new TtsProviderScreen(null));
+        return true;
     }
 }

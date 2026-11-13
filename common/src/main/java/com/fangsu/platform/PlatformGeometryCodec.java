@@ -2,12 +2,33 @@ package com.fangsu.platform;
 
 import dev.potato.curvedplatform.geometry.CellGeometry;
 import net.minecraft.nbt.*;
+import java.io.*;
 import java.util.*;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 /** 方速存档适配：保留上游几何的双精度顶点、UV、物理盒与装饰属性。 */
 public final class PlatformGeometryCodec {
+    private static final int MAX_PACKED_LENGTH=65535;
+    private static final int MAX_UNPACKED_BYTES=2*1024*1024;
     private static ListTag numbers(double... values){ListTag list=new ListTag();for(double value:values)list.add(DoubleTag.valueOf(value));return list;}
     public static CompoundTag write(CellGeometry g){
+        var raw=writeRaw(g);
+        try{
+            var bytes=new ByteArrayOutputStream();
+            try(var output=new DataOutputStream(bytes)){NbtIo.write(raw,output);}
+            if(bytes.size()>MAX_UNPACKED_BYTES)return raw;
+            var compressed=new ByteArrayOutputStream();
+            try(var gzip=new GZIPOutputStream(compressed)){bytes.writeTo(gzip);}
+            String packed=Base64.getEncoder().encodeToString(compressed.toByteArray());
+            // NBT 的字符串长度以无符号 short 保存；超限时保留原几何格式。
+            if(packed.length()>MAX_PACKED_LENGTH||packed.length()>=bytes.size())return raw;
+            var tag=new CompoundTag();
+            tag.putString("packed",packed);
+            return tag;
+        }catch(IOException e){throw new IllegalStateException("platform_geometry_encode",e);}
+    }
+    private static CompoundTag writeRaw(CellGeometry g){
         CompoundTag tag=new CompoundTag();ListTag faces=new ListTag(),volumes=new ListTag(),boxes=new ListTag();
         for(var face:g.faces()){
             CompoundTag f=new CompoundTag();f.putInt("texture",face.texture());f.putInt("direction",face.direction());ListTag vertices=new ListTag();
@@ -21,13 +42,28 @@ public final class PlatformGeometryCodec {
         tag.putBoolean("collisionless",g.collisionlessBase());tag.putBoolean("decoration",g.replaceableDecoration());
         if(g.physicalBoxes()!=null){for(var b:g.physicalBoxes())boxes.add(numbers(b.minX(),b.minY(),b.minZ(),b.maxX(),b.maxY(),b.maxZ()));tag.put("physical",boxes);}
         var attached=com.fangsu.platform.PlatformCellMerger.parts(g);
-        if(!attached.isEmpty()){ListTag parts=new ListTag();for(var part:attached){CompoundTag row=new CompoundTag();row.putInt("dx",part.dx());row.putInt("dz",part.dz());row.put("mesh",write(part.geometry()));parts.add(row);}tag.put("parts",parts);}
+        if(!attached.isEmpty()){ListTag parts=new ListTag();for(var part:attached){CompoundTag row=new CompoundTag();row.putInt("dx",part.dx());row.putInt("dz",part.dz());row.put("mesh",writeRaw(part.geometry()));parts.add(row);}tag.put("parts",parts);}
         return tag;
     }
     public static CellGeometry read(CompoundTag tag){
+        if(tag.contains("packed",Tag.TAG_STRING))tag=unpack(tag.getString("packed"));
         var result=readBase(tag);ListTag rows=tag.getList("parts",Tag.TAG_COMPOUND);if(rows.size()>PlatformCellMerger.MAX_PARTS)throw new IllegalArgumentException("platform_part_limit");
         List<PlatformCellMerger.Part> parts=new ArrayList<>();for(int i=0;i<rows.size();i++){var row=rows.getCompound(i);var mesh=row.getCompound("mesh");if(mesh.contains("parts"))throw new IllegalArgumentException("nested_platform_parts");var geometry=readBase(mesh);if(!PlatformCellMerger.thinOnly(geometry))throw new IllegalArgumentException("not_platform_skin");parts.add(new PlatformCellMerger.Part(row.getInt("dx"),row.getInt("dz"),geometry));}
         PlatformCellMerger.parts(result,parts);return result;
+    }
+    private static CompoundTag unpack(String packed){
+        if(packed.length()>MAX_PACKED_LENGTH)throw new IllegalArgumentException("geometry_limit");
+        try(var gzip=new GZIPInputStream(new ByteArrayInputStream(Base64.getDecoder().decode(packed)))){
+            byte[] bytes=gzip.readNBytes(MAX_UNPACKED_BYTES+1);
+            if(bytes.length>MAX_UNPACKED_BYTES)throw new IllegalArgumentException("geometry_limit");
+            try(var input=new DataInputStream(new ByteArrayInputStream(bytes))){
+                //#if MC_VERSION >= 12002
+                //$$ return NbtIo.read(input,NbtAccounter.create(16L*1024*1024));
+                //#else
+                return NbtIo.read(input,new NbtAccounter(16L*1024*1024));
+                //#endif
+            }
+        }catch(IOException e){throw new IllegalArgumentException("invalid_platform_geometry",e);}
     }
     private static CellGeometry readBase(CompoundTag tag){
         ListTag rawFaces=tag.getList("faces",Tag.TAG_COMPOUND),rawVolumes=tag.getList("volumes",Tag.TAG_COMPOUND);

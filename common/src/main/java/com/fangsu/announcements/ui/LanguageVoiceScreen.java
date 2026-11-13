@@ -41,7 +41,7 @@ public final class LanguageVoiceScreen extends ThemedConfigScreen {
             }),y);y+=22;
             if(!selected.isEmpty()&&(!draft.provider.equals("mimo")||!snapshot.voices().containsKey(selected)||!snapshot.voices().get(selected).mode().equals("reference_audio"))){
                 String mapping=draft.provider+"/"+selected+"/"+locale;
-                y=addWrappedText(x,y,w,ComponentHelper.translatable("ui.fangsu.menu.remote_voice",draft.provider,locale),0x555555)+4;
+                y=addWrappedText(x,y,w,ComponentHelper.translatable(draft.provider.equals("aliyun")?"ui.fangsu.menu.aliyun_remote_voice":"ui.fangsu.menu.remote_voice",draft.provider,locale),0x555555)+4;
                 var box=new net.minecraft.client.gui.components.EditBox(font,x,y,w,20,ComponentHelper.translatable("ui.fangsu.ann.voice_mapping"));
                 box.setMaxLength(256);box.setValue(draft.voiceMappings.getOrDefault(mapping,""));box.setResponder(value->{if(value.isBlank())draft.voiceMappings.remove(mapping);else draft.voiceMappings.put(mapping,value);});addRenderableWidget(box);addEntry(box,y);y+=22;
             }

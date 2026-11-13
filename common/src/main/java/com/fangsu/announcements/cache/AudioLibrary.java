@@ -67,7 +67,7 @@ public final class AudioLibrary {
         }
         if(!Set.of("fixed","variable","composition").contains(recipe.kind())||recipe.text().length()>4096||recipe.spokenText().length()>4096
                 ||recipe.locale().length()>35||recipe.voice().length()>256||!recipe.voice().matches("[a-z0-9_.-]+:[a-z0-9_./-]+")
-                ||!Set.of("mimo","minimax-cn","minimax-intl").contains(recipe.provider())||!recipe.account().matches("[A-Za-z0-9_.-]{1,64}")
+                ||com.fangsu.announcements.provider.CloudTtsProvider.Region.find(recipe.provider())==null||!recipe.account().matches("[A-Za-z0-9_.-]{1,64}")
                 ||!recipe.model().matches("[A-Za-z0-9_.-]{1,100}"))throw new IOException("invalid_library_recipe");
         if(!recipe.sampleResource().isEmpty()&&(recipe.sampleResource().length()>256||recipe.sampleResource().contains("..")||!recipe.sampleResource().matches("[a-z0-9_.-]+:[a-z0-9_./-]+")))throw new IOException("invalid_library_recipe");
         if(recipe.kind().equals("composition")){

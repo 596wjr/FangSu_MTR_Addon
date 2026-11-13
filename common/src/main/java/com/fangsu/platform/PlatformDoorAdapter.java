@@ -15,7 +15,17 @@ public final class PlatformDoorAdapter {
         else{var entity=level.getBlockEntity(pos);if(entity!=null)result.put("entity",entity.saveWithFullMetadata());}
         var overlay=PlatformOverlays.get(level).entry(pos);if(overlay!=null)result.put("overlay",PlatformOverlays.get(level).packet(pos));return result;
     }
-    public static boolean matches(ServerLevel level,BlockPos pos,UUID group,CompoundTag expected){return level.getBlockEntity(pos) instanceof BlockEntityAutoPlatformComponent host&&group.equals(host.group)&&signature(level,pos).equals(expected);}
+    public static boolean matches(ServerLevel level,BlockPos pos,UUID group,CompoundTag expected){
+        if(!(level.getBlockEntity(pos) instanceof BlockEntityAutoPlatformComponent host)||!group.equals(host.group))return false;
+        var current=signature(level,pos);
+        if(current.equals(expected))return true;
+        // 旧布局的预期签名仍可能保存整份施工配置。
+        var metadata=expected.getCompound("metadata");
+        var compact=BlockEntityAutoPlatformComponent.compactMetadata(metadata);
+        if(metadata.equals(compact))return false;
+        var migrated=expected.copy();migrated.put("metadata",compact);
+        return current.equals(migrated);
+    }
     public static boolean canCoverCurve(BlockEntityCurvedPlatform cell,List<PlatformDoorComponent> components){
         return cell.geometry!=null&&(cell.coverable()||!components.isEmpty()&&components.stream().allMatch(p->p.dy()+1e-6>=cell.outline().max(Direction.Axis.Y)));
     }
@@ -35,11 +45,11 @@ public final class PlatformDoorAdapter {
         final CompoundTag underlay=curve;PlatformMutations.run(()->{
             if(!(level.getBlockEntity(pos) instanceof BlockEntityAutoPlatformComponent))level.removeBlockEntity(pos);
             level.setBlockAndUpdate(pos,state);
-            if(level.getBlockEntity(pos) instanceof BlockEntityAutoPlatformComponent host){host.configure(group,components);host.metadata(metadata);host.setChanged();}
+            if(level.getBlockEntity(pos) instanceof BlockEntityAutoPlatformComponent host)host.configure(group,components,metadata);
         });
         if(!(level.getBlockEntity(pos) instanceof BlockEntityAutoPlatformComponent host)||!group.equals(host.group))return false;
         if(underlay!=null)PlatformOverlays.get(level).cover(pos,state,underlay);
-        level.sendBlockUpdated(pos,state,state,3);return true;
+        return true;
     }
     private PlatformDoorAdapter(){ }
 }

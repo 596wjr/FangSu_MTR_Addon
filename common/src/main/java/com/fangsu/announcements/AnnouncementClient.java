@@ -28,13 +28,16 @@ public final class AnnouncementClient {
     private static SynthesisService synthesis;
     private static AudioLibrary library;
     private static volatile Settings settings = new Settings();
-    private static ResourceManager resources;
+    private static final AliyunTtsProvider ALIYUN = new AliyunTtsProvider(CONFIG.resolve("aliyun-voices"));
+    private static volatile ResourceManager resources;
+    private static volatile ResourceManager pendingEmbeddedAudio;
     private static final Set<String> PREWARMED=new LinkedHashSet<>();
     private static int prewarming;
     private static volatile long prewarmEpoch;
     public static final class Settings {
         public int schemaVersion = 1;
         public String provider = "mimo", model = "mimo-v2.5-tts", accountNamespace = "default";
+        public Map<String,String> providerModels = new HashMap<>(), providerAccounts = new HashMap<>();
         public boolean enabled = true;
         public boolean preSynthesize = false;
         public String onboardMode = "resource_pack";
@@ -59,12 +62,26 @@ public final class AnnouncementClient {
         com.fangsu.announcements.playback.OnboardAnnouncementCoordinator.reset();
         AnnouncementRegistry.INSTANCE.reload(manager, OVERRIDES);
         com.fangsu.announcements.definition.TrainAnnouncementRegistry.reload(manager);
+        scheduleEmbeddedAudio(manager);
+    }
+    private static synchronized void scheduleEmbeddedAudio(ResourceManager manager) {
+        if (manager != null) pendingEmbeddedAudio = manager;
+        ResourceManager next = pendingEmbeddedAudio;
+        if (next == null || cache == null || library == null) return;
+        try {
+            IO.execute(() -> {
+                if (resources == next) EmbeddedAnnouncementAudio.reload(next, library, cache);
+            });
+            pendingEmbeddedAudio = null;
+        } catch (RejectedExecutionException e) { /* 队列腾出空间后由客户端 tick 重试本次重载。 */ }
     }
     public static void shutdown() { if (synthesis != null) synthesis.close(); IO.shutdownNow(); com.fangsu.announcements.provider.ClientTokens.clearSession(); CachedAudioPlayback.stop(); }
     public static void init() {
         dev.architectury.event.events.client.ClientLifecycleEvent.CLIENT_STOPPING.register(client -> shutdown());
         final Object[] previousWorld = {null};
         dev.architectury.event.events.client.ClientTickEvent.CLIENT_POST.register(client -> {
+            com.fangsu.events.JoinInMessage.tick(client);
+            if (pendingEmbeddedAudio != null) scheduleEmbeddedAudio(null);
             CachedAudioPlayback.tick();
             com.fangsu.announcements.playback.OnboardAnnouncementCoordinator.tick(client);
             com.fangsu.announcements.playback.StationAnnouncementCoordinator.tick(client);
@@ -82,14 +99,23 @@ public final class AnnouncementClient {
             library=new AudioLibrary(cache);
             IO.execute(()->{try{int retired=library.retireCompositions();if(retired>0)Main.LOGGER.info("[FangSu] Retired {} derived full-announcement caches; fragments retained",retired);}catch(IOException e){Main.LOGGER.warn("[FangSu] Old full-announcement cache cleanup failed ({})",e.getClass().getSimpleName());}});
             synthesis = new SynthesisService(cache, CONFIG.resolve("usage.json")); synthesis.setEnabled(settings.enabled);
+            scheduleEmbeddedAudio(resources);
         } catch (Exception e) { Main.LOGGER.warn("[FangSu] Announcement initialization failed ({})", e.getClass().getSimpleName()); }
     }
     public static void validate(Settings value) {
-        if (value == null || value.schemaVersion != 1 || !Set.of("mimo", "minimax-cn", "minimax-intl").contains(value.provider)
+        if (value == null || value.schemaVersion != 1 || CloudTtsProvider.Region.find(value.provider) == null
+                || ("aliyun".equals(value.provider) && !AliyunTtsProvider.supportsModel(value.model))
                 || value.model == null || !value.model.matches("[A-Za-z0-9_.-]{1,100}") || value.accountNamespace == null
                 || !value.accountNamespace.matches("[A-Za-z0-9_.-]{1,64}") || value.voiceMappings == null || value.voiceMappings.size() > 1024 || value.onboardMode == null || !Set.of("off", "resource_pack").contains(value.onboardMode)
 
+                || !validProviderPreferences(value.providerModels,"[A-Za-z0-9_.-]{1,100}")
+                || !validProviderPreferences(value.providerAccounts,"[A-Za-z0-9_.-]{1,64}")
                 || value.languageVoices == null || value.languageVoices.size() > 2048 || value.languageVoices.values().stream().anyMatch(v -> v == null || !v.matches("[a-z0-9_.-]+:[a-z0-9_./-]+")) || value.languages == null || value.languages.isEmpty() || value.languages.size() > 8 || value.languages.stream().anyMatch(locale -> locale == null || locale.length() > 35 || java.util.Locale.forLanguageTag(locale).getLanguage().isEmpty())) throw new IllegalArgumentException("invalid_connection");
+    }
+    private static boolean validProviderPreferences(Map<String,String> values,String pattern){
+        return values!=null&&values.size()<=CloudTtsProvider.Region.values().length
+                &&values.entrySet().stream().allMatch(e->CloudTtsProvider.Region.find(e.getKey())!=null
+                &&e.getValue()!=null&&e.getValue().matches(pattern));
     }
     public static void saveSettings(Settings value) throws IOException {
         validate(value);
@@ -134,49 +160,99 @@ public final class AnnouncementClient {
                 if(utterance.parts().isEmpty()||utterance.parts().size()>128)throw new IOException("fragment_count_limit");
                 List<Prepared> parts=new ArrayList<>();Map<String,SampleData> samples=new HashMap<>();
                 for(var part:utterance.parts()){
-                    var packed=AudioPack.findBinding(cache,part.spokenText(),utterance.locale(),utterance.voice().id());
-                    Prepared prepared=packed.isPresent()?new Prepared(packed.get().key(),null,null,null,true):preparePart(utterance,part,connection,manager,samples);
-                    if(!prepared.local())library.remember(prepared.key(),prepared.recipe());parts.add(prepared);
+                    var fragments=synthesisFragments(part,utterance.locale(),connection.provider);
+                    List<Prepared> recordings=new ArrayList<>(fragments.size());
+                    for(var fragment:fragments)recordings.add(packedFragment(utterance,fragment));
+                    if(recordings.stream().allMatch(Objects::nonNull)){
+                        parts.addAll(recordings);
+                        continue;
+                    }
+                    // 旧音频包也可能提供整段录音。分句录音齐全时优先按句播放。
+                    if(fragments.size()>1){
+                        var whole=packedFragment(utterance,part);
+                        if(whole!=null){
+                            parts.add(whole);
+                            continue;
+                        }
+                    }
+                    for(int i=0;i<fragments.size();i++){
+                        var recorded=recordings.get(i);
+                        if(recorded!=null){
+                            parts.add(recorded);
+                            continue;
+                        }
+                        var prepared=preparePart(utterance,fragments.get(i),connection,manager,samples);
+                        library.remember(prepared.key(),prepared.recipe());
+                        parts.add(prepared);
+                    }
                 }
+                if(parts.size()>128)throw new IOException("fragment_count_limit");
                 // 顺序只保留在本次请求内存中；只保存单个固定语句 / 站名，不创建完整播报记录。
                 return new PreparedPlan(List.copyOf(parts),connection,backgroundEpoch);
             }catch(Exception e){throw new CompletionException(e);}
         },IO).thenCompose(plan->generateParts(plan,force));}
         catch(RejectedExecutionException e){return CompletableFuture.failedFuture(new IOException("queue_full"));}
     }
-    private static CompletableFuture<AudioSequence> generateParts(PreparedPlan plan,boolean force){
-        // 两条准备流水线，让一条播报也能填满 MiMo 的两路并发；服务层仍按提供商限制实际网络并发。
-        List<CompletableFuture<Void>> lanes=new ArrayList<>(List.of(CompletableFuture.<Void>completedFuture(null),CompletableFuture.<Void>completedFuture(null)));
-        Map<String,CompletableFuture<AudioCacheStore.Artifact>> fragments=new LinkedHashMap<>();
-        java.util.concurrent.atomic.AtomicBoolean failed=new java.util.concurrent.atomic.AtomicBoolean();
-        CompletableFuture<AudioSequence> result=new CompletableFuture<>();int index=0;
-        for(Prepared part:plan.parts()){
-            if(fragments.containsKey(part.key()))continue;
-            int lane=index++%2;
-            var future=lanes.get(lane).thenCompose(ignored->{
-                if(failed.get())return CompletableFuture.<AudioCacheStore.Artifact>failedFuture(new IOException("fragment_preparation_cancelled"));
-                if(plan.backgroundEpoch()>=0&&(plan.backgroundEpoch()!=prewarmEpoch||!settings.preSynthesize||!settings.enabled))return CompletableFuture.<AudioCacheStore.Artifact>failedFuture(new IOException("pre_synthesis_disabled"));
-                return requestPart(part,plan.connection(),force);
-            }).whenComplete((artifact,error)->{if(error!=null){failed.set(true);result.completeExceptionally(error);}});
-            fragments.put(part.key(),future);lanes.set(lane,future.thenApply(artifact->null));
-        }
-        CompletableFuture.allOf(fragments.values().toArray(CompletableFuture[]::new)).whenComplete((ignored,error)->{
-            if(error!=null){result.completeExceptionally(error);return;}
-            try{CompletableFuture.supplyAsync(()->{
-                try{
-                    List<AudioCacheStore.Artifact> current=new ArrayList<>();
-                    for(var part:plan.parts()){
-                        if(cache.suppressed(part.key()))throw new IOException("library_audio_deleted");
-                        current.add(cache.find(part.key()).orElseThrow(()->new IOException("library_dependency_missing")));
-                    }
-                    // 较早完成的片段可能已被详情页替换；汇总当前代际，时长也使用最新声音。
-                    return new AudioSequence(current);
-                }catch(IOException e){throw new CompletionException(e);}
-            },IO).whenComplete((sequence,failure)->{if(failure==null)result.complete(sequence);else result.completeExceptionally(failure);});}
-            catch(RejectedExecutionException e){result.completeExceptionally(new IOException("queue_full"));}
-        });
-        return result;
+    private static Prepared packedFragment(ResolvedUtterance utterance,SpeechPart part) throws IOException {
+        var packed=AudioPack.findBinding(cache,part.spokenText(),utterance.locale(),utterance.voice().id());
+        return packed.isPresent()?new Prepared(packed.get().key(),null,null,null,true):null;
     }
+    private static List<SpeechPart> synthesisFragments(SpeechPart part,String locale,String provider){
+        if(!part.variable().isEmpty())return List.of(part);
+        boolean chinese=locale.startsWith("zh");
+        List<SpeechPart> fragments=new ArrayList<>();
+        for(String sentence:part.spokenText().split("(?<=[。！？；])|(?<=[.!?;])\\s+")){
+            String[] clauses=(chinese&&sentence.length()>16||provider.equals("mimo")&&sentence.length()>72)
+                    ?sentence.split("(?<=，)|(?<=,)\\s+"):new String[]{sentence};
+            for(String clause:clauses){
+                String text=clause.strip();
+                if(text.codePoints().anyMatch(Character::isLetterOrDigit))fragments.add(new SpeechPart("",text,text));
+            }
+        }
+        return fragments.size()>1?fragments:List.of(part);
+    }
+    public static CompletableFuture<AudioCacheStore.Artifact> stationChime(Template template){
+        if(cache==null||template==null||template.chime().isEmpty())return CompletableFuture.completedFuture(null);
+        try{return CompletableFuture.supplyAsync(()->{
+            try{return AudioPack.findBinding(cache,"Announcement chime","und",template.chime()).orElse(null);}
+            catch(IOException e){return null;}
+        },IO);}catch(RejectedExecutionException e){return CompletableFuture.completedFuture(null);}
+    }
+    private static CompletableFuture<AudioSequence> generateParts(PreparedPlan plan,boolean force){
+        List<java.util.function.Supplier<CompletableFuture<AudioCacheStore.Artifact>>> work = new ArrayList<>();
+        Set<String> requested = new HashSet<>();
+        for (Prepared part : plan.parts()) {
+            if (!requested.add(part.key())) continue;
+            work.add(() -> {
+                if (plan.backgroundEpoch() >= 0 && (plan.backgroundEpoch() != prewarmEpoch || !settings.preSynthesize || !settings.enabled))
+                    return CompletableFuture.failedFuture(new IOException("pre_synthesis_disabled"));
+                return requestPart(part, plan.connection(), force);
+            });
+        }
+        var completed = runParts(work, plan.connection().provider);
+        return completed.thenApplyAsync(ignored->{
+            try{
+                List<AudioCacheStore.Artifact> current=new ArrayList<>();
+                for(var part:plan.parts()){
+                    if(cache.suppressed(part.key()))throw new IOException("library_audio_deleted");
+                    current.add(cache.find(part.key()).orElseThrow(()->new IOException("library_dependency_missing")));
+                }
+                return new AudioSequence(current);
+            }catch(IOException e){throw new CompletionException(e);}
+        },IO);
+    }
+    private static CompletableFuture<Void> runParts(
+            List<java.util.function.Supplier<CompletableFuture<AudioCacheStore.Artifact>>> work, String provider) {
+        int parallelism = "aliyun".equals(provider) ? SynthesisService.ALIYUN_PARALLELISM : 1;
+        CompletableFuture<Void> completed = CompletableFuture.completedFuture(null);
+        for (int i = 0; i < work.size(); i += parallelism) {
+            var batch = work.subList(i, Math.min(i + parallelism, work.size()));
+            completed = completed.thenCompose(ignored ->
+                    CompletableFuture.allOf(batch.stream().map(java.util.function.Supplier::get).toArray(CompletableFuture<?>[]::new)));
+        }
+        return completed;
+    }
+
     private static CompletableFuture<AudioCacheStore.Artifact> requestPart(Prepared part,Settings connection,boolean force){
         return requestPart(part,connection,force,null);
     }
@@ -193,8 +269,9 @@ public final class AnnouncementClient {
             if(cached.isPresent())return CompletableFuture.completedFuture(cached.get());
             if(part.local())return CompletableFuture.failedFuture(new IOException("library_dependency_missing"));
             long epoch=cache.epoch(part.key());
-            return synthesis.request(part.key(),force,new CloudTtsProvider(part.region()),part.request(),()->{
-                try{return ClientTokens.resolve(connection.provider,connection.accountNamespace);}
+            TtsProvider provider = part.region()==CloudTtsProvider.Region.ALIYUN ? ALIYUN : new CloudTtsProvider(part.region());
+            return synthesis.request(part.key(),force,provider,part.request(),()->{
+                try{return ClientTokens.resolve(part.region().id,connection.accountNamespace);}
                 catch(IOException e){throw new UncheckedIOException(e);}
             }).handle((artifact,error)->{
                 if(error==null)return artifact;
@@ -208,24 +285,30 @@ public final class AnnouncementClient {
         String provider=connection.provider;
         String voice=connection.voiceMappings.getOrDefault(provider+"/"+utterance.voice().id()+"/"+utterance.locale(),utterance.voice().presetVoices().getOrDefault(provider,""));
         String sampleHash="",model=connection.model,style=utterance.style(),sampleResource="";
-        if(utterance.voice().mode().equals("reference_audio")&&provider.equals("mimo")){
+        CloudTtsProvider.Region region=CloudTtsProvider.Region.find(provider);
+        if(utterance.voice().mode().equals("reference_audio")&&region.usesReferenceAudio()
+                &&(region==CloudTtsProvider.Region.MIMO||voice.isBlank())){
             var reference=utterance.voice().samples().get(utterance.locale());
             if(reference==null||manager==null)throw new IOException("missing_language_sample");
             ReferenceChoice choice=referenceChoice(reference,utterance.locale(),part.spokenText(),style);
             String resource=choice.resource();style=choice.style();
             SampleData sample=samples.get(resource);if(sample==null){sample=loadSample(manager,resource);samples.put(resource,sample);}
             sampleResource=resource;
-            voice=sample.voice();sampleHash=sample.hash();model="mimo-v2.5-tts-voiceclone";
+            voice=sample.voice();sampleHash=sample.hash();
+            if(region==CloudTtsProvider.Region.MIMO)model="mimo-v2.5-tts-voiceclone";
         }
         if(voice.isBlank())throw new IOException("voice_mapping_required");
         if(utterance.voice().mode().equals("recording"))throw new IOException("recording_requires_offline_asset");
-        CloudTtsProvider.Region region=provider.equals("mimo")?CloudTtsProvider.Region.MIMO:provider.equals("minimax-cn")?CloudTtsProvider.Region.MINIMAX_CN:CloudTtsProvider.Region.MINIMAX_INTL;
         Map<String,String> keyData=new HashMap<>();
         keyData.put("protocol","2-fragment");keyData.put("provider",provider);keyData.put("endpoint",region.endpoint.toString());
         keyData.put("account",connection.accountNamespace);keyData.put("model",model);
         keyData.put("voiceId",utterance.voice().id());keyData.put("voiceRevision",String.valueOf(utterance.voice().revision()));
         keyData.put("voiceContent",sampleHash.isEmpty()?voice:sampleHash);keyData.put("locale",utterance.locale());keyData.put("text",part.spokenText());keyData.put("style",style);
-        keyData.put("encoding",provider.equals("mimo")?"wav/provider-default/pcm16/v1":"wav/32000/mono/pcm16/v1");
+        keyData.put("encoding",switch(region){
+            case MIMO -> "wav/provider-default/pcm16/v1";
+            case ALIYUN -> AliyunTtsProvider.ENCODING;
+            default -> "wav/32000/mono/pcm16/v1";
+        });
         var recipe=new AudioLibrary.Recipe(part.variable().isEmpty()?"fixed":"variable",part.displayText(),part.spokenText(),utterance.locale(),utterance.voice().id(),
                 provider,connection.accountNamespace,model,sampleResource,keyData,List.of());
         return new Prepared(SynthesisKey.of(keyData),region,new TtsProvider.Request(model,part.spokenText(),utterance.locale(),voice,style),recipe,false);
@@ -285,9 +368,11 @@ public final class AnnouncementClient {
             catch(IOException e){throw new CompletionException(e);}
         },IO);}catch(RejectedExecutionException e){return CompletableFuture.failedFuture(new IOException("queue_full"));}
     }
-    public static CompletableFuture<AudioCacheStore.Artifact> libraryAudio(String key){return CompletableFuture.supplyAsync(()->{
-        try{return library.playable(key);}catch(IOException e){throw new CompletionException(e);}
-    },IO);}
+    public static CompletableFuture<AudioCacheStore.Artifact> libraryAudio(String key){
+        try{return CompletableFuture.supplyAsync(()->{
+            try{return library.playable(key);}catch(IOException e){throw new CompletionException(e);}
+        },IO);}catch(RejectedExecutionException e){return CompletableFuture.failedFuture(new IOException("queue_full"));}
+    }
     public static CompletableFuture<Void> renameImportedAudio(String key,String text){return CompletableFuture.runAsync(()->{
         try{var recipe=library.recipe(key);if(recipe==null||!recipe.kind().equals("imported"))throw new IOException("library_imported");
             library.remember(key,new AudioLibrary.Recipe(recipe.kind(),text,text,recipe.locale(),recipe.voice(),recipe.provider(),recipe.account(),recipe.model(),recipe.sampleResource(),recipe.parameters(),recipe.parts()));
@@ -311,38 +396,64 @@ public final class AnnouncementClient {
             }catch(IOException e){throw new CompletionException(e);}
         },IO);}catch(RejectedExecutionException e){return CompletableFuture.failedFuture(new IOException("queue_full"));}
     }
-    public static CompletableFuture<AudioCacheStore.Artifact> regenerateAudio(String key){
+    public record Regenerated(AudioCacheStore.Artifact first, int fragments) { }
+    public static CompletableFuture<Regenerated> regenerateAudio(String key){
         ResourceManager manager=resources;
         Snapshot definitions=AnnouncementRegistry.INSTANCE.snapshot();
         try{return CompletableFuture.supplyAsync(()->{
             try{
                 if(library==null||synthesis==null)throw new IOException("service_unavailable");
-                var recipe=library.recipe(key);if(recipe==null)throw new IOException("library_recipe_missing");
+                var recipe=library.recipe(key);
+                if(recipe==null)throw new IOException("library_recipe_missing");
                 if(recipe.kind().equals("imported"))throw new IOException("library_imported");
                 if(recipe.kind().equals("composition"))throw new IOException("library_composition_retired");
                 if(cache.suppressed(key))throw new IOException("library_audio_deleted");
                 long oldEpoch=cache.epoch(key);
-                Settings connection=new Settings();connection.provider=recipe.provider();connection.accountNamespace=recipe.account();connection.model=recipe.model();
-                Prepared part=restorePrepared(recipe,manager,definitions);
-                library.remember(part.key(),part.recipe());
-                return new Regeneration(part,connection,key,oldEpoch,cache.epoch(part.key()));
+                Settings connection=new Settings();
+                connection.provider=recipe.provider();connection.accountNamespace=recipe.account();connection.model=recipe.model();
+                String variable=recipe.kind().equals("fixed")?"":"station";
+                var fragments=synthesisFragments(new SpeechPart(variable,recipe.text(),recipe.spokenText()),recipe.locale(),recipe.provider());
+                if(fragments.size()>128)throw new IOException("fragment_count_limit");
+                List<Regeneration> plans=new ArrayList<>();
+                for(var fragment:fragments){
+                    var part=restorePrepared(fragments.size()==1?recipe:withFragmentText(recipe,fragment),manager,definitions);
+                    library.remember(part.key(),part.recipe());
+                    plans.add(new Regeneration(part,connection,key,oldEpoch,cache.epoch(part.key())));
+                }
+                return List.copyOf(plans);
             }catch(IOException e){throw new CompletionException(e);}
-        },IO).thenCompose(plan->requestPart(plan.part(),plan.connection(),plan.oldKey().equals(plan.part().key()),plan)
-                .thenCompose(artifact->CompletableFuture.supplyAsync(()->{
-                    try{
-                        var replacement=regenerationOverride(plan);if(replacement.isPresent()){
-                            // 新 key 被本地覆盖仍可采用，但旧详情被覆盖时必须留在原条目。
-                            if(!replacement.get().key().equals(plan.part().key()))return replacement.get();
-                        }
-                        var current=cache.find(plan.part().key()).orElseThrow(()->new IOException("library_audio_missing"));
-                        if(!plan.oldKey().equals(current.key())){
-                            AudioPack.retargetBindings(cache,plan.oldKey(),current.key());
-                            library.delete(plan.oldKey());
-                        }
-                        return current;
-                    }catch(IOException e){throw new CompletionException(e);}
-                },IO)));}
+        },IO).thenCompose(thisBatch->{
+            List<java.util.function.Supplier<CompletableFuture<AudioCacheStore.Artifact>>> work = new ArrayList<>();
+            Set<String> requested = new HashSet<>();
+            for (var plan : thisBatch) {
+                if (!requested.add(plan.part().key())) continue;
+                boolean force = thisBatch.size() > 1 || plan.oldKey().equals(plan.part().key());
+                work.add(() -> requestPart(plan.part(), plan.connection(), force, plan));
+            }
+            return runParts(work, thisBatch.get(0).connection().provider)
+                    .thenApplyAsync(ignored -> finishRegeneration(thisBatch), IO);
+        });}
         catch(RejectedExecutionException e){return CompletableFuture.failedFuture(new IOException("queue_full"));}
+    }
+    private static AudioLibrary.Recipe withFragmentText(AudioLibrary.Recipe recipe,SpeechPart fragment){
+        Map<String,String> parameters=new HashMap<>(recipe.parameters());
+        parameters.put("text",fragment.spokenText());
+        return new AudioLibrary.Recipe(recipe.kind(),fragment.displayText(),fragment.spokenText(),recipe.locale(),recipe.voice(),
+                recipe.provider(),recipe.account(),recipe.model(),recipe.sampleResource(),parameters,List.of());
+    }
+    private static Regenerated finishRegeneration(List<Regeneration> batch){
+        var plan=batch.get(0);
+        try{
+            var replacement=regenerationOverride(plan);
+            if(replacement.isPresent()&&!replacement.get().key().equals(plan.part().key()))return new Regenerated(replacement.get(),1);
+            var current=cache.find(plan.part().key()).orElseThrow(()->new IOException("library_audio_missing"));
+            // 多个新短句各自入库，旧录音可继续试听，不能把旧整句绑定指向其中一句。
+            if(batch.size()==1&&!plan.oldKey().equals(current.key())){
+                AudioPack.retargetBindings(cache,plan.oldKey(),current.key());
+                library.delete(plan.oldKey());
+            }
+            return new Regenerated(current,batch.size());
+        }catch(IOException e){throw new CompletionException(e);}
     }
     private static Optional<AudioCacheStore.Artifact> regenerationOverride(Regeneration plan) throws IOException {
         if(cache.suppressed(plan.oldKey()))throw new IOException("library_audio_deleted");
@@ -352,11 +463,9 @@ public final class AnnouncementClient {
         return Optional.empty();
     }
     private static Prepared restorePrepared(AudioLibrary.Recipe recipe,ResourceManager manager,Snapshot definitions) throws IOException {
-        Map<String,String> p=new HashMap<>(recipe.parameters());CloudTtsProvider.Region region=switch(recipe.provider()){
-            case "mimo"->CloudTtsProvider.Region.MIMO;case "minimax-cn"->CloudTtsProvider.Region.MINIMAX_CN;case "minimax-intl"->CloudTtsProvider.Region.MINIMAX_INTL;
-            default->throw new IOException("invalid_library_recipe");
-        };
-        if(!region.endpoint.toString().equals(p.get("endpoint")))throw new IOException("invalid_library_recipe");
+        Map<String,String> p=new HashMap<>(recipe.parameters());
+        CloudTtsProvider.Region region=CloudTtsProvider.Region.find(recipe.provider());
+        if(region==null||!region.endpoint.toString().equals(p.get("endpoint")))throw new IOException("invalid_library_recipe");
         String voice=p.get("voiceContent"),sampleResource=recipe.sampleResource(),style=p.get("style");
         Voice definition=definitions.voices().get(recipe.voice());
         if(definition!=null)p.put("voiceRevision",String.valueOf(definition.revision()));

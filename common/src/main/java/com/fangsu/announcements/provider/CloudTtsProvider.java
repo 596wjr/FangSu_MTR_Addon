@@ -16,18 +16,29 @@ import java.util.concurrent.Flow;
 /** MiMo 和 MiniMax 独立协议适配。固定 TLS 端点，不重定向，不自动重试付费请求。 */
 public final class CloudTtsProvider implements TtsProvider {
     public enum Region {
-        MIMO("https://api.xiaomimimo.com/v1/chat/completions"),
-        MINIMAX_CN("https://api.minimax.cn/v1/t2a_v2"),
-        MINIMAX_INTL("https://api.minimax.io/v1/t2a_v2");
+        MIMO("mimo", "mimo-v2.5-tts", "MIMO_API_KEY", "https://api.xiaomimimo.com/v1/chat/completions"),
+        MINIMAX_CN("minimax-cn", "speech-2.8-hd", "MINIMAX_CN_API_KEY", "https://api.minimax.cn/v1/t2a_v2"),
+        MINIMAX_INTL("minimax-intl", "speech-2.8-hd", "MINIMAX_API_KEY", "https://api.minimax.io/v1/t2a_v2"),
+        ALIYUN("aliyun", AliyunTtsProvider.DEFAULT_MODEL, "DASHSCOPE_API_KEY", "wss://dashscope.aliyuncs.com/api-ws/v1/inference");
         public final URI endpoint;
-        Region(String endpoint) { this.endpoint = URI.create(endpoint); }
+        public final String id, defaultModel, keyEnvironment;
+        Region(String id, String defaultModel, String keyEnvironment, String endpoint) {
+            this.id = id; this.defaultModel = defaultModel; this.keyEnvironment = keyEnvironment; this.endpoint = URI.create(endpoint);
+        }
+        public static Region find(String id) {
+            for (Region region : values()) if (region.id.equals(id)) return region;
+            return null;
+        }
+        public boolean usesReferenceAudio() { return this == MIMO || this == ALIYUN; }
     }
-    private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15))
+    static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15))
             .followRedirects(HttpClient.Redirect.NEVER).build();
     private static final Gson GSON = new Gson();
     private final Region region;
-    public CloudTtsProvider(Region region) { this.region = region; }
-    @Override public int maxConcurrentRequests(){return region==Region.MIMO?2:1;}
+    public CloudTtsProvider(Region region) {
+        if (region == Region.ALIYUN) throw new IllegalArgumentException("invalid_http_provider");
+        this.region = region;
+    }
     @Override public Capabilities capabilities() { return new Capabilities(true, region == Region.MIMO, region != Region.MIMO, region == Region.MIMO); }
 
     public JsonObject payload(Request request) {
@@ -60,15 +71,25 @@ public final class CloudTtsProvider implements TtsProvider {
         HttpRequest.Builder builder = HttpRequest.newBuilder(region.endpoint).timeout(Duration.ofSeconds(90))
                 .header("Content-Type", "application/json");
         if (region == Region.MIMO) builder.header("api-key", apiKey); else builder.header("Authorization", "Bearer " + apiKey);
+        HttpResponse<byte[]> response = send(builder.POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(payload(request)))).build(), 90, "synthesis", apiKey);
+        return decode(new String(response.body(), StandardCharsets.UTF_8), apiKey);
+    }
+
+    static HttpResponse<byte[]> send(HttpRequest request, int seconds, String stage, String apiKey) throws IOException, InterruptedException {
         HttpResponse<byte[]> response;
-        CompletableFuture<HttpResponse<byte[]>> pending = HTTP.sendAsync(builder.POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(payload(request)))).build(), info -> new LimitedBody());
+        CompletableFuture<HttpResponse<byte[]>> pending = HTTP.sendAsync(request, info -> new LimitedBody());
         try {
-            response = pending.get(90, TimeUnit.SECONDS);
-        } catch (ExecutionException | TimeoutException e) { pending.cancel(true); throw new IOException("remote_result_uncertain"); }
-        catch (InterruptedException e) { pending.cancel(true); Thread.currentThread().interrupt(); throw new IOException("remote_result_uncertain"); }
-        // 不将响应正文或异常中的请求数据放入日志/界面。
-        if (response.statusCode() != 200) throw new IOException("http_" + response.statusCode());
-        return decode(new String(response.body(), StandardCharsets.UTF_8));
+            response = pending.get(seconds, TimeUnit.SECONDS);
+        } catch (ExecutionException | TimeoutException e) {
+            pending.cancel(true);
+            throw CloudFailure.transport(stage, e.getCause() == null ? e : e.getCause());
+        } catch (InterruptedException e) {
+            pending.cancel(true);
+            Thread.currentThread().interrupt();
+            throw CloudFailure.transport(stage, e);
+        }
+        if (response.statusCode() != 200) throw CloudFailure.http(response, stage, apiKey);
+        return response;
     }
     private static final class LimitedBody implements HttpResponse.BodySubscriber<byte[]> {
         private final HttpResponse.BodySubscriber<byte[]> delegate = HttpResponse.BodySubscribers.ofByteArray();
@@ -84,13 +105,19 @@ public final class CloudTtsProvider implements TtsProvider {
         @Override public void onError(Throwable error) { delegate.onError(error); }
         @Override public void onComplete() { delegate.onComplete(); }
     }
-    public byte[] decode(String body) throws IOException {
+    public byte[] decode(String body) throws IOException { return decode(body, ""); }
+
+    private byte[] decode(String body, String apiKey) throws IOException {
         try {
             JsonObject json = JsonParser.parseString(body).getAsJsonObject();
+            if (region == Region.MIMO && json.has("error") && json.get("error").isJsonObject())
+                throw CloudFailure.remote("provider_error", "synthesis", json.getAsJsonObject("error"), "code", "message",
+                        CloudFailure.value(json, "request_id"), apiKey);
             if (region == Region.MIMO) return Base64.getDecoder().decode(json.getAsJsonArray("choices").get(0).getAsJsonObject()
                     .getAsJsonObject("message").getAsJsonObject("audio").get("data").getAsString());
             int status = json.getAsJsonObject("base_resp").get("status_code").getAsInt();
-            if (status != 0) throw new IOException("provider_" + status);
+            if (status != 0) throw CloudFailure.remote("provider_" + status, "synthesis", json.getAsJsonObject("base_resp"),
+                    "status_code", "status_msg", CloudFailure.value(json, "trace_id"), apiKey);
             return HexFormat.of().parseHex(json.getAsJsonObject("data").get("audio").getAsString());
         } catch (RuntimeException e) { throw new IOException("invalid_provider_response"); }
     }

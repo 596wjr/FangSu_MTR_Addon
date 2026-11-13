@@ -38,8 +38,10 @@ public record PlatformDoorBoardContent(String drawing, String routes) {
 
     public int routeCount() { return countRoutes(routes); }
 
-    private static boolean validDrawing(String drawing) {
-        return drawing != null && drawing.length() <= 256 && !drawing.contains("..") && drawing.matches("[a-z0-9_.-]+:[a-z0-9_./-]+");
+    public static boolean validDrawing(String drawing) {
+        // Java 扩展使用短 ID，资源包脚本使用带命名空间的路径。
+        return drawing != null && drawing.length() <= 256 && !drawing.contains("..")
+                && drawing.matches("[a-z0-9_.-]+(?::[a-z0-9_./-]+)?");
     }
 
     private static int countRoutes(String routes) {

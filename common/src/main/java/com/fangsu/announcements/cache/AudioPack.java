@@ -21,12 +21,13 @@ public final class AudioPack {
     private static final String INDEX="pack-bindings.json";
     private static final Set<String> RECIPE_FIELDS=Set.of("schemaVersion","kind","text","spokenText","locale","voice","provider","account","model","sampleResource","parameters","parts");
     private static final Map<Path,BindingIndex> INDEXES=new HashMap<>();
+    private static final Map<Path,BindingIndex> MOUNTED=new HashMap<>();
     public record Failure(String file,String reason) { }
     public record Result(int processed,int skipped,List<Failure> failures) { public Result { failures=List.copyOf(failures); } }
     public record Binding(String text,String locale,String voice) { }
     private record Target(String key,String source) { }
     private static final class BindingIndex { final LinkedHashMap<Binding,Target> targets=new LinkedHashMap<>();BindingIndex(){}BindingIndex(BindingIndex old){targets.putAll(old.targets);} }
-    private record Clip(String key,String audio,String sha,AudioLibrary.Recipe recipe,List<Binding> bindings) { }
+    private record Clip(String key,String audio,String sha,AudioLibrary.Recipe recipe,List<Binding> bindings,Map<String,String> previous) { }
     private record Exported(String key,AudioLibrary.Recipe recipe,AudioCacheStore.Artifact artifact,List<Binding> bindings) { }
     private AudioPack() { }
 
@@ -83,8 +84,32 @@ public final class AudioPack {
 
     /** 全部清单先验证，再逐片段校验校验和及 WAV；已有本地音频（含删除墓碑）默认保留。 */
     public static Result importPack(AudioLibrary library,AudioCacheStore cache,Path source) throws IOException {
+        return importPack(library,cache,source,source.getFileName().toString(),null);
+    }
+
+    /** 资源包绑定仅在当前重载周期生效，按游戏资源包从低到高的优先级读取。 */
+    public static Result mountEmbedded(AudioLibrary library,AudioCacheStore cache,Map<String,Path> archives){
+        BindingIndex mounted=new BindingIndex();
+        List<Failure> failures=new ArrayList<>();
+        int processed=0, skipped=0;
+        for(var archive:archives.entrySet()){
+            try{
+                var result=importPack(library,cache,archive.getValue(),archive.getKey(),mounted);
+                processed+=result.processed();
+                skipped+=result.skipped();
+                failures.addAll(result.failures());
+            }catch(IOException e){failures.add(new Failure(archive.getKey(),reason(e)));}
+        }
+        synchronized(AudioPack.class){
+            if(mounted.targets.isEmpty())MOUNTED.remove(cache.root());
+            else MOUNTED.put(cache.root(),mounted);
+        }
+        return new Result(processed,skipped,failures);
+    }
+
+    private static Result importPack(AudioLibrary library,AudioCacheStore cache,Path source,String provenance,BindingIndex embedded) throws IOException {
         Path input=source.toAbsolutePath().normalize();if(!Files.isRegularFile(input)||Files.size(input)>MAX_TOTAL_BYTES+16L*1024*1024)throw error("limit");
-        validateCentralDirectory(input);String provenance=input.getFileName().toString();if(provenance.length()>255)throw error("path");
+        validateCentralDirectory(input);if(provenance.length()>255)throw error("path");
         try(ZipFile zip=new ZipFile(input.toFile(),StandardCharsets.UTF_8)){
             Map<String,ZipEntry> entries=archiveEntries(zip);ZipEntry manifestEntry=entries.get("manifest.json");if(manifestEntry==null||manifestEntry.isDirectory())throw error("invalid");
             JsonObject manifest=parse(read(zip,manifestEntry,MAX_MANIFEST_BYTES)).getAsJsonObject();
@@ -100,7 +125,7 @@ public final class AudioPack {
             }
             List<Failure> failures=new ArrayList<>();int processed=0,skipped=0;long consumed=0;
             synchronized(AudioPack.class){
-                BindingIndex working=new BindingIndex(index(cache));Set<String> modified=new HashSet<>();
+                BindingIndex working=new BindingIndex(embedded==null?index(cache):embedded);Set<String> modified=new HashSet<>();
                 Set<Binding> newBindings=new HashSet<>();for(var clip:clips)for(var b:clip.bindings())if(!working.targets.containsKey(b))newBindings.add(b);
                 if((long)working.targets.size()+newBindings.size()>MAX_BINDINGS)throw error("binding_limit");
                 for(var clip:clips){
@@ -119,15 +144,30 @@ public final class AudioPack {
                         }
                         boolean added=false,conflict=false;
                         for(var b:clip.bindings()){
-                            Target prior=working.targets.get(b);if(prior!=null&&!prior.key().equals(clip.key())){conflict=true;continue;}
-                            if(prior==null){if(working.targets.size()>=MAX_BINDINGS)throw error("binding_limit");working.targets.put(b,new Target(clip.key(),provenance));modified.add(clip.key());added=true;}
+                            Target prior=working.targets.get(b);
+                            if(prior!=null&&prior.key().equals(clip.key()))continue;
+                            if(prior!=null&&embedded==null){
+                                String previousHash=clip.previous().get(prior.key());
+                                // 只更新仍指向已知旧包原始文件的绑定，保留用户自己覆盖过的声音。
+                                if(previousHash==null||!cache.find(prior.key()).map(a->previousHash.equals(a.contentHash())).orElse(false)){
+                                    conflict=true;
+                                    continue;
+                                }
+                                modified.add(prior.key());
+                            }
+                            working.targets.put(b,new Target(clip.key(),provenance));
+                            modified.add(clip.key());
+                            added=true;
                         }
                         if(conflict)failures.add(new Failure(clip.audio(),"audio_pack_binding_conflict"));
                         if(present&&!added)skipped++;else processed++;
                     }catch(IOException|RuntimeException e){failures.add(new Failure(clip.audio(),reason(e)));}
                 }
                 // 配方、声音及绑定分别原子发布；清单失败会报错，下次导入可在保留声音的基础上重试。
-                if(!modified.isEmpty()){
+                if(embedded!=null){
+                    embedded.targets.clear();
+                    embedded.targets.putAll(working.targets);
+                }else if(!modified.isEmpty()){
                     for(String key:modified)saveClipBindings(cache,key,working);
                     saveIndex(cache,working);INDEXES.put(cache.root(),working);
                 }
@@ -139,7 +179,13 @@ public final class AudioPack {
     /** 显式可移植绑定优先于云端，当前代际会随详情页本地替换自动变化。应在 IO 线程调用。 */
     public static Optional<AudioCacheStore.Artifact> findBinding(AudioCacheStore cache,String text,String locale,String voice) throws IOException {
         try{
-            Target target;synchronized(AudioPack.class){target=index(cache).targets.get(binding(text,locale,voice));}
+            Target target;
+            synchronized(AudioPack.class){
+                Binding key=binding(text,locale,voice);
+                target=index(cache).targets.get(key);
+                BindingIndex mounted=MOUNTED.get(cache.root());
+                if(target==null&&mounted!=null)target=mounted.targets.get(key);
+            }
             if(target==null)return Optional.empty();
             if(cache.suppressed(target.key()))throw new IOException("synthesis_disabled_or_deleted");
             return Optional.of(cache.find(target.key()).orElseThrow(()->new IOException("library_dependency_missing")));
@@ -153,6 +199,14 @@ public final class AudioPack {
         for(var entry:working.targets.entrySet())if(entry.getValue().key().equals(oldKey)){
             entry.setValue(new Target(newKey,entry.getValue().source()));changed=true;
         }
+        BindingIndex mounted=MOUNTED.get(cache.root());
+        if(mounted!=null)for(var entry:mounted.targets.entrySet()){
+            if(entry.getValue().key().equals(oldKey)&&!working.targets.containsKey(entry.getKey())){
+                working.targets.put(entry.getKey(),new Target(newKey,"regenerated"));
+                changed=true;
+            }
+        }
+        if(working.targets.size()>MAX_BINDINGS)throw error("binding_limit");
         if(!changed)return;
         saveClipBindings(cache,newKey,working);saveClipBindings(cache,oldKey,working);saveIndex(cache,working);
         INDEXES.put(cache.root(),working);
@@ -172,7 +226,19 @@ public final class AudioPack {
         }else{
             if(row.has("key"))throw error("recipe");recipe=imported(caption,locale,voice,name,sha);key=SynthesisKey.of(recipe.parameters());AudioLibrary.validate(key,recipe);
         }
-        if(recipe.kind().equals("composition"))throw error("recipe");return new Clip(key,audio,sha,recipe,List.copyOf(bindings));
+        if(recipe.kind().equals("composition"))throw error("recipe");
+        Map<String,String> previous=new HashMap<>();
+        if(row.has("previousSha256")){
+            JsonArray hashes=row.getAsJsonArray("previousSha256");
+            if(row.has("recipe")||hashes.size()>8)throw error("recipe");
+            for(var value:hashes){
+                String hash=primitive(value,64);
+                validKey(hash);
+                String previousKey=SynthesisKey.of(imported(caption,locale,voice,name,hash).parameters());
+                previous.put(previousKey,hash);
+            }
+        }
+        return new Clip(key,audio,sha,recipe,List.copyOf(bindings),Map.copyOf(previous));
     }
     private static AudioLibrary.Recipe imported(String text,String locale,String voice,String name,String sha){
         return new AudioLibrary.Recipe("imported",text,text,locale,voice,"local","default","imported","",Map.of("protocol","imported-audio-v1","contentHash",sha,"fileName",name),List.of());
@@ -191,13 +257,8 @@ public final class AudioPack {
         if(recipe.kind().equals("imported")){
             String name=recipe.parameters().get("fileName");safeName(name,false);if(name.indexOf('/')>=0)throw error("recipe");
         }else{
-            String endpoint=switch(recipe.provider()){
-                case "mimo"->"https://api.xiaomimimo.com/v1/chat/completions";
-                case "minimax-cn"->"https://api.minimax.cn/v1/t2a_v2";
-                case "minimax-intl"->"https://api.minimax.io/v1/t2a_v2";
-                default->"";
-            };
-            if(!endpoint.equals(recipe.parameters().get("endpoint")))throw error("recipe");
+            var region=com.fangsu.announcements.provider.CloudTtsProvider.Region.find(recipe.provider());
+            if(region==null||!region.endpoint.toString().equals(recipe.parameters().get("endpoint")))throw error("recipe");
         }
     }
     private static JsonObject recipeJson(AudioLibrary.Recipe recipe){
@@ -232,8 +293,15 @@ public final class AudioPack {
             Target previous=index.targets.putIfAbsent(b,new Target(key,source));if(previous!=null&&!previous.key().equals(key))throw error("conflict");if(index.targets.size()>MAX_BINDINGS)throw error("binding_limit");
         }
     }
-    private static List<Binding> readClipBindings(AudioCacheStore cache,String key) throws IOException {
-        BindingIndex all=index(cache);List<Binding> result=new ArrayList<>();all.targets.forEach((binding,target)->{if(target.key().equals(key))result.add(binding);});return result;
+    private static synchronized List<Binding> readClipBindings(AudioCacheStore cache,String key) throws IOException {
+        List<Binding> result=new ArrayList<>();
+        BindingIndex manual=index(cache);
+        manual.targets.forEach((binding,target)->{if(target.key().equals(key))result.add(binding);});
+        BindingIndex mounted=MOUNTED.get(cache.root());
+        if(mounted!=null)mounted.targets.forEach((binding,target)->{
+            if(target.key().equals(key)&&!manual.targets.containsKey(binding))result.add(binding);
+        });
+        return result;
     }
     private static void saveClipBindings(AudioCacheStore cache,String key,BindingIndex index) throws IOException {safeDirectory(cache,key);saveBindings(cache.root().resolve(key).resolve(INDEX),index,key);}
     private static void saveIndex(AudioCacheStore cache,BindingIndex index) throws IOException {saveBindings(cache.root().resolve(INDEX),index,null);}

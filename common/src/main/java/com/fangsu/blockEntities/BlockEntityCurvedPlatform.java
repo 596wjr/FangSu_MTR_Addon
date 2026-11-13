@@ -18,6 +18,7 @@ public final class BlockEntityCurvedPlatform extends BlockEntity {
     public boolean left=true;
     public PlatformSettings settings=PlatformSettings.DEFAULT;
     public CellGeometry geometry;
+    private CompoundTag encodedGeometry;
     private BlockState originalBlock;
     private CompoundTag originalEntity;
     private boolean skin;
@@ -38,6 +39,11 @@ public final class BlockEntityCurvedPlatform extends BlockEntity {
     public static boolean coverable(CellGeometry geometry){return geometry!=null&&(geometry.replaceableDecoration()||floorSkin(geometry));}
     public static VoxelShape shape(List<CellGeometry.Box> boxes){VoxelShape result=Shapes.empty();for(var b:boxes)result=Shapes.or(result,Shapes.box(b.minX(),b.minY(),b.minZ(),b.maxX(),b.maxY(),b.maxZ()));return result;}
     public void configure(UUID group,BlockPos first,BlockPos last,boolean left,PlatformSettings settings,CellGeometry geometry){
+        applyGeometry(group,first,last,left,settings,geometry);
+        setChanged();
+        if(level!=null)level.sendBlockUpdated(worldPosition,getBlockState(),getBlockState(),3);
+    }
+    private void applyGeometry(UUID group,BlockPos first,BlockPos last,boolean left,PlatformSettings settings,CellGeometry geometry){
         this.group=group;this.first=first;this.last=last;this.left=left;this.settings=settings;
         var boxes=geometry.outlineBoxes();outline=shape(boxes);
         skin=!boxes.isEmpty()&&geometry.faces().stream().allMatch(f->f.direction()==1)&&boxes.stream().allMatch(b->b.maxY()-b.minY()<=2.44141625E-4);
@@ -47,24 +53,30 @@ public final class BlockEntityCurvedPlatform extends BlockEntity {
         var faces=geometry.conforming()?geometry.faces():MeshPartitioner.partition(geometry.faces(),floorSkin());
         if(floorSkin())faces=faces.stream().filter(f->f.texture()!=4).toList();
         this.geometry=com.fangsu.platform.PlatformCellMerger.copyParts(geometry,new CellGeometry(faces,geometry.volumes(),geometry.solidVolume(),true,geometry.collisionlessBase(),geometry.physicalBoxes(),geometry.replaceableDecoration()));
+        encodedGeometry=null;
         com.fangsu.platform.PlatformOverhangs.update(level,worldPosition,this.geometry);
-        setChanged();if(level!=null)level.sendBlockUpdated(worldPosition,getBlockState(),getBlockState(),3);
     }
     @Override public void setRemoved(){super.setRemoved();com.fangsu.platform.PlatformOverhangs.removed(level,worldPosition);}
     @Override public void setLevel(net.minecraft.world.level.Level value){super.setLevel(value);com.fangsu.platform.PlatformOverhangs.update(value,worldPosition,geometry);}
     @Override protected void saveAdditional(CompoundTag tag){
         super.saveAdditional(tag);if(group==null||geometry==null)return;
-        tag.putInt("version",1);tag.putUUID("group",group);tag.putLong("first",first.asLong());tag.putLong("last",last.asLong());tag.putBoolean("left",left);
-        tag.putString("settings",PlatformPreset.encode(settings));tag.put("geometry",PlatformGeometryCodec.write(geometry));
+        saveCell(tag);
         if(originalBlock!=null)tag.put("originalBlock",net.minecraft.nbt.NbtUtils.writeBlockState(originalBlock));
         if(originalEntity!=null)tag.put("originalEntity",originalEntity.copy());
     }
+    private void saveCell(CompoundTag tag){
+        if(group==null||geometry==null)return;
+        tag.putInt("version",1);tag.putUUID("group",group);tag.putLong("first",first.asLong());tag.putLong("last",last.asLong());tag.putBoolean("left",left);
+        tag.putString("settings",PlatformPreset.encode(settings));
+        if(encodedGeometry==null)encodedGeometry=PlatformGeometryCodec.write(geometry);
+        tag.put("geometry",encodedGeometry.copy());
+    }
     @Override public void load(CompoundTag tag){
         super.load(tag);if(tag.getInt("version")!=1)return;
-        try{originalBlock=tag.contains("originalBlock",Tag.TAG_COMPOUND)?com.fangsu.platform.PlatformOverlays.state(tag.getCompound("originalBlock")):null;originalEntity=tag.contains("originalEntity",Tag.TAG_COMPOUND)?tag.getCompound("originalEntity").copy():null;configure(tag.getUUID("group"),BlockPos.of(tag.getLong("first")),BlockPos.of(tag.getLong("last")),tag.getBoolean("left"),PlatformPreset.decode(tag.getString("settings")),PlatformGeometryCodec.read(tag.getCompound("geometry")));}
+        try{originalBlock=tag.contains("originalBlock",Tag.TAG_COMPOUND)?com.fangsu.platform.PlatformOverlays.state(tag.getCompound("originalBlock")):null;originalEntity=tag.contains("originalEntity",Tag.TAG_COMPOUND)?tag.getCompound("originalEntity").copy():null;applyGeometry(tag.getUUID("group"),BlockPos.of(tag.getLong("first")),BlockPos.of(tag.getLong("last")),tag.getBoolean("left"),PlatformPreset.decode(tag.getString("settings")),PlatformGeometryCodec.read(tag.getCompound("geometry")));}
         catch(RuntimeException e){geometry=null;skin=false;collision=outline=Shapes.empty();com.fangsu.Main.LOGGER.warn("[FangSu] Invalid curved platform cell at {}",worldPosition);}
     }
     public CompoundTag serverData(){CompoundTag tag=new CompoundTag();saveAdditional(tag);return tag;}
-    @Override public CompoundTag getUpdateTag(){CompoundTag tag=serverData();tag.remove("originalEntity");return tag;}
+    @Override public CompoundTag getUpdateTag(){CompoundTag tag=new CompoundTag();saveCell(tag);return tag;}
     @Override public ClientboundBlockEntityDataPacket getUpdatePacket(){return ClientboundBlockEntityDataPacket.create(this);}
 }

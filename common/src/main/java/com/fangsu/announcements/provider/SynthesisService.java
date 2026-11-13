@@ -12,15 +12,39 @@ import java.util.function.Supplier;
 
 /** 同键任务合并、持久每日限额和有界队列。返回订阅 Future，取消订阅不取消其他请求者。 */
 public final class SynthesisService implements AutoCloseable {
-    public enum State { QUEUED, REQUESTING, VALIDATING, READY, FAILED, UNCERTAIN, CANCELLED }
-    public record Task(String key, State state, String error) { }
+    public enum State { QUEUED, WAITING_FOR_VOICE, REQUESTING, VALIDATING, READY, FAILED, UNCERTAIN, CANCELLED }
+    public record Task(String key, State state, String error, CloudFailure cloudFailure) { }
+    static final int VOICE_RECHECK_SECONDS = 10;
+    private static final long VOICE_REVIEW_NANOS = TimeUnit.MINUTES.toNanos(10);
+    private static final int MAX_PENDING = 13;
     private final AudioCacheStore cache;
     private final Path usageFile;
-    private final ThreadPoolExecutor executor = new ThreadPoolExecutor(2, 2, 0, TimeUnit.SECONDS,
-            new ArrayBlockingQueue<>(12), r -> { Thread t = new Thread(r, "fangsu-tts"); t.setDaemon(true); return t; }, new ThreadPoolExecutor.AbortPolicy());
-    private final Semaphore serialProvider=new Semaphore(1,true);
-    private final Map<String, CompletableFuture<AudioCacheStore.Artifact>> pending = new HashMap<>();
-    private final Map<String,Long> pendingEpochs=new HashMap<>();
+    public static final int ALIYUN_PARALLELISM = 2;
+    private final ScheduledThreadPoolExecutor executor = workerPool(1);
+    private final ScheduledThreadPoolExecutor aliyunExecutor = workerPool(ALIYUN_PARALLELISM);
+
+    private static ScheduledThreadPoolExecutor workerPool(int workers) {
+        var pool = new ScheduledThreadPoolExecutor(workers, work -> {
+            Thread thread = new Thread(work, "fangsu-tts");
+            thread.setDaemon(true);
+            return thread;
+        });
+        pool.setRemoveOnCancelPolicy(true);
+        return pool;
+    }
+    private final Map<String, Job> pending = new HashMap<>();
+
+    private static final class Job {
+        final long epoch;
+        final CompletableFuture<AudioCacheStore.Artifact> result = new CompletableFuture<>();
+        ScheduledFuture<?> scheduled;
+        long reviewDeadline;
+        final ScheduledThreadPoolExecutor executor;
+        Job(long epoch, ScheduledThreadPoolExecutor executor) {
+            this.epoch = epoch;
+            this.executor = executor;
+        }
+    }
     private final Map<String, Task> tasks = new LinkedHashMap<>();
     private int sessionRequests, dailyRequests, dailyCharacters;
     private String day = LocalDate.now().toString();
@@ -47,40 +71,93 @@ public final class SynthesisService implements AutoCloseable {
             TtsProvider provider, TtsProvider.Request request, Supplier<String> keySupplier) {
         if (closed) return CompletableFuture.failedFuture(new IOException("service_closed"));
         long epoch = cache.epoch(key);
-        CompletableFuture<AudioCacheStore.Artifact> existing = pending.get(key);
-        if(existing!=null&&Objects.equals(pendingEpochs.get(key),epoch))return existing.thenApply(value->value);
-        if(existing!=null){pending.remove(key);pendingEpochs.remove(key);existing.completeExceptionally(new IOException("deleted_or_cancelled"));}
-        CompletableFuture<AudioCacheStore.Artifact> result = new CompletableFuture<>();
-        pending.put(key, result);pendingEpochs.put(key,epoch); state(key, State.QUEUED, "");
-        try { executor.execute(() -> {
-            boolean serial=false;
-            try {
-                if (!force) {
-                    Optional<AudioCacheStore.Artifact> cached = cache.find(key);
-                    if (cached.isPresent()) { state(key, State.READY, ""); result.complete(cached.get()); return; }
-                }
-                if(provider.maxConcurrentRequests()<2){serialProvider.acquire();serial=true;}
-                if (!enabled || cache.suppressed(key)) throw new IOException("synthesis_disabled_or_deleted");
-                if(cache.epoch(key)!=epoch)throw new IOException("deleted_or_cancelled");
-                String apiKey = keySupplier.get();
-                if (apiKey == null || apiKey.isBlank()) throw new IOException("missing_key");
-                // 在请求前记录额度；超时/失败不自动退回，避免不确定计费导致越限。
-                reserve(request.text().length()); state(key, State.REQUESTING, "");
-                byte[] audio = provider.synthesize(request, apiKey);
-                state(key, State.VALIDATING, "");
-                AudioCacheStore.Artifact artifact = cache.publish(key, epoch, audio);
-                state(key, State.READY, ""); result.complete(artifact);
-            } catch (Exception e) {
-                String error = e instanceof IOException ? e.getMessage() : "invalid_request";
-                if (error == null || !error.matches("[a-z0-9_]{1,80}")) error = "synthesis_failed";
-                state(key, error.equals("remote_result_uncertain") ? State.UNCERTAIN : State.FAILED, error);
-                result.completeExceptionally(new IOException(error));
-            } finally { if(serial)serialProvider.release();synchronized (this) { if(pending.remove(key,result))pendingEpochs.remove(key); } }
-        }); } catch (RejectedExecutionException e) {
-            if(pending.remove(key,result))pendingEpochs.remove(key); state(key, State.FAILED, "queue_full"); result.completeExceptionally(new IOException("queue_full"));
+        Job previous = pending.get(key);
+        if (previous != null && previous.epoch == epoch) return previous.result.thenApply(value -> value);
+        if (previous == null && pending.size() >= MAX_PENDING) {
+            state(key, State.FAILED, "queue_full");
+            return CompletableFuture.failedFuture(new IOException("queue_full"));
         }
-        return result.thenApply(value -> value);
+
+        Job job = new Job(epoch, provider instanceof AliyunTtsProvider ? aliyunExecutor : executor);
+        pending.put(key, job);
+        state(key, State.QUEUED, "");
+        Runnable work = () -> process(key, job, force, provider, request, keySupplier);
+        job.scheduled = job.executor.schedule(work, 0, TimeUnit.SECONDS);
+        if (previous != null) {
+            previous.scheduled.cancel(false);
+            previous.result.completeExceptionally(new IOException("deleted_or_cancelled"));
+        }
+        return job.result.thenApply(value -> value);
     }
+
+    private void process(String key, Job job, boolean force, TtsProvider provider,
+                         TtsProvider.Request request, Supplier<String> keySupplier) {
+        try {
+            if (!force) {
+                Optional<AudioCacheStore.Artifact> cached = cache.find(key);
+                if (cached.isPresent()) {
+                    finish(key, job, State.READY, "", null, cached.get());
+                    return;
+                }
+            }
+            checkActive(key, job);
+            String apiKey = keySupplier.get();
+            if (apiKey == null || apiKey.isBlank()) throw new IOException("missing_key");
+            TtsProvider.Request prepared;
+            try {
+                prepared = provider.prepare(request, apiKey);
+            } catch (TtsProvider.VoicePendingException waiting) {
+                deferVoiceReview(key, job, () -> process(key, job, force, provider, request, keySupplier));
+                return;
+            }
+            synchronized (this) {
+                checkActive(key, job);
+                // 只有实际发起合成才预留额度，远端结果不确定时仍保留扣减。
+                reserve(prepared.text().length());
+                state(key, State.REQUESTING, "");
+            }
+            byte[] audio = provider.synthesize(prepared, apiKey);
+            synchronized (this) {
+                checkActive(key, job);
+                state(key, State.VALIDATING, "");
+            }
+            finish(key, job, State.READY, "", null, cache.publish(key, job.epoch, audio));
+        } catch (Exception e) {
+            String error = e instanceof IOException ? e.getMessage() : "invalid_request";
+            if (error == null || !error.matches("[a-z0-9_]{1,80}")) error = "synthesis_failed";
+            State failedState = switch (error) {
+                case "remote_result_uncertain" -> State.UNCERTAIN;
+                case "deleted_or_cancelled", "synthesis_disabled_or_deleted" -> State.CANCELLED;
+                case "aliyun_voice_pending" -> State.WAITING_FOR_VOICE;
+                default -> State.FAILED;
+            };
+            finish(key, job, failedState, error, e instanceof CloudFailure cloud ? cloud : null, null);
+        }
+    }
+
+    private synchronized void deferVoiceReview(String key, Job job, Runnable work) throws IOException {
+        checkActive(key, job);
+        long now = System.nanoTime();
+        if (job.reviewDeadline == 0) job.reviewDeadline = now + VOICE_REVIEW_NANOS;
+        if (now - job.reviewDeadline >= 0) throw new IOException("aliyun_voice_pending");
+        state(key, State.WAITING_FOR_VOICE, "");
+        job.scheduled = job.executor.schedule(work, VOICE_RECHECK_SECONDS, TimeUnit.SECONDS);
+    }
+
+    private synchronized void checkActive(String key, Job job) throws IOException {
+        if (pending.get(key) != job || cache.epoch(key) != job.epoch) throw new IOException("deleted_or_cancelled");
+        if (!enabled || cache.suppressed(key)) throw new IOException("synthesis_disabled_or_deleted");
+    }
+
+    private void finish(String key, Job job, State finalState, String error, CloudFailure cloud, AudioCacheStore.Artifact artifact) {
+        synchronized (this) {
+            if (!pending.remove(key, job)) return;
+            state(key, finalState, error, cloud);
+        }
+        if (artifact != null) job.result.complete(artifact);
+        else job.result.completeExceptionally(cloud == null ? new IOException(error) : cloud);
+    }
+
     private synchronized void reserve(int characters) throws IOException {
         if (characters < 1 || characters > 4096) throw new IOException("sentence_limit");
         String today = LocalDate.now().toString();
@@ -92,7 +169,10 @@ public final class SynthesisService implements AutoCloseable {
         sessionRequests++; dailyRequests++; dailyCharacters += characters;
     }
     private synchronized void state(String key, State state, String error) {
-        tasks.put(key, new Task(key, state, error));
+        state(key, state, error, null);
+    }
+    private synchronized void state(String key, State state, String error, CloudFailure cloud) {
+        tasks.put(key, new Task(key, state, error, cloud));
         if (tasks.size() > 256) {
             Iterator<String> iterator = tasks.keySet().iterator();
             while (tasks.size() > 256 && iterator.hasNext()) { String candidate = iterator.next(); if (!pending.containsKey(candidate)) iterator.remove(); }
@@ -100,7 +180,11 @@ public final class SynthesisService implements AutoCloseable {
     }
     @Override public synchronized void close() {
         closed = true; enabled = false;
-        pending.forEach((key, future) -> { cache.invalidate(key); future.completeExceptionally(new IOException("service_closed")); });
-        executor.shutdownNow(); pending.clear();pendingEpochs.clear();
+        List<Job> jobs = new ArrayList<>(pending.values());
+        pending.keySet().forEach(cache::invalidate);
+        pending.clear();
+        executor.shutdownNow();
+        aliyunExecutor.shutdownNow();
+        jobs.forEach(job -> job.result.completeExceptionally(new IOException("service_closed")));
     }
 }

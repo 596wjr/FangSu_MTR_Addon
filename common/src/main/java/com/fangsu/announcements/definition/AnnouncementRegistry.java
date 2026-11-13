@@ -142,7 +142,7 @@ public final class AnnouncementRegistry {
             });
             if (mode.equals("reference_audio") && samples.isEmpty()) throw new IllegalArgumentException("missing_sample");
             if (v.has("presetVoices")) v.getAsJsonObject("presetVoices").entrySet().forEach(e -> {
-                if (!Set.of("mimo", "minimax-cn", "minimax-intl").contains(e.getKey()) || e.getValue().getAsString().length() > 256) throw new IllegalArgumentException("invalid_provider_voice");
+                if (com.fangsu.announcements.provider.CloudTtsProvider.Region.find(e.getKey()) == null || e.getValue().getAsString().length() > 256) throw new IllegalArgumentException("invalid_provider_voice");
                 presets.put(e.getKey(), e.getValue().getAsString());
             });
             voices.put(key, new Voice(key, revision(v), mode, Map.copyOf(samples), Map.copyOf(presets)));
@@ -151,10 +151,13 @@ public final class AnnouncementRegistry {
         if (json.has("templates")) for (JsonElement element : json.getAsJsonArray("templates")) {
             if (++count[0] > 4096) throw new IllegalArgumentException("too_many_definitions");
             JsonObject t = element.getAsJsonObject();
-            fields(t, "id", "revision", "event", "variants", "defaultVariant", "locales", "displayName", "requiredVariables");
+            fields(t, "id", "revision", "event", "variants", "defaultVariant", "locales", "displayName", "requiredVariables", "chime");
             String key = id(t.get("id").getAsString());
             String event = t.get("event").getAsString();
             if (!Set.of("platform.approaching", "train.next", "train.approaching", "train.arrived", "train.terminal").contains(event)) throw new IllegalArgumentException("invalid_event");
+            boolean platform = event.equals("platform.approaching");
+            if (!platform && t.has("chime")) throw new IllegalArgumentException("chime_requires_platform_event");
+            String chime = platform ? id(str(t, "chime", "fangsu:chime")) : "";
             List<Variant> variants = new ArrayList<>(); Set<String> variantIds = new HashSet<>();
             for (JsonElement ve : t.getAsJsonArray("variants")) {
                 JsonObject v = ve.getAsJsonObject(); fields(v, "id", "voice", "style", "languageVoices");
@@ -191,7 +194,8 @@ public final class AnnouncementRegistry {
             if(t.has("requiredVariables"))for(var variable:t.getAsJsonArray("requiredVariables")){
                 String name=variable.getAsString();if(!AnnouncementResolver.VARIABLES.contains(name))throw new IllegalArgumentException("unknown_variable");required.add(name);
             }
-            templates.put(key, new Template(key, revision(t), event, t.get("defaultVariant").getAsString(), List.copyOf(variants), Map.copyOf(locales),Set.copyOf(required)));
+            templates.put(key, new Template(key, revision(t), event, t.get("defaultVariant").getAsString(),
+                    List.copyOf(variants), Map.copyOf(locales), Set.copyOf(required), chime));
             sources.computeIfAbsent("template/" + key, k -> new ArrayList<>()).add(source);
         }
     }

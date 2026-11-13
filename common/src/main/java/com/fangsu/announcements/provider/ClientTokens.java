@@ -33,7 +33,8 @@ public final class ClientTokens {
     public static synchronized boolean remembered(String provider,String account) throws IOException {load();return SAVED.containsKey(key(provider,account));}
     public static synchronized String resolve(String provider,String account) throws IOException {
         String value=entered(provider,account);if(!value.isBlank())return value;
-        return System.getenv(provider.equals("mimo")?"MIMO_API_KEY":provider.equals("minimax-cn")?"MINIMAX_CN_API_KEY":"MINIMAX_API_KEY");
+        var region = CloudTtsProvider.Region.find(provider);
+        return region == null ? null : System.getenv(region.keyEnvironment);
     }
     public static synchronized void save(String provider,String account,String token,boolean remember) throws IOException {
         load();token=token.trim();if(token.length()>2048 || token.contains("\n") || token.contains("\r"))throw new IOException("invalid_token");

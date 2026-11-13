@@ -10,10 +10,13 @@ public record PlatformDoorSettings(double unitLength,double firstOffset,double b
     public record Unit(double length,List<Part> components){public Unit{if(!Double.isFinite(length)||length<.05||length>128||components==null||components.isEmpty()||components.size()>32)throw new IllegalArgumentException("invalid_door_unit");components=List.copyOf(components);for(var part:components)if(part.offset()>length)throw new IllegalArgumentException("door_part_outside_unit");}}
     public PlatformDoorSettings withFacing(boolean reversed){return new PlatformDoorSettings(unitLength,firstOffset,baselineOffset,units,fillGlass,components,boardRoutes,boardScript,firstUnit,lastUnit,fitLength,reversed,true);}
     public PlatformDoorSettings freshFacing(){return new PlatformDoorSettings(unitLength,firstOffset,baselineOffset,units,fillGlass,components,boardRoutes,boardScript,firstUnit,lastUnit,fitLength,false,false);}
+    public static final String TEMPLATE_TAG="FangSuPlatformDoorTemplate";
     public static final String DOOR_MODEL="fangsu:screendoor/kaba.json",BOARD_MODEL="fangsu:diaoban/mtr_diaoban.json";
     public record Part(String kind,double offset,double lateral,double vertical,double width,double height,String model,String variant,boolean automatic,String secondaryVariant,Map<String,String> options) {
         public Part(String kind,double offset,double lateral,double vertical,double width,double height,String model,String variant,boolean automatic,String secondaryVariant){this(kind,offset,lateral,vertical,width,height,model,variant,automatic,secondaryVariant,Map.of());}
         public Part(String kind,double offset,double lateral,double vertical,double width,double height,String model,String variant){this(kind,offset,lateral,vertical,width,height,model,variant,false,variant);}
+        public Part withSpan(double center,double length){return new Part(kind,center,lateral,vertical,length,height,model,variant,automatic,secondaryVariant,options);}
+        public Part withOptions(Map<String,String> values){return new Part(kind,offset,lateral,vertical,width,height,model,variant,automatic,secondaryVariant,values);}
         public Part {
             options=checkOptions(options);
             if(secondaryVariant==null||!secondaryVariant.matches("[A-Za-z0-9_.-]{1,64}"))throw new IllegalArgumentException("invalid_door_part");
@@ -23,8 +26,13 @@ public record PlatformDoorSettings(double unitLength,double firstOffset,double b
                     ||kind.equals("glass")&&width>8)throw new IllegalArgumentException("invalid_door_part");
         }
     }
-    public static final PlatformDoorSettings DEFAULT=new PlatformDoorSettings(6,0,0,0,true,List.of(
-            new Part("door",2,0,0,2,2,DOOR_MODEL,"common"),new Part("board",2,0,2.5,2,1,BOARD_MODEL,"mtr_diaoban_a")),"[]","fangsu:diaoban/mtr_diaoban_station.js",null,null,true,false,false);
+    public static final PlatformDoorSettings DEFAULT=new PlatformDoorSettings(5,0,0,0,true,defaultUnit(0),
+            "[]",PlatformDoorBoardContent.DEFAULT_DRAWING,new Unit(6,defaultUnit(1)),null,true,false,false);
+    private static List<Part> defaultUnit(double shift){
+        return List.of(new Part("door",1+shift,0,0,2,2,DOOR_MODEL,"common"),
+                new Part("board",1+shift,0,2,2,1,BOARD_MODEL,"mtr_diaoban_a",false,"mtr_diaoban_a",Map.of("withDoorlight","true")),
+                new Part("board",3.5+shift,0,2,3,1,BOARD_MODEL,"mtr_diaoban_a"));
+    }
     public PlatformDoorSettings {
         if(!Double.isFinite(unitLength+firstOffset+baselineOffset)||unitLength<1||unitLength>128||firstOffset<0||firstOffset>2048||Math.abs(baselineOffset)>8||units<0||units>128||components==null||components.isEmpty()||components.size()>32)throw new IllegalArgumentException("invalid_door_settings");
         new PlatformDoorBoardContent(boardScript,boardRoutes);
@@ -44,6 +52,6 @@ public record PlatformDoorSettings(double unitLength,double firstOffset,double b
         return Map.copyOf(values);
     }
     private static Map<String,String> readOptions(JsonObject row){Map<String,String> map=new LinkedHashMap<>();if(row.has("options"))for(var entry:row.getAsJsonObject("options").entrySet())map.put(entry.getKey(),entry.getValue().getAsString());return checkOptions(map);}
-    private static JsonObject writeUnit(Unit unit){var j=new JsonObject();j.addProperty("length",unit.length());var value=new PlatformDoorSettings(unit.length(),0,0,1,false,unit.components());j.add("components",JsonParser.parseString(encode(value)).getAsJsonObject().getAsJsonArray("components"));return j;}
-    private static Unit readUnit(JsonObject j){var row=new JsonObject();row.addProperty("version",1);row.addProperty("unitLength",j.get("length").getAsDouble());row.addProperty("firstOffset",0);row.addProperty("baselineOffset",0);row.addProperty("units",1);row.addProperty("fillGlass",false);row.add("components",j.getAsJsonArray("components"));var value=decode(row.toString());return new Unit(value.unitLength(),value.components());}
+    private static JsonObject writeUnit(Unit unit){var j=new JsonObject();j.addProperty("length",unit.length());var value=new PlatformDoorSettings(Math.max(1,unit.length()),0,0,1,false,unit.components());j.add("components",JsonParser.parseString(encode(value)).getAsJsonObject().getAsJsonArray("components"));return j;}
+    private static Unit readUnit(JsonObject j){var row=new JsonObject();row.addProperty("version",1);double length=j.get("length").getAsDouble();row.addProperty("unitLength",Math.max(1,length));row.addProperty("firstOffset",0);row.addProperty("baselineOffset",0);row.addProperty("units",1);row.addProperty("fillGlass",false);row.add("components",j.getAsJsonArray("components"));var value=decode(row.toString());return new Unit(length,value.components());}
 }

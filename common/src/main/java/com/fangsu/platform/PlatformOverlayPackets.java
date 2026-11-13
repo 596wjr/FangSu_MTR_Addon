@@ -13,14 +13,15 @@ import java.util.zip.*;
 
 /** 覆盖层使用附近区块增量版本请求，快照分帧发送；世界原生方块和它们的碰撞始终保持原样。 */
 public final class PlatformOverlayPackets {
-    private static final ResourceLocation REQUEST=new ResourceLocation("fangsu","platform_overlay_request"),SYNC=new ResourceLocation("fangsu","platform_overlay_sync");
-    private record Stamp(long revision,int x,int z,String dimension) { }
+    private static final ResourceLocation REQUEST=new ResourceLocation("fangsu","platform_overlay_delta_request"),SYNC=new ResourceLocation("fangsu","platform_overlay_delta");
+    private record ChunkStamp(long revision,int cells) { }
+    private record Sent(ServerPlayer player,ServerLevel level,Map<Long,ChunkStamp> chunks) { }
     private static final class Delivery {
-        final ServerPlayer player;final ServerLevel level;final Stamp stamp;final Iterator<BlockPos> positions;final UUID id=UUID.randomUUID();
-        Delivery(ServerPlayer p,ServerLevel level,Stamp stamp,List<BlockPos> positions){player=p;this.level=level;this.stamp=stamp;this.positions=positions.iterator();}
+        final Sent sent;final Iterator<BlockPos> positions;final UUID id=UUID.randomUUID();
+        Delivery(Sent sent,List<BlockPos> positions){this.sent=sent;this.positions=positions.iterator();}
     }
     private static final Map<UUID,Delivery> PENDING=new HashMap<>();
-    private static final Map<UUID,Stamp> SENT=new HashMap<>();
+    private static final Map<UUID,Sent> SENT=new HashMap<>();
     private static final Map<UUID,Long> REQUESTED=new HashMap<>();
     private static int roundRobin;
     public static void registerServer(){
@@ -29,26 +30,53 @@ public final class PlatformOverlayPackets {
             context.queue(()->{
                 if(!(context.getPlayer() instanceof ServerPlayer player)||PENDING.containsKey(player.getUUID()))return;
                 long now=System.currentTimeMillis();if(now-REQUESTED.getOrDefault(player.getUUID(),0L)<1000)return;REQUESTED.put(player.getUUID(),now);
-                ServerLevel level=world(player);var overlays=PlatformOverlays.get(level);var center=player.blockPosition();var positions=overlays.nearby(level,center);
-                Stamp stamp=new Stamp(overlays.revision(),center.getX()>>4,center.getZ()>>4,level.dimension().location().toString());if(stamp.equals(SENT.get(player.getUUID())))return;
-                Delivery delivery=new Delivery(player,level,stamp,positions);PENDING.put(player.getUUID(),delivery);
-                var begin=new FriendlyByteBuf(Unpooled.buffer());begin.writeVarInt(0);begin.writeUUID(delivery.id);begin.writeResourceLocation(level.dimension().location());NetworkManager.sendToPlayer(player,SYNC,begin);
+                queue(player);
             });
         });
         TickEvent.SERVER_POST.register(server->{
             int budget=16,bytesBudget=256*1024;var players=new ArrayList<>(PENDING.keySet());if(players.isEmpty())return;
             Collections.rotate(players,-Math.floorMod(roundRobin++,players.size()));
-            for(UUID player:players){if(budget<=0||bytesBudget<=0)break;var d=PENDING.get(player);if(d==null||d.level.getServer()!=server)continue;
-                if(d.player.isRemoved()||world(d.player)!=d.level){SENT.remove(d.player.getUUID());PENDING.remove(player);continue;}
+            for(UUID player:players){if(budget<=0||bytesBudget<=0)break;var d=PENDING.get(player);if(d==null||d.sent.level().getServer()!=server)continue;
+                var recipient=d.sent.player();
+                if(recipient.isRemoved()||world(recipient)!=d.sent.level()){SENT.remove(player);PENDING.remove(player);continue;}
                 int perPlayer=4;
-                while(d.positions.hasNext()&&budget>0&&bytesBudget>0&&perPlayer-->0){budget--;BlockPos pos=d.positions.next();var source=PlatformOverlays.get(d.level);var entry=source.entry(pos);if(entry==null)continue;
-                    var packet=new FriendlyByteBuf(Unpooled.buffer());packet.writeVarInt(1);packet.writeUUID(d.id);try{var safe=source.packet(pos);safe.getCompound("cell").remove("originalEntity");byte[] encoded=encode(safe);bytesBudget-=encoded.length;packet.writeByteArray(encoded);NetworkManager.sendToPlayer(d.player,SYNC,packet);}catch(IOException e){packet.release();com.fangsu.Main.LOGGER.warn("[FangSu] Platform overlay packet rejected at {}",pos);}
+                while(d.positions.hasNext()&&budget>0&&bytesBudget>0&&perPlayer-->0){budget--;BlockPos pos=d.positions.next();var source=PlatformOverlays.get(d.sent.level());if(source.entry(pos)==null)continue;
+                    try{
+                        byte[] encoded=encode(source.clientPacket(pos));
+                        bytesBudget-=encoded.length;
+                        var packet=new FriendlyByteBuf(Unpooled.buffer());packet.writeVarInt(1);packet.writeUUID(d.id);packet.writeByteArray(encoded);
+                        NetworkManager.sendToPlayer(recipient,SYNC,packet);
+                    }catch(IOException e){com.fangsu.Main.LOGGER.warn("[FangSu] Platform overlay packet rejected at {}",pos);}
                 }
-                if(!d.positions.hasNext()){var end=new FriendlyByteBuf(Unpooled.buffer());end.writeVarInt(2);end.writeUUID(d.id);NetworkManager.sendToPlayer(d.player,SYNC,end);SENT.put(d.player.getUUID(),d.stamp);PENDING.remove(player);}
+                if(!d.positions.hasNext()){var end=new FriendlyByteBuf(Unpooled.buffer());end.writeVarInt(2);end.writeUUID(d.id);NetworkManager.sendToPlayer(recipient,SYNC,end);SENT.put(player,d.sent);PENDING.remove(player);}
             }
         });
         dev.architectury.event.events.common.PlayerEvent.PLAYER_QUIT.register(player->{REQUESTED.remove(player.getUUID());SENT.remove(player.getUUID());PENDING.remove(player.getUUID());});
         dev.architectury.event.events.common.LifecycleEvent.SERVER_STOPPED.register(server->{PENDING.clear();SENT.clear();REQUESTED.clear();});
+    }
+    private static void queue(ServerPlayer player){
+        ServerLevel level=world(player);
+        var overlays=PlatformOverlays.get(level);
+        Map<Long,List<BlockPos>> byChunk=new LinkedHashMap<>();
+        for(var pos:overlays.nearby(level,player.blockPosition()))byChunk.computeIfAbsent(PlatformOverlays.chunk(pos),key->new ArrayList<>()).add(pos);
+        Sent previous=SENT.get(player.getUUID());
+        boolean reset=previous==null||previous.player()!=player||previous.level()!=level;
+        Map<Long,ChunkStamp> known=reset?Map.of():previous.chunks();
+        Map<Long,ChunkStamp> current=new HashMap<>();
+        Set<Long> replaced=new HashSet<>(known.keySet());
+        List<BlockPos> positions=new ArrayList<>();
+        byChunk.forEach((chunk,cells)->{
+            var stamp=new ChunkStamp(overlays.chunkRevision(chunk),cells.size());
+            current.put(chunk,stamp);
+            if(stamp.equals(known.get(chunk)))replaced.remove(chunk);
+            else{replaced.add(chunk);positions.addAll(cells);}
+        });
+        if(!reset&&replaced.isEmpty())return;
+        var delivery=new Delivery(new Sent(player,level,current),positions);
+        PENDING.put(player.getUUID(),delivery);
+        var begin=new FriendlyByteBuf(Unpooled.buffer());begin.writeVarInt(0);begin.writeUUID(delivery.id);begin.writeResourceLocation(level.dimension().location());
+        begin.writeBoolean(reset);begin.writeVarInt(replaced.size());replaced.forEach(begin::writeLong);
+        NetworkManager.sendToPlayer(player,SYNC,begin);
     }
     private static ServerLevel world(ServerPlayer player){
         //#if MC_VERSION >= 12000
@@ -68,7 +96,11 @@ public final class PlatformOverlayPackets {
     }
     public static void request(){NetworkManager.sendToServer(REQUEST,new FriendlyByteBuf(Unpooled.buffer()));}
     public static void registerClient(){NetworkManager.registerReceiver(NetworkManager.Side.S2C,SYNC,(buffer,context)->{
-        int kind=buffer.readVarInt();UUID id=buffer.readUUID();ResourceLocation dimension=kind==0?buffer.readResourceLocation():null;net.minecraft.nbt.CompoundTag cell;try{cell=kind==1?decode(buffer.readByteArray(900000)):null;}catch(IOException|RuntimeException e){return;}
-        context.queue(()->PlatformOverlayClient.receive(kind,id,dimension,cell));
+        int kind=buffer.readVarInt();UUID id=buffer.readUUID();ResourceLocation dimension=kind==0?buffer.readResourceLocation():null;
+        boolean reset=kind==0&&buffer.readBoolean();
+        Set<Long> replaced=kind==0?new HashSet<>():Set.of();
+        if(kind==0){int count=buffer.readVarInt();if(count<0||count>242)return;for(int i=0;i<count;i++)replaced.add(buffer.readLong());}
+        net.minecraft.nbt.CompoundTag cell;try{cell=kind==1?decode(buffer.readByteArray(900000)):null;}catch(IOException|RuntimeException e){return;}
+        context.queue(()->PlatformOverlayClient.receive(kind,id,dimension,cell,reset,replaced));
     });}
 }

@@ -37,7 +37,7 @@
   "templates": [
     {
       "id": "fangsu:platform_arrival_a",
-      "revision": 3,
+      "revision": 5,
       "event": "platform.approaching",
       "defaultVariant": "standard",
       "variants": [
@@ -57,27 +57,43 @@
         "zh-CN": {
           "segments": [
             {
-              "when": "allStops",
-              "text": "列车即将到站，请小心列车与站台之间的空隙。本次列车去往{tripDestination}及沿途各站。"
+              "text": "列车即将到站，"
+            },
+            {
+              "text": "请小心列车与站台之间的空隙。"
+            },
+            {
+              "text": "本次列车去往",
+              "when": "allStops"
+            },
+            {
+              "text": "{tripDestination}",
+              "when": "allStops"
+            },
+            {
+              "text": "及沿途各站。",
+              "when": "allStops"
             },
             {
               "when": "shortTurn",
               "text": "去往{fullServiceDestination}的乘客，请等候下次列车。"
-            },
-            {
-              "when": "limitedService",
-              "text": "列车即将进站，请小心列车与站台之间的空隙。"
             }
           ]
         },
         "en-US": {
           "segments": [
             {
-              "text": "The train is arriving. Please mind the gap between the train and the platform. This train will stop service at {tripDestination}."
+              "text": "The train is arriving."
+            },
+            {
+              "text": "Please mind the gap between the train and the platform."
+            },
+            {
+              "text": "This train will stop service at {tripDestination}."
             },
             {
               "when": "shortTurn",
-              "text": "For {fullServiceDestination}, please wait for the next train."
+              "text": "Passengers for {fullServiceDestination}, please wait for the next train."
             }
           ]
         }
@@ -85,7 +101,7 @@
     },
     {
       "id": "fangsu:platform_arrival_b",
-      "revision": 3,
+      "revision": 5,
       "event": "platform.approaching",
       "defaultVariant": "standard",
       "variants": [
@@ -105,27 +121,33 @@
         "zh-CN": {
           "segments": [
             {
-              "when": "allStops",
-              "text": "去往{tripDestination}及沿途各站的列车即将进站，请小心站台空隙。"
+              "text": "去往{tripDestination}及沿途各站的列车即将进站，",
+              "when": "allStops"
+            },
+            {
+              "text": "列车即将到站，",
+              "when": "limitedService"
+            },
+            {
+              "text": "请小心站台空隙。"
             },
             {
               "when": "shortTurn",
               "text": "去往{fullServiceDestination}的乘客，请等候下次列车。"
-            },
-            {
-              "when": "limitedService",
-              "text": "列车即将进站，请小心列车与站台之间的空隙。"
             }
           ]
         },
         "en-US": {
           "segments": [
             {
-              "text": "The train to {tripDestination} is arriving. Please mind the gap when boarding."
+              "text": "The train to {tripDestination} is arriving."
+            },
+            {
+              "text": "Please mind the gap when boarding."
             },
             {
               "when": "shortTurn",
-              "text": "For {fullServiceDestination}, please wait for the next train."
+              "text": "Passengers for {fullServiceDestination}, please wait for the next train."
             }
           ]
         }
@@ -133,7 +155,7 @@
     },
     {
       "id": "fangsu:train_next",
-      "revision": 4,
+      "revision": 6,
       "event": "train.next",
       "defaultVariant": "standard",
       "variants": [
@@ -153,7 +175,15 @@
         "zh-CN": {
           "segments": [
             {
-              "text": "乘客您好, 欢迎您搭乘方速轨道交通, 希望您有一个愉快的旅程.",
+              "text": "乘客您好，",
+              "when": "firstStop"
+            },
+            {
+              "text": "欢迎您搭乘方速轨道交通，",
+              "when": "firstStop"
+            },
+            {
+              "text": "希望您有一个愉快的旅程。",
               "when": "firstStop"
             },
             {
@@ -167,25 +197,28 @@
               "when": "notTerminal"
             },
             {
-              "text": "下一站"
+              "text": "。"
             },
             {
-              "text": "{nextStation}"
+              "text": "下一站，"
+            },
+            {
+              "text": "{nextStation}。"
             },
             {
               "text": "乘客可换乘",
               "when": "hasInterchanges"
             },
             {
-              "text": "{interchanges}",
+              "text": "{interchanges}。",
               "when": "hasInterchanges"
             },
             {
-              "text": "将会开启左侧车门.",
+              "text": "将会开启左侧车门。",
               "when": "leftDoors"
             },
             {
-              "text": "将会开启右侧车门.",
+              "text": "将会开启右侧车门。",
               "when": "rightDoors"
             }
           ]
@@ -193,27 +226,21 @@
         "en-US": {
           "segments": [
             {
-              "text": "Welcome to FangSu Railway. We hope you have a pleasant journey.",
+              "text": "Welcome to FangSu Railway.",
               "when": "firstStop"
             },
             {
-              "text": "This train is bound for"
+              "text": "We hope you have a pleasant journey.",
+              "when": "firstStop"
             },
             {
-              "text": "{tripDestination}"
+              "text": "This train is bound for {tripDestination}."
             },
             {
-              "text": "Next station"
+              "text": "Next station, {nextStation}."
             },
             {
-              "text": "{nextStation}"
-            },
-            {
-              "text": "Interchange station for",
-              "when": "hasInterchanges"
-            },
-            {
-              "text": "{interchanges}",
+              "text": "Interchange station for {interchanges}.",
               "when": "hasInterchanges"
             },
             {
@@ -234,7 +261,7 @@
     },
     {
       "id": "fangsu:train_approaching",
-      "revision": 4,
+      "revision": 6,
       "event": "train.approaching",
       "defaultVariant": "standard",
       "variants": [
@@ -261,7 +288,18 @@
               "when": "stationSuffixNeeded"
             },
             {
-              "text": "本次列车的终点站, 请所有乘客离开车厢. 感谢您搭乘方速轨道交通.",
+              "text": "。"
+            },
+            {
+              "text": "本次列车的终点站，",
+              "when": "terminal"
+            },
+            {
+              "text": "请所有乘客离开车厢。",
+              "when": "terminal"
+            },
+            {
+              "text": "感谢您搭乘方速轨道交通。",
               "when": "terminal"
             }
           ]
@@ -276,7 +314,14 @@
               "when": "stationSuffixNeeded"
             },
             {
-              "text": "This train stops service here. Thank you for taking FangSu Railway.",
+              "text": "."
+            },
+            {
+              "text": "This train stops service here.",
+              "when": "terminal"
+            },
+            {
+              "text": "Thank you for taking FangSu Railway.",
               "when": "terminal"
             }
           ]

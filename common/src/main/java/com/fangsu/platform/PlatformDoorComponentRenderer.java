@@ -28,10 +28,11 @@ public final class PlatformDoorComponentRenderer implements BlockEntityRenderer<
     }
     private static final class Door extends BlockEntityScreendoor {
         final BlockEntityAutoPlatformComponent host;final PlatformDoorComponent part;
+        float partialTick;
         Door(BlockEntityAutoPlatformComponent host,PlatformDoorComponent part){super(host.getBlockPos(),ModBlocks.BLOCK_SCREENDOOR.get().defaultBlockState());this.host=host;this.part=part;}
         @Override public float getDoorValue(){return progress(part,host.getDoorValue());}
         @Override public boolean getDoorTarget(){return part.options().getOrDefault("isolation","false").equals("true")?part.options().getOrDefault("doorOpenOverride","false").equals("true"):host.getDoorTarget();}
-        @Override protected double displayDoorProgress(long delta){return progress(part,host.getDoorValue());}
+        @Override protected double displayDoorProgress(long delta){return progress(part,host.interpolatedProgress(partialTick));}
         @Override public void sendUpdateC2S(){ }
     }
     private static final class Glass extends BlockEntityScreendoorGlass {
@@ -88,9 +89,10 @@ public final class PlatformDoorComponentRenderer implements BlockEntityRenderer<
             var part=host.components().get(i);if(part.kind().endsWith("_proxy"))continue;
             var child=data.children.get(i);double sx=part.kind().equals("door")?1:part.width(),sy=part.height()/2;
             double tx=-.5,ty=0,tz=-.5+(part.kind().equals("door")?13d/32:9d/32);
+            if(child instanceof Door door)door.partialTick=partial;
             if(child instanceof Board board){
                 var bounds=board.bounds;sx=part.width()/bounds.width();sy=part.height()/bounds.height();tx-=bounds.centerX();ty=-bounds.minY();tz=-.5-bounds.centerZ();
-                board.setDoorTarget(host.getDoorTarget());board.setDoorValue(host.getDoorValue());
+                board.setDoorTarget(host.getDoorTarget());board.setDoorValue(host.interpolatedProgress(partial));
             }
             poses.pushPose();poses.translate(.5+part.dx(),part.dy(),.5+part.dz());PoseStackUtil.rotY(poses,(float)part.yaw());poses.scale((float)sx,(float)sy,1);poses.translate(tx,ty,tz);
             renderer.render(data.children.get(i),partial,poses,buffers,light,overlay);poses.popPose();

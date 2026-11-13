@@ -6,6 +6,7 @@
   "plugin": "com.fangsu.mixin.FangSuMixinPlugin",
   "client": [
     "AnnouncementSoundStreamMixin",
+    "TtsSettingsChatLinkMixin",
     "LegacyRecordingsSoundMixin",
     "LevelRendererMixin",
     "TurnoutRailToolMixin",

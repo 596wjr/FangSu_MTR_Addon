@@ -10,7 +10,7 @@ import java.util.*;
 
 /** 世界只保存语义绑定，绝不保存云端连接、密钥或音频。 */
 public final class BlockEntityAnnouncementSpeaker extends BlockEntity {
-    public static final int DEFAULT_LEAD_SECONDS=15,MIN_LEAD_SECONDS=1,MAX_LEAD_SECONDS=180;
+    public static final int DEFAULT_LEAD_SECONDS=30,MIN_LEAD_SECONDS=1,MAX_LEAD_SECONDS=180;
     public record Binding(long routeId, long platformId) { }
     private boolean allStops;
     private int leadSeconds=DEFAULT_LEAD_SECONDS;

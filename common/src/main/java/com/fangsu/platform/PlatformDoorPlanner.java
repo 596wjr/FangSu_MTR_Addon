@@ -66,8 +66,6 @@ public final class PlatformDoorPlanner {
         for(int pass=0;pass<2;pass++)for(var instance:instances)for(var original:instance.unit().components()){
             if(original.kind().equals("door")!=(pass==0))continue;
             double source=instance.start()+original.offset(),center=pass==0?mapping.at(source):joined(source,joins,mapping,total,settings.fitLength()?path.length():settings.firstOffset()+total);if(center<0||center>path.length())continue;
-            double actualWidth=original.kind().equals("door")?original.width():joined(source+original.width()/2,joins,mapping,total,settings.fitLength()?path.length():settings.firstOffset()+total)-joined(source-original.width()/2,joins,mapping,total,settings.fitLength()?path.length():settings.firstOffset()+total);
-            if(original.kind().equals("board")&&rigid.stream().anyMatch(r->r.start()<=source-original.width()/2&&r.end()>=source+original.width()/2))actualWidth=original.width();
             var part=original;double nativeDepth=part.kind().equals("door")?13d/32:part.kind().equals("glass")?9d/32:11d/32;
             if(part.kind().equals("door")){
                 double low=part.width()/2,high=Math.min(Math.min(center,path.length()-center),low*1.5+.25);if(high<low)continue;
@@ -80,9 +78,20 @@ public final class PlatformDoorPlanner {
                     out.add("door",p,yaw+(left?Math.PI:0),1,2,part.model(),side+part.variant(),part.options());}
                 if(Math.abs(part.lateral())<.001&&part.vertical()<.001)occupied.add(new Interval(center-half,center+half));
             }else{
-                double yaw=path.yaw(center);Point p=shift(path.at(center),yaw,(part.lateral()-nativeDepth)*(left?1:-1),part.vertical());double facing=yaw+(left?Math.PI:0);
-                if(part.kind().equals("board")&&settings.fitLength()&&rigid.stream().noneMatch(r->source>r.start()&&source<r.end()))flexible(path,Math.max(0,center-actualWidth/2),Math.min(path.length(),center+actualWidth/2),part,left,out);
-                else if(part.kind().equals("board")){int pieces=Math.max(1,(int)Math.ceil(actualWidth/8));for(int k=0;k<pieces;k++){double dx=-actualWidth/2+(k+.5)*actualWidth/pieces;out.add("board",new Point(p.x()+Math.cos(yaw)*dx,p.y(),p.z()-Math.sin(yaw)*dx),facing,actualWidth/pieces,part.height(),part.model(),part.variant(),part.options());}}
+                if(part.kind().equals("board")){
+                    double targetEnd=settings.fitLength()?path.length():settings.firstOffset()+total;
+                    double from=Math.max(0,joined(source-part.width()/2,joins,mapping,total,targetEnd));
+                    double to=Math.min(path.length(),joined(source+part.width()/2,joins,mapping,total,targetEnd));
+                    if(to-from<.005)continue;
+                    int pieces=Math.max(1,(int)Math.ceil((to-from-1e-8)/8));
+                    for(int k=0;k<pieces;k++){
+                        double aa=from+(to-from)*k/pieces,bb=from+(to-from)*(k+1)/pieces;
+                        Point a=shift(path.at(aa),path.yaw(aa),(part.lateral()-nativeDepth)*(left?1:-1),part.vertical());
+                        Point b=shift(path.at(bb),path.yaw(bb),(part.lateral()-nativeDepth)*(left?1:-1),part.vertical());
+                        double width=a.distance(b);
+                        if(width>=.005)out.add("board",a.interpolate(b,.5),Math.atan2(-(b.z()-a.z()),b.x()-a.x())+(left?Math.PI:0),width,part.height(),part.model(),part.variant(),part.options());
+                    }
+                }
                 else{
                     double from=Math.max(0,joined(source-part.width()/2,joins,mapping,total,settings.fitLength()?path.length():settings.firstOffset()+total)),to=Math.min(path.length(),joined(source+part.width()/2,joins,mapping,total,settings.fitLength()?path.length():settings.firstOffset()+total));flexible(path,from,to,part,left,out);
                     if(Math.abs(part.lateral())<.001&&part.vertical()<.001)occupied.add(new Interval(from,to));

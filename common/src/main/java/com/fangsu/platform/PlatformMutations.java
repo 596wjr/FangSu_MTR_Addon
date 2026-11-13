@@ -34,7 +34,17 @@ public final class PlatformMutations {
         var data=tag.copy();if(original!=null&&!original.isAir())data.put("originalBlock",net.minecraft.nbt.NbtUtils.writeBlockState(original));
         var oldEntity=level.getBlockEntity(pos);if(oldEntity!=null)data.put("originalEntity",oldEntity.saveWithFullMetadata());
         var checked=new BlockEntityCurvedPlatform(pos,ModBlocks.BLOCK_CURVED_PLATFORM.get().defaultBlockState());checked.load(data);if(checked.geometry==null)return false;
-        run(()->{if(!level.getBlockState(pos).is(ModBlocks.BLOCK_CURVED_PLATFORM.get()))level.removeBlockEntity(pos);level.setBlockAndUpdate(pos,ModBlocks.BLOCK_CURVED_PLATFORM.get().defaultBlockState());if(level.getBlockEntity(pos) instanceof BlockEntityCurvedPlatform cell)cell.load(data);});
+        run(()->{
+            var state=ModBlocks.BLOCK_CURVED_PLATFORM.get().defaultBlockState();
+            if(!level.getBlockState(pos).is(ModBlocks.BLOCK_CURVED_PLATFORM.get()))level.removeBlockEntity(pos);
+            boolean updated=level.setBlockAndUpdate(pos,state);
+            if(level.getBlockEntity(pos) instanceof BlockEntityCurvedPlatform cell){
+                cell.load(data);
+                cell.setChanged();
+                // 相同宿主状态下，原版 setBlock 不会发送更新；几何仍需要同步一次。
+                if(!updated)level.sendBlockUpdated(pos,state,state,2);
+            }
+        });
         boolean placed=level.getBlockEntity(pos) instanceof BlockEntityCurvedPlatform cell&&data.hasUUID("group")&&data.getUUID("group").equals(cell.group);
         if(placed)PlatformOverlays.get(level).remove(pos);return placed;
     }

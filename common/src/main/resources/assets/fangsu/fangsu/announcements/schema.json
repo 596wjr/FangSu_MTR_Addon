@@ -82,7 +82,8 @@
               "enum": [
                 "mimo",
                 "minimax-cn",
-                "minimax-intl"
+                "minimax-intl",
+                "aliyun"
               ]
             },
             "additionalProperties": {

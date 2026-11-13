@@ -14,13 +14,23 @@ import net.minecraft.world.phys.shapes.*;
 
 /** 一个宿主可承载多个任意切线方向的门扇、固定玻璃和吊板。 */
 public final class BlockAutoPlatformComponent extends HorizontalDirectionalBlock implements EntityBlock,IBlockPlatform {
-    public BlockAutoPlatformComponent(){super(BlockBehaviour.Properties.of(
+    //#if MC_VERSION >= 12004
+    //$$ private static final com.mojang.serialization.MapCodec<BlockAutoPlatformComponent> CODEC =
+    //$$         simpleCodec(BlockAutoPlatformComponent::new);
+    //$$ @Override protected com.mojang.serialization.MapCodec<BlockAutoPlatformComponent> codec(){return CODEC;}
+    //#endif
+
+    public BlockAutoPlatformComponent(){this(BlockBehaviour.Properties.of(
         //#if MC_VERSION >= 12000
         )
         //#else
         //$$ net.minecraft.world.level.material.Material.METAL)
         //#endif
-        .strength(2).noOcclusion().dynamicShape());registerDefaultState(defaultBlockState().setValue(FACING,Direction.NORTH));}
+        .strength(2).noOcclusion().dynamicShape());}
+    private BlockAutoPlatformComponent(BlockBehaviour.Properties properties){
+        super(properties);
+        registerDefaultState(defaultBlockState().setValue(FACING,Direction.NORTH));
+    }
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block,BlockState> builder){builder.add(FACING);}
     @Override public BlockEntity newBlockEntity(BlockPos pos,BlockState state){return new BlockEntityAutoPlatformComponent(pos,state);}
     @Override public RenderShape getRenderShape(BlockState state){return RenderShape.ENTITYBLOCK_ANIMATED;}

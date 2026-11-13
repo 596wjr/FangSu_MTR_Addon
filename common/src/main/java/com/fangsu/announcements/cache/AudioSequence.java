@@ -1,6 +1,7 @@
 package com.fangsu.announcements.cache;
 
 import java.util.List;
+import java.util.ArrayList;
 
 /** 播放时使用的临时片段顺序；不代表整段音频文件，也不写入磁盘。 */
 public record AudioSequence(List<AudioCacheStore.Artifact> parts) {
@@ -20,6 +21,13 @@ public record AudioSequence(List<AudioCacheStore.Artifact> parts) {
         if(seconds>180||frames>SAMPLE_RATE*180L)throw new IllegalArgumentException("audio_too_long");
     }
     public static AudioSequence of(AudioCacheStore.Artifact artifact){return new AudioSequence(List.of(artifact));}
+    public AudioSequence withChime(AudioCacheStore.Artifact chime){
+        if(chime==null||parts.size()==128||seconds()+outputFrames(chime.audio())/(double)SAMPLE_RATE>180)return this;
+        List<AudioCacheStore.Artifact> sequence=new ArrayList<>(parts.size()+1);
+        sequence.add(chime);
+        sequence.addAll(parts);
+        return new AudioSequence(sequence);
+    }
     public static long outputFrames(WavInfo audio){return Math.max(1,Math.round(audio.dataLength()/(double)(audio.channels()*2)*SAMPLE_RATE/audio.sampleRate()));}
     public double seconds(){return parts.stream().mapToLong(part->outputFrames(part.audio())).sum()/(double)SAMPLE_RATE;}
 }

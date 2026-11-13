@@ -8,6 +8,7 @@ import com.fangsu.ui.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -21,9 +22,12 @@ import org.lwjgl.util.tinyfd.TinyFileDialogs;
 public final class AudioLibraryScreen extends ThemedConfigScreen {
     private final Screen parent;
     private List<AudioLibrary.Entry> entries=List.of();
+    private com.fangsu.announcements.provider.CloudFailure regenerationError;
     private String search="",kind="all",language="all",state="active",selectedKey="",status="ui.fangsu.ann.library_loading";
     private int page,loadVersion,operationVersion;
-    private String regeneratingKey="";
+    private final Set<String> regeneratingKeys=new HashSet<>();
+    private int previewVersion;
+    private boolean refreshPending;
     private boolean initialized,loading,busy,closed;
     private EditBox filter;
     private net.minecraft.network.chat.Component importReport;
@@ -55,10 +59,21 @@ public final class AudioLibraryScreen extends ThemedConfigScreen {
         String locale=language.equals("all")?labelAll():language.split("-")[0].toUpperCase(Locale.ROOT);
         addFixedWidget(themedButton(x+col+3,y,col,16,ComponentHelper.translatable("ui.fangsu.ann.library_language",locale),b->chooseLanguage()));
         addFixedWidget(themedButton(x+2*(col+3),y,w-2*(col+3),16,ComponentHelper.translatable("ui.fangsu.ann.library_state",ComponentHelper.translatable("ui.fangsu.ann.library_"+state)),b->chooseState()));
-        var notice=(status.equals("ui.fangsu.ann.import_done")||status.equals("ui.fangsu.ann.resource_pack_ready")||status.equals("ui.fangsu.ann.resource_pack_incompatible"))&&importReport!=null?importReport:ComponentHelper.translatable(status);
-        addFixedWidget(themedButton(x,getContentTop()-14,w,12,notice,b->Minecraft.getInstance().setScreen(new Notice(this,notice))));
+        final Component notice;
+        if (regenerationError != null && status.equals("ui.fangsu.ann.failed")) {
+            notice = TtsErrorText.describe(regenerationError.getMessage(), regenerationError);
+        } else if (!busy && !regeneratingKeys.isEmpty()) {
+            notice = ComponentHelper.translatable("ui.fangsu.ann.library_regeneration_queue", regeneratingKeys.size());
+        } else if (importReport != null && (status.equals("ui.fangsu.ann.import_done")
+                || status.equals("ui.fangsu.ann.resource_pack_ready") || status.equals("ui.fangsu.ann.resource_pack_incompatible"))) {
+            notice = importReport;
+        } else {
+            notice = ComponentHelper.translatable(status);
+        }
+        addFixedWidget(themedButton(x, getContentTop()-14, w, 12, notice,
+                b -> Minecraft.getInstance().setScreen(new Notice(this, notice))));
         var item=selection();int action=(w-9)/4;
-        var play=addFixedWidget(themedButton(x,height-53,action,16,ComponentHelper.translatable("ui.fangsu.ann.play"),b->act(item,"play",this)));play.active=item!=null&&!busy&&!loading&&item.playable();
+        var play=addFixedWidget(themedButton(x,height-53,action,16,ComponentHelper.translatable("ui.fangsu.ann.play"),b->act(item,"play",this)));play.active=item!=null&&item.playable();
         var regenerate=addFixedWidget(themedButton(x+action+3,height-53,action,16,ComponentHelper.translatable("ui.fangsu.ann.library_regenerate_short"),b->act(item,"regenerate",this)));regenerate.active=canRegenerate(item);
         var delete=addFixedWidget(themedButton(x+2*(action+3),height-53,action,16,ComponentHelper.translatable(item!=null&&item.deleted()?"ui.fangsu.ann.restore":"ui.fangsu.ann.delete"),b->act(item,"delete",this)));delete.active=item!=null&&!busy&&!loading;if(item==null||!item.deleted())danger(delete);
         var details=addFixedWidget(themedButton(x+3*(action+3),height-53,w-3*(action+3),16,ComponentHelper.translatable("ui.fangsu.ann.library_details"),b->Minecraft.getInstance().setScreen(new Details(this,item))));details.active=item!=null;
@@ -67,7 +82,7 @@ public final class AudioLibraryScreen extends ThemedConfigScreen {
         var counter=addFixedWidget(themedButton(x+nav+3,height-29,nav,16,ComponentHelper.translatable("ui.fangsu.ann.library_page",page+1,pages),b->{}));counter.active=false;
         var next=addFixedWidget(themedButton(x+2*(nav+3),height-29,nav,16,ComponentHelper.translatable("ui.fangsu.ann.library_next_short"),b->{page++;selectedKey="";requestRebuild();}));next.active=page+1<pages;
         addFixedWidget(themedButton(x+3*(nav+3),height-29,nav,16,ComponentHelper.translatable("ui.fangsu.ann.library_cloud_short"),b->Minecraft.getInstance().setScreen(new TtsProviderScreen(this))));
-        addFixedWidget(themedButton(x+4*(nav+3),height-29,nav,16,ComponentHelper.translatable("ui.fangsu.ann.library_stop_short"),b->CachedAudioPlayback.stopPreview()));
+        addFixedWidget(themedButton(x+4*(nav+3),height-29,nav,16,ComponentHelper.translatable("ui.fangsu.ann.library_stop_short"),b->stopPreview()));
         closeButton=addFixedWidget(themedButton(x+5*(nav+3),height-29,w-5*(nav+3),16,ComponentHelper.translatable("gui.back"),b->onClose()));
     }
     @Override protected void buildScrollableContent(ContentLayout layout){
@@ -87,11 +102,11 @@ public final class AudioLibraryScreen extends ThemedConfigScreen {
         }
     }
     private static String title(AudioLibrary.Entry item){return item.recipe()==null?ComponentHelper.translatableString("ui.fangsu.ann.library_legacy")+" · "+item.key().substring(0,8):item.recipe().text().replace('\n',' ');}
-    private boolean canRegenerate(AudioLibrary.Entry item){return item!=null&&!busy&&!loading&&item.regenerable()&&AnnouncementClient.synthesis()!=null&&AnnouncementClient.synthesis().enabled();}
+    private boolean canRegenerate(AudioLibrary.Entry item){return item!=null&&!busy&&item.regenerable()&&!regeneratingKeys.contains(item.key())&&AnnouncementClient.synthesis()!=null&&AnnouncementClient.synthesis().enabled();}
     private void act(AudioLibrary.Entry item,String action,Screen origin){if(item==null)return;
-        if(action.equals("play"))perform(()->AnnouncementClient.libraryAudio(item.key()),true,origin);
-        else if(action.equals("regenerate"))perform(()->AnnouncementClient.regenerateAudio(item.key()),false,origin,item.key());
-        else{CachedAudioPlayback.stopPreview();perform(()->item.deleted()?AnnouncementClient.restore(item.key()):AnnouncementClient.delete(item.key()),false,origin);}
+        if(action.equals("play"))play(item,origin);
+        else if(action.equals("regenerate"))queueRegeneration(item);
+        else{stopPreview();perform(()->item.deleted()?AnnouncementClient.restore(item.key()):AnnouncementClient.delete(item.key()));}
     }
     private void updateDetails(){var screen=Minecraft.getInstance().screen;if(screen instanceof Details details&&details.owner==this){
         entries.stream().filter(e->e.key().equals(details.item.key())).findFirst().ifPresent(details::update);
@@ -116,7 +131,7 @@ public final class AudioLibraryScreen extends ThemedConfigScreen {
         }else importFiles(paths);
     }
     private void inspectArchive(Path path){
-        if(busy)return;int version=++operationVersion;busy=true;regeneratingKey="";status="ui.fangsu.ann.import_detecting";requestRebuild();
+        if(busy)return;int version=++operationVersion;busy=true;status="ui.fangsu.ann.import_detecting";requestRebuild();
         AnnouncementArchiveImport.inspect(path).whenComplete((kind,error)->Minecraft.getInstance().execute(()->{
             if(closed||version!=operationVersion)return;busy=false;
             if(error!=null){status=errorKey(error);requestRebuild();return;}
@@ -124,7 +139,7 @@ public final class AudioLibraryScreen extends ThemedConfigScreen {
         }));
     }
     private void runResourcePack(Path path){
-        if(busy)return;int version=++operationVersion;busy=true;regeneratingKey="";status="ui.fangsu.ann.resource_pack_importing";requestRebuild();
+        if(busy)return;int version=++operationVersion;busy=true;status="ui.fangsu.ann.resource_pack_importing";requestRebuild();
         AnnouncementArchiveImport.install(path).whenComplete((result,error)->Minecraft.getInstance().execute(()->{
             if(closed||version!=operationVersion)return;busy=false;
             if(error!=null){status=errorKey(error);if(status.equals("ui.fangsu.ann.failed"))status="ui.fangsu.ann.resource_pack_failed";}
@@ -143,7 +158,7 @@ public final class AudioLibraryScreen extends ThemedConfigScreen {
     private List<String> exportKeys(boolean all){return (all?entries:filtered()).stream().filter(AudioLibrary.Entry::playable).map(AudioLibrary.Entry::key).toList();}
     private void pickPack(boolean exporting,List<String> keys){
         if(!exporting){pickFiles();return;}
-        if(busy)return;busy=true;regeneratingKey="";int version=++operationVersion;status="ui.fangsu.ann.pack_choosing";requestRebuild();Minecraft.getInstance().setScreen(this);
+        if(busy)return;busy=true;int version=++operationVersion;status="ui.fangsu.ann.pack_choosing";requestRebuild();Minecraft.getInstance().setScreen(this);
         CompletableFuture.supplyAsync(()->{
             try(MemoryStack stack=MemoryStack.stackPush()){
                 PointerBuffer patterns=stack.mallocPointer(1);patterns.put(stack.UTF8("*.zip")).flip();
@@ -160,7 +175,7 @@ public final class AudioLibraryScreen extends ThemedConfigScreen {
         }));
     }
     private void runPack(Path path,List<String> keys,boolean exporting){
-        if(busy)return;int version=++operationVersion;busy=true;regeneratingKey="";status=exporting?"ui.fangsu.ann.pack_exporting":"ui.fangsu.ann.pack_importing";requestRebuild();
+        if(busy)return;int version=++operationVersion;busy=true;status=exporting?"ui.fangsu.ann.pack_exporting":"ui.fangsu.ann.pack_importing";requestRebuild();
         try{
             var future=exporting?AnnouncementClient.exportAudioPack(path,keys):AnnouncementClient.importAudioPack(path);
             future.whenComplete((result,error)->Minecraft.getInstance().execute(()->{
@@ -178,7 +193,7 @@ public final class AudioLibraryScreen extends ThemedConfigScreen {
         }catch(RuntimeException e){busy=false;status="ui.fangsu.ann.pack_failed";requestRebuild();}
     }
     private void pickFiles(){
-        if(busy)return;busy=true;regeneratingKey="";int version=++operationVersion;requestRebuild();Minecraft.getInstance().setScreen(this);
+        if(busy)return;busy=true;int version=++operationVersion;requestRebuild();Minecraft.getInstance().setScreen(this);
         CompletableFuture.supplyAsync(()->{
             try(MemoryStack stack=MemoryStack.stackPush()){
                 PointerBuffer patterns=stack.mallocPointer(6);
@@ -215,47 +230,77 @@ public final class AudioLibraryScreen extends ThemedConfigScreen {
     private void choose(String title,List<String> values,java.util.function.Function<String,String> label,java.util.function.Consumer<String> change){
         Minecraft.getInstance().setScreen(new ConfigChoiceScreen(this,title,values.stream().map(value->new ConfigChoiceScreen.Choice(value,label.apply(value))).toList(),value->{change.accept(value);page=0;selectedKey="";scrollOffset=0;requestRebuild();}));
     }
-    private void refresh(){if(loading)return;loading=true;int version=++loadVersion;requestRebuild();
+    private void refresh(){if(loading){refreshPending=true;return;}loading=true;int version=++loadVersion;requestRebuild();
         try{AnnouncementClient.audioEntries().whenComplete((result,error)->Minecraft.getInstance().execute(()->{
             if(version!=loadVersion||closed)return;loading=false;
             if(error==null){entries=result;if(status.equals("ui.fangsu.ann.library_loading"))status="ui.fangsu.ann.library_ready";}else status=errorKey(error);updateDetails();requestRebuild();
+            if(refreshPending){refreshPending=false;refresh();}
         }));}catch(RuntimeException e){loading=false;status="ui.fangsu.ann.failed";requestRebuild();}
     }
-    private void perform(java.util.function.Supplier<CompletableFuture<?>> action,boolean play,Screen origin){perform(action,play,origin,"");}
-    private void perform(java.util.function.Supplier<CompletableFuture<?>> action,boolean play,Screen origin,String regenerating){
-        if(busy)return;int version=++operationVersion;busy=true;regeneratingKey=regenerating;status="ui.fangsu.ann.working";updateDetails();requestRebuild();
-        try{action.get().whenComplete((result,error)->Minecraft.getInstance().execute(()->{
+    private void stopPreview(){
+        previewVersion++;
+        CachedAudioPlayback.stopPreview();
+    }
+    private void play(AudioLibrary.Entry item,Screen origin){
+        if(!item.playable())return;
+        int version=++previewVersion;
+        AnnouncementClient.libraryAudio(item.key()).whenComplete((audio,error)->Minecraft.getInstance().execute(()->{
+            if(closed||previewVersion!=version||Minecraft.getInstance().screen!=origin)return;
+            if(error==null)CachedAudioPlayback.play(audio);
+            else{status=errorKey(error);updateDetails();requestRebuild();}
+        }));
+    }
+    private void queueRegeneration(AudioLibrary.Entry item){
+        if(!canRegenerate(item))return;
+        String key=item.key();
+        regenerationError = null;
+        regeneratingKeys.add(key);
+        updateDetails();requestRebuild();
+        AnnouncementClient.regenerateAudio(key).whenComplete((result,error)->Minecraft.getInstance().execute(()->{
+            regeneratingKeys.remove(key);
+            regenerationError = TtsErrorText.find(error);
             if(closed)return;
-            // 详情页拖入可以覆盖同一条目的在途重生成；旧回调只刷新元数据，不覆盖新操作的状态或播放旧声音。
-            if(version!=operationVersion){refresh();return;}
-            busy=false;regeneratingKey="";
-            if(error==null){
-                status="ui.fangsu.ann.library_done";
-                if(result instanceof AudioCacheStore.Artifact artifact){
-                    if(!regenerating.isEmpty()&&!artifact.key().equals(regenerating)){
-                        selectedKey=artifact.key();search="";state="active";page=0;scrollOffset=0;
-                        if(origin instanceof Details details&&details.owner==this&&details.item.key().equals(regenerating))details.retarget(artifact);
+            if(!busy){
+                if(error!=null)status=errorKey(error);
+                else if(result.fragments()>1)status="ui.fangsu.ann.library_regenerated_fragments";
+                else{
+                    status="ui.fangsu.ann.library_done";
+                    var audio=result.first();
+                    if(!audio.key().equals(key)){
+                        if(selectedKey.equals(key)){selectedKey=audio.key();search="";state="active";page=0;scrollOffset=0;}
+                        if(Minecraft.getInstance().screen instanceof Details details&&details.owner==this&&details.item.key().equals(key))details.retarget(audio);
                     }
-                    if(play&&Minecraft.getInstance().screen==origin)CachedAudioPlayback.play(artifact);
                 }
             }
-            else status=errorKey(error);updateDetails();refresh();requestRebuild();
-        }));}catch(RuntimeException e){if(version!=operationVersion)return;busy=false;regeneratingKey="";status=errorKey(e);updateDetails();requestRebuild();}
+            refresh();updateDetails();requestRebuild();
+        }));
+    }
+    private void perform(java.util.function.Supplier<CompletableFuture<?>> action){
+        if(busy)return;
+        int version=++operationVersion;
+        busy=true;status="ui.fangsu.ann.working";updateDetails();requestRebuild();
+        try{action.get().whenComplete((result,error)->Minecraft.getInstance().execute(()->{
+            if(closed||version!=operationVersion)return;
+            busy=false;status=error==null?"ui.fangsu.ann.library_done":errorKey(error);
+            refresh();updateDetails();requestRebuild();
+        }));}catch(RuntimeException e){busy=false;status=errorKey(e);updateDetails();requestRebuild();}
     }
     private void replaceAudio(AudioLibrary.Entry item,List<Path> paths){
         if(paths.isEmpty())return;
         if(paths.stream().anyMatch(AudioLibraryScreen::packPath)){status="ui.fangsu.ann.pack_detail_drop";updateDetails();requestRebuild();return;}
         if(paths.size()!=1){status="ui.fangsu.ann.replace_one";updateDetails();requestRebuild();return;}
-        if(busy&&!item.key().equals(regeneratingKey)){status="ui.fangsu.ann.replace_busy";updateDetails();requestRebuild();return;}
-        CachedAudioPlayback.stopPreview();int version=++operationVersion;busy=true;regeneratingKey="";status="ui.fangsu.ann.replace_working";updateDetails();requestRebuild();
+        if(busy){status="ui.fangsu.ann.replace_busy";updateDetails();requestRebuild();return;}
+        stopPreview();int version=++operationVersion;busy=true;status="ui.fangsu.ann.replace_working";updateDetails();requestRebuild();
         try{AnnouncementClient.replaceAudio(item.key(),paths.get(0)).whenComplete((result,error)->Minecraft.getInstance().execute(()->{
             if(closed||version!=operationVersion)return;
             busy=false;status=error==null?"ui.fangsu.ann.replace_done":errorKey(error);updateDetails();refresh();requestRebuild();
         }));}catch(RuntimeException e){if(version!=operationVersion)return;busy=false;status=errorKey(e);updateDetails();requestRebuild();}
     }
-    private static String errorKey(Throwable error){for(Throwable cause=error;cause!=null;cause=cause.getCause()){String message=cause.getMessage();
+    static String errorKey(Throwable error){for(Throwable cause=error;cause!=null;cause=cause.getCause()){String message=cause.getMessage();
         if(message==null)continue;
         String key=switch(message){
+            case "queue_full"->"ui.fangsu.ann.library_queue_full";
+            case "aliyun_voice_pending","aliyun_voice_unavailable"->"ui.fangsu.ann."+message;
             case "missing_key"->"ui.fangsu.ann.library_missing_key";
             case "synthesis_disabled_or_deleted"->"ui.fangsu.ann.library_cloud_disabled";
             case "library_recipe_missing"->"ui.fangsu.ann.library_legacy_hint";
@@ -295,16 +340,16 @@ public final class AudioLibraryScreen extends ThemedConfigScreen {
         @Override protected int getPanelBottom(){return height-60;}
         @Override protected int getContentBottom(){return height-66;}
         @Override protected void buildFixedWidgets(){int x=getPanelLeft()+5,w=getPanelRight()-x-5,col=(w-6)/3;
-            var play=addFixedWidget(themedButton(x,height-53,col,16,ComponentHelper.translatable("ui.fangsu.ann.play"),b->owner.act(item,"play",this)));play.active=!owner.busy&&!owner.loading&&item.playable();
+            var play=addFixedWidget(themedButton(x,height-53,col,16,ComponentHelper.translatable("ui.fangsu.ann.play"),b->owner.act(item,"play",this)));play.active=item.playable();
             var regenerate=addFixedWidget(themedButton(x+col+3,height-53,col,16,ComponentHelper.translatable("ui.fangsu.ann.regenerate"),b->owner.act(item,"regenerate",this)));regenerate.active=owner.canRegenerate(item);
             var remove=addFixedWidget(themedButton(x+2*(col+3),height-53,w-2*(col+3),16,ComponentHelper.translatable(item.deleted()?"ui.fangsu.ann.restore":"ui.fangsu.ann.delete"),b->owner.act(item,"delete",this)));remove.active=!owner.busy&&!owner.loading;if(!item.deleted())danger(remove);
-            addFixedWidget(themedButton(x,height-29,w/2-2,16,ComponentHelper.translatable("ui.fangsu.ann.library_stop_short"),b->CachedAudioPlayback.stopPreview()));
+            addFixedWidget(themedButton(x,height-29,w/2-2,16,ComponentHelper.translatable("ui.fangsu.ann.library_stop_short"),b->owner.stopPreview()));
             closeButton=addFixedWidget(themedButton(x+w/2+2,height-29,w/2-2,16,ComponentHelper.translatable("gui.back"),b->onClose()));
         }
         @Override protected void buildScrollableContent(ContentLayout layout){int x=layout.areaLeft,w=layout.areaRight-x,y=layout.y;var recipe=item.recipe();
             if(recipe!=null&&recipe.kind().equals("imported")){
                 EditBox caption=new EditBox(font,x,y,w-58,18,ComponentHelper.translatable("ui.fangsu.ann.import_caption"));caption.setMaxLength(4096);caption.setValue(recipe.text());addRenderableWidget(caption);addEntry(caption,y);
-                var save=addButton(x+w-54,y,54,18,ComponentHelper.translatable("ui.fangsu.config.apply"),b->owner.perform(()->AnnouncementClient.renameImportedAudio(item.key(),caption.getValue()),false,this));save.active=!owner.busy&&!owner.loading;addEntry(save,y);y+=24;
+                var save=addButton(x+w-54,y,54,18,ComponentHelper.translatable("ui.fangsu.config.apply"),b->owner.perform(()->AnnouncementClient.renameImportedAudio(item.key(),caption.getValue())));save.active=!owner.busy&&!owner.loading;addEntry(save,y);y+=24;
             }
             y=addWrappedText(x,y,w,ComponentHelper.literal(title(item)),0xE1E6EC)+8;
             if(recipe!=null&&!recipe.spokenText().equals(recipe.text()))y=addWrappedText(x,y,w,ComponentHelper.translatable("ui.fangsu.ann.spoken_text",recipe.spokenText()),0xAEB6C2)+8;
@@ -315,6 +360,9 @@ public final class AudioLibraryScreen extends ThemedConfigScreen {
             if(recipe==null)y=addWrappedText(x,y,w,ComponentHelper.translatable("ui.fangsu.ann.library_legacy_hint"),0xD5B786)+6;
             else if(recipe.kind().equals("imported"))y=addWrappedText(x,y,w,ComponentHelper.translatable("ui.fangsu.ann.library_imported_hint"),0xAEB6C2)+6;
             y=addWrappedText(x,y,w,ComponentHelper.translatable("ui.fangsu.ann.replace_hint"),0xAEB6C2)+6;
+            if(owner.regeneratingKeys.contains(item.key()))y=addWrappedText(x,y,w,ComponentHelper.translatable("ui.fangsu.ann.library_regeneration_pending"),0xAEB6C2)+6;
+            if (owner.regenerationError != null && owner.status.equals("ui.fangsu.ann.failed"))
+                y = addWrappedText(x,y,w,TtsErrorText.describe(owner.regenerationError.getMessage(), owner.regenerationError),0xAEB6C2)+6;
             if(!owner.status.equals("ui.fangsu.ann.library_ready"))y=addWrappedText(x,y,w,ComponentHelper.translatable(owner.status),0xAEB6C2)+6;
             addEntry(addButton(x,y,w,16,ComponentHelper.translatable("ui.fangsu.ann.library_advanced"),b->{advanced=!advanced;requestRebuild();}),y);y+=22;
             if(advanced){
@@ -323,7 +371,7 @@ public final class AudioLibraryScreen extends ThemedConfigScreen {
                 addWrappedText(x,y,w,ComponentHelper.literal(item.key()),0xAEB6C2);
             }
         }
-        @Override public void onClose(){CachedAudioPlayback.stopPreview();Minecraft.getInstance().setScreen(owner);}
+        @Override public void onClose(){owner.stopPreview();Minecraft.getInstance().setScreen(owner);}
     }
     private static final class PackMenu extends ThemedConfigScreen {
         private final AudioLibraryScreen owner;
@@ -348,5 +396,5 @@ public final class AudioLibraryScreen extends ThemedConfigScreen {
         @Override protected void buildFixedWidgets(){closeButton=addFixedWidget(themedButton(getPanelLeft(),height-35,getPanelRight()-getPanelLeft(),16,ComponentHelper.translatable("gui.back"),b->onClose()));}
         @Override public void onClose(){Minecraft.getInstance().setScreen(parent);}
     }
-    @Override public void onClose(){closed=true;CachedAudioPlayback.stopPreview();Minecraft.getInstance().setScreen(parent);}
+    @Override public void onClose(){closed=true;stopPreview();Minecraft.getInstance().setScreen(parent);}
 }

@@ -505,7 +505,7 @@ public class BlockEntityDiaoban extends BaseDisplayBlockEntity implements IPlatf
         // 路线重新加载，重置颜色替换标记，以便使用正确的路线颜色重新填充 routecolor
         stitchedLoaded = false;
 
-        String drawInfoId = "DIAOBAN_" + drawKey + "_" + routes + "_" + arrowDirection;
+        String drawInfoId = "DIAOBAN_" + drawKey + "_" + routes + "_" + arrowDirection + "_" + texW + "x" + texH;
 
         tryRegisterDrawing(drawInfoId, texW, texH,
                 gt -> {

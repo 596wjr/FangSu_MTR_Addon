@@ -25,8 +25,9 @@ public final class PlatformOverlays extends SavedData {
     private ServerLevel registeredLevel;
     private final Map<BlockPos,Entry> entries=new HashMap<>();
     private final Map<Long,Set<BlockPos>> chunks=new HashMap<>();
+    private final Map<Long,Long> chunkRevisions=new HashMap<>();
     private long revision;
-    public long revision(){return revision;}
+    long chunkRevision(long chunk){return chunkRevisions.getOrDefault(chunk,0L);}
     public static PlatformOverlays get(ServerLevel level){
         //#if MC_VERSION >= 12002
         //$$ var result=level.getDataStorage().computeIfAbsent(new SavedData.Factory<>(PlatformOverlays::new,PlatformOverlays::load,null),"fangsu_platform_overlays");
@@ -35,22 +36,30 @@ public final class PlatformOverlays extends SavedData {
         //#endif
         if(result.registeredLevel!=level){result.registeredLevel=level;result.entries.forEach((pos,entry)->PlatformOverhangs.update(level,pos,entry.geometry()));}return result;
     }
-    private static long chunk(BlockPos pos){return net.minecraft.world.level.ChunkPos.asLong(pos.getX()>>4,pos.getZ()>>4);}
+    static long chunk(BlockPos pos){return net.minecraft.world.level.ChunkPos.asLong(pos.getX()>>4,pos.getZ()>>4);}
     public Entry entry(BlockPos pos){return entries.get(pos);}
     public boolean owns(BlockPos pos,UUID group){var entry=entries.get(pos);return entry!=null&&entry.cell().hasUUID("group")&&group.equals(entry.cell().getUUID("group"));}
     public void put(BlockPos pos,BlockState expected,CompoundTag cell){
         put(pos,expected,cell,false);
     }
-    private void put(BlockPos pos,BlockState expected,CompoundTag cell,boolean covered){entries.put(pos.immutable(),new Entry(expected,cell.copy(),covered));chunks.computeIfAbsent(chunk(pos),k->new HashSet<>()).add(pos.immutable());revision++;setDirty();if(registeredLevel!=null)PlatformOverhangs.update(registeredLevel,pos,entries.get(pos).geometry());}
+    private void put(BlockPos pos,BlockState expected,CompoundTag cell,boolean covered){entries.put(pos.immutable(),new Entry(expected,cell.copy(),covered));chunks.computeIfAbsent(chunk(pos),k->new HashSet<>()).add(pos.immutable());chunkRevisions.put(chunk(pos),++revision);setDirty();if(registeredLevel!=null)PlatformOverhangs.update(registeredLevel,pos,entries.get(pos).geometry());}
     public void cover(BlockPos pos,BlockState expected,CompoundTag cell){put(pos,expected,cell,true);}
     public void changed(ServerLevel level,BlockPos pos,BlockState next){
         if(PlatformMutations.internal())return;var entry=entries.get(pos);if(entry==null)return;
         if(entry.covered()){
             if(next.isAir())PlatformMutations.restoreSoon(level,pos);
-            else if(!next.equals(entry.expected())){entry.expected=next;revision++;setDirty();}
+            else if(!next.equals(entry.expected())){entry.expected=next;chunkRevisions.put(chunk(pos),++revision);setDirty();}
         }else if(!next.equals(entry.expected()))remove(pos);
     }
-    public void remove(BlockPos pos){if(entries.remove(pos)!=null){var points=chunks.get(chunk(pos));if(points!=null){points.remove(pos);if(points.isEmpty())chunks.remove(chunk(pos));}revision++;setDirty();}}
+    public void remove(BlockPos pos){
+        if(entries.remove(pos)==null)return;
+        long key=chunk(pos);
+        var points=chunks.get(key);
+        points.remove(pos);
+        if(points.isEmpty()){chunks.remove(key);chunkRevisions.remove(key);}
+        else chunkRevisions.put(key,++revision);
+        setDirty();
+    }
     public List<BlockPos> nearby(ServerLevel level,BlockPos center){
         List<BlockPos> result=new ArrayList<>();int cx=center.getX()>>4,cz=center.getZ()>>4;
         for(int x=cx-5;x<=cx+5;x++)for(int z=cz-5;z<=cz+5;z++)for(var pos:new ArrayList<>(chunks.getOrDefault(net.minecraft.world.level.ChunkPos.asLong(x,z),Set.of()))){
@@ -61,6 +70,14 @@ public final class PlatformOverlays extends SavedData {
         return result;
     }
     public CompoundTag packet(BlockPos pos){var entry=entries.get(pos);CompoundTag result=new CompoundTag();result.putLong("pos",pos.asLong());result.put("expected",net.minecraft.nbt.NbtUtils.writeBlockState(entry.expected()));result.putBoolean("covered",entry.covered());result.put("cell",entry.cell());return result;}
+    CompoundTag clientPacket(BlockPos pos){
+        var packet=packet(pos);
+        var cell=packet.getCompound("cell");
+        var visible=new CompoundTag();
+        for(String key:cell.getAllKeys())if(!key.equals("originalBlock")&&!key.equals("originalEntity"))visible.put(key,cell.get(key));
+        packet.put("cell",visible);
+        return packet;
+    }
     public static BlockState state(CompoundTag tag){
         //#if MC_VERSION >= 11903
         return net.minecraft.nbt.NbtUtils.readBlockState(net.minecraft.core.registries.BuiltInRegistries.BLOCK.asLookup(),tag);

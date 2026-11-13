@@ -47,6 +47,7 @@ public final class PlatformDoorPackets {
             try{
                 action=buffer.readVarInt();request=buffer.readUtf(36);UUID.fromString(request);
                 if(action==0){nodes=List.of(buffer.readBlockPos(),buffer.readBlockPos());platform=buffer.readUtf(32767);doors=buffer.readUtf(32767);left=buffer.readBoolean();source=buffer.readBoolean()?buffer.readUUID():null;group=buffer.readBoolean()?buffer.readUUID():null;token="";clicked=null;}
+                else if(action==5){doors=buffer.readUtf(32767);nodes=List.of();platform=token="";left=true;source=group=null;clicked=null;}
                 else if(action>=1&&action<=4){clicked=action==4?buffer.readBlockPos():null;token=action==1?buffer.readUtf(36):"";group=action==3?buffer.readUUID():null;nodes=List.of();platform=doors="";left=true;source=null;}else return;
                 if(buffer.readableBytes()!=0)return;
             }catch(RuntimeException e){return;}
@@ -56,6 +57,15 @@ public final class PlatformDoorPackets {
                 if(!(player.getMainHandItem().getItem() instanceof ItemPlatformTool tool)||tool.role!=ItemPlatformTool.Role.SCREEN_DOOR){respond(player,request,"hold_tool",null,List.of());return;}
                 ServerLevel level=level(player);
                 if(action==4){query(player,clicked,request);return;}
+                if(action==5){
+                    try{
+                        var template=PlatformDoorSettings.decode(doors).freshFacing();
+                        player.getMainHandItem().getOrCreateTag().putString(PlatformDoorSettings.TEMPLATE_TAG,PlatformDoorSettings.encode(template));
+                        player.getInventory().setChanged();
+                        respond(player,request,"template_saved",null,List.of());
+                    }catch(RuntimeException e){respond(player,request,"invalid",null,List.of());}
+                    return;
+                }
                 if(action==2){PENDING.remove(player.getUUID());PLANS.remove(player.getUUID());Job job=JOBS.get(player.getUUID());if(job==null)respond(player,request,"cancelled",null,List.of());else{job.cancelling=true;job.responseRequest=request;respond(player,request,"cancelling",job.plan,List.of(),false);}return;}
                 if(JOBS.containsKey(player.getUUID())){respond(player,request,"busy",null,List.of());return;}
                 if(action==3){var layout=PlatformDoorLayouts.get(level).get(group);if(!manageable(player,layout)||!nearLayout(player,layout)){respond(player,request,"permission",null,List.of());return;}if(busy(level,group)){respond(player,request,"busy",null,List.of());return;}
@@ -166,6 +176,7 @@ public final class PlatformDoorPackets {
         NetworkManager.registerReceiver(NetworkManager.Side.S2C,LOADED,(b,context)->{try{String request=b.readUtf(36);UUID source=b.readBoolean()?b.readUUID():null,group=b.readBoolean()?b.readUUID():null;List<BlockPos> nodes=List.of(b.readBlockPos(),b.readBlockPos());boolean left=b.readBoolean();PlatformSettings platform=PlatformPreset.decode(b.readUtf(32767));PlatformDoorSettings doors=PlatformDoorSettings.decode(b.readUtf(32767));if(b.readableBytes()!=0)return;context.queue(()->PlatformDoorClient.loaded(request,source,group,nodes,platform,left,doors));}catch(RuntimeException ignored){}});
     }
     public static void preview(List<BlockPos> nodes,PlatformSettings platform,boolean left,UUID source,UUID group,PlatformDoorSettings doors,String request){if(nodes.size()!=2)return;FriendlyByteBuf b=buffer(0,request);nodes.forEach(b::writeBlockPos);b.writeUtf(PlatformPreset.encode(platform));b.writeUtf(PlatformDoorSettings.encode(doors));b.writeBoolean(left);b.writeBoolean(source!=null);if(source!=null)b.writeUUID(source);b.writeBoolean(group!=null);if(group!=null)b.writeUUID(group);send(b);}
+    public static void storeTemplate(PlatformDoorSettings template,String request){FriendlyByteBuf b=buffer(5,request);b.writeUtf(PlatformDoorSettings.encode(template));send(b);}
     public static void build(String token,String request){FriendlyByteBuf b=buffer(1,request);b.writeUtf(token);send(b);}
     public static void cancel(String request){send(buffer(2,request));}
     public static void remove(UUID group,String request){if(group==null)return;FriendlyByteBuf b=buffer(3,request);b.writeUUID(group);send(b);}

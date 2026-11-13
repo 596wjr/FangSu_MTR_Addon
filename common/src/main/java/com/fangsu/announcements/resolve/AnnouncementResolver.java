@@ -43,7 +43,8 @@ public final class AnnouncementResolver {
         Voice voice = snapshot.voices().get(voiceOverride != null && !voiceOverride.isEmpty() ? voiceOverride : binding.voice());
         List<Segment> segments = template.locales().get(locale);
         if (voice == null || segments == null) return Optional.empty();
-        StringJoiner text = new StringJoiner(" "), spoken = new StringJoiner(" ");
+        StringBuilder text = new StringBuilder(), spoken = new StringBuilder();
+        boolean chinese = Locale.forLanguageTag(locale).getLanguage().equals("zh");
         List<SpeechPart> parts=new ArrayList<>();
         for (Segment segment : segments) {
             if (!segment.when().isEmpty() && !conditions.contains(segment.when())) continue;
@@ -68,7 +69,10 @@ public final class AnnouncementResolver {
             }
             if (!missing) {
                 String tail=segment.text().substring(last);addPart(segmentParts,"",tail,tail);
-                expanded.append(tail);pronounced.append(tail);text.add(expanded.toString());spoken.add(pronounced.toString());parts.addAll(segmentParts);
+                expanded.append(tail);pronounced.append(tail);
+                appendText(text, expanded.toString(), chinese);
+                appendText(spoken, pronounced.toString(), chinese);
+                parts.addAll(segmentParts);
             }
         }
         String resolved = Normalizer.normalize(text.toString(), Normalizer.Form.NFC).trim();
@@ -76,6 +80,12 @@ public final class AnnouncementResolver {
         if (resolved.isEmpty() || resolved.length() > 4096 || spokenText.isEmpty() || spokenText.length() > 4096 || parts.isEmpty() || parts.size()>128) return Optional.empty();
         return Optional.of(new ResolvedUtterance(template.id(), template.revision(), variant.id(), voice,
                 locale, resolved, spokenText, binding == null ? "" : binding.style(),parts));
+    }
+    private static void appendText(StringBuilder result,String segment,boolean chinese){
+        String value=segment.strip();
+        if(value.isEmpty())return;
+        if(!chinese&&!result.isEmpty()&&".,!?;:…。，！？；：".indexOf(value.charAt(0))<0)result.append(' ');
+        result.append(value);
     }
     private static void addPart(List<SpeechPart> parts,String variable,String display,String spoken){
         // 句号等纯标点留在字幕里，不为一个标点创建付费请求。

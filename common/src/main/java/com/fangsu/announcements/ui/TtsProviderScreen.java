@@ -2,6 +2,7 @@ package com.fangsu.announcements.ui;
 
 import com.fangsu.announcements.AnnouncementClient;
 import com.fangsu.announcements.provider.ClientTokens;
+import com.fangsu.announcements.provider.CloudTtsProvider.Region;
 import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.ui.*;
 import com.google.gson.Gson;
@@ -18,12 +19,17 @@ public final class TtsProviderScreen extends ThemedConfigScreen {
     private final AnnouncementClient.Settings draft;
     private String token="",status="ui.fangsu.menu.provider_hint";
     private boolean remember,show,advanced;
+    private String accountInput;
     private final Map<String,String> tokenDrafts=new HashMap<>();
     private final Map<String,Boolean> rememberDrafts=new HashMap<>();
-    public TtsProviderScreen(Screen parent){super(ComponentHelper.translatable("ui.fangsu.menu.provider"));this.parent=parent;draft=new Gson().fromJson(new Gson().toJson(AnnouncementClient.settings()),AnnouncementClient.Settings.class);loadToken();}
+    public TtsProviderScreen(Screen parent){super(ComponentHelper.translatable("ui.fangsu.menu.provider"));this.parent=parent;draft=new Gson().fromJson(new Gson().toJson(AnnouncementClient.settings()),AnnouncementClient.Settings.class);accountInput=draft.accountNamespace;loadToken();}
     private String accountKey(){return draft.provider+"/"+draft.accountNamespace;}
     private void loadToken(){
-        try{token=tokenDrafts.getOrDefault(accountKey(),ClientTokens.entered(draft.provider,draft.accountNamespace));remember=rememberDrafts.getOrDefault(accountKey(),ClientTokens.remembered(draft.provider,draft.accountNamespace));}
+        try{
+            String scope=accountKey();
+            token=tokenDrafts.containsKey(scope)?tokenDrafts.get(scope):ClientTokens.entered(draft.provider,draft.accountNamespace);
+            remember=rememberDrafts.containsKey(scope)?rememberDrafts.get(scope):ClientTokens.remembered(draft.provider,draft.accountNamespace);
+        }
         catch(Exception e){token="";remember=false;status="ui.fangsu.ann.failed";}
         show=false;
     }
@@ -34,13 +40,21 @@ public final class TtsProviderScreen extends ThemedConfigScreen {
     }
     @Override protected void buildScrollableContent(ContentLayout layout){int x=layout.areaLeft,w=layout.areaRight-x,y=layout.y;
         y=addWrappedText(x,y,w,ComponentHelper.translatable(status),0x555555)+10;
-        addEntry(addButton(x,y,w,20,ComponentHelper.translatable("ui.fangsu.menu.selected_provider",providerLabel(draft.provider)),b->Minecraft.getInstance().setScreen(new ConfigChoiceScreen(this,"ui.fangsu.menu.provider",List.of(
-                new ConfigChoiceScreen.Choice("mimo","MiMo"),new ConfigChoiceScreen.Choice("minimax-cn",ComponentHelper.translatableString("ui.fangsu.menu.minimax_cn")),new ConfigChoiceScreen.Choice("minimax-intl",ComponentHelper.translatableString("ui.fangsu.menu.minimax_intl"))),value->{
-            rememberDraft();draft.provider=value;draft.model=value.equals("mimo")?"mimo-v2.5-tts":"speech-2.8-hd";loadToken();requestRebuild();
-        }))),y);y+=24;
-        if(draft.provider.equals("mimo")){
-            addEntry(addButton(x,y,w,20,ComponentHelper.translatable("ui.fangsu.menu.get_key"),b->net.minecraft.Util.getPlatform().openUri("https://platform.xiaomimimo.com?ref=8DVP58")),y);y+=22;
+        Region provider=Region.find(draft.provider);
+        addEntry(addButton(x,y,w,20,ComponentHelper.translatable("ui.fangsu.menu.selected_provider",providerLabel(provider)),b->{
+            var choices=Arrays.stream(Region.values()).map(region->new ConfigChoiceScreen.Choice(region.id,providerLabel(region))).toList();
+            Minecraft.getInstance().setScreen(new ConfigChoiceScreen(this,"ui.fangsu.menu.provider",choices,this::selectProvider));
+        }),y);y+=24;
+        String keyUrl=switch(provider){
+            case MIMO -> "https://platform.xiaomimimo.com?ref=8DVP58";
+            case ALIYUN -> "https://bailian.console.aliyun.com/cn-beijing/settings/api-key?userCode=jqijxw3p";
+            default -> "";
+        };
+        if(!keyUrl.isEmpty()){
+            addEntry(addButton(x,y,w,20,ComponentHelper.translatable("ui.fangsu.menu.get_key"),b->net.minecraft.Util.getPlatform().openUri(keyUrl)),y);y+=22;
         }
+        if(provider==Region.ALIYUN)
+            y=addWrappedText(x,y,w,ComponentHelper.translatable("ui.fangsu.menu.aliyun_hint"),0x555555)+6;
         y=addWrappedText(x,y,w,ComponentHelper.translatable("ui.fangsu.menu.token"),0x303030)+4;
         EditBox key=new EditBox(font,x,y,w-66,20,ComponentHelper.translatable("ui.fangsu.menu.token"));key.setMaxLength(2048);
         key.setFormatter((text,index)->FormattedCharSequence.forward(show?text:"•".repeat(text.length()),Style.EMPTY));key.setValue(token);key.setResponder(value->token=value);addRenderableWidget(key);addEntry(key,y);
@@ -54,9 +68,9 @@ public final class TtsProviderScreen extends ThemedConfigScreen {
         addEntry(addButton(x,y,w,20,toggle("ui.fangsu.menu.advanced",advanced),b->{advanced=!advanced;requestRebuild();}),y);y+=22;
         if(advanced){
             y=field(x,y,w,"ui.fangsu.ann.model",draft.model,value->draft.model=value);
-            y=field(x,y,w,"ui.fangsu.ann.account",draft.accountNamespace,value->draft.accountNamespace=value);
-            addEntry(addButton(x,y,w,20,ComponentHelper.translatable("ui.fangsu.menu.load_account_token"),b->{loadToken();requestRebuild();}),y);y+=22;
-            y=addWrappedText(x,y,w,ComponentHelper.translatable("ui.fangsu.menu.env_fallback"),0x555555)+8;
+            y=field(x,y,w,"ui.fangsu.ann.account",accountInput,value->accountInput=value);
+            addEntry(addButton(x,y,w,20,ComponentHelper.translatable("ui.fangsu.menu.load_account_token"),b->switchAccount()),y);y+=22;
+            y=addWrappedText(x,y,w,ComponentHelper.translatable("ui.fangsu.menu.env_fallback",provider.keyEnvironment),0x555555)+8;
         }
         addEntry(addButton(x,y,w,20,ComponentHelper.translatable("ui.fangsu.menu.clear_token"),b->{token="";remember=false;status="ui.fangsu.menu.clear_on_save";requestRebuild();}),y);
     }
@@ -64,10 +78,54 @@ public final class TtsProviderScreen extends ThemedConfigScreen {
         y=addWrappedText(x,y,w,ComponentHelper.translatable(label),0x555555)+4;EditBox box=new EditBox(font,x,y,w,20,ComponentHelper.translatable(label));box.setMaxLength(100);box.setValue(value);box.setResponder(change);addRenderableWidget(box);addEntry(box,y);return y+26;
     }
     private net.minecraft.network.chat.Component toggle(String label,boolean enabled){return ComponentHelper.translatable(label).append(": ").append(ComponentHelper.translatable(enabled?"options.on":"options.off"));}
-    private String providerLabel(String id){return id.equals("mimo")?"MiMo":ComponentHelper.translatableString(id.equals("minimax-cn")?"ui.fangsu.menu.minimax_cn":"ui.fangsu.menu.minimax_intl");}
+    private String providerLabel(Region provider){
+        return switch(provider){
+            case MIMO -> "MiMo";
+            case MINIMAX_CN -> ComponentHelper.translatableString("ui.fangsu.menu.minimax_cn");
+            case MINIMAX_INTL -> ComponentHelper.translatableString("ui.fangsu.menu.minimax_intl");
+            case ALIYUN -> ComponentHelper.translatableString("ui.fangsu.menu.aliyun");
+        };
+    }
+    private void rememberProvider(){
+        draft.providerModels.put(draft.provider,draft.model);
+        draft.providerAccounts.put(draft.provider,draft.accountNamespace);
+    }
+    private void selectProvider(String value){
+        rememberDraft();rememberProvider();
+        draft.provider=value;
+        status="ui.fangsu.menu.provider_hint";
+        draft.model=draft.providerModels.getOrDefault(value,Region.find(value).defaultModel);
+        draft.accountNamespace=draft.providerAccounts.getOrDefault(value,"default");
+        accountInput=draft.accountNamespace;
+        loadToken();requestRebuild();
+    }
+    private void switchAccount(){
+        if(!accountInput.matches("[A-Za-z0-9_.-]{1,64}")){
+            status="ui.fangsu.menu.invalid_account";requestRebuild();return;
+        }
+        rememberDraft();
+        draft.accountNamespace=accountInput;
+        status="ui.fangsu.menu.provider_hint";
+        loadToken();requestRebuild();
+    }
     private void save(){
-        try{var changed=new Gson().fromJson(new Gson().toJson(AnnouncementClient.settings()),AnnouncementClient.Settings.class);changed.provider=draft.provider;changed.model=draft.model;changed.accountNamespace=draft.accountNamespace;changed.enabled=draft.enabled;changed.preSynthesize=draft.preSynthesize;AnnouncementClient.validate(changed);ClientTokens.save(draft.provider,draft.accountNamespace,token,remember);AnnouncementClient.saveSettings(changed);rememberDraft();status="ui.fangsu.config.applied";}
-        catch(Exception e){status="ui.fangsu.ann.failed";}requestRebuild();
+        if(!accountInput.equals(draft.accountNamespace)){
+            status="ui.fangsu.menu.confirm_account";requestRebuild();return;
+        }
+        try{
+            var changed=new Gson().fromJson(new Gson().toJson(AnnouncementClient.settings()),AnnouncementClient.Settings.class);
+            changed.providerModels.put(changed.provider,changed.model);
+            changed.providerAccounts.put(changed.provider,changed.accountNamespace);
+            changed.provider=draft.provider;changed.model=draft.model;changed.accountNamespace=draft.accountNamespace;
+            changed.providerModels.put(changed.provider,changed.model);
+            changed.providerAccounts.put(changed.provider,changed.accountNamespace);
+            changed.enabled=draft.enabled;changed.preSynthesize=draft.preSynthesize;
+            AnnouncementClient.validate(changed);
+            ClientTokens.save(draft.provider,draft.accountNamespace,token,remember);
+            AnnouncementClient.saveSettings(changed);
+            rememberDraft();status="ui.fangsu.config.applied";
+        }catch(Exception e){status="ui.fangsu.ann.failed";}
+        requestRebuild();
     }
     @Override public void onClose(){token="";tokenDrafts.clear();rememberDrafts.clear();show=false;Minecraft.getInstance().setScreen(parent);}
 }

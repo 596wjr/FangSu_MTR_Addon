@@ -12,7 +12,8 @@ import java.util.*;
 /** 与 lcd 并列的车型资源配置，不改列车渲染器，不向模组嵌入录音或复制资源包脚本。 */
 public final class TrainAnnouncementRegistry {
     public record Profile(String id, String source, String mode, String variant, List<String> languages,
-                          Map<String,String> templates, Map<String,String> languageVoices, RecordingFamily recording) { }
+                          Map<String,String> templates, Map<String,String> languageVoices, RecordingFamily recording,
+                          double approachingDistance) { }
     private static volatile Map<String, Profile> vehicles = Map.of();
     private static volatile Map<String, Profile> profiles = Map.of();
     public static Profile match(String vehicleType) { return vehicles.get(vehicleType); }
@@ -64,6 +65,13 @@ public final class TrainAnnouncementRegistry {
         if (config.get("schemaVersion").getAsInt() != 1) throw new IOException("train_announcement_schema");
         String mode = config.get("mode").getAsString(), variant = config.has("variant") ? config.get("variant").getAsString() : "";
         if (!Set.of("recordings", "cloud").contains(mode) || (!variant.isEmpty() && !variant.matches("[a-z0-9_.-]{1,64}"))) throw new IOException("invalid_train_announcement_mode");
+        double approachingDistance = 50;
+        if (config.has("approachingDistance")) {
+            var distance = config.get("approachingDistance");
+            if (!distance.isJsonPrimitive() || !distance.getAsJsonPrimitive().isNumber()) throw new IOException("invalid_approaching_distance");
+            approachingDistance = distance.getAsDouble();
+            if (!Double.isFinite(approachingDistance) || approachingDistance <= 0) throw new IOException("invalid_approaching_distance");
+        }
         List<String> languages = new ArrayList<>();
         for (var language : config.getAsJsonArray("languages")) {
             String locale = language.getAsString(); if (locale.length()>35 || Locale.forLanguageTag(locale).getLanguage().isEmpty()) throw new IOException("invalid_locale");
@@ -103,7 +111,7 @@ public final class TrainAnnouncementRegistry {
         }
         if (mode.equals("recordings") && family == null) throw new IOException("recording_definition_required");
         if (mode.equals("cloud") && templates.isEmpty()) throw new IOException("cloud_templates_required");
-        Profile profile = new Profile(id, path, mode, variant, List.copyOf(languages), Map.copyOf(templates), Map.copyOf(languageVoices), family);
+        Profile profile = new Profile(id, path, mode, variant, List.copyOf(languages), Map.copyOf(templates), Map.copyOf(languageVoices), family, approachingDistance);
         profiles.put(id, profile);
         if (family == null) { families.remove(id); recordingDefinitions.remove(id); }
         for (String alias : aliases) bindings.put(alias, profile);

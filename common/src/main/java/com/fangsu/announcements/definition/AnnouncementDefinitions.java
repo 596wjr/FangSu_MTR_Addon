@@ -17,7 +17,8 @@ public final class AnnouncementDefinitions {
         }
     }
     public record Template(String id, int revision, String event, String defaultVariant,
-                           List<Variant> variants, Map<String, List<Segment>> locales,Set<String> requiredVariables) { }
+                           List<Variant> variants, Map<String, List<Segment>> locales, Set<String> requiredVariables,
+                           String chime) { }
     public record ReferenceSample(String resource,String text,String chineseNamesResource,String chineseNamesText) { }
     public record Voice(String id, int revision, String mode, Map<String, ReferenceSample> samples,
                         Map<String, String> presetVoices) { }

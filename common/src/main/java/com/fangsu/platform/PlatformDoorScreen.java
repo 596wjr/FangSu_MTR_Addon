@@ -9,7 +9,12 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /** 配置器专用的重复单元编辑页；真实放置只使用服务器确认过的预览。 */
@@ -23,7 +28,7 @@ public final class PlatformDoorScreen extends ThemedConfigScreen {
     private double viewStart;
     private ElevationCanvas elevation;
     private final List<PlatformDoorSettings.Part> components=new ArrayList<>();
-    private Button previewButton,buildButton,cancelButton,removeButton;
+    private Button previewButton,buildButton,cancelButton,removeButton,loadTemplateButton;
     public PlatformDoorScreen(Screen parent){super(tr("door_title"));this.parent=parent;loadSettings();}
     public void loadSettings(){
         var value=PlatformDoorClient.settings;unitLength=number(value.unitLength());firstOffset=number(value.firstOffset());baselineOffset=number(value.baselineOffset());units=Integer.toString(value.units());
@@ -58,7 +63,7 @@ public final class PlatformDoorScreen extends ThemedConfigScreen {
         for(int i=0;i<3;i++){int unit=i;Button tab=addButton(x+(col+gap)*i,y,col,18,tr("door_tab_unit_"+i),b->{if(activeUnit!=unit)switchUnit(unit);});selected(tab,activeUnit==i);tab.active=editable;addEntry(tab,y);}
         Button parameters=addButton(x+(col+gap)*3,y,col,18,tr("door_layout_button"),b->Minecraft.getInstance().setScreen(new UnitScreen(this)));parameters.active=editable;addEntry(parameters,y);
         int sideX=x+(col+gap)*4;Button side=addButton(sideX,y,x+w-sideX,18,tr(PlatformDoorClient.left?"door_side_left":"door_side_right"),b->{PlatformDoorClient.left=!PlatformDoorClient.left;PlatformDoorClient.group=null;invalidate();requestRebuild();});side.active=editable;addEntry(side,y);y+=23;
-        y=addWrappedText(x,y,w,PlatformDoorClient.nodes.size()==2?PlatformDoorClient.status:tr("door_need_nodes"),PlatformDoorClient.conflicts.isEmpty()?0xAEB6C2:0xE39494)+4;
+        y=addWrappedText(x,y,w,PlatformDoorClient.status,PlatformDoorClient.conflicts.isEmpty()?0xAEB6C2:0xE39494)+4;
         int canvasHeight=Math.max(90,Math.min(280,getContentBottom()-y-48));
         ElevationCanvas canvas=new ElevationCanvas(x,y,w,canvasHeight,this);elevation=canvas;canvas.active=editable;addRenderableWidget(canvas);addEntry(canvas,y);y+=canvasHeight+4;
         addEntry(addButton(x,y,23,18,ComponentHelper.literal("<"),b->{viewStart=Math.max(0,viewStart-canvas.span/2);requestRebuild();}),y);
@@ -68,7 +73,90 @@ public final class PlatformDoorScreen extends ThemedConfigScreen {
             String kind=List.of("door","glass","board").get(i);int bx=x+58+(addWidth+gap)*i;
             Button add=addButton(bx,y,i==2?x+w-bx:addWidth,18,ComponentHelper.literal("+ "+List.of("D","G","HP").get(i)),b->openPart(-1,defaultPart(kind)));add.active=editable&&components.size()<32;addEntry(add,y);
         }y+=22;
-        addWrappedText(x,y,w,tr("door_visual_hint"),0xAEB6C2);
+        y=addWrappedText(x,y,w,tr("door_visual_hint"),0xAEB6C2)+5;
+        int half=(w-gap)/2;
+        Button save=addButton(x,y,half,18,tr("door_template_save"),b->{
+            try{PlatformDoorClient.saveTemplate(settings());}
+            catch(RuntimeException e){PlatformDoorClient.status=tr("door_invalid");requestRebuild();}
+        });save.active=editable;addEntry(save,y);
+        Button load=addButton(x+half+gap,y,w-half-gap,18,tr("door_template_load"),b->PlatformDoorClient.itemTemplate().ifPresent(value->{
+            PlatformDoorClient.settings=value;invalidate();loadSettings();
+        }));loadTemplateButton=load;load.active=editable&&PlatformDoorClient.hasItemTemplate();addEntry(load,y);y+=22;
+        Button arrow=addButton(x,y,half,18,tr("door_all_arrows"),b->batchArrows());arrow.active=editable;addEntry(arrow,y);
+        Button routes=addButton(x+half+gap,y,w-half-gap,18,tr("door_all_routes"),b->chooseBoardRoutes(this,
+                PlatformDoorBoardContent.resolve(Map.of(),boardScript,boardRoutes),value->{
+                    if(updateBoards(values->PlatformDoorBoardContent.withRoutes(values,value)))boardRoutes=value;
+                }));routes.active=editable;addEntry(routes,y);
+        y+=22;
+        int fileColumn=(w-gap*2)/3;
+        Button export=addButton(x,y,fileColumn,18,tr("door_export"),b->exportTemplate());export.active=editable;addEntry(export,y);
+        Button paste=addButton(x+fileColumn+gap,y,fileColumn,18,tr("door_import_paste"),b->importTemplate(Minecraft.getInstance().keyboardHandler.getClipboard()));paste.active=editable;addEntry(paste,y);
+        int fileX=x+2*(fileColumn+gap);
+        Button file=addButton(fileX,y,x+w-fileX,18,tr("door_import_file"),b->pickTemplateFile());file.active=editable;addEntry(file,y);
+    }
+    private void exportTemplate(){
+        try{
+            String json=PlatformDoorSettings.encode(settings().freshFacing());
+            if(json.length()>32767)throw new IllegalArgumentException("invalid_door_settings");
+            var client=Minecraft.getInstance();
+            Path directory=client.gameDirectory.toPath().resolve("platform_door");
+            Files.createDirectories(directory);
+            Path file=Files.createTempFile(directory,"platform_door_",".json");
+            Files.writeString(file,json,StandardCharsets.UTF_8);
+            client.keyboardHandler.setClipboard(json);
+            PlatformDoorClient.status=ComponentHelper.translatable("ui.fangsu.curve.door_exported",file.getFileName().toString());
+        }catch(IOException|RuntimeException e){PlatformDoorClient.status=tr("door_template_io_error");}
+        requestRebuild();
+    }
+    private void importTemplate(String text){
+        try{
+            var template=PlatformDoorSettings.decode(text).freshFacing();
+            PlatformDoorClient.settings=template;invalidate();loadSettings();
+            PlatformDoorClient.status=tr("door_imported");
+        }catch(RuntimeException e){PlatformDoorClient.status=tr("door_invalid");}
+        requestRebuild();
+    }
+    private boolean pickingTemplate;
+    private void pickTemplateFile(){
+        if(pickingTemplate)return;
+        pickingTemplate=true;
+        var client=Minecraft.getInstance();
+        String title=tr("door_import_file").getString();
+        CompletableFuture.supplyAsync(()->{
+            try(var stack=org.lwjgl.system.MemoryStack.stackPush()){
+                var patterns=stack.mallocPointer(1);
+                patterns.put(stack.UTF8("*.json")).flip();
+                String selected=org.lwjgl.util.tinyfd.TinyFileDialogs.tinyfd_openFileDialog(title,null,patterns,"JSON (*.json)",false);
+                if(selected==null)return null;
+                try(var input=Files.newInputStream(Path.of(selected))){
+                    byte[] bytes=input.readNBytes(4*32767+1);
+                    if(bytes.length>4*32767)throw new IOException("Template file too large");
+                    return new String(bytes,StandardCharsets.UTF_8);
+                }
+            }catch(IOException e){throw new java.io.UncheckedIOException(e);}
+        }).whenComplete((text,error)->client.execute(()->{
+            pickingTemplate=false;
+            if(client.screen!=this||PlatformDoorClient.running||!PlatformDoorClient.pending.isEmpty())return;
+            if(error!=null){PlatformDoorClient.status=tr("door_template_io_error");requestRebuild();}
+            else if(text!=null)importTemplate(text.startsWith("\uFEFF")?text.substring(1):text);
+        }));
+    }
+    private void batchArrows(){
+        var options=new ArrayList<com.fangsu.ui.ConfigChoiceScreen.Choice>();
+        for(int i=0;i<3;i++)options.add(new com.fangsu.ui.ConfigChoiceScreen.Choice(Integer.toString(i),
+                ComponentHelper.translatable("ui.fangsu.diaoban.arrow"+List.of("None","Left","Right").get(i)).getString()));
+        Minecraft.getInstance().setScreen(new com.fangsu.ui.ConfigChoiceScreen(this,"ui.fangsu.curve.door_all_arrows",options,value->updateBoards(values->{
+            var next=new LinkedHashMap<>(values);next.put("arrowDirection",value);return next;
+        })));
+    }
+    private boolean updateBoards(java.util.function.UnaryOperator<Map<String,String>> change){
+        var lists=List.of(components,standardParts,firstParts,lastParts);
+        try{
+            var updated=lists.stream().map(list->list.stream().map(part->part.kind().equals("board")
+                    ?part.withOptions(change.apply(part.options())):part).toList()).toList();
+            for(int i=0;i<lists.size();i++){lists.get(i).clear();lists.get(i).addAll(updated.get(i));}
+            invalidate();requestRebuild();return true;
+        }catch(RuntimeException e){PlatformDoorClient.status=tr("door_invalid");requestRebuild();return false;}
     }
     private void openPart(int index,PlatformDoorSettings.Part part){Minecraft.getInstance().setScreen(new PartScreen(this,index,part));}
     private double length(){try{double value=Double.parseDouble(unitLength);return Double.isFinite(value)&&value>=(activeUnit==0?1:.05)&&value<=128?value:6;}catch(RuntimeException e){return 6;}}
@@ -248,8 +336,11 @@ public final class PlatformDoorScreen extends ThemedConfigScreen {
     }
     private void chooseBoardDrawing(Screen returnTo,String current,Consumer<String> saved){
         var options=new ArrayList<com.fangsu.customItem.ModelSelectInfo>(com.fangsu.drawing.diaoban.DiaobanDrawManager.getDrawOptions());
-        if(options.stream().noneMatch(info->info.getContent().equals(current)))options.add(new com.fangsu.customItem.BasicModelSelectInfo(current,current));
-        Minecraft.getInstance().setScreen(new ModelSelectScreen(tr("door_board_drawing"),null,options,ignored->current,(ignored,value)->saved.accept(value),returnTo){@Override public boolean isPauseScreen(){return false;}});
+        options.removeIf(info->!PlatformDoorBoardContent.validDrawing(info.getContent()));
+        Minecraft.getInstance().setScreen(new ModelSelectScreen(tr("door_board_drawing"),null,options,ignored->current,(ignored,value)->{
+            try{if(PlatformDoorBoardContent.validDrawing(value))saved.accept(value);}
+            catch(IllegalArgumentException e){PlatformDoorClient.status=tr("door_invalid");}
+        },returnTo){@Override public boolean isPauseScreen(){return false;}});
     }
     private void preview(){try{PlatformDoorClient.requestPreview(settings());}catch(RuntimeException e){PlatformDoorClient.status=tr("door_invalid");requestRebuild();}}
     private void invalidate(){PlatformDoorClient.invalidate();confirmRemove=false;syncActions();}
@@ -260,7 +351,11 @@ public final class PlatformDoorScreen extends ThemedConfigScreen {
         cancelButton.active=PlatformDoorClient.running||!PlatformDoorClient.pending.isEmpty()||!PlatformDoorClient.preview.isEmpty()||!PlatformDoorClient.conflicts.isEmpty();removeButton.active=!PlatformDoorClient.running&&PlatformDoorClient.group!=null&&PlatformDoorClient.pending.isEmpty();
         removeButton.setMessage(tr(confirmRemove?"door_confirm_remove":"door_remove"));
     }
-    @Override public void tick(){super.tick();syncActions();}
+    @Override public void tick(){
+        super.tick();syncActions();
+        if(loadTemplateButton!=null)loadTemplateButton.active=!PlatformDoorClient.running
+                &&PlatformDoorClient.pending.isEmpty()&&PlatformDoorClient.hasItemTemplate();
+    }
     @Override public void onClose(){try{PlatformDoorClient.settings=settings();}catch(RuntimeException ignored){}Minecraft.getInstance().setScreen(parent);}
     private static Component tr(String key){return ComponentHelper.translatable("ui.fangsu.curve."+key);}
     private static String number(double value){return value==Math.rint(value)?Long.toString((long)value):java.math.BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();}
@@ -282,6 +377,7 @@ public final class PlatformDoorScreen extends ThemedConfigScreen {
             offset=number(part.offset());lateral=number(part.lateral());vertical=number(part.vertical());widthValue=number(part.width());heightValue=number(part.height());model=part.model();variant=part.variant();secondaryVariant=part.secondaryVariant();automatic=part.automatic();options=part.options();
         }
         @Override protected int getContentTop(){return getPanelTop()+29;}
+        @Override protected int getPanelBottom(){return height-62;}
         @Override protected void buildFixedWidgets(){
             int x=getPanelLeft()+6,w=getPanelRight()-x-6,gap=4,col=(w-gap*2)/3,y=height-35;
             int tabY=getPanelTop()+5;
@@ -291,6 +387,8 @@ public final class PlatformDoorScreen extends ThemedConfigScreen {
                 selected(tab,page==i);
             }
             primary(addFixedWidget(themedButton(x,y,col,18,tr("door_apply_part"),b->apply())));
+            Button split=addFixedWidget(themedButton(x,y-21,w,18,tr("door_split_part"),b->split()));
+            split.active=index>=0&&parent.components.size()<32;
             Button remove=danger(addFixedWidget(themedButton(x+col+gap,y,col,18,tr("door_remove_part"),b->{parent.components.remove(index);parent.invalidate();onClose();})));remove.active=index>=0&&parent.components.size()>1;
             closeButton=addFixedWidget(themedButton(x+(col+gap)*2,y,w-(col+gap)*2,18,ComponentHelper.translatable("gui.back"),b->onClose()));
         }
@@ -355,8 +453,25 @@ public final class PlatformDoorScreen extends ThemedConfigScreen {
         private void chooseVariant(boolean right){
             PlatformDoorModelPicker.openVariant(this,kind,model,right?secondaryVariant:variant,right,kind.equals("door")&&options.getOrDefault("isAuto","true").equals("false")?Integer.parseInt(options.getOrDefault("doorSide","0")):0,value->{if(right)secondaryVariant=value;else variant=value;requestRebuild();});
         }
+        private void split(){
+            try{
+                var part=draft();
+                if(part.kind().equals("board")&&part.options().containsKey("length")){
+                    var values=new LinkedHashMap<>(part.options());values.remove("length");part=part.withOptions(values);
+                }
+                double width=2*part.width(),start=Math.max(0,part.offset()-part.width()/2);
+                var original=part.withSpan(start+width/2,width);
+                var copy=part.withSpan(start+1.5*width,width);
+                double length=Math.max(parent.length(),start+2*width);
+                if(length>128||index<0||parent.components.size()>=32)throw new IllegalArgumentException("invalid_split");
+                parent.components.set(index,original);
+                parent.components.add(index+1,copy);
+                parent.unitLength=number(length);
+                parent.invalidate();onClose();
+            }catch(RuntimeException e){error=tr("door_split_invalid");requestRebuild();}
+        }
         private void apply(){
-            try{var part=new PlatformDoorSettings.Part(kind,Double.parseDouble(offset),Double.parseDouble(lateral),Double.parseDouble(vertical),Double.parseDouble(widthValue),Double.parseDouble(heightValue),model,variant,automatic,secondaryVariant,options);
+            try{var part=draft();
                 if(part.offset()>parent.length())throw new IllegalArgumentException("door_part_outside_unit");
                 if(index<0){if(parent.components.size()>=32)throw new IllegalArgumentException("door_component_limit");parent.components.add(part);}else parent.components.set(index,part);parent.invalidate();onClose();
             }catch(RuntimeException e){error=tr("door_invalid");requestRebuild();}

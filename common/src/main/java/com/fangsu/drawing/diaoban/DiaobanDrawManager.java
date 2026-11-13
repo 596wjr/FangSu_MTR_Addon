@@ -13,6 +13,7 @@ import java.util.function.Supplier;
 public final class DiaobanDrawManager {
     private static final ResourceLocation SCRIPTS_LOCATION=new ResourceLocation("fangsu:diaoban/diaoban_scripts.json");
     private record Registry(Map<String,DiaobanDrawItem> entries,Map<String,String> aliases) { }
+    private static final Map<String,DiaobanDrawItem> JAVA_DRAWINGS=new LinkedHashMap<>();
     private static volatile Registry registry=builtins();
     private static Registry builtins(){
         var entries=new LinkedHashMap<String,DiaobanDrawItem>();var aliases=new LinkedHashMap<String,String>();
@@ -36,6 +37,7 @@ public final class DiaobanDrawManager {
                 entries.put(path,new DiaobanDrawItem(text,path,description,item,()->new JsDiaobanDrawing(path)));aliases.put(id,path);
             }catch(RuntimeException e){Main.LOGGER.warn("[FangSu] Ignoring an invalid overhead board drawing in {}",catalog,e);}
         }catch(Exception e){Main.LOGGER.error("[FangSu] Failed to load overhead board catalog {}",catalog,e);}
+        entries.putAll(JAVA_DRAWINGS);
         registry=snapshot(entries,aliases);
     }
     public static List<ModelSelectInfo> getDrawOptions(){return List.copyOf(registry.entries().values());}
@@ -48,7 +50,9 @@ public final class DiaobanDrawManager {
     }
     public DiaobanDrawItem getDrawItem(String key){return find(key);}
     public static synchronized void registerJavaDrawing(String text,String key,String description,Supplier<BaseDiaobanDrawing> factory){
-        var view=registry;var entries=new LinkedHashMap<>(view.entries());entries.put(key,new DiaobanDrawItem(text,key,description,new JsonObject(),factory));registry=snapshot(entries,view.aliases());
+        var item=new DiaobanDrawItem(text,key,description,new JsonObject(),factory);
+        JAVA_DRAWINGS.put(key,item);
+        var view=registry;var entries=new LinkedHashMap<>(view.entries());entries.put(key,item);registry=snapshot(entries,view.aliases());
     }
     public static BaseDiaobanDrawing createDrawing(String key){var item=find(key);return item!=null&&item.supplier()!=null?item.supplier().get():new JsDiaobanDrawing(key);}
     public static final class DiaobanDrawItem extends BasicModelSelectInfo {

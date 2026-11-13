@@ -55,7 +55,28 @@ public final class PlatformDoorClient {
     }
     private static void checkWorld(){Object current=Minecraft.getInstance().level;if(world!=current){world=current;nodes=List.of();sourceGroup=null;group=null;running=false;lastSelection=null;lastClicked=null;invalidate();}}
     private static Selection selection(){return new Selection(CurvedPlatformClient.nodes(),CurvedPlatformClient.settings,CurvedPlatformClient.draftSide==1,CurvedPlatformClient.editingGroup);}
-    private static void select(Selection value){nodes=value.nodes();platform=value.platform();left=value.left();sourceGroup=value.source();group=null;lastClicked=null;lastSelection=value;settings=settings.freshFacing();invalidate();}
+    private static void select(Selection value){nodes=value.nodes();platform=value.platform();left=value.left();sourceGroup=value.source();group=null;lastClicked=null;lastSelection=value;settings=itemTemplate().orElse(PlatformDoorSettings.DEFAULT).freshFacing();invalidate();}
+    private static net.minecraft.nbt.CompoundTag templateTag(){
+        var player=Minecraft.getInstance().player;
+        if(player==null||!player.getMainHandItem().is(ModItems.ITEM_SCREENDOOR_CONFIGURATOR.get()))return null;
+        return player.getMainHandItem().getTag();
+    }
+    public static boolean hasItemTemplate(){
+        var tag=templateTag();
+        return tag!=null&&tag.contains(PlatformDoorSettings.TEMPLATE_TAG,net.minecraft.nbt.Tag.TAG_STRING);
+    }
+    public static Optional<PlatformDoorSettings> itemTemplate(){
+        var tag=templateTag();
+        if(tag==null||!tag.contains(PlatformDoorSettings.TEMPLATE_TAG,net.minecraft.nbt.Tag.TAG_STRING))return Optional.empty();
+        try{return Optional.of(PlatformDoorSettings.decode(tag.getString(PlatformDoorSettings.TEMPLATE_TAG)).freshFacing());}
+        catch(RuntimeException e){return Optional.empty();}
+    }
+    public static void saveTemplate(PlatformDoorSettings value){
+        var template=value.freshFacing();
+        if(PlatformDoorSettings.encode(template).length()>32767)throw new IllegalArgumentException("invalid_door_settings");
+        invalidate();begin(UUID.randomUUID().toString(),false);
+        PlatformDoorPackets.storeTemplate(template,pending);refresh();
+    }
     private static void begin(String request,boolean work){activeRequest=request;pending=request;requestExpires=System.currentTimeMillis()+(work?WORK_TIMEOUT:REQUEST_TIMEOUT);}
     private static boolean sameTarget(BlockPos clicked){
         if(clicked.equals(lastClicked))return true;if(lastClicked==null&&token.isEmpty()&&pending.isEmpty()&&group==null)return false;var level=Minecraft.getInstance().level;if(level==null)return false;var owner=PlatformOverhangs.owner(level,clicked);if(owner!=null)clicked=owner;var entity=level.getBlockEntity(clicked);
@@ -99,7 +120,7 @@ public final class PlatformDoorClient {
     }
     public static void loaded(String request,UUID source,UUID layout,List<BlockPos> selected,PlatformSettings surface,boolean side,PlatformDoorSettings value){
         checkWorld();if(request.isEmpty()||!request.equals(activeRequest))return;
-        invalidate();sourceGroup=source;group=layout;nodes=List.copyOf(selected);platform=surface;left=side;settings=value;
+        invalidate();sourceGroup=source;group=layout;nodes=List.copyOf(selected);platform=surface;left=side;settings=layout==null?itemTemplate().orElse(value):value;
         status=ComponentHelper.translatable(layout==null?"ui.fangsu.curve.door_hint":"ui.fangsu.curve.door_editing");
         if(Minecraft.getInstance().screen instanceof PlatformDoorScreen screen)screen.loadSettings();
     }

@@ -41,9 +41,13 @@ jobs:
   build-and-push:
     name: Preview ${{ matrix.game_version }} / ${{ matrix.platform }}
     runs-on: ubuntu-latest
+    # 单次上传 -m 600 × 3 次上限 = 30 分钟，加上一次 Gradle 构建，60 分钟足够；
+    # 卡死的传输还会被 --speed-limit 在 60 秒内提前判失败，不会真的耗满上限。
     timeout-minutes: 60
     strategy:
       fail-fast: false
+      # 服务器已是 50Mbps 上下行：10 路并行上传合计约 650MB、约 2 分钟内完成，恢复默认全并行
+      # （不设 max-parallel）。若将来换回小带宽服务器，需要重新加回 max-parallel 限流。
       matrix:
         game_version: [ "1.18.2", "1.19.2", "1.19.3", "1.19.4", "1.20.1" ]
         platform: [ "fabric", "forge" ]
@@ -152,6 +156,11 @@ jobs:
       #    目标 URL : ${{ vars.PREVIEW_SERVER }}/index.php?action=upload
       #    请求头   : X-Preview-Token: ${{ secrets.PREVIEW_UPLOAD_TOKEN }}
       #    通过 env 传入，取值与契约完全一致，同时避免密钥出现在脚本正文里。
+      #    地址会被归一化（去掉所有结尾斜杠），避免拼出 ...//index.php 双斜杠。
+      #    若遇到 HTTP 413：先查服务器 nginx client_max_body_size 与 php.ini 的
+      #    upload_max_filesize / post_max_size。
+      #    若日志显示耗时接近 600 秒、或频繁触发 --speed-limit，说明上行带宽又成了瓶颈，
+      #    应重新加回 max-parallel 限流或改走对象存储。
       # ---------------------------------------------------------------------
       - name: 推送到下载站（内测）
         env:
@@ -163,9 +172,52 @@ jobs:
           COMMIT_SHORT: ${{ steps.locate.outputs.COMMIT_SHORT }}
         run: |
           set -euo pipefail
+
+          # 归一化下载站根地址：去掉所有结尾斜杠，避免拼出 ...//index.php
+          SERVER="${PREVIEW_SERVER:-}"
+          while [ "${SERVER%/}" != "$SERVER" ]; do
+            SERVER="${SERVER%/}"
+          done
+
+          if [ -z "$SERVER" ]; then
+            echo "::error::变量 PREVIEW_SERVER 为空，无法确定下载站地址。请在 Settings → Secrets and variables → Actions → Variables 中配置，形如 https://pre.example.com，且不要带结尾斜杠。"
+            exit 1
+          fi
+          case "$SERVER" in
+            http://* | https://*) ;;
+            *)
+              echo "::error::变量 PREVIEW_SERVER 格式不正确：必须以 http:// 或 https:// 开头。请配置成形如 https://pre.example.com 的地址，且不要带结尾斜杠。"
+              exit 1
+              ;;
+          esac
+          case "$SERVER" in
+            http://*)
+              echo "::warning::变量 PREVIEW_SERVER 使用明文 http://：若预览站已强制 HTTPS，请求会被 301 重定向，而 curl 未加 -L 不会跟随，上传可能失败。建议改成 https://。"
+              ;;
+          esac
+
           response_file="$(mktemp)"
           status=0
-          curl -sS -f -m 120 \
+          # 超时与重试策略（65MB 产物 + 服务器 50Mbps 上下行，实测单次上传约 10–40 秒）：
+          #   --fail-with-body            不用旧的 --fail 模式：那个模式在 4xx/5xx 时会把响应体丢掉，
+          #                               而服务端在 403/413 返回的是中文 JSON {"ok":false,"error":"..."}，
+          #                               丢掉后日志只剩 curl: (22)，正是 413/403 排障最需要的线索没了。
+          #                               --fail-with-body 仍以退出码 22 失败（下面失败分支不用改），
+          #                               但保留错误体，失败分支那句「服务器响应：」就能直接打出中文原因。
+          #                               （需要 curl >= 7.76.0，ubuntu-latest 自带 8.x）
+          #   -m 600                      单次上传最多 10 分钟；50Mbps 下正常 10–40 秒，留足余量
+          #   --connect-timeout 30        建连阶段单独限 30 秒，不把 10 分钟浪费在建连上
+          #   --retry 2 --retry-delay 10  仅对超时 / 5xx / 连接重置这类瞬时错误重试；
+          #                               curl 的 --retry 本身不重试 4xx，403/413 仍然立即失败，
+          #                               所以不要额外开启「所有错误都重试」的模式
+          #   --speed-limit 61440 --speed-time 60
+          #                               连续 60 秒平均速率低于 60KB/s 判定链路卡死，提前失败交给 --retry；
+          #                               10 路并行时每路约 640KB/s，60KB/s 远低于正常速率不会误杀
+          #   -w                          日志打印上传字节数与耗时，便于判断带宽是否成为瓶颈
+          curl -sS --fail-with-body -m 600 --connect-timeout 30 \
+            --retry 2 --retry-delay 10 \
+            --speed-limit 61440 --speed-time 60 \
+            -w '\n上传完成：%{size_upload} 字节 / %{time_total} 秒 / HTTP %{http_code}\n' \
             -H "X-Preview-Token: ${PREVIEW_UPLOAD_TOKEN}" \
             -F "file=@${JAR_PATH}" \
             -F "mod=mtr3" \
@@ -174,7 +226,7 @@ jobs:
             -F "version=${MOD_VERSION}" \
             -F "build=${BUILD_STAMP}" \
             -F "commit=${COMMIT_SHORT}" \
-            "${PREVIEW_SERVER}/index.php?action=upload" \
+            "${SERVER}/index.php?action=upload" \
             -o "$response_file" || status=$?
           if [ "$status" -ne 0 ]; then
             echo "::error::上传到下载站失败（curl 退出码 $status，目标 mc=${{ matrix.game_version }} platform=${{ matrix.platform }}）。请检查 PREVIEW_SERVER 是否可访问、PREVIEW_UPLOAD_TOKEN 是否正确、下载站上传接口是否正常。"
@@ -182,6 +234,12 @@ jobs:
               echo "服务器响应："
               cat "$response_file"
             fi
+            rm -f "$response_file"
+            exit 1
+          fi
+          # curl 成功但响应体为空：几乎都是请求没进 PHP（nginx 413/494 等代理层拒绝）
+          if [ ! -s "$response_file" ]; then
+            echo "::error::服务器返回空响应体（常见原因：nginx 413/494 等体积或代理层拒绝，请求未进入 PHP）。请先查服务器 nginx client_max_body_size 与 php.ini 的 upload_max_filesize / post_max_size。"
             rm -f "$response_file"
             exit 1
           fi
