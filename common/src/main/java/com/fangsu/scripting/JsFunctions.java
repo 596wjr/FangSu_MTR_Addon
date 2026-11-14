@@ -3,6 +3,7 @@ package com.fangsu.scripting;
 import com.fangsu.Main;
 import com.fangsu.mtr.DrawableRoute;
 import com.fangsu.mtr.LocalRoute;
+import com.fangsu.network.NetworkImageLoader;
 import com.fangsu.utils.ColorUtil;
 import com.fangsu.utils.ResourceUtil;
 import net.minecraft.resources.ResourceLocation;
@@ -22,6 +23,10 @@ public class JsFunctions {
         if ("systemFont".equals(type)) {
             return (new Font(path, Font.PLAIN, 12));
 
+        }
+        if (("image".equals(type) || "img".equals(type) || "gif".equals(type))
+                && NetworkImageLoader.isHttpUrl(path)) {
+            return GifHelper.getInstance().getWebImageFrame(path);
         }
         if ("gif".equals(type)) {
             ResourceLocation rl = new ResourceLocation(path);

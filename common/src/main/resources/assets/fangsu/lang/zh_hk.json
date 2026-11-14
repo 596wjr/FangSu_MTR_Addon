@@ -160,6 +160,7 @@
   "msg.fangsu.duanmen.requiresKey": "門鎖定",
   "ui.fangsu.adv.type_for": "顯示類型(%s)",
   "ui.fangsu.adv.path_for": "路徑(%s)",
+  "ui.fangsu.adv.type_web": "網絡 (URL)",
   "ui.fangsu.adv.type_locale": "本地(資源包)",
   "block.fangsu.screendoor_central_control": "幕門集控",
   "ui.fangsu.screendoor.centralControl": "幕門集控",

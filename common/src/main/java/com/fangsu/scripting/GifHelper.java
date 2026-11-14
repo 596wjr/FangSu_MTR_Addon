@@ -1,6 +1,7 @@
 package com.fangsu.scripting;
 
 import com.fangsu.Main;
+import com.fangsu.network.NetworkImageLoader;
 import com.fangsu.utils.ResourceUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -10,13 +11,14 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.metadata.IIOMetadataNode;
 import javax.imageio.stream.ImageInputStream;
+import javax.imageio.stream.MemoryCacheImageInputStream;
 import java.awt.AlphaComposite;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.net.URI;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -24,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
- * GIF 单实例工具类——集中管理所有 GIF 动画的加载、播放与生命周期。
+ * 管理本地 GIF 和网络图片的加载、播放及共享纹理。
  * 内部维护 GifInstance 来追踪每个 GIF 的帧数据、定时调度与 GraphicsTexture。
  * 对外提供按 BlockPos 或 抽象ID 绑定/解绑的 API，风格与 GraphicsTextureHelper 一致。
  */
@@ -62,24 +64,20 @@ public class GifHelper {
         return t;
     });
 
-    /* =========================
-       内部数据结构
-       ========================= */
+    private static final int MAX_WEB_IMAGES = 24;
+    private static final int MAX_WEB_PIXELS = 4 * 1024 * 1024;
+    private static final int MAX_WEB_DIMENSION = 4096;
 
-    /**
-     * 资源 location -> GifInstance（复用已解析的 GIF 数据）
-     */
-    private final Map<ResourceLocation, GifInstance> gifCache = new ConcurrentHashMap<>();
+    private final ThreadPoolExecutor webExecutor = new ThreadPoolExecutor(
+            2, 2, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(MAX_WEB_IMAGES), task -> {
+        Thread thread = new Thread(task, "NetworkImage-Loader");
+        thread.setDaemon(true);
+        return thread;
+    });
 
-    /**
-     * 抽象 ID（如 BlockPos.toString）-> 当前使用的 ResourceLocation
-     */
-    private final Map<String, ResourceLocation> bindingMap = new ConcurrentHashMap<>();
-
-    /**
-     * 绑定 ID -> 最新纹理 identifier（纹理替换时更新，供 getGifTextureLocation 返回正确值）
-     */
-    private final Map<String, ResourceLocation> bindingTextureMap = new ConcurrentHashMap<>();
+    // 绑定和引用计数由同一把锁保护，后台加载的广告板可以安全地共用纹理。
+    private final Map<Object, GifInstance> imageCache = new HashMap<>();
+    private final Map<String, Object> bindingMap = new HashMap<>();
 
     /* =========================
        构造
@@ -93,7 +91,7 @@ public class GifHelper {
        ========================= */
 
     private static class GifInstance implements AutoCloseable {
-        GraphicsTexture texture;
+        volatile GraphicsTexture texture;
         volatile BufferedImage[] frames;
         volatile int[] delays;          // 每帧延迟（毫秒）
         final AtomicInteger currentFrame = new AtomicInteger(0);
@@ -101,7 +99,6 @@ public class GifHelper {
         final AtomicBoolean closed = new AtomicBoolean(false);
         volatile int loopCount;         // 0 = 无限循环
         final AtomicInteger loopCounter = new AtomicInteger(0);
-        final ResourceLocation sourceLocation;
 
         /**
          * 标记是否已经完成异步加载
@@ -109,25 +106,21 @@ public class GifHelper {
         final AtomicBoolean loaded = new AtomicBoolean(false);
 
         // 引用计数（有多少个绑定在使用此实例）
-        final AtomicInteger refCount = new AtomicInteger(1);
+        int refCount = 1;
+        FutureTask<Void> webLoad;
 
         // 当前调度的 Future，用于取消
         ScheduledFuture<?> scheduledFuture;
 
-        /** 纹理被替换时的回调列表（用于通知 GifHelper 更新绑定映射） */
-        final List<Runnable> onTextureReplacedCallbacks = new ArrayList<>();
-
-        GifInstance(ResourceLocation location, int w, int h) {
-            this.sourceLocation = location;
-            // 先创建纹理占位，等加载完成后更新
-            this.texture = new GraphicsTexture(Math.max(w, 1), Math.max(h, 1));
+        GifInstance(GraphicsTexture texture) {
+            this.texture = texture;
         }
 
         /**
          * 在后台线程解析完成后调用，设置帧数据并启动动画。
          * 在渲染线程调用以确保纹理操作安全。
          */
-        void onFramesLoaded(BufferedImage[] loadedFrames, int[] loadedDelays, int loadedLoopCount) {
+        synchronized void onFramesLoaded(BufferedImage[] loadedFrames, int[] loadedDelays, int loadedLoopCount) {
             if (closed.get()) return;
             this.frames = loadedFrames;
             this.delays = loadedDelays;
@@ -137,25 +130,16 @@ public class GifHelper {
             if (frames.length > 0) {
                 BufferedImage firstFrame = frames[0];
                 // 如果占位纹理尺寸与真实帧不匹配，重新创建纹理
-                if (texture.width != firstFrame.getWidth() || texture.height != firstFrame.getHeight()) {
+                if (texture == null || texture.width != firstFrame.getWidth() || texture.height != firstFrame.getHeight()) {
                     GraphicsTexture oldTex = texture;
                     texture = new GraphicsTexture(firstFrame.getWidth(), firstFrame.getHeight());
-                    oldTex.close();
-                    // 通知 GifHelper 更新所有使用此 GIF 的绑定的纹理位置
-                    for (Runnable cb : onTextureReplacedCallbacks) {
-                        cb.run();
-                    }
+                    if (oldTex != null) oldTex.close();
                 }
                 texture.updateTexture(firstFrame);
                 if (frames.length > 1) {
                     startAnimation();
                 }
             }
-        }
-
-        boolean isSingleFrame() {
-            BufferedImage[] f = frames;
-            return f == null || f.length <= 1;
         }
 
         private void startAnimation() {
@@ -167,7 +151,7 @@ public class GifHelper {
 
             BufferedImage[] f = frames;
             int[] d = delays;
-            if (f == null || d == null || f.length == 0) return;
+            if (f == null || d == null || f.length <= 1) return;
 
             int idx = currentFrame.get();
             int delay = d[idx % d.length];
@@ -206,14 +190,17 @@ public class GifHelper {
         }
 
         @Override
-        public void close() {
+        public synchronized void close() {
             if (!closed.compareAndSet(false, true)) return;
             playing.set(false);
-            synchronized (this) {
-                if (scheduledFuture != null) {
-                    scheduledFuture.cancel(false);
-                    scheduledFuture = null;
-                }
+            if (scheduledFuture != null) {
+                scheduledFuture.cancel(false);
+                scheduledFuture = null;
+            }
+            if (webLoad != null) {
+                webLoad.cancel(true);
+                INSTANCE.webExecutor.remove(webLoad);
+                webLoad = null;
             }
             Minecraft.getInstance().tell(() -> {
                 if (texture != null) {
@@ -238,127 +225,95 @@ public class GifHelper {
     }
 
     private static GifData parseGif(byte[] data) throws IOException {
-        ImageReader reader = ImageIO.getImageReadersByFormatName("gif").next();
-        List<BufferedImage> frameList = new ArrayList<>();
-        List<Integer> delayList = new ArrayList<>();
-        int loopCount = 0;
+        try (ImageInputStream input = new MemoryCacheImageInputStream(new ByteArrayInputStream(data))) {
+            return decodeImage(input, false);
+        }
+    }
 
-        try (ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(data))) {
-            reader.setInput(iis, false);
-            loopCount = getLoopCount(reader);
+    private static GifData decodeImage(ImageInputStream input, boolean web) throws IOException {
+        var readers = ImageIO.getImageReaders(input);
+        if (!readers.hasNext()) throw new IOException("Unsupported image format");
+        ImageReader reader = readers.next();
+        try {
+            reader.setInput(input, false);
+            if (!"gif".equalsIgnoreCase(reader.getFormatName())) {
+                if (!web) throw new IOException("Expected a GIF image");
+                checkWebSize(reader.getWidth(0), reader.getHeight(0), 1);
+                return new GifData(new BufferedImage[]{reader.read(0)}, new int[]{100}, 1);
+            }
+
+            int[] size = readGifCanvasSize(reader);
+            int canvasW = size[0];
+            int canvasH = size[1];
             int numFrames = reader.getNumImages(true);
+            if (numFrames == 0) throw new IOException("GIF has no frames");
+            if (web) checkWebSize(canvasW, canvasH, numFrames);
 
-            // 获取 GIF 逻辑屏幕尺寸（画布尺寸）
-            int canvasW = 1, canvasH = 1;
+            var frames = new BufferedImage[numFrames];
+            var delays = new int[numFrames];
+            BufferedImage canvas = new BufferedImage(canvasW, canvasH, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D graphics = canvas.createGraphics();
             try {
-                var streamMeta = reader.getStreamMetadata();
-                if (streamMeta != null) {
-                    var root = streamMeta.getAsTree(streamMeta.getNativeMetadataFormatName());
-                    if (root instanceof IIOMetadataNode) {
-                        var child = ((IIOMetadataNode) root).getFirstChild();
-                        while (child != null) {
-                            if ("LogicalScreenDescriptor".equals(child.getNodeName())) {
-                                String sw = ((IIOMetadataNode) child).getAttribute("logicalScreenWidth");
-                                String sh = ((IIOMetadataNode) child).getAttribute("logicalScreenHeight");
-                                if (sw != null && !sw.isEmpty()) canvasW = Integer.parseInt(sw);
-                                if (sh != null && !sh.isEmpty()) canvasH = Integer.parseInt(sh);
-                                break;
-                            }
-                            child = child.getNextSibling();
-                        }
+                for (int i = 0; i < numFrames; i++) {
+                    if (web) {
+                        if (Thread.currentThread().isInterrupted()) throw new IOException("Image decoding cancelled");
+                        checkWebSize(reader.getWidth(i), reader.getHeight(i), 1);
+                    }
+                    BufferedImage frame = reader.read(i);
+                    int[] offset = getFrameOffset(reader, i);
+                    int disposal = getDisposalMethod(reader, i);
+                    BufferedImage previous = disposal == 3 ? copyFrame(canvas) : null;
+
+                    graphics.drawImage(frame, offset[0], offset[1], null);
+                    frames[i] = copyFrame(canvas);
+                    delays[i] = getFrameDelay(reader, i);
+
+                    // 保存本帧后再恢复画布，下一帧才能正确合成。
+                    if (disposal == 2) {
+                        graphics.setComposite(AlphaComposite.Clear);
+                        graphics.fillRect(offset[0], offset[1], frame.getWidth(), frame.getHeight());
+                        graphics.setComposite(AlphaComposite.SrcOver);
+                    } else if (previous != null) {
+                        graphics.setComposite(AlphaComposite.Src);
+                        graphics.drawImage(previous, 0, 0, null);
+                        graphics.setComposite(AlphaComposite.SrcOver);
                     }
                 }
-            } catch (Exception e) {
-                // fallback: 用第一帧尺寸
-                canvasW = reader.getWidth(0);
-                canvasH = reader.getHeight(0);
+            } finally {
+                graphics.dispose();
             }
-            if (canvasW <= 0) canvasW = 1;
-            if (canvasH <= 0) canvasH = 1;
-
-            // 用于帧合成的累积画布
-            BufferedImage canvas = new BufferedImage(canvasW, canvasH, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D canvasG = canvas.createGraphics();
-
-            for (int i = 0; i < numFrames; i++) {
-                // 读取原始帧（可能是增量帧，尺寸可能小于画布）
-                BufferedImage rawFrame = reader.read(i);
-
-                // 获取 disposal method 和帧偏移
-                int disposalMethod = getDisposalMethod(reader, i);
-                int[] offset = getFrameOffset(reader, i);
-                int frameX = offset[0];
-                int frameY = offset[1];
-
-                // 根据 disposal method 处理
-                if (i > 0 && disposalMethod == 2) {
-                    // Dispose to background color: 清除当前帧区域为透明
-                    int fw = rawFrame.getWidth();
-                    int fh = rawFrame.getHeight();
-                    canvasG.setComposite(AlphaComposite.Clear);
-                    canvasG.fillRect(frameX, frameY, fw, fh);
-                    canvasG.setComposite(AlphaComposite.SrcOver);
-                }
-
-                // 将原始帧绘制到画布的对应位置
-                canvasG.drawImage(rawFrame, frameX, frameY, null);
-
-                // 复制完整画布作为当前帧
-                BufferedImage fullFrame = new BufferedImage(canvasW, canvasH, BufferedImage.TYPE_INT_ARGB);
-                Graphics2D fullG = fullFrame.createGraphics();
-                fullG.drawImage(canvas, 0, 0, null);
-                fullG.dispose();
-                frameList.add(fullFrame);
-
-                int delay = getFrameDelay(reader, i);
-                delayList.add(delay);
-
-                // disposal method 3 (Restore to previous): 需要在下一次迭代前恢复画布
-                // 但对于简单的实现，我们不处理 method 3（极少使用）
-                // disposal method 1 (No disposal): 保留画布不变（默认行为）
-                // disposal method 0 (No disposal specified): 同上
-            }
-
-            canvasG.dispose();
+            return new GifData(frames, delays, getLoopCount(reader));
         } finally {
             reader.dispose();
         }
+    }
 
-        return new GifData(
-                frameList.toArray(new BufferedImage[0]),
-                delayList.stream().mapToInt(Integer::intValue).toArray(),
-                loopCount
-        );
+    private static BufferedImage copyFrame(BufferedImage image) {
+        BufferedImage copy = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        copy.setData(image.getRaster());
+        return copy;
+    }
+
+    private static void checkWebSize(int width, int height, int frames) throws IOException {
+        if (width <= 0 || height <= 0 || width > MAX_WEB_DIMENSION || height > MAX_WEB_DIMENSION
+                || (long) width * height * frames > MAX_WEB_PIXELS) {
+            throw new IOException("Decoded image is too large");
+        }
     }
 
     private static int getLoopCount(ImageReader reader) {
         try {
-            var metadata = reader.getStreamMetadata();
-            if (metadata != null) {
-                var root = metadata.getAsTree(metadata.getNativeMetadataFormatName());
-                if (root instanceof IIOMetadataNode) {
-                    var child = ((IIOMetadataNode) root).getFirstChild();
-                    while (child != null) {
-                        if ("ApplicationExtensions".equals(child.getNodeName())) {
-                            var ext = child.getFirstChild();
-                            while (ext != null) {
-                                if ("ApplicationExtension".equals(ext.getNodeName())) {
-                                    var attrs = ((IIOMetadataNode) ext).getUserObject();
-                                    if (attrs instanceof byte[] b && b.length >= 4
-                                            && b[0] == 0x4E && b[1] == 0x45 && b[2] == 0x54 && b[3] == 0x53) {
-                                        var extData = ext.getNextSibling();
-                                        if (extData != null) {
-                                            var loopBytes = ((IIOMetadataNode) extData).getUserObject();
-                                            if (loopBytes instanceof byte[] lb && lb.length >= 3 && lb[0] == 0x01) {
-                                                return (lb[1] & 0xFF) | ((lb[2] & 0xFF) << 8);
-                                            }
-                                        }
-                                    }
-                                }
-                                ext = ext.getNextSibling();
-                            }
-                        }
-                        child = child.getNextSibling();
+            var metadata = reader.getImageMetadata(0);
+            var root = metadata.getAsTree(metadata.getNativeMetadataFormatName());
+            for (var node = root.getFirstChild(); node != null; node = node.getNextSibling()) {
+                if (!"ApplicationExtensions".equals(node.getNodeName())) continue;
+                for (var child = node.getFirstChild(); child != null; child = child.getNextSibling()) {
+                    if (!(child instanceof IIOMetadataNode extension)) continue;
+                    if (!"NETSCAPE".equals(extension.getAttribute("applicationID"))
+                            || !"2.0".equals(extension.getAttribute("authenticationCode"))) continue;
+                    if (extension.getUserObject() instanceof byte[] bytes && bytes.length >= 3 && bytes[0] == 1) {
+                        int repeats = (bytes[1] & 0xFF) | ((bytes[2] & 0xFF) << 8);
+                        return repeats == 0 ? 0 : repeats + 1;
                     }
                 }
             }
@@ -480,30 +435,11 @@ public class GifHelper {
      * 快速读取 GIF 画布尺寸，不进行完整解析。
      */
     private static int[] readGifCanvasSize(byte[] data) {
-        try (ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(data))) {
+        try (ImageInputStream input = new MemoryCacheImageInputStream(new ByteArrayInputStream(data))) {
             ImageReader reader = ImageIO.getImageReadersByFormatName("gif").next();
             try {
-                reader.setInput(iis, false);
-                var streamMeta = reader.getStreamMetadata();
-                if (streamMeta != null) {
-                    var root = streamMeta.getAsTree(streamMeta.getNativeMetadataFormatName());
-                    if (root instanceof IIOMetadataNode) {
-                        var child = ((IIOMetadataNode) root).getFirstChild();
-                        while (child != null) {
-                            if ("LogicalScreenDescriptor".equals(child.getNodeName())) {
-                                String sw = ((IIOMetadataNode) child).getAttribute("logicalScreenWidth");
-                                String sh = ((IIOMetadataNode) child).getAttribute("logicalScreenHeight");
-                                int w = 1, h = 1;
-                                if (sw != null && !sw.isEmpty()) w = Integer.parseInt(sw);
-                                if (sh != null && !sh.isEmpty()) h = Integer.parseInt(sh);
-                                return new int[]{Math.max(w, 1), Math.max(h, 1)};
-                            }
-                            child = child.getNextSibling();
-                        }
-                    }
-                }
-                // fallback: 第一帧尺寸
-                return new int[]{Math.max(reader.getWidth(0), 1), Math.max(reader.getHeight(0), 1)};
+                reader.setInput(input, false);
+                return readGifCanvasSize(reader);
             } finally {
                 reader.dispose();
             }
@@ -512,154 +448,134 @@ public class GifHelper {
         }
     }
 
-    /**
-     * 获取或创建 GifInstance（带引用计数）。
-     * 立即返回占位实例，GIF 解析在后台线程异步执行，不阻塞渲染线程。
-     */
-    private GifInstance getOrCreateInstance(ResourceLocation location) {
-        GifInstance existing = gifCache.get(location);
-        if (existing != null && !existing.closed.get()) {
-            existing.refCount.incrementAndGet();
-            return existing;
+    private static int[] readGifCanvasSize(ImageReader reader) throws IOException {
+        var metadata = reader.getStreamMetadata();
+        if (metadata != null) {
+            var root = metadata.getAsTree(metadata.getNativeMetadataFormatName());
+            for (var child = root.getFirstChild(); child != null; child = child.getNextSibling()) {
+                if (child instanceof IIOMetadataNode node && "LogicalScreenDescriptor".equals(node.getNodeName())) {
+                    int width = Integer.parseInt(node.getAttribute("logicalScreenWidth"));
+                    int height = Integer.parseInt(node.getAttribute("logicalScreenHeight"));
+                    return new int[]{Math.max(width, 1), Math.max(height, 1)};
+                }
+            }
         }
+        return new int[]{reader.getWidth(0), reader.getHeight(0)};
+    }
 
-        // 尝试在主线程加载资源字节
+    private GifInstance loadLocalGif(ResourceLocation location) {
         byte[] bytes;
         try {
             bytes = ResourceUtil.loadResourceBytes(location);
         } catch (Exception e) {
             Main.LOGGER.warn("Failed to load GIF resource bytes for {}: {}", location, e.getMessage());
-            GifInstance fallback = new GifInstance(location, 16, 16);
-            fallback.loaded.set(true);
-            fallback.frames = new BufferedImage[0];
-            fallback.delays = new int[]{100};
-            gifCache.put(location, fallback);
-            return fallback;
+            return new GifInstance(new GraphicsTexture(16, 16));
         }
         if (bytes == null || bytes.length == 0) {
             Main.LOGGER.warn("GIF resource not found or empty: {}", location);
-            GifInstance fallback = new GifInstance(location, 16, 16);
-            fallback.loaded.set(true);
-            fallback.frames = new BufferedImage[0];
-            fallback.delays = new int[]{100};
-            gifCache.put(location, fallback);
-            return fallback;
+            return new GifInstance(new GraphicsTexture(16, 16));
         }
 
-        // 快速读取 GIF 真实尺寸，创建匹配的占位纹理
         int[] size = readGifCanvasSize(bytes);
-        GifInstance inst = new GifInstance(location, size[0], size[1]);
-        gifCache.put(location, inst);
-
-        // 在后台线程异步解析 GIF
-        INSTANCE.parserExecutor.submit(() -> {
+        GifInstance instance = new GifInstance(new GraphicsTexture(size[0], size[1]));
+        parserExecutor.submit(() -> {
             try {
-                GifData data = parseGif(bytes);
-                // 在渲染线程设置帧数据
-                Minecraft.getInstance().tell(() -> {
-                    inst.onFramesLoaded(data.frames, data.delays, data.loopCount);
-                });
+                publishFrames(instance, parseGif(bytes));
             } catch (Exception e) {
                 Main.LOGGER.warn("Failed to parse GIF {} asynchronously: {}", location, e.getMessage());
-                Minecraft.getInstance().tell(() -> {
-                    inst.loaded.set(true);
-                    inst.frames = new BufferedImage[0];
-                    inst.delays = new int[]{100};
-                });
             }
         });
-
-        return inst;
+        return instance;
     }
 
-    /**
-     * 释放一个 GifInstance 的引用，引用归零时关闭。
-     */
-    private void releaseInstance(ResourceLocation location) {
-        GifInstance inst = gifCache.get(location);
-        if (inst == null) return;
-        int refs = inst.refCount.decrementAndGet();
-        if (refs <= 0) {
-            gifCache.remove(location);
-            inst.close();
-        }
-    }
-
-    // ========== 对外 API（按 ID 绑定） ==========
-
-    /**
-     * 为一个抽象 ID 绑定 GIF 动画。返回该 GIF 的 GraphicsTexture 的 ResourceLocation，
-     * 可用于模型纹理替换。
-     *
-     * @param id       绑定 ID（如 BlockPos.toString）
-     * @param location GIF 资源位置
-     * @return GraphicsTexture 的 ResourceLocation，失败返回 null
-     */
-    public ResourceLocation bindGif(String id, ResourceLocation location) {
-        // 先解绑旧的
-        unbindGif(id);
-
-        GifInstance inst = getOrCreateInstance(location);
-        if (inst == null || inst.closed.get()) {
-            Main.LOGGER.warn("Failed to create GIF instance for {} binding {}", location, id);
-            return null;
-        }
-        bindingMap.put(id, location);
-        // 记录当前纹理位置
-        bindingTextureMap.put(id, inst.texture.identifier);
-
-        // 注册纹理替换回调：更新 bindingTextureMap
-        GifInstance finalInst = inst;
-        inst.onTextureReplacedCallbacks.add(() -> {
-            ResourceLocation newTexId = finalInst.texture.identifier;
-            // 找到所有绑定此 GIF location 的 ID，更新它们的纹理位置
-            for (Map.Entry<String, ResourceLocation> entry : bindingMap.entrySet()) {
-                if (location.equals(entry.getValue())) {
-                    bindingTextureMap.put(entry.getKey(), newTexId);
+    private GifInstance loadWebImage(URI uri) {
+        long webImages = imageCache.keySet().stream().filter(URI.class::isInstance).count();
+        if (webImages >= MAX_WEB_IMAGES) return null;
+        GifInstance instance = new GifInstance(null);
+        instance.webLoad = new FutureTask<>(() -> {
+            try {
+                byte[] bytes = NetworkImageLoader.download(uri);
+                if (instance.closed.get()) return null;
+                try (ImageInputStream input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
+                    publishFrames(instance, decodeImage(input, true));
+                }
+            } catch (Exception e) {
+                if (!instance.closed.get()) {
+                    Main.LOGGER.warn("Failed to load network image from {} ({})", uri.getHost(), e.getClass().getSimpleName());
                 }
             }
+            return null;
         });
-
-        return inst.texture.identifier;
-    }
-
-    /**
-     * 解绑指定 ID 的 GIF。
-     */
-    public void unbindGif(String id) {
-        bindingTextureMap.remove(id);
-        ResourceLocation old = bindingMap.remove(id);
-        if (old != null) {
-            releaseInstance(old);
+        try {
+            webExecutor.execute(instance.webLoad);
+            return instance;
+        } catch (RejectedExecutionException e) {
+            return null;
         }
     }
 
-    /**
-     * 获取指定 ID 绑定的 GIF 的 GraphicsTexture ResourceLocation。
-     * 优先从 bindingTextureMap 获取最新纹理位置（纹理替换后已更新），
-     * 若没有则回退到从 gifCache 获取。
-     */
-    public ResourceLocation getGifTextureLocation(String id) {
-        // 先查最新的纹理位置映射
-        ResourceLocation texId = bindingTextureMap.get(id);
-        if (texId != null) return texId;
-
-        // 回退：通过 bindingMap + gifCache 获取
-        ResourceLocation loc = bindingMap.get(id);
-        if (loc == null) return null;
-        GifInstance inst = gifCache.get(loc);
-        if (inst == null || inst.closed.get()) return null;
-        return inst.texture.identifier;
+    private static void publishFrames(GifInstance instance, GifData data) {
+        Minecraft.getInstance().tell(() -> instance.onFramesLoaded(data.frames, data.delays, data.loopCount));
     }
 
-    /**
-     * 判断指定 ID 是否绑定了一个有效的 GIF。
-     */
-    public boolean hasGif(String id) {
-        ResourceLocation loc = bindingMap.get(id);
-        if (loc == null) return false;
-        GifInstance inst = gifCache.get(loc);
-        return inst != null && !inst.closed.get();
+    private GifInstance getBoundInstance(String id) {
+        return imageCache.get(bindingMap.get(id));
+    }
+
+    private GifInstance bindImage(String id, Object source) {
+        if (source.equals(bindingMap.get(id))) return getBoundInstance(id);
+        unbindGif(id);
+        GifInstance instance = imageCache.get(source);
+        if (instance == null) {
+            instance = source instanceof URI uri ? loadWebImage(uri) : loadLocalGif((ResourceLocation) source);
+            if (instance == null) return null;
+            imageCache.put(source, instance);
+        } else {
+            instance.refCount++;
+        }
+        bindingMap.put(id, source);
+        return instance;
+    }
+
+    /** 绑定本地 GIF，返回当前的纹理标识。 */
+    public synchronized ResourceLocation bindGif(String id, ResourceLocation location) {
+        return bindImage(id, location).texture.identifier;
+    }
+
+    /** 绑定网络图片，下载完成后可通过 getGifTextureLocation 获取纹理。 */
+    public synchronized void bindWebImage(String id, String url) {
+        try {
+            if (NetworkImageLoader.isHttpUrl(url)) bindImage(id, URI.create(url));
+        } catch (IllegalArgumentException ignored) {
+            // 配置输入期间可能暂时不是有效的 URL。
+        }
+    }
+
+    /** 获取脚本绘制所需的当前帧，等待下载期间返回透明图像。 */
+    public synchronized BufferedImage getWebImageFrame(String url) {
+        String id = "web-script:" + url;
+        if (!hasGif(id)) bindWebImage(id, url);
+        return getCurrentFrame(id);
+    }
+
+    public synchronized void unbindGif(String id) {
+        Object source = bindingMap.remove(id);
+        GifInstance instance = imageCache.get(source);
+        if (instance != null && --instance.refCount == 0) {
+            imageCache.remove(source);
+            instance.close();
+        }
+    }
+
+    /** 每次取当前纹理标识，避免继续使用已释放的占位纹理。 */
+    public synchronized ResourceLocation getGifTextureLocation(String id) {
+        GifInstance instance = getBoundInstance(id);
+        GraphicsTexture texture = instance == null ? null : instance.texture;
+        return texture == null ? null : texture.identifier;
+    }
+
+    public synchronized boolean hasGif(String id) {
+        return getBoundInstance(id) != null;
     }
 
     // ========== 对外 API（BlockPos 版本） ==========
@@ -691,20 +607,12 @@ public class GifHelper {
      * @param id 绑定 ID
      * @return 当前帧 BufferedImage，未就绪时返回 1x1 透明图像
      */
-    public BufferedImage getCurrentFrame(String id) {
-        ResourceLocation loc = bindingMap.get(id);
-        if (loc == null) {
+    public synchronized BufferedImage getCurrentFrame(String id) {
+        GifInstance instance = getBoundInstance(id);
+        if (instance == null || !instance.loaded.get()) {
             return new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
         }
-        GifInstance inst = gifCache.get(loc);
-        if (inst == null || !inst.loaded.get()) {
-            return new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
-        }
-        BufferedImage[] frames = inst.frames;
-        if (frames == null || frames.length == 0) {
-            return new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
-        }
-        return frames[inst.currentFrame.get() % frames.length];
+        return instance.frames[instance.currentFrame.get()];
     }
 
     // ========== 播放控制 ==========
@@ -712,16 +620,16 @@ public class GifHelper {
     /**
      * 暂停指定 GIF 的播放。
      */
-    public void pause(ResourceLocation location) {
-        GifInstance inst = gifCache.get(location);
+    public synchronized void pause(ResourceLocation location) {
+        GifInstance inst = imageCache.get(location);
         if (inst != null) inst.playing.set(false);
     }
 
     /**
      * 恢复指定 GIF 的播放。
      */
-    public void resume(ResourceLocation location) {
-        GifInstance inst = gifCache.get(location);
+    public synchronized void resume(ResourceLocation location) {
+        GifInstance inst = imageCache.get(location);
         if (inst != null && inst.playing.compareAndSet(false, true)) {
             inst.startAnimation();
         }
@@ -732,13 +640,12 @@ public class GifHelper {
     /**
      * 关闭所有缓存的 GIF 实例，清空所有绑定。
      */
-    public void disposeAll() {
-        for (GifInstance inst : gifCache.values()) {
+    public synchronized void disposeAll() {
+        for (GifInstance inst : imageCache.values()) {
             inst.close();
         }
-        gifCache.clear();
+        imageCache.clear();
         bindingMap.clear();
-        bindingTextureMap.clear();
     }
 
     /**
@@ -748,5 +655,6 @@ public class GifHelper {
         disposeAll();
         scheduler.shutdownNow();
         parserExecutor.shutdownNow();
+        webExecutor.shutdownNow();
     }
 }

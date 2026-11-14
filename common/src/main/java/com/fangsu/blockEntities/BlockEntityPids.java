@@ -78,6 +78,8 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
         mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
         subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
         pidsDrawing = null;
+        drawScriptKey = null;
+        shape = null;
         drawState.clear();
         List<JsonElement> rawPlats = GsonHelper.asList(Main.JSON_PARSER.parse(getExtraConfig("plats")).getAsJsonArray());
         plats = new ArrayList<>();
@@ -138,9 +140,6 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
                 if (!content.getShape().isEmpty()) {
                     this.shape = buildShapeCollection(content.getShape());
                 }
-            }
-            if (drawScriptKey != null) {
-                initDrawingAsync();
             }
         } catch (Exception e) {
             Main.LOGGER.warn(e.getMessage());
@@ -267,100 +266,69 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
         return sc;
     }
 
-
-    /**
-     * 涓婃娉ㄥ唽缁樺埗鐨勬爣璇嗭紝閬垮厤閲嶅娉ㄥ唽
-     */
-    private String lastRegisteredDrawInfoId = "";
-
-    private void initDrawingAsync() {
-        if (drawScriptKey == null || drawScriptKey.isEmpty()) return;
-        // 拼接/加载未就绪时 texW/texH 可能仍为 0，跳过注册避免创建无效纹理
-        if (texW <= 0 || texH <= 0) return;
+    private synchronized void registerDrawing() {
+        final String scriptKey = drawScriptKey;
+        if (isRemoved() || disposed) return;
 
         GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
-
-        final String scriptKey = drawScriptKey;
-
-        // 閫氳繃 PidsDrawManager 鑾峰彇缁樺埗瀹炰緥锛堟敮锟?Java 绫诲拰 JS 鑴氭湰锟?
+        if (scriptKey == null || scriptKey.isEmpty() || texW <= 0 || texH <= 0) {
+            gtHelper.removeDrawGraphic(getBlockPos());
+            return;
+        }
         if (pidsDrawing == null) {
             pidsDrawing = PidsDrawManager.createDrawing(scriptKey);
         }
         if (pidsDrawing == null) return;
 
-        // 鍘婚噸锛氬鏋滅粯鍒舵爣璇嗘湭鍙樺寲锛岃鏄庢暟鎹湭鏇存柊锛屾棤闇€閲嶆柊娉ㄥ唽
-        String extraConfigStr = userExtraConfigs != null ? userExtraConfigs.toString() : "";
-        String drawInfoId = "PIDS_" + scriptKey + "_" + plats + "_" + extraConfigStr;
-        // 拼接模式：把宽度/高度并入绘制 ID，避免不同尺寸的拼接屏误共享纹理
-        PidsContent idContent = ContentInfoUtil.getPidsContent(mainModel, subModel);
-        if (idContent != null && idContent.isShouldSpilt()) {
-            drawInfoId = drawInfoId + "_w" + getExtraConfigInt("width", 3) + "_h" + getExtraConfigInt("height", 2);
-        }
-        if (drawInfoId.equals(lastRegisteredDrawInfoId)) return;
-        lastRegisteredDrawInfoId = drawInfoId;
+        // 绘制回调引用本方块的脚本状态和上下文，纹理随方块单独注册。
+        final String drawInfoId = "PIDS_" + getBlockPos().asLong() + "_" + scriptKey + "_" + texW + "x" + texH
+                + "_" + plats + "_" + userExtraConfigs;
+        if (drawInfoId.equals(gtHelper.getDrawInfoIdForId(getBlockPos()))) return;
 
-        // 检查 drawInfoId 是否已被其他方块注册（同内容共享纹理）
-        if (gtHelper.hasDrawInfoId(drawInfoId)) {
-            final boolean sizeMatches = gtHelper.getRegisteredGraphicSizeByDrawInfoId(drawInfoId, texW, texH);
-            if (sizeMatches) {
-                // 已有相同内容的纹理：直接绑定共享，不创建新纹理、不触发重绘
-                gtHelper.bindToExistingDrawInfo("block_" + getBlockPos().getX() + "_" + getBlockPos().getY() + "_" + getBlockPos().getZ(), drawInfoId);
-                return;
-            }
-        }
-
-        // 绉婚櫎鏃х粯鍒跺啀娉ㄥ唽鏂扮粯鍒
         gtHelper.removeDrawGraphic(getBlockPos());
         gtHelper.addDrawGraphicWithGt(getBlockPos(),
-                new GraphicsTextureHelper.DrawInfo(
-                        drawInfoId,
-                        texW, texH, false, false
-                ),
-                (gt) -> {
+                new GraphicsTextureHelper.DrawInfo(drawInfoId, texW, texH, false, false),
+                gt -> {
                     BasePidsDrawing drawer = pidsDrawing;
                     if (drawer == null) return;
-                    drawer.draw(gt, getArrivalInfoList(), drawState, texW, texH,
-                            new DrawInfoPids(getArrivalInfoList(), new int[]{0, 0, texW, texH}, scriptContext, this));
-                }
-        );
+                    final List<MtrUtil.PidsArrivalInfo> arrivals = getArrivalInfoList();
+                    drawer.draw(gt, arrivals, drawState, gt.width, gt.height,
+                            new DrawInfoPids(arrivals, new int[]{0, 0, gt.width, gt.height}, scriptContext, this));
+                });
     }
 
     @Override
-    protected void whenResourceReloading() {
-        lastRegisteredDrawInfoId = "";
-        drawScriptKey = null;
-        shape = null;
-        GraphicsTextureHelper.getInstance().removeDrawGraphic(getBlockPos());
-        if (dmhDisp != null) dmhDisp.closeIfOwned();
-        super.whenResourceReloading();
+    public synchronized void setRemoved() {
+        // 与后台纹理注册互斥，防止区块卸载时重新注册刚释放的纹理。
+        super.setRemoved();
     }
 
     @Override
     public void whenDisposing() {
-        drawState.clear();
         pidsDrawing = null;
-        // dmhMain 在拼接模式下是本实例独占的，在非拼接模式下来自 ResourceUtil 共享缓存；
-        // closeIfOwned 只在独占时释放，避免牵连其他方块。
+        drawState.clear();
+        if (level != null && level.isClientSide) {
+            GraphicsTextureHelper.getInstance().removeDrawGraphic(getBlockPos());
+        }
         if (dmhMain != null) dmhMain.closeIfOwned();
-        // 形状缓存 / 动态纹理 / dmhDisp 由父类统一释放
+        if (dmhDisp != null) dmhDisp.closeIfOwned();
         super.whenDisposing();
     }
 
     @Override
     public void whenRendering() {
-        // 纭繚缁樺埗宸叉敞鍐岋紙涓嶳IS/SIS/Diaoban淇濇寔涓€鑷达級
-        initDrawingAsync();
+        registerDrawing();
 
         ObjBlockScriptContext ctx = this.scriptContext;
         if (dmhMain != null) ctx.drawModel(dmhMain, null);
 
-        // 浠呭湪璐村浘灏辩华鍚庢墠缁樺埗 display 妯″瀷锛堜笌RIS/SIS/Diaoban淇濇寔涓€鑷达級
-        if (dmhDisp != null && dmhDisp.getUploadedModel() != null
-                && GraphicsTextureHelper.getInstance().isTextureAvailable(getBlockPos())) {
-            GraphicsTexture gt = GraphicsTextureHelper.getInstance().getBlockGraphics(getBlockPos());
+        final var displayModel = dmhDisp.getUploadedModel();
+        GraphicsTextureHelper gtHelper = GraphicsTextureHelper.getInstance();
+        if (displayModel != null && gtHelper.isTextureAvailable(getBlockPos())) {
+            GraphicsTexture gt = gtHelper.getBlockGraphics(getBlockPos());
             if (gt != null && gt.isValid()) {
-                dmhDisp.getUploadedModel().replaceAllTexture(gt.identifier);
-                ctx.drawModel(dmhDisp.getUploadedModel(), null);
+                displayModel.replaceAllTexture(gt.identifier);
+                ctx.drawModel(displayModel, null);
             }
         }
     }
@@ -457,8 +425,6 @@ public class BlockEntityPids extends FunctionalObjBlockEntity {
             userExtraConfigs = new ConcurrentHashMap<>();
         }
 
-
-        lastRegisteredDrawInfoId = "";
 
         whenLoading();
 

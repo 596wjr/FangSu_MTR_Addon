@@ -57,7 +57,8 @@ public final class CurvedPlatformClient {
             }
             for(var blocked:conflicts)client.level.addParticle(net.minecraft.core.particles.ParticleTypes.ANGRY_VILLAGER,blocked.getX()+.5,blocked.getY()+1.1,blocked.getZ()+.5,0,0,0);
             int stride=Math.max(1,preview.size()/32);
-            for(int i=0;i<preview.size();i+=stride){var p=preview.get(i);var a=preview.get(Math.max(0,i-1));var b=preview.get(Math.min(preview.size()-1,i+1));double dx=b.x()-a.x(),dz=b.z()-a.z(),length=Math.hypot(dx,dz);if(length<1e-6)continue;
+            int last=preview.size()-1;
+            for(int i=0;i<=last;i=i==last?last+1:Math.min(i+stride,last)){var p=preview.get(i);var a=preview.get(Math.max(0,i-1));var b=preview.get(Math.min(last,i+1));double dx=b.x()-a.x(),dz=b.z()-a.z(),length=Math.hypot(dx,dz);if(length<1e-6)continue;
                 for(double across:new double[]{0,visualWidth}){double d=visualSide*(visualOffset+across);client.level.addParticle(net.minecraft.core.particles.ParticleTypes.END_ROD,p.x()+dz/length*d,Math.floor(p.y())+visualHeight+.05,p.z()-dx/length*d,0,0,0);}
             }
         });

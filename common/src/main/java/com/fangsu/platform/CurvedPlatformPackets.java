@@ -21,7 +21,7 @@ import java.util.concurrent.*;
 public final class CurvedPlatformPackets {
     private static final ResourceLocation REQUEST=new ResourceLocation("fangsu","curved_platform_request"),RESULT=new ResourceLocation("fangsu","curved_platform_result");
     private static final ExecutorService GEOMETRY=new ThreadPoolExecutor(1,1,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(8),r->{Thread t=new Thread(r,"fangsu-platform-geometry");t.setDaemon(true);return t;},new ThreadPoolExecutor.AbortPolicy());
-    private record Plan(UUID token,UUID group,ServerLevel level,List<BlockPos> nodes,PlatformRailSample samples,Map<BlockPos,CellGeometry> cells,PlatformSettings settings,boolean left,boolean editing,long expires,long revision,List<BlockPos> conflicts) { }
+    private record Plan(UUID token,UUID group,ServerLevel level,List<BlockPos> nodes,PlatformRailSample samples,List<CurvedPlatformPlanner.Point> previewPoints,Map<BlockPos,CellGeometry> cells,PlatformSettings settings,boolean left,boolean editing,long expires,long revision,List<BlockPos> conflicts) { }
     private record Pending(ServerLevel level,boolean editing) { }
     private static final Map<UUID,Plan> PLANS=new HashMap<>();
     private static final Map<UUID,Pending> REQUESTS=new HashMap<>();
@@ -165,7 +165,7 @@ public final class CurvedPlatformPackets {
                     long[] members=layouts.cells(group);if(members.length==0||!anyNear(player,members)||!layouts.canManage(player,group))return;
                     for(long packed:members){BlockPos pos=BlockPos.of(packed);if(!level.hasChunkAt(pos)||!level.mayInteract(player,pos)){respond(player,"ui.fangsu.curve.stale",null,request);return;}}
                     if(busy(level,group)){respond(player,"ui.fangsu.curve.stale",null,request);return;}
-                    Plan removal=new Plan(UUID.randomUUID(),group,level,List.of(),PlatformRailSample.empty(),Map.of(),PlatformSettings.DEFAULT,true,false,Long.MAX_VALUE,0,List.of());
+                    Plan removal=new Plan(UUID.randomUUID(),group,level,List.of(),PlatformRailSample.empty(),List.of(),Map.of(),PlatformSettings.DEFAULT,true,false,Long.MAX_VALUE,0,List.of());
                     stopPreparing(playerId);REQUESTS.remove(playerId);PLANS.remove(playerId);
                     JOBS.put(playerId,new Job(player,removal));return;
                 }
@@ -185,14 +185,17 @@ public final class CurvedPlatformPackets {
                             REQUESTS.remove(playerId);respond(player,"ui.fangsu.curve.rail_unavailable",null,request);return;
                         }
                         try{PREPARING.put(playerId,GEOMETRY.submit(()->{
-                            Map<BlockPos,CellGeometry> cells;String problem="";
-                            try{cells=compile(samples,nodes.get(0).getY(),left,settings);}catch(RuntimeException e){cells=Map.of();problem="ui.fangsu.curve.invalid";}
-                            Map<BlockPos,CellGeometry> ready=cells;String error=problem;
+                            Map<BlockPos,CellGeometry> cells;List<CurvedPlatformPlanner.Point> points;
+                            try{
+                                var rail=samples.snapshot(nodes.get(0).getY());
+                                cells=compile(rail,left,settings);
+                                points=rail.points().stream().map(p->new CurvedPlatformPlanner.Point(p.x(),rail.floorY(),p.z())).toList();
+                            }catch(RuntimeException e){cells=Map.of();points=List.of();}
+                            Map<BlockPos,CellGeometry> ready=cells;var previewPoints=points;
                             level.getServer().execute(()->{
                                 if(REQUESTS.get(playerId)!=pending)return;
                                 REQUESTS.remove(playerId);PREPARING.remove(playerId);
                                 if(player.isRemoved()||currentLevel(player)!=level)return;
-                                if(!error.isEmpty()){respond(player,error,null,request);return;}
                                 if(ready.isEmpty()){respond(player,"ui.fangsu.curve.invalid",null,request);return;}
                                 if(layouts.revision(id)!=revision){respond(player,"ui.fangsu.curve.stale",null,request);return;}
                                 if(editing&&!validateEdit(level,player,id,nodes,request,false))return;
@@ -200,15 +203,15 @@ public final class CurvedPlatformPackets {
                                 boolean unloaded=false;
                                 for(var entry:ready.entrySet()){
                                     if(!PlatformPlacementPolicy.permitted(level,player,entry.getKey())){
-                                        blocked(player,entry.getKey(),request,ready.size(),samples.points());return;
+                                        blocked(player,entry.getKey(),request,ready.size(),previewPoints);return;
                                     }
                                     if(!PlatformPlacementPolicy.loaded(level,entry.getKey())){unloaded=true;continue;}
                                     if(!canPlaceNormally(level,player,entry.getKey(),id,entry.getValue())&&conflicts.size()<256)conflicts.add(entry.getKey());
                                 }
                                 if(!conflicts.isEmpty()&&!PlatformPlacementPolicy.force(player)){
-                                    sendWithConflicts(player,request,"ui.fangsu.curve.preview_blocked",ComponentHelper.translatable("ui.fangsu.curve.mesh_blocked",conflicts.get(0).toShortString()),"",ready.size(),samples.points(),conflicts);return;
+                                    sendWithConflicts(player,request,"ui.fangsu.curve.preview_blocked",ComponentHelper.translatable("ui.fangsu.curve.mesh_blocked",conflicts.get(0).toShortString()),"",ready.size(),previewPoints,conflicts);return;
                                 }
-                                Plan plan=new Plan(UUID.randomUUID(),id,level,List.copyOf(nodes),samples,ready,settings,left,editing,System.currentTimeMillis()+120000,revision,List.copyOf(conflicts));
+                                Plan plan=new Plan(UUID.randomUUID(),id,level,List.copyOf(nodes),samples,previewPoints,ready,settings,left,editing,System.currentTimeMillis()+120000,revision,List.copyOf(conflicts));
                                 PLANS.put(playerId,plan);
                                 String prefix=wrench?"ui.fangsu.curve.edit_preview_":"ui.fangsu.curve.preview_";
                                 respond(player,unloaded?"ui.fangsu.curve.preview_deferred":prefix+(conflicts.isEmpty()?"ready":"force"),plan,request);
@@ -296,8 +299,8 @@ public final class CurvedPlatformPackets {
         var plan=job.plan;List<BlockPos> retained=job.positions.stream().filter(pos->!plan.level().hasChunkAt(pos)||(plan.level().getBlockEntity(pos) instanceof BlockEntityCurvedPlatform cell&&plan.group().equals(cell.group)||PlatformOverlays.get(plan.level()).owns(pos,plan.group()))).toList();
         if(retained.isEmpty())PlatformLayouts.get(plan.level()).remove(plan.group());else PlatformLayouts.get(plan.level()).put(plan.group(),retained);
     }
-    private static Map<BlockPos,CellGeometry> compile(PlatformRailSample samples,int floor,boolean left,PlatformSettings settings){
-        Map<BlockPos,CellGeometry> result=new LinkedHashMap<>();PlatformCellMerger.merge(PlatformCompiler.compile(samples.snapshot(floor),left,settings)).forEach((pos,geometry)->result.put(new BlockPos(pos.x(),pos.y(),pos.z()),geometry));return Collections.unmodifiableMap(result);
+    private static Map<BlockPos,CellGeometry> compile(RailSnapshot rail,boolean left,PlatformSettings settings){
+        Map<BlockPos,CellGeometry> result=new LinkedHashMap<>();PlatformCellMerger.merge(PlatformCompiler.compile(rail,left,settings)).forEach((pos,geometry)->result.put(new BlockPos(pos.x(),pos.y(),pos.z()),geometry));return Collections.unmodifiableMap(result);
     }
     private static boolean isEdit(Plan plan,ServerLevel level){return plan!=null&&plan.editing()&&plan.level()==level;}
     private static boolean validateEdit(ServerLevel level,ServerPlayer player,UUID group,List<BlockPos> nodes,String request,boolean requireLoaded){
@@ -384,7 +387,7 @@ public final class CurvedPlatformPackets {
                 ?"ui.fangsu.curve.chunk_unloaded":"ui.fangsu.curve.mesh_blocked";
         send(player,request,"ui.fangsu.curve.preview_blocked",ComponentHelper.translatable(key,pos.toShortString()),"",count,points,pos);
     }
-    private static void respond(ServerPlayer player,String key,Plan plan,String request){sendWithConflicts(player,request,key,ComponentHelper.translatable(key,plan==null?0:plan.cells().size()),plan==null?"":plan.token().toString(),plan==null?0:plan.cells().size(),plan==null?List.of():plan.samples().points(),plan==null?List.of():plan.conflicts());}
+    private static void respond(ServerPlayer player,String key,Plan plan,String request){sendWithConflicts(player,request,key,ComponentHelper.translatable(key,plan==null?0:plan.cells().size()),plan==null?"":plan.token().toString(),plan==null?0:plan.cells().size(),plan==null?List.of():plan.previewPoints(),plan==null?List.of():plan.conflicts());}
     private static void send(ServerPlayer player,String request,String key,Component text,String token,int count,List<CurvedPlatformPlanner.Point> points,BlockPos conflict){
         sendWithConflicts(player,request,key,text,token,count,points,conflict==null?List.of():List.of(conflict));
     }

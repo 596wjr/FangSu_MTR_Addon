@@ -33,7 +33,9 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 import static com.fangsu.blocks.ModBlocks.BLOCK_ENTITY_ADV_BOARD;
 
@@ -45,8 +47,9 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
 
     private AdvBoardContent content;
     private Map<String, ResourceLocation> currentTextures;
-    /** key → GIF 的 ResourceLocation.toString()，用于按 GIF 资源解绑 */
-    private Map<String, String> gifBindings;
+    // 每个实体和显示面独立持有绑定，即使图片资源相同。
+    private final String imageBindingPrefix = "adv_board:" + UUID.randomUUID() + ":";
+    private final Map<String, String> imageBindings = new HashMap<>();
 
     private DynamicModelHolder dmhMain;
     private Map<String, DynamicModelHolder> dmhDispMap;
@@ -58,7 +61,7 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
     }
 
     @Override
-    public void whenLoading() {
+    public synchronized void whenLoading() {
         String mainModel = CustomItemHelper.checkMainModel(this, DEFAULT_MAIN_MODEL);
         String subModel = CustomItemHelper.checkSubModel(this, "subModel", DEFAULT_SUB_MODEL);
         ensureExtraConfig("width", "2");
@@ -66,17 +69,12 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
         ensureExtraConfig("images", "{}");
 
         // 服务端不需要加载模型和形状，跳过客户端专属操作
-        if (level == null || !level.isClientSide) return;
+        if (level == null || !level.isClientSide || isRemoved()) return;
 
         int width = getExtraConfigInt("width", 2);
         int height = getExtraConfigInt("height", 2);
 
-        // 解绑旧 GIF（防止 whenLoading 被重复调用时泄漏）
-        if (gifBindings != null) {
-            for (String gifId : gifBindings.values()) {
-                GifHelper.getInstance().unbindGif(gifId);
-            }
-        }
+        releaseImageBindings();
 
         try {
             content = ContentInfoUtil.getAdvBoardContent(mainModel, subModel);
@@ -92,7 +90,6 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
 
             dmhDispMap = new HashMap<>();
             currentTextures = new HashMap<>();
-            gifBindings = new HashMap<>();
 
             dmhMain = new DynamicModelHolder();
 
@@ -146,26 +143,22 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
             for (Map.Entry<String, JsonElement> entry : images.entrySet()) {
                 String k = entry.getKey();
                 JsonObject v = entry.getValue().getAsJsonObject();
-                String type = v.getAsJsonPrimitive("type").getAsString();
-                String path = v.getAsJsonPrimitive("path").getAsString();
+                String type = v.has("type") ? v.get("type").getAsString() : "local";
+                String path = v.has("path") ? v.get("path").getAsString() : DEFAULT_IMAGE_PATH;
+                String bindingId = imageBindingPrefix + k;
                 switch (type) {
                     case "identifier", "local":
-                        if (path.toLowerCase().endsWith(".gif")) {
-                            //gif — 一个 GIF 文件只绑定一次，用 ResourceLocation.toString() 作为唯一 ID
-                            ResourceLocation gifLocation = new ResourceLocation(path);
-                            String gifId = gifLocation.toString();
-                            ResourceLocation texLocation = GifHelper.getInstance().bindGif(gifId, gifLocation);
-                            if (texLocation != null) {
-                                currentTextures.put(k, texLocation);
-                                gifBindings.put(k, gifId);
-                            }
+                        if (path.toLowerCase(Locale.ROOT).endsWith(".gif")) {
+                            GifHelper.getInstance().bindGif(bindingId, new ResourceLocation(path));
+                            imageBindings.put(k, bindingId);
                         } else {
-                            //png
-                            currentTextures.put(k, new ResourceLocation(path));
+                            ResourceLocation location = ResourceLocation.tryParse(path);
+                            if (location != null) currentTextures.put(k, location);
                         }
                         break;
                     case "web":
-                        //TODO
+                        GifHelper.getInstance().bindWebImage(bindingId, path.trim());
+                        imageBindings.put(k, bindingId);
                         break;
                 }
             }
@@ -230,7 +223,12 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
     }
 
     @Override
-    public void whenDisposing() {
+    public synchronized void setRemoved() {
+        super.setRemoved();
+    }
+
+    @Override
+    public synchronized void whenDisposing() {
         RotatableShapeHelper.getInstance().removeCache(getLevel(), getWorldPos());
         // 释放本实例独占的模型（主拼接模型 + 各面显示模型），否则每拆一个广告板就漏一组 VAO/VBO
         if (dmhMain != null) dmhMain.closeIfOwned();
@@ -239,45 +237,30 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
                 if (old != null) old.closeIfOwned();
             }
         }
-        // 解绑所有 GIF（根据 gifBindings 中记录的 GIF ID 来解绑）
-        if (gifBindings != null) {
-            for (String gifId : gifBindings.values()) {
-                GifHelper.getInstance().unbindGif(gifId);
-            }
+        releaseImageBindings();
+    }
+
+    private void releaseImageBindings() {
+        for (String id : imageBindings.values()) {
+            GifHelper.getInstance().unbindGif(id);
         }
+        imageBindings.clear();
     }
 
     @Override
-    public void whenRendering() {
+    public synchronized void whenRendering() {
         if (dmhMain != null) scriptContext.drawModel(dmhMain, null);
-        if (dmhDispMap != null) for (Map.Entry<String, DynamicModelHolder> entry : dmhDispMap.entrySet()) {
+        if (dmhDispMap == null) return;
+        for (var entry : dmhDispMap.entrySet()) {
             String key = entry.getKey();
-            ResourceLocation location = currentTextures.get(key);
-
-            // 对于 GIF，从 GifHelper 获取最新的纹理位置
-            if (location == null) {
-                // 通过配置中的图片路径反向查找 GIF 纹理位置
-                String path = getExtraConfig("images", "{}");
-                try {
-                    JsonObject images = Main.JSON_PARSER.parse(path).getAsJsonObject();
-                    if (images.has(key)) {
-                        String imgPath = images.get(key).getAsJsonObject().get("path").getAsString();
-                        if (imgPath.toLowerCase().endsWith(".gif")) {
-                            ResourceLocation gifLoc = new ResourceLocation(imgPath);
-                            location = GifHelper.getInstance().getGifTextureLocation(gifLoc.toString());
-                            if (location != null) {
-                                currentTextures.put(key, location);
-                            }
-                        }
-                    }
-                } catch (Exception ignored) {
-                }
-            }
-
-            if (location != null) {
-                DynamicModelHolder dmh = dmhDispMap.get(key);
-                if (dmh.getUploadedModel() != null) dmh.getUploadedModel().replaceAllTexture(location);
-                scriptContext.drawModel(dmh.getUploadedModel(), null);
+            String bindingId = imageBindings.get(key);
+            ResourceLocation location = bindingId == null
+                    ? currentTextures.get(key)
+                    : GifHelper.getInstance().getGifTextureLocation(bindingId);
+            var model = entry.getValue().getUploadedModel();
+            if (location != null && model != null) {
+                model.replaceAllTexture(location);
+                scriptContext.drawModel(model, null);
             }
         }
     }
@@ -323,7 +306,8 @@ public class BlockEntityAdvBoard extends FunctionalObjBlockEntity {
                 configs.add(new EnumConfig(
                         ComponentHelper.translatable("ui.fangsu.adv.type_for", k),
                         new ConfigSpec("list"),
-                        List.of(ComponentHelper.translatable("ui.fangsu.adv.type_locale")),
+                        List.of(ComponentHelper.translatable("ui.fangsu.adv.type_locale"),
+                                ComponentHelper.translatable("ui.fangsu.adv.type_web")),
                         () -> typeIndex,
                         (newVal) -> {
                             String newType = switch (newVal) {

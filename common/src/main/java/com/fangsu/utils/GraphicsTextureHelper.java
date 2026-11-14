@@ -18,6 +18,7 @@ public class GraphicsTextureHelper {
      * 避免因时钟误差刚好卡在冷却边界上，被同一次冷却再拦一次。
      */
     private static final long RETRY_AFTER_MARGIN_MS = 50;
+    private static final long DRAW_RETRY_COOLDOWN_MS = 5000;
 
     /* =========================
        单例
@@ -148,22 +149,15 @@ public class GraphicsTextureHelper {
         checkLevelUnload();
 
         for (GTInfo info : loadGts.values()) {
-            if (info.needsUpload) {
-                info.gt.upload();
-                info.needsUpload = false;
-                info.flameCompleted = false;
-            }
-        }
-
-        for (GTInfo info : loadGts.values()) {
             try {
-                // 静态纹理已上传完成（needsUpload 已由第一个循环处理），无需每 tick 重复 upload
-                if (info.isStatic && info.available &&
-                        info.gt.isValid() && !info.redrawNeeded) {
-                    continue;
+                if (info.isClosed || info.drawing) continue;
+                if (info.needsUpload) {
+                    info.gt.upload();
+                    info.needsUpload = false;
                 }
-                if (info.isClosed) continue;
-                if (info.drawing) continue;        // 正在绘制中，跳过
+
+                if (info.isStatic && info.available && info.gt.isValid() && !info.redrawNeeded) continue;
+
                 final long resourceVersion = ResourceUtil.getReloadVersion();
                 if (info.resourceVersion != resourceVersion) {
                     info.resourceVersion = resourceVersion;
@@ -186,50 +180,47 @@ public class GraphicsTextureHelper {
                 // 静态贴图：如果已标记为可用且无需重绘，不再重复绘制
                 if (info.isStatic && info.available && !info.redrawNeeded) continue;
 
-                // 超过最大重试次数，放弃
-                if (info.retryCount >= GTInfo.MAX_RETRIES) {
-                    if (info.retryCount == GTInfo.MAX_RETRIES) {
-                        info.retryCount++;
-                        Main.LOGGER.warn("Draw failed after {} retries for {}, giving up", GTInfo.MAX_RETRIES, info.ids);
-                    }
-                    continue;
-                }
+                if (info.isStatic && info.retryCount >= GTInfo.MAX_RETRIES) continue;
 
+                // 任务排队期间保留 drawing 标记，避免把队列等待算作绘制失败。
                 info.drawing = true;
                 info.flameCompleted = false;
                 info.redrawNeeded = false;
-
-                CompletableFuture.runAsync(() -> {
-                            info.drawFunction.draw(info.gt);
-                            info.available = true;
-                            info.needsUpload = true;
-                            info.retryCount = 0; // 成功绘制后重置重试计数
-                            info.retryAfterMs = 0;
-                        }, drawExecutor).orTimeout(200, TimeUnit.MILLISECONDS)
-                        .exceptionally(t -> {
-                            // 超时或报错：重置 flameCompleted 使下次 tick 可重试
-                            info.flameCompleted = true;
-                            ScriptFailTimeoutException failTimeout = findFailTimeout(t);
-                            if (failTimeout != null) {
-                                // 脚本失败冷却：本次调用被冷却拦下，脚本根本没有执行，
-                                // 不算一次重试；等冷却结束（+余量）后再真正重试。
-                                // 否则 5 次重试会在冷却期内被"秒抛"耗尽，脚本实际只执行一次就放弃。
-                                info.retryAfterMs = System.currentTimeMillis()
-                                        + failTimeout.getRemainingMs() + RETRY_AFTER_MARGIN_MS;
-                                Main.debug("Draw throttled by script fail timeout for {}, retry in {}ms",
-                                        info.ids, failTimeout.getRemainingMs());
-                            } else {
-                                info.retryCount++;
-                                Main.LOGGER.warn("Draw failed (attempt {}/{}) for {}: {}",
-                                        info.retryCount, GTInfo.MAX_RETRIES, info.ids, t.getMessage());
-                            }
-                            return null;
-                        })
-                        .thenRun(() -> info.drawing = false);
+                drawExecutor.execute(() -> drawFrame(info));
 
             } catch (Throwable t) {
                 Main.LOGGER.warn("Error when running draw function: {}", t.getLocalizedMessage());
             }
+        }
+    }
+
+    private void drawFrame(GTInfo info) {
+        try {
+            if (info.isClosed) return;
+            info.drawFunction.draw(info.gt);
+            info.needsUpload = true;
+            info.available = true;
+            info.retryCount = 0;
+            info.retryAfterMs = 0;
+        } catch (Throwable t) {
+            info.flameCompleted = true;
+            ScriptFailTimeoutException failTimeout = findFailTimeout(t);
+            if (failTimeout != null) {
+                // 脚本仍处于上次失败的冷却期，本次没有执行，不增加失败次数。
+                info.retryAfterMs = System.currentTimeMillis() + failTimeout.getRemainingMs() + RETRY_AFTER_MARGIN_MS;
+            } else {
+                if (info.retryCount < GTInfo.MAX_RETRIES) {
+                    info.retryCount++;
+                    Main.LOGGER.warn("Draw failed (attempt {}/{}) for {}: {}",
+                            info.retryCount, GTInfo.MAX_RETRIES, info.ids, t.toString());
+                }
+                if (info.retryCount >= GTInfo.MAX_RETRIES) {
+                    // 动态屏仍需刷新。连续失败后降频，数据恢复时可自行继续绘制。
+                    info.retryAfterMs = System.currentTimeMillis() + DRAW_RETRY_COOLDOWN_MS;
+                }
+            }
+        } finally {
+            info.drawing = false;
         }
     }
 
@@ -265,10 +256,9 @@ public class GraphicsTextureHelper {
 
         // 同一 ID 只能绑定一次
         if (idToDrawInfoId.containsKey(id)) return;
-        idToDrawInfoId.put(id, drawInfoId);
-
         GTInfo info = loadGts.get(drawInfoId);
         if (info != null && !info.isClosed) {
+            idToDrawInfoId.put(id, drawInfoId);
             if (!info.ids.contains(id)) {
                 info.ids.add(id);
             }
@@ -283,6 +273,7 @@ public class GraphicsTextureHelper {
         info.waitUntilDraw = drawInfo.waitUntilDraw;
 
         loadGts.put(drawInfoId, info);
+        idToDrawInfoId.put(id, drawInfoId);
     }
 
     public synchronized void addDrawGraphic(String id,
@@ -615,10 +606,10 @@ public class GraphicsTextureHelper {
         List<String> ids = new ArrayList<>();   // 绑定的抽象 ID 列表
         GraphicsTexture gt;
 
-        DrawFunctionGt drawFunction;
+        volatile DrawFunctionGt drawFunction;
 
         volatile boolean available = false;
-        boolean isClosed = false;
+        volatile boolean isClosed = false;
         boolean isStatic = false;
         boolean waitUntilDraw = false;
 
@@ -647,7 +638,7 @@ public class GraphicsTextureHelper {
          */
         volatile long retryAfterMs = 0;
         /**
-         * 最大重试次数
+         * 静态纹理的重试上限，动态纹理达到此次数后降频
          */
         static final int MAX_RETRIES = 5;
 

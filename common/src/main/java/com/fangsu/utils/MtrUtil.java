@@ -181,16 +181,14 @@ public class MtrUtil {
     }
 
     /**
-     * 获取站台对应的所有路线。
+     * 从完整客户端线路数据中查找经过站台的线路，包括隐藏线路。
      */
     public static List<LocalRoute> getRouteByPlatform(Platform platform) {
         if (platform == null) return null;
         List<LocalRoute> routes = new ArrayList<>();
         for (Route r : ClientData.ROUTES) {
-            for (Route.RoutePlatform rp : r.platformIds) {
-                Platform p = getPlatformById(rp.platformId);
-                if (p == null) continue;
-                if (p.equals(platform)) routes.add(new LocalRoute(r));
+            if (r.containsPlatformId(platform.id)) {
+                routes.add(new LocalRoute(r));
             }
         }
         return routes;

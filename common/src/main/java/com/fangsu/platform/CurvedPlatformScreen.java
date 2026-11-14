@@ -3,6 +3,7 @@ package com.fangsu.platform;
 import com.fangsu.blockEntities.BlockEntityCurvedPlatform;
 import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.ui.*;
+import com.fangsu.utils.GraphicContext;
 import com.google.gson.*;
 import dev.potato.curvedplatform.geometry.*;
 import net.minecraft.client.Minecraft;
@@ -41,7 +42,7 @@ public final class CurvedPlatformScreen extends ThemedConfigScreen {
         updateWrenchButtons();
     }
     @Override protected void buildFixedWidgets(){
-        int x=getPanelLeft(),y=height-36,w=getPanelRight()-x;
+        int x=getPanelLeft(),y=height-40,w=getPanelRight()-x;
         if(wrenchGroup==null){
             closeButton=addFixedWidget(themedButton(x,y,w,18,ComponentHelper.translatable("gui.back"),b->onClose()));
             return;
@@ -52,6 +53,10 @@ public final class CurvedPlatformScreen extends ThemedConfigScreen {
         int right=x+2*(column+4);
         closeButton=addFixedWidget(themedButton(right,y,w+x-right,18,ComponentHelper.translatable("gui.back"),b->onClose()));
         updateWrenchButtons();
+    }
+    @Override protected void renderPanelBackground(GraphicContext graphics){
+        super.renderPanelBackground(graphics);
+        graphics.drawCenteredString(font,"Powered by 土豆站台",width/2,height-18,0xFFADB7C4);
     }
     private void updateWrenchButtons(){
         if(applyButton==null)return;

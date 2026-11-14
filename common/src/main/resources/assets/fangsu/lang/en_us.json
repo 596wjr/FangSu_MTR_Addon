@@ -160,6 +160,7 @@
   "msg.fangsu.duanmen.requiresKey": "Door Locked",
   "ui.fangsu.adv.type_for": "Type(%s)",
   "ui.fangsu.adv.path_for": "Path(%s)",
+  "ui.fangsu.adv.type_web": "Web (URL)",
   "ui.fangsu.adv.type_locale": "Locale(Pack)",
   "block.fangsu.screendoor_central_control": "Screendoor Central Control",
   "ui.fangsu.screendoor.centralControl": "Screendoor Central Control",
