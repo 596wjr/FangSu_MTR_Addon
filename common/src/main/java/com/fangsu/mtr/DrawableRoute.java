@@ -15,6 +15,7 @@ public class DrawableRoute {
     // 运行区间在最终列表中的索引范围（包含两端）
     public final int beginIndexInclusive;
     private final int endIndexInclusive;
+    private final int[] serviceToDrawing;
 
     private static final Map<Long, DrawableRoute> cacheRequestLongestRoute = Collections.synchronizedMap(new HashMap<>());
 
@@ -34,12 +35,25 @@ public class DrawableRoute {
 
     public DrawableRoute(String routeName, Color routeColor, List<DrawableRouteStationInfo> stations,
                          LocalRoute.CircularState circularState, int beginIndexInclusive, int endIndexInclusive) {
+        this(routeName, routeColor, stations, circularState, beginIndexInclusive, endIndexInclusive, null);
+    }
+
+    private DrawableRoute(String routeName, Color routeColor, List<DrawableRouteStationInfo> stations,
+                          LocalRoute.CircularState circularState, int beginIndexInclusive, int endIndexInclusive,
+                          int[] serviceToDrawing) {
         this.routeName = routeName;
         this.routeColor = routeColor;
         this.stations = stations;
         this.circularState = circularState;
         this.beginIndexInclusive = beginIndexInclusive;
         this.endIndexInclusive = endIndexInclusive;
+        this.serviceToDrawing = serviceToDrawing;
+    }
+
+    public int drawingIndex(int serviceIndex) {
+        if (serviceIndex < 0) return -1;
+        if (serviceToDrawing == null) return Math.min(beginIndexInclusive + serviceIndex, endIndexInclusive + 1);
+        return serviceIndex < serviceToDrawing.length ? serviceToDrawing[serviceIndex] : endIndexInclusive + 1;
     }
 
     /**
@@ -165,64 +179,71 @@ public class DrawableRoute {
         }
 
         LocalRoute longestRoute = route;
-        boolean isReversed = false;
-        int beginIdx = 0;
-        int endIdx = route.platformIds.size() - 1;
+        boolean reversed = false;
+        int[] indices = null;
 
-        RouteLoop:
-        for (LocalRoute r : candidates) {
-            if (longestRoute.equals(r)) continue;
-            if (r.platformIds.size() < longestRoute.platformIds.size()) continue;
-
-            int prevStnIdx = -1;
-            boolean reversedCandidate = false;
-
-            // 始终相对原交路判断方向，避免中途选中反向长交路后方向翻转。
-            // 仅比较站台 ID：半程车的自定义目的地可以与全程车不同。
-            for (int i = 0; i < route.platformIds.size(); i++) {
-                LocalRoute.RoutePlatform pid = route.platformIds.get(i);
-                int curIdx = r.getPlatformIdIndex(pid.platformId);
-                if (curIdx < 0) continue RouteLoop;
-
-                if (i == 1) {
-                    reversedCandidate = curIdx < prevStnIdx;
-                } else if (i > 1) {
-                    if (reversedCandidate) {
-                        if (curIdx >= prevStnIdx) continue RouteLoop;
-                    } else {
-                        if (curIdx <= prevStnIdx) continue RouteLoop;
-                    }
+        if (!route.platformIds.isEmpty()) {
+            for (final LocalRoute candidate : candidates) {
+                if (candidate.id == route.id || candidate.platformIds.size() < longestRoute.platformIds.size()) continue;
+                final int[] forward = matchStops(route, candidate, false);
+                final boolean reverseCandidate = forward == null;
+                final int[] match = reverseCandidate ? matchStops(route, candidate, true) : forward;
+                if (match != null && (candidate.platformIds.size() > longestRoute.platformIds.size() || reversed && !reverseCandidate)) {
+                    longestRoute = candidate;
+                    reversed = reverseCandidate;
+                    indices = match;
                 }
-                prevStnIdx = curIdx;
-            }
-
-            // 通过校验
-            boolean longer = r.platformIds.size() > longestRoute.platformIds.size();
-            boolean sameLengthPreferSameDir = r.platformIds.size() == longestRoute.platformIds.size()
-                    && !reversedCandidate && isReversed;
-
-            if (longer || sameLengthPreferSameDir) {
-                // 更长 → 直接替换；等长但当前为反向候选为同向 → 优选同向
-                longestRoute = r;
-                isReversed = reversedCandidate;
-                beginIdx = r.getPlatformIdIndex(route.platformIds.get(0).platformId);
-                endIdx = r.getPlatformIdIndex(route.platformIds.get(route.platformIds.size() - 1).platformId);
             }
         }
 
         final var display = longestRoute.asRouteDetail();
-        if (longestRoute.id != route.id) {
-            final var stations = new ArrayList<>(display.stationDetails);
-            for (final var stop : route.platformIds) {
-                final int index = longestRoute.getPlatformIdIndex(stop.platformId);
-                final var station = stations.get(index);
-                stations.set(index, new LocalRouteDetail.StationDetails(station.stationName, station.transInfo, stop.stopStatus));
-            }
-            final var detail = new LocalRouteDetail(display.routeName, display.routeColor.getRGB(), display.circularState,
-                    display.currentStationIndex, stations);
-            return cacheRoute(route, getDrawableRoute(detail, isReversed, beginIdx, endIdx));
+        if (indices == null) {
+            return cacheRoute(route, getDrawableRoute(display));
         }
-        return cacheRoute(route, getDrawableRoute(display, isReversed, beginIdx, endIdx));
+
+        final var stations = new ArrayList<>(display.stationDetails);
+        int displayIndex = indices[0];
+        final int step = reversed ? -1 : 1;
+        for (int localIndex = 0; localIndex < indices.length; localIndex++) {
+            final int target = indices[localIndex];
+            while (displayIndex != target) {
+                final var station = stations.get(displayIndex);
+                stations.set(displayIndex, new LocalRouteDetail.StationDetails(station.stationName, station.transInfo, RouteStopStatus.DISABLED));
+                displayIndex += step;
+            }
+            final var station = stations.get(target);
+            stations.set(target, new LocalRouteDetail.StationDetails(station.stationName, station.transInfo,
+                    route.platformIds.get(localIndex).stopStatus));
+            displayIndex += step;
+        }
+
+        final var detail = new LocalRouteDetail(display.routeName, display.routeColor.getRGB(), display.circularState,
+                display.currentStationIndex, stations);
+        final var chart = getDrawableRoute(detail, reversed, indices[0], indices[indices.length - 1]);
+        if (reversed) {
+            for (int i = 0; i < indices.length; i++) indices[i] = stations.size() - 1 - indices[i];
+        }
+        final var result = new DrawableRoute(chart.routeName, chart.routeColor, chart.stations, chart.circularState,
+                chart.beginIndexInclusive, chart.endIndexInclusive, indices);
+        return cacheRoute(route, result);
+    }
+
+    /** 保留每个站台出现的位置，长短交路中间有缺站或同站台出现两次时也能对齐。 */
+    private static int[] matchStops(LocalRoute service, LocalRoute drawing, boolean reversed) {
+        final int step = reversed ? -1 : 1;
+        int index = reversed ? drawing.platformIds.size() - 1 : 0;
+        final int[] result = new int[service.platformIds.size()];
+        for (int i = 0; i < result.length; i++) {
+            final long id = service.platformIds.get(i).platformId;
+            if (id == 0) return null;
+            while (index >= 0 && index < drawing.platformIds.size() && drawing.platformIds.get(index).platformId != id) {
+                index += step;
+            }
+            if (index < 0 || index >= drawing.platformIds.size()) return null;
+            result[i] = index;
+            index += step;
+        }
+        return result;
     }
 
     private static DrawableRoute cacheRoute(LocalRoute route, DrawableRoute result) {

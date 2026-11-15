@@ -42,6 +42,7 @@ public class TrainStatus {
 
     public LocalRoute currentRoute;
     public DrawableRoute drawableRoute;
+    private int nextRoutePlatformIndex = -1;
     public boolean isOnRoute;
     public boolean isReverse;
     /**
@@ -96,16 +97,23 @@ public class TrainStatus {
 
     public void updateRoute() {
         reset();
-        int nextIndex = getAllPlatformsNextIndex();
-        if (nextIndex < trainPlatforms.platforms.size()) {
-            var nextPlatformInfo = trainPlatforms.platforms.get(nextIndex);
-            this.currentRoute = new LocalRoute(nextPlatformInfo.route);
+        final int headIndex = train.getIndex(0, train.spacing, true);
+        final var next = trainPlatforms.pathToPlatformIndex.ceilingEntry(headIndex);
+        final int nextIndex = next == null ? trainPlatforms.platforms.size() : next.getValue();
+        if (next != null) {
+            this.currentRoute = new LocalRoute(trainPlatforms.platforms.get(nextIndex).route);
+            this.nextRoutePlatformIndex = trainPlatforms.pathToRoutePlatformIndex.get(next.getKey());
+        } else if (!trainPlatforms.platforms.isEmpty()) {
+            this.currentRoute = new LocalRoute(trainPlatforms.platforms.get(trainPlatforms.platforms.size() - 1).route);
+            this.nextRoutePlatformIndex = currentRoute.platformIds.size();
         } else if (!train.getRouteIds().isEmpty()) {
             // 尚未到达第一个站台，但已有路线信息 → 使用第一条路线
             Route route = ClientData.DATA_CACHE.routeIdMap.get(train.getRouteIds().get(0));
             this.currentRoute = route != null ? new LocalRoute(route) : null;
+            this.nextRoutePlatformIndex = -1;
         } else {
             this.currentRoute = null;
+            this.nextRoutePlatformIndex = -1;
         }
 
         if (currentRoute != null) {
@@ -116,7 +124,7 @@ public class TrainStatus {
 
         this.isOnRoute = train.isOnRoute();
         this.isReverse = train.isReversed();
-        this.trainStatus = geTrainStatus();
+        this.trainStatus = getTrainStatus(nextIndex);
 
         // 开门方向（实时观测 + 历史预测）随路线状态一起刷新；与上面的字段互不影响
         updateDoorSides();
@@ -302,13 +310,12 @@ public class TrainStatus {
         return trainPlatforms.platforms;
     }
 
-    private int geTrainStatus() {
+    private int getTrainStatus(int nextIndex) {
         if (currentRoute == null) return 0;
         if (!train.isOnRoute()) {
             // 有路线但不在正线上：有速度→出库中，无速度→等待中
             return train.getSpeed() > 0.01f ? 2 : 1;
         }
-        int nextIndex = getAllPlatformsNextIndex();
         // 平台数据为空或已过最后一个平台：说明路线数据尚未就绪或列车已到终点
         int platformCount = trainPlatforms.platforms.size();
         if (platformCount == 0) {
@@ -316,7 +323,7 @@ public class TrainStatus {
             return 3;
         }
         if (nextIndex >= platformCount) return 6;
-        if (onPlatformRail()) return 4;
+        if (onPlatformRail(nextIndex)) return 4;
         return 3;
     }
 
@@ -328,10 +335,7 @@ public class TrainStatus {
     }
 
     public int getThisRoutePlatformsNextIndex() {
-        int headIndex = train.getIndex(0, train.spacing, true);
-        Map.Entry<Integer, Integer> ceilEntry = trainPlatforms.pathToRoutePlatformIndex.ceilingEntry(headIndex);
-        if (ceilEntry == null) return currentRoute == null ? 0 : currentRoute.platformIds.size();
-        return ceilEntry.getValue();
+        return nextRoutePlatformIndex;
     }
 
     /**
@@ -341,7 +345,7 @@ public class TrainStatus {
     public int getThisRoutePlatformsNextIndexGlobal() {
         int localIndex = getThisRoutePlatformsNextIndex();
         if (drawableRoute == null) return localIndex;
-        return drawableRoute.beginIndexInclusive + localIndex;
+        return drawableRoute.drawingIndex(localIndex);
     }
 
     public int getAllPlatformsNextIndex() {
@@ -351,10 +355,9 @@ public class TrainStatus {
         return ceilEntry.getValue();
     }
 
-    private boolean onPlatformRail() {
-        int nextIndex = getAllPlatformsNextIndex();
-        if (nextIndex >= trainPlatforms.platforms.size()) return false;
-
+    private boolean onPlatformRail(int nextIndex) {
+        final Platform platform = trainPlatforms.platforms.get(nextIndex).platform;
+        if (platform == null) return false;
         int pathSize = train.path.size();
         if (pathSize == 0) return false;
 
@@ -362,7 +365,7 @@ public class TrainStatus {
         int idx2 = Math.max(0, Math.min(train.getIndex(getRailProgress(train.trainCars - 1), true), pathSize - 1));
         var path1 = train.path.get(idx1); // 车头所在轨道
         var path2 = train.path.get(idx2); // 车尾所在轨道
-        var nextPlatformId = trainPlatforms.platforms.get(nextIndex).platform.id;
+        final long nextPlatformId = platform.id;
         return (path1.dwellTime != 0 && path1.savedRailBaseId == nextPlatformId) || (path2.dwellTime != 0 && path2.savedRailBaseId == nextPlatformId);
     }
 

@@ -129,6 +129,8 @@ public class FunctionalTrainRenderer extends TrainRendererBase {
                 resourceVersion[0] = version;
             }
             trainStatus.updateRoute();
+            // 当前交路的下一站尚未就绪时，保留上一帧，避免外部绘制器把未知站显示为终点。
+            if (trainStatus.isOnRoute && trainStatus.getThisRoutePlatformsNextIndex() < 0) return;
             if (scriptLcd) {
                 // 脚本路径：每帧整张纹理重绘，无线路数据时由脚本自行处理
                 if (scriptHolder == null) return; // ScriptManager 未初始化：保持纹理为空
