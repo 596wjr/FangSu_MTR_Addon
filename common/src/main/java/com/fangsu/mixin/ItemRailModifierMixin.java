@@ -1,6 +1,8 @@
 package com.fangsu.mixin;
 
 import com.fangsu.Main;
+import com.fangsu.items.ItemServiceRail;
+import com.fangsu.mtr.rail.ServiceRail;
 import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.mappings.rail.RailPoseExtra;
 import com.fangsu.util.NodeConnector;
@@ -63,7 +65,14 @@ public abstract class ItemRailModifierMixin {
             RailAngle facingStart, RailAngle facingEnd, Player player, RailwayData railwayData,
             CallbackInfo ci
     ) {
-        if (!NodeConnector.isMultiDirectionNode(world, posStart) && !NodeConnector.isMultiDirectionNode(world, posEnd)) {
+        final boolean multiDirection = NodeConnector.isMultiDirectionNode(world, posStart) || NodeConnector.isMultiDirectionNode(world, posEnd);
+        final ServiceRail settings = stack.getItem() instanceof ItemServiceRail tool ? tool.settings(stack) : null;
+        if (!multiDirection && settings == null) {
+            return;
+        }
+        if (settings != null && (transportMode != TransportMode.TRAIN
+                || !(stateEnd.getBlock() instanceof BlockNode node) || node.transportMode != TransportMode.TRAIN)) {
+            ci.cancel();
             return;
         }
         if (railType == null) {
@@ -114,7 +123,9 @@ public abstract class ItemRailModifierMixin {
 
         final boolean goodRadius = rail1.goodRadius() && rail2.goodRadius();
         // 任意角度下 Rail.isValid() 恒为 false，改用几何退化判定（长度非零且有限）
-        final boolean isValid = NodeConnector.isGeometryUsable(rail1) && NodeConnector.isGeometryUsable(rail2);
+        final boolean isValid = multiDirection
+                ? NodeConnector.isGeometryUsable(rail1) && NodeConnector.isGeometryUsable(rail2)
+                : rail1.isValid() && rail2.isValid();
 
         if (goodRadius && isValid && isValidContinuousMovement) {
             // 附加姿态（节点平移 / 俯仰 / 翻滚 / 半轨距）：必须在登记与广播之前写入。
@@ -130,6 +141,10 @@ public abstract class ItemRailModifierMixin {
             if (!pose2.isDefault()) {
                 NodeConnector.applyPose(rail2, pose2);
             }
+            if (settings != null) {
+                ServiceRail.set(rail1, settings);
+                ServiceRail.set(rail2, settings);
+            }
             railwayData.addRail(player, transportMode, posStart, posEnd, rail1, false);
             final long newId = railwayData.addRail(player, transportMode, posEnd, posStart, rail2, true);
             world.setBlockAndUpdate(posStart, stateStart.setValue(BlockNode.IS_CONNECTED, true));
@@ -138,6 +153,9 @@ public abstract class ItemRailModifierMixin {
             NodeConnector.syncConnectedCache(world, posStart);
             NodeConnector.syncConnectedCache(world, posEnd);
             PacketTrainDataGuiServer.createRailS2C(world, transportMode, posStart, posEnd, rail1, rail2, newId);
+            if (settings != null && world.getServer() != null) {
+                com.fangsu.network.ServiceRailPackets.regenerate(railwayData, world.getServer(), posStart, posEnd);
+            }
             Main.debug("[MultiDirectionNode] 建轨成功 {}->{}", posStart, posEnd);
         } else if (player != null) {
             player.displayClientMessage(ComponentHelper.translatable(isValidContinuousMovement

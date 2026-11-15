@@ -25,10 +25,16 @@ public class LocalRouteDetail {
     public static class StationDetails {
         public final String stationName;
         public final List<ColorNameTuple> transInfo;
+        public final RouteStopStatus stopStatus;
 
         public StationDetails(String stationName, List<ColorNameTuple> transInfo) {
+            this(stationName, transInfo, RouteStopStatus.NORMAL);
+        }
+
+        public StationDetails(String stationName, List<ColorNameTuple> transInfo, RouteStopStatus stopStatus) {
             this.stationName = stationName;
             this.transInfo = transInfo;
+            this.stopStatus = Objects.requireNonNull(stopStatus);
         }
     }
 

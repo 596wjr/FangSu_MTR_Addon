@@ -3,6 +3,8 @@ package com.fangsu.mixin;
 import com.fangsu.mappings.rail.RailPoseExtra;
 import com.fangsu.mtr.rail.RailPoseExtraHolder;
 import com.fangsu.mtr.rail.RailPoseExtraIO;
+import com.fangsu.mtr.rail.ServiceRail;
+import mtr.data.MessagePackHelper;
 import mtr.data.Rail;
 import net.minecraft.network.FriendlyByteBuf;
 import org.msgpack.core.MessagePacker;
@@ -62,7 +64,13 @@ import java.util.Map;
  * 这里用 {@code Rail} 的），读写逻辑全部委托给 {@link RailPoseExtraIO}。
  */
 @Mixin(value = Rail.class, remap = false)
-public abstract class RailPoseExtraMixin implements RailPoseExtraHolder {
+public abstract class RailPoseExtraMixin implements RailPoseExtraHolder, ServiceRail.Holder {
+
+    @Unique
+    private static final long FANGSU_SERVICE_RAIL_MAGIC = 0x7FF846535352414CL;
+
+    @Unique
+    private volatile ServiceRail fangsu$serviceRail;
 
     /**
      * 附加姿态。刻意<b>不给初始化器</b>：Mixin 对 {@code @Unique} 字段初始化器的处理与目标类
@@ -82,6 +90,7 @@ public abstract class RailPoseExtraMixin implements RailPoseExtraHolder {
     @Inject(method = "<init>(Ljava/util/Map;)V", at = @At("TAIL"))
     private void fangsu$readMessagePack(Map<String, Value> map, CallbackInfo callbackInfo) {
         this.fangsu$pose = RailPoseExtraIO.readMessagePack(map);
+        this.fangsu$serviceRail = ServiceRail.decode(new MessagePackHelper(map).getString(ServiceRail.KEY, ""));
     }
 
     // ==================== 网络同步读 ====================
@@ -94,6 +103,18 @@ public abstract class RailPoseExtraMixin implements RailPoseExtraHolder {
     @Inject(method = "<init>(Lnet/minecraft/network/FriendlyByteBuf;)V", at = @At("TAIL"), remap = true)
     private void fangsu$readPacket(FriendlyByteBuf packet, CallbackInfo callbackInfo) {
         this.fangsu$pose = RailPoseExtraIO.readPacket(packet);
+        final int index = packet.readerIndex();
+        if (packet.readableBytes() >= Long.BYTES && packet.getLong(index) == FANGSU_SERVICE_RAIL_MAGIC) {
+            packet.skipBytes(Long.BYTES);
+            try {
+                fangsu$serviceRail = ServiceRail.decode(packet.readUtf(64));
+            } catch (RuntimeException ignored) {
+                fangsu$serviceRail = null;
+            }
+            if (fangsu$serviceRail == null) {
+                packet.readerIndex(index);
+            }
+        }
     }
 
     // ==================== 存档（msgpack）写 ====================
@@ -105,6 +126,10 @@ public abstract class RailPoseExtraMixin implements RailPoseExtraHolder {
     @Inject(method = "toMessagePack(Lorg/msgpack/core/MessagePacker;)V", at = @At("TAIL"))
     private void fangsu$writeMessagePack(MessagePacker messagePacker, CallbackInfo callbackInfo) throws IOException {
         RailPoseExtraIO.writeMessagePack(messagePacker, fangsu$poseOrDefault());
+        final var settings = fangsu$serviceRail;
+        if (settings != null) {
+            messagePacker.packString(ServiceRail.KEY).packString(settings.encode());
+        }
     }
 
     /**
@@ -118,7 +143,7 @@ public abstract class RailPoseExtraMixin implements RailPoseExtraHolder {
      */
     @Inject(method = "messagePackLength()I", at = @At("RETURN"), cancellable = true)
     private void fangsu$messagePackLength(CallbackInfoReturnable<Integer> callbackInfo) {
-        final int extraPairs = RailPoseExtraIO.messagePackPairs(fangsu$poseOrDefault());
+        final int extraPairs = RailPoseExtraIO.messagePackPairs(fangsu$poseOrDefault()) + (fangsu$serviceRail == null ? 0 : 1);
         if (extraPairs != 0) {
             callbackInfo.setReturnValue(callbackInfo.getReturnValue() + extraPairs);
         }
@@ -133,6 +158,21 @@ public abstract class RailPoseExtraMixin implements RailPoseExtraHolder {
     @Inject(method = "writePacket(Lnet/minecraft/network/FriendlyByteBuf;)V", at = @At("TAIL"), remap = true)
     private void fangsu$writePacket(FriendlyByteBuf packet, CallbackInfo callbackInfo) {
         RailPoseExtraIO.writePacket(packet, fangsu$poseOrDefault());
+        final var settings = fangsu$serviceRail;
+        if (settings != null) {
+            packet.writeLong(FANGSU_SERVICE_RAIL_MAGIC);
+            packet.writeUtf(settings.encode());
+        }
+    }
+
+    @Override
+    public ServiceRail fangsu$getServiceRail() {
+        return fangsu$serviceRail;
+    }
+
+    @Override
+    public void fangsu$setServiceRail(ServiceRail settings) {
+        fangsu$serviceRail = settings;
     }
 
     // ==================== RailPoseExtraHolder 实现 ====================

@@ -57,6 +57,7 @@ public class TrainStatus {
 
     private PlatformLookupMap trainPlatforms;
     private List<PathData> trainPlatformsValidPath;
+    private long trainPlatformsRouteRevision = -1;
 
     private int cacheIndex;
 
@@ -80,7 +81,10 @@ public class TrainStatus {
     }
 
     public void reset() {
-        if (trainPlatformsValidPath == null || !trainPlatformsValidPath.equals(train.path) || trainPlatforms.platforms.isEmpty()) {
+        final long routeRevision = DrawableRoute.getRouteRevision();
+        if (trainPlatformsRouteRevision != routeRevision || trainPlatformsValidPath == null
+                || !trainPlatformsValidPath.equals(train.path) || trainPlatforms.platforms.isEmpty()) {
+            trainPlatformsRouteRevision = routeRevision;
             trainPlatformsValidPath = new ArrayList<>(train.path);
             if (!train.getRouteIds().isEmpty()) {
                 trainPlatforms = getTrainPlatforms();
@@ -245,45 +249,52 @@ public class TrainStatus {
         result.siding = dataCache.sidingIdMap.get(train.sidingId);
         if (routeIds.isEmpty()) return result;
 
-        int routeIndex = 0;
-        List<PlatformInfo> currentRoutePlatforms = new ArrayList<>();
-        final java.util.List<Double> announcementDistances = ((com.fangsu.mixin.AnnouncementTrainDistancesAccessor) train).fangsu$announcementDistances();
-        for (int pathIndex = 0; pathIndex < train.path.size(); pathIndex++) {
-            if (train.path.get(pathIndex).dwellTime <= 0) continue;
-            if (train.path.get(pathIndex).rail.railType != RailType.PLATFORM) continue;
-
-            if (routeIndex >= routeIds.size()) break;
-            Route thisRoute = dataCache.routeIdMap.get(routeIds.get(routeIndex));
-            Route nextRoute = routeIndex < routeIds.size() - 1 ? dataCache.routeIdMap.get(routeIds.get(routeIndex + 1)) : null;
-            boolean reverseAtPlatform = !thisRoute.platformIds.isEmpty() && nextRoute != null && !nextRoute.platformIds.isEmpty()
-                    && thisRoute.getLastPlatformId() == nextRoute.getFirstPlatformId();
-
-            int routeStationIndex = currentRoutePlatforms.size();
-            Station thisStation = dataCache.platformIdToStation.get((thisRoute.platformIds.get(routeStationIndex)).platformId);
-            Platform thisPlatform = dataCache.platformIdMap.get((thisRoute.platformIds.get(routeStationIndex)).platformId);
-            String customDestination = thisRoute.getDestination(routeStationIndex);
-//            double distance = ((TrainAccessor)train).getDistances().get(pathIndex);
-            boolean reverseAtThisPlatform = (currentRoutePlatforms.size() + 1 >= thisRoute.platformIds.size() && reverseAtPlatform);
-            Station lastStation = ClientData.DATA_CACHE.platformIdToStation.get(thisRoute.getLastPlatformId());
-            PlatformInfo platformInfo = new PlatformInfo(thisRoute, thisStation, thisPlatform, lastStation,
-                    customDestination != null ? customDestination : (lastStation != null ? lastStation.name : ""),
-                    pathIndex < announcementDistances.size() ? announcementDistances.get(pathIndex) : Double.NaN, reverseAtThisPlatform);
-
-            result.pathToPlatformIndex.put(pathIndex, result.platforms.size());
-            result.platforms.add(platformInfo);
-            result.pathToRoutePlatformIndex.put(pathIndex, currentRoutePlatforms.size());
-            currentRoutePlatforms.add(platformInfo);
-
-            if (currentRoutePlatforms.size() >= thisRoute.platformIds.size()) {
-                result.pathToRoutePlatforms.put(pathIndex, currentRoutePlatforms);
-                currentRoutePlatforms = new ArrayList<>();
-                routeIndex++;
-                if (reverseAtPlatform) {
-                    currentRoutePlatforms.add(platformInfo);
-                }
+        final var pathsByPlatform = new java.util.HashMap<Long, java.util.NavigableSet<Integer>>();
+        for (int index = 0; index < train.path.size(); index++) {
+            final PathData path = train.path.get(index);
+            if (path.dwellTime > 0 && path.rail.railType == RailType.PLATFORM && path.savedRailBaseId != 0) {
+                pathsByPlatform.computeIfAbsent(path.savedRailBaseId, id -> new java.util.TreeSet<>()).add(index);
             }
         }
+        final var distances = ((com.fangsu.mixin.AnnouncementTrainDistancesAccessor) train).fangsu$announcementDistances();
+        int lastPathIndex = -1;
+        PlatformInfo lastStop = null;
+        for (int routeIndex = 0; routeIndex < routeIds.size(); routeIndex++) {
+            final Route route = dataCache.routeIdMap.get(routeIds.get(routeIndex));
+            if (route == null) continue;
+            final Route following = routeIndex + 1 < routeIds.size() ? dataCache.routeIdMap.get(routeIds.get(routeIndex + 1)) : null;
+            final Station terminal = dataCache.platformIdToStation.get(route.getLastPlatformId());
+            final var routeStops = new ArrayList<PlatformInfo>();
+            final int firstAvailablePathIndex = lastPathIndex;
+            for (int index = 0; index < route.platformIds.size(); index++) {
+                final var stop = route.platformIds.get(index);
+                if (com.fangsu.mtr.RouteStopStatus.of(stop) != com.fangsu.mtr.RouteStopStatus.NORMAL) continue;
+                final Platform platform = dataCache.platformIdMap.get(stop.platformId);
+                if (index == 0 && lastStop != null && lastStop.reverseAtPlatform && lastStop.platform == platform && platform != null) {
+                    routeStops.add(lastStop);
+                    continue;
+                }
+                final var candidates = pathsByPlatform.get(stop.platformId);
+                final Integer pathIndex = candidates == null ? null : candidates.higher(lastPathIndex);
+                if (pathIndex == null) continue;
 
+                final Station station = dataCache.platformIdToStation.get(stop.platformId);
+                final String customDestination = route.getDestination(index);
+                final boolean reverse = index + 1 == route.platformIds.size() && following != null && stop.platformId == following.getFirstPlatformId();
+                final var info = new PlatformInfo(route, station, platform, terminal,
+                        customDestination != null ? customDestination : terminal == null ? "" : terminal.name,
+                        pathIndex < distances.size() ? distances.get(pathIndex) : Double.NaN, reverse);
+                result.pathToPlatformIndex.put(pathIndex, result.platforms.size());
+                result.pathToRoutePlatformIndex.put(pathIndex, index);
+                result.platforms.add(info);
+                routeStops.add(info);
+                lastPathIndex = pathIndex;
+                lastStop = info;
+            }
+            if (lastPathIndex > firstAvailablePathIndex) {
+                result.pathToRoutePlatforms.put(lastPathIndex, routeStops);
+            }
+        }
         return result;
     }
 
@@ -319,7 +330,7 @@ public class TrainStatus {
     public int getThisRoutePlatformsNextIndex() {
         int headIndex = train.getIndex(0, train.spacing, true);
         Map.Entry<Integer, Integer> ceilEntry = trainPlatforms.pathToRoutePlatformIndex.ceilingEntry(headIndex);
-        if (ceilEntry == null) return getThisRoutePlatforms().size();
+        if (ceilEntry == null) return currentRoute == null ? 0 : currentRoute.platformIds.size();
         return ceilEntry.getValue();
     }
 

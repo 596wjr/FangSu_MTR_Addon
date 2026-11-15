@@ -21,8 +21,15 @@ public class DrawableRoute {
     /**
      * 清除缓存。在重进存档/世界重载时应调用此方法。
      */
+    private static final java.util.concurrent.atomic.AtomicLong routeRevision = new java.util.concurrent.atomic.AtomicLong();
+
     public static void clearCache() {
         cacheRequestLongestRoute.clear();
+        routeRevision.incrementAndGet();
+    }
+
+    public static long getRouteRevision() {
+        return routeRevision.get();
     }
 
     public DrawableRoute(String routeName, Color routeColor, List<DrawableRouteStationInfo> stations,
@@ -118,7 +125,7 @@ public class DrawableRoute {
         for (int i = 0; i < size; i++) {
             int srcIdx = start + i * step;
             LocalRouteDetail.StationDetails detail = source.get(srcIdx);
-            stations.add(new DrawableRouteStationInfo(detail.stationName, detail.transInfo));
+            stations.add(new DrawableRouteStationInfo(detail.stationName, detail.transInfo, detail.stopStatus));
 
             // 判断该站在正向列表中的索引是否处于 [forwardBegin, forwardEnd] 区间内
             int forwardIdx = srcIdx; // 正向索引即原始列表索引
@@ -203,19 +210,38 @@ public class DrawableRoute {
             }
         }
 
-        DrawableRoute result = getDrawableRoute(longestRoute.asRouteDetail(), isReversed, beginIdx, endIdx);
+        final var display = longestRoute.asRouteDetail();
+        if (longestRoute.id != route.id) {
+            final var stations = new ArrayList<>(display.stationDetails);
+            for (final var stop : route.platformIds) {
+                final int index = longestRoute.getPlatformIdIndex(stop.platformId);
+                final var station = stations.get(index);
+                stations.set(index, new LocalRouteDetail.StationDetails(station.stationName, station.transInfo, stop.stopStatus));
+            }
+            final var detail = new LocalRouteDetail(display.routeName, display.routeColor.getRGB(), display.circularState,
+                    display.currentStationIndex, stations);
+            return cacheRoute(route, getDrawableRoute(detail, isReversed, beginIdx, endIdx));
+        }
+        return cacheRoute(route, getDrawableRoute(display, isReversed, beginIdx, endIdx));
+    }
+
+    private static DrawableRoute cacheRoute(LocalRoute route, DrawableRoute result) {
         cacheRequestLongestRoute.put(route.id, result);
         return result;
     }
 
     // ==================== 内部数据类 ====================
 
-    public record DrawableRouteStationInfo(String stationName, List<ColorNameTuple> transInfo) {
+    public record DrawableRouteStationInfo(String stationName, List<ColorNameTuple> transInfo, RouteStopStatus stopStatus) {
+        public DrawableRouteStationInfo(String stationName, List<ColorNameTuple> transInfo) {
+            this(stationName, transInfo, RouteStopStatus.NORMAL);
+        }
     }
 
     public static class DrawableRouteStation {
         public final String stationName;
         public final List<ColorNameTuple> transInfo;
+        public final RouteStopStatus stopStatus;
         /**
          * 0 = 运行区间之前
          * 1 = 已通过
@@ -226,13 +252,14 @@ public class DrawableRoute {
         public final int passingStatus;
 
         public DrawableRouteStation(String stationName, List<ColorNameTuple> transInfo, int passingStatus) {
-            this.stationName = stationName;
-            this.transInfo = transInfo;
-            this.passingStatus = passingStatus;
+            this(new DrawableRouteStationInfo(stationName, transInfo), passingStatus);
         }
 
         public DrawableRouteStation(DrawableRouteStationInfo info, int passingStatus) {
-            this(info.stationName, info.transInfo, passingStatus);
+            this.stationName = info.stationName();
+            this.transInfo = info.transInfo() == null ? List.of() : info.transInfo();
+            this.stopStatus = info.stopStatus();
+            this.passingStatus = passingStatus;
         }
     }
 }

@@ -971,6 +971,8 @@ public final class NodeConnector {
             // 两条轨道的姿态参数顺序相反，正好与它们各自的内核参数方向一致。
             applyPose(newForward, readRailPose(level, nodePos, target));
             applyPose(newBackward, readRailPose(level, target, nodePos));
+            com.fangsu.mtr.rail.ServiceRail.set(newForward, com.fangsu.mtr.rail.ServiceRail.get(forward));
+            com.fangsu.mtr.rail.ServiceRail.set(newBackward, com.fangsu.mtr.rail.ServiceRail.get(backward));
 
             railwayData.addRail(null, forward.transportMode, nodePos, target, newForward, false);
             railwayData.addRail(null, backward.transportMode, target, nodePos, newBackward, false);
@@ -1124,6 +1126,7 @@ public final class NodeConnector {
         // 这正是「清除逐轨道超高」之后应有的行为（完全跟随节点值）。
         final RailPoseExtra pose = tiltCarry == null ? nodePose : tiltCarry.mergeInto(nodePose);
         applyPose(rebuilt, pose);
+        com.fangsu.mtr.rail.ServiceRail.set(rebuilt, com.fangsu.mtr.rail.ServiceRail.get(existing));
         railwayData.addRail(null, existing.transportMode, posStart, posEnd, rebuilt, false);
         PacketTrainDataGuiServer.createRailS2C(level, existing.transportMode, posStart, posEnd, rebuilt, rebuilt, 0);
         return true;

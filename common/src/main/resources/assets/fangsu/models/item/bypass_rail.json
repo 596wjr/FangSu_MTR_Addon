@@ -1,0 +1,14 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "fangsu:item/rail_connector_bypass"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "fangsu:selected": 1
+      },
+      "model": "fangsu:item/bypass_rail_selected"
+    }
+  ]
+}

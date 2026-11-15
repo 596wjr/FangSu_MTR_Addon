@@ -77,7 +77,11 @@ public class MtrLcd extends LcdBase {
         } else if (status.trainStatus == 4) {
             DrawableRoute.DrawableRouteStation thisStation = null;
             for (DrawableRoute.DrawableRouteStation station : stations) {
-                if (station.passingStatus == 2) thisStation = station;
+                if (station.passingStatus >= 2 && station.passingStatus <= 3
+                        && station.stopStatus == com.fangsu.mtr.RouteStopStatus.NORMAL) {
+                    thisStation = station;
+                    break;
+                }
             }
             if (thisStation != null) {
                 String cjkName = TextUtil.getCjkMatching(thisStation.stationName, true);
@@ -132,7 +136,7 @@ public class MtrLcd extends LcdBase {
             g.fillRect(currentX - (isReverse ? 0 : distant) - 1, centralY - lineSize / 2, distant + 2, lineSize);
 
             //draw arrow
-            if (station.passingStatus == 2) {
+            if (station.passingStatus == 2 && station.stopStatus == com.fangsu.mtr.RouteStopStatus.NORMAL) {
                 int arrowPos = currentX + (isReverse ? distant / 2 : -distant / 2);
                 int arrowSize = lineSize / 2;
 
@@ -165,7 +169,8 @@ public class MtrLcd extends LcdBase {
             boolean hasPassed = station.passingStatus < 2;
             boolean isInRoute = !(station.passingStatus == 0 || station.passingStatus == 4);
             int currentX = (int) (x + (isReverse ? w * 0.9 : w * 0.1) + (isReverse ? -1 : 1) * distant * i);
-            if (!station.transInfo.isEmpty() && !hasPassed) {
+            final boolean stops = station.stopStatus == com.fangsu.mtr.RouteStopStatus.NORMAL;
+            if (stops && !station.transInfo.isEmpty() && !hasPassed) {
                 if (station.transInfo.size() == 1) {
                     var thisTrans = station.transInfo.get(0);
                     g.setColor(isInRoute ? thisTrans.routeColor : passedColor);
@@ -189,13 +194,13 @@ public class MtrLcd extends LcdBase {
                     g.fillRoundRect(currentX - lineSize / 2, centralY - lineSize / 2 - stationHeight, lineSize, stationHeight + lineSize, stationSize, stationSize);
                 }
             }
-            if (station.transInfo.size() <= 1) {
+            if (stops && station.transInfo.size() <= 1) {
                 g.setColor(hasPassed || !isInRoute ? passedColor : routeColor);
                 g.fillOval(currentX - stationSize / 2, centralY - stationSize / 2, stationSize, stationSize);
                 g.setColor(station.passingStatus == 2 ? blinkState ? blinkColor : Color.WHITE : Color.WHITE);
                 g.fillOval(currentX - lineSize / 2, centralY - lineSize / 2, lineSize, lineSize);
             }
-            g.setColor(hasPassed || !isInRoute ? passedColor : Color.BLACK);
+            g.setColor(hasPassed || !isInRoute || !stops ? passedColor : Color.BLACK);
             int stationNameWidth = G2dTextHelper.getMultiLinesWidth(g, cjkFont, nonCjkFont, lineSize * 2, station.stationName.split("\\|"));
             G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX - stationNameWidth / 2, (int) (centralY + lineSize * 2.5) - lineSize * 2, lineSize * 2, 1, station.stationName.split("\\|"));
         }

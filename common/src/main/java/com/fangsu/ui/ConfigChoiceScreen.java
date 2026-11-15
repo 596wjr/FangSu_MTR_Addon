@@ -26,7 +26,7 @@ public final class ConfigChoiceScreen extends ThemedConfigScreen {
     @Override protected int getContentTop(){return super.getContentTop()+12;}
     @Override protected void buildScrollableContent(ContentLayout layout){int y=layout.y;
         for(Choice choice:choices)if((choice.label()+" "+choice.value()).toLowerCase(Locale.ROOT).contains(search.toLowerCase(Locale.ROOT))){
-            addEntry(addButton(layout.areaLeft,y,layout.areaRight-layout.areaLeft,20,ComponentHelper.literal(choice.label()),b->{select.accept(choice.value());onClose();}),y);y+=24;
+            addEntry(addButton(layout.areaLeft,y,layout.areaRight-layout.areaLeft,20,ComponentHelper.literal(choice.label()),b->{select.accept(choice.value());if(Minecraft.getInstance().screen==this)onClose();}),y);y+=24;
         }
     }
     @Override public void onClose(){Minecraft.getInstance().setScreen(parent);}

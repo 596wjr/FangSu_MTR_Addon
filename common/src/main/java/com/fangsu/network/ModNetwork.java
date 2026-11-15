@@ -105,6 +105,8 @@ public class ModNetwork {
         DisplacementToolPackets.registerServer();
         // 逐轨道超高（P5-5）：注册位置紧挨 NODE_REFRESH_RAIL 的语义位置
         RailTiltPackets.registerServer();
+        ServiceRailPackets.registerServer();
+        RouteGroupPackets.registerServer();
         com.fangsu.train.DoorOpenCacheNet.registerServer();
         // 道岔（P6）：构建请求 C2S，判定入口在客户端，服务端只做权威校验
         TurnoutBuildRequestPayload.registerServer();

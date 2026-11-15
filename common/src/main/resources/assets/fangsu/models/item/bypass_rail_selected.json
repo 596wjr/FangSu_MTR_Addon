@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "fangsu:item/rail_connector_bypass",
+    "layer1": "mtr:item/rail_connector_selected"
+  }
+}

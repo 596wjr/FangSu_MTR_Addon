@@ -16,6 +16,8 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public final class ClientHooks {
+    public static java.util.function.BiConsumer<net.minecraft.world.InteractionHand, ItemStack> OPEN_SERVICE_RAIL_TOOL
+            = (hand, stack) -> {};
 
     public static Consumer<FunctionalObjBlockEntity> OPEN_OBJ_BLOCK_CONFIG_SCREEN
             = blockEntity -> {

@@ -44,6 +44,7 @@ public class MainClient {
     public static List<Runnable> resourceInitRunnables = com.fangsu.client.ClientBootstrap.resourceInitRunnables();
 
     public static void initClient() {
+        com.fangsu.client.ClientHooks.OPEN_SERVICE_RAIL_TOOL = com.fangsu.ui.ServiceRailScreen::openTool;
         com.fangsu.platform.CurvedPlatformClient.init();
         com.fangsu.platform.PlatformDoorClient.init();
         com.fangsu.announcements.AnnouncementClient.init();
@@ -51,6 +52,7 @@ public class MainClient {
         ModMenus.initClient();
         ShadersModHandler.init();
         ScriptManager.getInstance().init();
+        com.fangsu.items.ModItems.initClient();
         com.fangsu.network.HybridCreatorClient.init();
         // 道岔 S2C（绑定结果）接收器
         com.fangsu.network.ModNetwork.initClient();
