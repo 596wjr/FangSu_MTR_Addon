@@ -3,6 +3,7 @@ package com.fangsu.mixin;
 import com.fangsu.mtr.RouteServices;
 import com.fangsu.mtr.RouteBypass;
 import com.fangsu.mtr.ServiceStop;
+import com.fangsu.mtr.StationOpening;
 import com.fangsu.data.hybrid.RailActionsModuleExtraSupplier;
 import mtr.Registry;
 import mtr.data.RailwayData;
@@ -24,7 +25,8 @@ public abstract class ServiceRouteUpdateMixin {
     @Inject(method = "lambda$receiveUpdateOrDeleteC2S$9", at = @At("TAIL"))
     private static void fangsu$synchronizeChildren(Level world, ServerPlayer player, ResourceLocation channel,
                                                     RailwayData railway, FriendlyByteBuf update, FriendlyByteBuf full, CallbackInfo ci) {
-        if (!IPacket.PACKET_UPDATE_ROUTE.equals(channel) || full.readableBytes() < Long.BYTES) {
+        final boolean stationUpdate = IPacket.PACKET_UPDATE_STATION.equals(channel);
+        if ((!stationUpdate && !IPacket.PACKET_UPDATE_ROUTE.equals(channel)) || full.readableBytes() < Long.BYTES) {
             return;
         }
         final int index = full.readerIndex();
@@ -36,6 +38,10 @@ public abstract class ServiceRouteUpdateMixin {
             key = full.readUtf();
         } finally {
             full.readerIndex(index);
+        }
+        if (stationUpdate) {
+            if (StationOpening.KEY.equals(key)) fangsu$regenerateStationRoutes(player, railway, routeId);
+            return;
         }
         if (!"platform_ids".equals(key)) {
             return;
@@ -80,6 +86,23 @@ public abstract class ServiceRouteUpdateMixin {
         pathsToRegenerate.addAll(changed);
         for (final var depot : railway.depots) {
             if (depot.routeIds.stream().anyMatch(pathsToRegenerate::contains)) {
+                railway.railwayDataPathGenerationModule.generatePath(player.getServer(), depot.id);
+            }
+        }
+    }
+
+    @org.spongepowered.asm.mixin.Unique
+    private static void fangsu$regenerateStationRoutes(ServerPlayer player, RailwayData railway, long stationId) {
+        railway.dataCache.sync();
+        final var routes = new HashSet<Long>();
+        for (final var route : railway.routes) {
+            if (route.platformIds.stream().anyMatch(stop -> {
+                final var station = railway.dataCache.platformIdToStation.get(stop.platformId);
+                return station != null && station.id == stationId;
+            })) routes.add(route.id);
+        }
+        for (final var depot : railway.depots) {
+            if (depot.routeIds.stream().anyMatch(routes::contains)) {
                 railway.railwayDataPathGenerationModule.generatePath(player.getServer(), depot.id);
             }
         }

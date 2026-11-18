@@ -56,6 +56,71 @@ public final class RouteServices {
         return false;
     }
 
+    /** 旧线路必须是同方向的站序子序列；重复经过同一站且无法定位时不自动导入。 */
+    public static int[] matchImport(Route parent, Route child, LongUnaryOperator stationForPlatform) {
+        final var parentStops = parent.platformIds;
+        final var childStops = child.platformIds;
+        if (parent == child || relation(parent) != null || childStops.size() < 2 || childStops.size() > parentStops.size()) {
+            return null;
+        }
+        final int[] forward = matchImportStops(parentStops, childStops, stationForPlatform, 1);
+        final int[] backward = matchImportStops(parentStops, childStops, stationForPlatform, -1);
+        return forward != null && java.util.Arrays.equals(forward, backward) ? forward : null;
+    }
+
+    private static int[] matchImportStops(List<Route.RoutePlatform> parent, List<Route.RoutePlatform> child,
+                                          LongUnaryOperator stationForPlatform, int step) {
+        final int[] result = new int[child.size()];
+        int parentIndex = step > 0 ? 0 : parent.size() - 1;
+        for (int i = step > 0 ? 0 : child.size() - 1; i >= 0 && i < child.size(); i += step) {
+            final long id = platformId(child.get(i));
+            final long station = stationForPlatform.applyAsLong(id);
+            if (id == 0) return null;
+            while (parentIndex >= 0 && parentIndex < parent.size()) {
+                final long candidate = platformId(parent.get(parentIndex));
+                if (candidate == id || (station != 0 && station == stationForPlatform.applyAsLong(candidate))) break;
+                parentIndex += step;
+            }
+            if (parentIndex < 0 || parentIndex >= parent.size()) return null;
+            result[i] = parentIndex;
+            parentIndex += step;
+        }
+        return result;
+    }
+
+    public static boolean importService(Route parent, Route child, boolean express, LongUnaryOperator stationForPlatform) {
+        if (relation(child) != null) return false;
+        final int[] match = matchImport(parent, child, stationForPlatform);
+        if (match == null) return false;
+        final var parentStops = parent.platformIds;
+        final var childStops = child.platformIds;
+        final int first = express ? 0 : match[0];
+        final int last = express ? parentStops.size() - 1 : match[match.length - 1];
+        final var imported = new ArrayList<Route.RoutePlatform>();
+        int childIndex = 0;
+        for (int index = first; index <= last; index++) {
+            final var source = parentStops.get(index);
+            final var old = childIndex < match.length && index == match[childIndex] ? childStops.get(childIndex++) : null;
+            final long platform = platformId(old == null ? source : old);
+            final var entry = new Route.RoutePlatform(platform);
+            if (old != null) entry.customDestination = old.customDestination;
+            final var oldStatus = old == null ? RouteStopStatus.DISABLED : RouteStopStatus.of(old);
+            final var oldMetadata = old == null ? null : ServiceStop.get(old);
+            final var bypass = express && oldStatus == RouteStopStatus.SKIPPED && oldMetadata != null ? oldMetadata.bypass() : null;
+            final var status = bypass == null && oldStatus == RouteStopStatus.SKIPPED ? RouteStopStatus.DISABLED : oldStatus;
+            final var link = ServiceStop.ensure(source).child(parent.id, express);
+            final var identity = new ServiceStop(oldMetadata == null ? link.id() : oldMetadata.id(),
+                    link.parentRoute(), link.parentStop(), express, platform != platformId(source),
+                    status == RouteStopStatus.SKIPPED ? RouteStopStatus.DISABLED : status, bypass);
+            ServiceStop.set(entry, identity);
+            RouteStopStatus.set(entry, status);
+            imported.add(entry);
+        }
+        childStops.clear();
+        childStops.addAll(imported);
+        return true;
+    }
+
     /** 母线条目决定顺序，子线各自保留目标站台与停靠覆盖。 */
     public static boolean synchronize(Route parent, Route child, LongUnaryOperator stationForPlatform,
                                       BiPredicate<Long, ServiceStop.Bypass> validBypass) {

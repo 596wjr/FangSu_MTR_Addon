@@ -5,6 +5,7 @@
   "minVersion": "0.8",
   "plugin": "com.fangsu.mixin.FangSuMixinPlugin",
   "client": [
+    "EditStationOpeningMixin",
     "EditRouteServiceMixin",
     "DashboardStopStatusMixin",
     "DashboardRouteListMixin",
@@ -36,6 +37,7 @@
     "PlatformFrustumAccessor"
   ],
   "mixins": [
+    "StationOpeningMixin",
     "ServiceRouteUpdateMixin",
     "RouteStopDepotMixin",
     "RouteWaypointMixin",

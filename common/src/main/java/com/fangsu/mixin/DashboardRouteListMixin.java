@@ -34,6 +34,15 @@ public abstract class DashboardRouteListMixin {
                 context.drawString(font, label, x, y, color, false);
             }
 
+            public void clip(int left, int top, int right, int bottom, Runnable draw) {
+                context.enableScissor(left, top, right, bottom);
+                try {
+                    draw.run();
+                } finally {
+                    context.disableScissor();
+                }
+            }
+
             public void icon(DashboardRoutePanel.Icon icon, int x, int y, boolean hovered) {
                 final var texture = new net.minecraft.resources.ResourceLocation("mtr", "textures/gui/icon_" + icon.textureName() + ".png");
                 context.blit(texture, x, y, 0, hovered ? 20 : 0, 20, 20, 20, 40);

@@ -4,6 +4,7 @@ import com.fangsu.scripting.TextUtil;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.TreeMap;
@@ -40,8 +41,12 @@ public final class DashboardRouteGroups {
 
     public static <T> List<Row<T>> rows(List<Route<T>> routes, String search) {
         final var groups = new TreeMap<String, List<Route<T>>>();
+        final var byId = new HashMap<Long, Route<T>>();
+        for (final var route : routes) byId.put(route.id(), route);
         for (final var route : routes) {
-            groups.computeIfAbsent(route.groupName(), name -> new ArrayList<>()).add(route);
+            final var parent = byId.get(route.parentId());
+            final String group = parent == null ? route.groupName() : parent.groupName();
+            groups.computeIfAbsent(group, name -> new ArrayList<>()).add(route);
         }
         final String query = search.toLowerCase(Locale.ROOT).trim();
         final var result = new ArrayList<Row<T>>();
@@ -56,7 +61,7 @@ public final class DashboardRouteGroups {
             }
 
             final int visibleGroup = groupIndex++;
-            final var header = members.get(0);
+            final var header = members.stream().filter(route -> route.parentId() == 0).findFirst().orElse(members.get(0));
             if (members.size() == 1 && header.branchName().isEmpty()) {
                 result.add(new Row<>(header.label(), header.color(), 0, visibleGroup, List.of(header), header));
                 continue;

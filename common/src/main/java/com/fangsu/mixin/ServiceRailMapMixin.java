@@ -5,6 +5,7 @@ import com.fangsu.mtr.ServiceStop;
 import com.fangsu.mtr.rail.ServiceRail;
 import com.fangsu.network.ServiceRailPackets;
 import com.fangsu.ui.ServiceRailScreen;
+import com.fangsu.utils.GraphicContext;
 import mtr.client.ClientData;
 import mtr.data.TransportMode;
 import mtr.screen.WidgetMap;
@@ -45,12 +46,19 @@ public abstract class ServiceRailMapMixin implements RouteMapSelection {
     //#else
     //$$ private void fangsu$renderBypass(com.mojang.blaze3d.vertex.PoseStack graphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
     //#endif
-        fangsu$forEachMarker((start, end, settings, screenX, screenY) -> {
-            //#if MC_VERSION >= 12000
-            graphics.drawString(textRenderer, settings.number(), screenX + 3, screenY - 4, 0xFFC0C0C0);
-            //#else
-            //$$ textRenderer.drawShadow(graphics, settings.number(), screenX + 3, screenY - 4, 0xFFC0C0C0);
-            //#endif
+        final var context = GraphicContext.of(graphics);
+        fangsu$forEachMarker((start, end, settings, marker) -> {
+            context.fill(Math.max(x, marker.left()), Math.max(y, marker.top()),
+                    Math.min(x + width, marker.right()), Math.min(y + height, marker.bottom()), 0xFFFFFFFF);
+            if (scale >= 8) {
+                context.enableScissor(x, y, x + width, y + height);
+                try {
+                    context.drawCenteredString(textRenderer, settings.number(), (marker.left() + marker.right()) / 2,
+                            (marker.top() + marker.bottom() - textRenderer.lineHeight) / 2, 0xFFFFFFFF);
+                } finally {
+                    context.disableScissor();
+                }
+            }
         });
     }
 
@@ -59,8 +67,8 @@ public abstract class ServiceRailMapMixin implements RouteMapSelection {
         if (button != 0 || !ClientData.hasPermission() || !isMouseOver(mouseX, mouseY)) {
             return;
         }
-        fangsu$forEachMarker((start, end, settings, screenX, screenY) -> {
-            if (!cir.isCancelled() && Math.abs(mouseX - screenX) <= 10 && Math.abs(mouseY - screenY) <= 7) {
+        fangsu$forEachMarker((start, end, settings, marker) -> {
+            if (!cir.isCancelled() && marker.contains(mouseX, mouseY)) {
                 final var selection = fangsu$selection;
                 if (selection != null) {
                     if (!selection.test(new ServiceStop.Bypass(start, end))) return;
@@ -85,15 +93,25 @@ public abstract class ServiceRailMapMixin implements RouteMapSelection {
             if (settings == null || settings.kind() != ServiceRail.Kind.BYPASS) {
                 return;
             }
-            final int screenX = x + (int) Math.round(((start.getX() + end.getX()) / 2D - centerX) * scale + width / 2D);
-            final int screenY = y + (int) Math.round(((start.getZ() + end.getZ()) / 2D - centerY) * scale + height / 2D);
-            if (screenX >= x && screenX < x + width - 10 && screenY >= y && screenY < y + height) {
-                consumer.accept(start, end, settings, screenX, screenY);
+            final double blockX = ((long) start.getX() + end.getX()) / 2;
+            final double blockZ = ((long) start.getZ() + end.getZ()) / 2;
+            final int left = (int) Math.floor(x + (blockX - centerX) * scale + width / 2D);
+            final int top = (int) Math.floor(y + (blockZ - centerY) * scale + height / 2D);
+            final int right = Math.max(left + 1, (int) Math.floor(x + (blockX + 1 - centerX) * scale + width / 2D));
+            final int bottom = Math.max(top + 1, (int) Math.floor(y + (blockZ + 1 - centerY) * scale + height / 2D));
+            if (right > x && left < x + width && bottom > y && top < y + height) {
+                consumer.accept(start, end, settings, new Marker(left, top, right, bottom));
             }
         }));
     }
 
     public interface MarkerConsumer {
-        void accept(BlockPos start, BlockPos end, ServiceRail settings, int screenX, int screenY);
+        void accept(BlockPos start, BlockPos end, ServiceRail settings, Marker marker);
+    }
+
+    public record Marker(int left, int top, int right, int bottom) {
+        public boolean contains(double x, double y) {
+            return x >= left && x < right && y >= top && y < bottom;
+        }
     }
 }

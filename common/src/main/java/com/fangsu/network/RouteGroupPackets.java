@@ -83,12 +83,17 @@ public final class RouteGroupPackets {
         }
 
         final var routes = new ArrayList<Route>();
+        String group = null;
         for (final long id : ids) {
             final var route = railway.dataCache.routeIdMap.get(id);
-            if (route == null || !routes.isEmpty() && (route.transportMode != routes.get(0).transportMode
-                    || !groupName(route).equals(groupName(routes.get(0))))) {
+            if (route == null) return;
+            final var relation = RouteServices.relation(route);
+            final var parent = relation == null ? null : railway.dataCache.routeIdMap.get(relation.parentRoute());
+            final String routeGroup = groupName(parent == null ? route : parent);
+            if (group != null && (route.transportMode != routes.get(0).transportMode || !group.equals(routeGroup))) {
                 return;
             }
+            group = routeGroup;
             routes.add(route);
         }
 
@@ -119,7 +124,7 @@ public final class RouteGroupPackets {
 
         for (final var route : routes) {
             final var previous = RailwayDataLoggingModule.getData(route);
-            if (name != null) {
+            if (name != null && groupName(route).equals(group)) {
                 final String direction = TextUtil.getExtraParts(route.name);
                 route.name = name + (direction.isEmpty() ? "" : "||" + direction);
             }

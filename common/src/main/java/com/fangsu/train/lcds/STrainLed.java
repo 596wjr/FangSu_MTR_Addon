@@ -1,6 +1,7 @@
 package com.fangsu.train.lcds;
 
 import com.fangsu.mtr.DrawableRoute;
+import com.fangsu.mtr.RouteStopStatus;
 import com.fangsu.scripting.TextUtil;
 import com.fangsu.train.DoorOpenRecord;
 import com.fangsu.train.LcdBase;
@@ -112,7 +113,9 @@ public final class STrainLed extends LcdBase {
                     || (status.trainStatus == 4 && Math.abs(status.speed()) < 0.01);
             int current = -1;
             for (int i = 0; i < stations.size(); i++) {
-                int passing = stations.get(i).passingStatus;
+                final var station = stations.get(i);
+                if (station.stopStatus != RouteStopStatus.NORMAL) continue;
+                int passing = station.passingStatus;
                 int fixed = reversed ? stations.size() - 1 - i : i;
                 int position = board.position(fixed);
                 if (passing == 2) current = i;
@@ -121,17 +124,25 @@ public final class STrainLed extends LcdBase {
                     lamp(g, stationX(position, stations.size(), w), h * .58, lampRadius(stations.size(), w, h), true);
                 }
             }
-            // 到站闪「本站→下站」，运行常亮「上站→下站」。终点不画越界箭头。
+            // 箭头沿相邻的印刷灯位点亮，越行站保留进出箭头，划线站只保留离开箭头。
             int from = arrived ? current : current - 1;
             int to = arrived ? current + 1 : current;
-            if (current >= 0 && from >= 0 && to < stations.size() && (!arrived || blink)) {
-                int a = board.position(reversed ? stations.size() - 1 - from : from);
-                int b = board.position(reversed ? stations.size() - 1 - to : to);
+            if (current >= 0 && (!arrived || blink)) {
+                if (!arrived) {
+                    while (from >= 0 && stations.get(from).stopStatus != RouteStopStatus.NORMAL
+                            && stations.get(from).passingStatus >= 1 && stations.get(from).passingStatus <= 3) from--;
+                }
                 g.setColor(GREEN);
-                double direction = Math.signum(b - a);
-                double r = arrowRadius(stations.size(), w, h);
-                arrow(g, arrowX(stationX(a, stations.size(), w), stationX(b, stations.size(), w), direction),
-                        h * .58, direction, r, true);
+                for (int i = Math.max(0, from); i < Math.min(to, stations.size() - 1); i++) {
+                    final var target = stations.get(i + 1);
+                    if ((!arrived && target.stopStatus == RouteStopStatus.DISABLED) || target.passingStatus == 4
+                            || stations.get(i).passingStatus == 0) continue;
+                    int a = board.position(reversed ? stations.size() - 1 - i : i);
+                    int b = board.position(reversed ? stations.size() - 2 - i : i + 1);
+                    double direction = Math.signum(b - a);
+                    arrow(g, arrowX(stationX(a, stations.size(), w), stationX(b, stations.size(), w), direction),
+                            h * .58, direction, arrowRadius(stations.size(), w, h), true);
+                }
             }
             // 开门提示使用 TrainStatus 已换算到物理侧的观测/预测；未知时不猜左右。
             boolean known = false, onThisSide = false;

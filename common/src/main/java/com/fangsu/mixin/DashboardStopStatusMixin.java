@@ -18,6 +18,7 @@ import com.fangsu.mtr.RouteEditorAccess;
 import com.fangsu.mtr.RouteOverview;
 import com.fangsu.mtr.RouteServices;
 import com.fangsu.mtr.RouteStopStatus;
+import com.fangsu.mtr.StationOpening;
 import com.fangsu.mtr.ServiceStop;
 import com.fangsu.ui.DashboardRouteGroupScreen;
 import net.minecraft.client.Minecraft;
@@ -115,7 +116,7 @@ public abstract class DashboardStopStatusMixin extends ScreenMapper implements R
             final var station = ClientData.DATA_CACHE.platformIdToStation.get(stop.platformId);
             final var metadata = ServiceStop.get(stop);
             stops.add(new RouteOverview.Stop(station == null ? 0 : station.id,
-                    station == null ? "?" : station.name, RouteStopStatus.of(stop),
+                    station == null ? "?" : station.name, StationOpening.displayStatus(stop, station),
                     metadata == null ? null : metadata.id(), metadata == null ? null : metadata.parentStop()));
         }
         return new RouteOverview.Line(member.id(), member.parentId(),
@@ -244,14 +245,14 @@ public abstract class DashboardStopStatusMixin extends ScreenMapper implements R
         for (int index = 0; index < entries.size(); index++) {
             final int row = index;
             final var stop = entries.get(index);
-            final var status = RouteStopStatus.of(stop);
             final var platform = ClientData.DATA_CACHE.platformIdMap.get(stop.platformId);
             final var station = ClientData.DATA_CACHE.platformIdToStation.get(stop.platformId);
+            final var status = StationOpening.displayStatus(stop, station);
             final String name = station == null ? "?" : station.name.replace('|', ' ');
             final var metadata = ServiceStop.get(stop);
             final var settings = metadata == null || metadata.bypass() == null ? null
                     : RouteBypass.settings(ClientData.RAILS, metadata.bypass());
-            final var number = status == RouteStopStatus.SKIPPED
+            final var number = RouteStopStatus.of(stop) == RouteStopStatus.SKIPPED
                     ? ComponentHelper.translatable("ui.fangsu.route.bypass_stop", settings == null ? "?" : settings.number())
                     : ComponentHelper.literal(platform == null ? "?" : platform.name);
             final String destination = java.util.Objects.toString(stop.customDestination, "");
@@ -286,7 +287,8 @@ public abstract class DashboardStopStatusMixin extends ScreenMapper implements R
             final boolean canEditStop = canEdit && fangsu$replaceIndex < 0 && !editingDestination;
             rows.add(new DashboardRoutePanel.Row(title, subtitle, 1, status == RouteStopStatus.NORMAL ? editingRoute.color : 0x818B96,
                     true, actions, canEditStop ? () -> fangsu$startDestination(row) : null,
-                    canEditStop && status != RouteStopStatus.SKIPPED ? () -> fangsu$toggleStop(row) : null));
+                    canEditStop && !StationOpening.isDeferred(station) && status != RouteStopStatus.SKIPPED
+                            ? () -> fangsu$toggleStop(row) : null));
         }
         return rows;
     }
@@ -316,7 +318,9 @@ public abstract class DashboardStopStatusMixin extends ScreenMapper implements R
                 final boolean expressStops = RouteOverview.Diagram.stops(diagram.upExpress(), stop.up())
                         || RouteOverview.Diagram.stops(diagram.downExpress(), stop.down());
                 final var station = stop.up() == null ? stop.down() : stop.up();
-                rows.add(new DashboardRoutePanel.Row(ComponentHelper.literal(station.name().replace('|', ' ')), null, 1,
+                final var title = ComponentHelper.literal(station.name().replace('|', ' ')).withStyle(style ->
+                        style.withStrikethrough(!localStops && !expressStops && station.status() == RouteStopStatus.DISABLED));
+                rows.add(new DashboardRoutePanel.Row(title, null, 1,
                         diagram.up().color(), false, List.of(), null, null,
                         new DashboardRoutePanel.DiagramStop(express, localStops, expressStops, index == 0, index + 1 == diagram.rows().size())));
             }

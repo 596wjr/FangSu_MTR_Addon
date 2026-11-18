@@ -1,5 +1,6 @@
 package com.fangsu.ui;
 
+import com.fangsu.mappings.ComponentHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
@@ -13,6 +14,7 @@ public final class DashboardRoutePanel {
     public interface Canvas {
         void fill(int left, int top, int right, int bottom, int color);
         void text(Component label, int x, int y, int color);
+        void clip(int left, int top, int right, int bottom, Runnable draw);
         void icon(Icon icon, int x, int y, boolean hovered);
     }
 
@@ -66,9 +68,11 @@ public final class DashboardRoutePanel {
     private static final int TOP_PADDING = 3;
     private static final int HINT_HEIGHT = 15;
     private int firstRow;
+    private long scrollStart = System.nanoTime();
 
     public void reset() {
         firstRow = 0;
+        scrollStart = System.nanoTime();
     }
 
     public void render(Canvas canvas, List<Row> rows, Component hint, int left, int top, int right, int bottom,
@@ -119,9 +123,13 @@ public final class DashboardRoutePanel {
                 }
             }
 
-            canvas.text(fit(row.title(), actionX - textX - 4), textX, y + (row.subtitle() == null ? 6 : 1), 0xFFE5E9EE);
+            drawScrollingText(canvas, row.title(), textX, y + (row.subtitle() == null ? 6 : 1), actionX - 4, 0xFFE5E9EE);
             if (row.subtitle() != null) {
-                canvas.text(fit(row.subtitle(), actionX - textX - 4), textX, y + 11, 0xFFADB7C4);
+                if (row.actions().isEmpty() && row.open() == null) {
+                    drawScrollingText(canvas, row.subtitle(), textX, y + 11, actionX - 4, 0xFFADB7C4);
+                } else {
+                    canvas.text(fit(row.subtitle(), actionX - textX - 4), textX, y + 11, 0xFFADB7C4);
+                }
             }
         }
         if (rows.size() > capacity && capacity > 0) {
@@ -129,6 +137,22 @@ public final class DashboardRoutePanel {
             final int y = rowStart + (capacity * ROW_HEIGHT - height) * firstRow / (rows.size() - capacity);
             canvas.fill(right - 2, y, right, y + height, 0xFF68798C);
         }
+    }
+
+    private void drawScrollingText(Canvas canvas, Component label, int x, int y, int right, int color) {
+        if (right <= x) return;
+        final var font = Minecraft.getInstance().font;
+        final int width = font.width(label);
+        if (width <= right - x) {
+            canvas.text(label, x, y, color);
+            return;
+        }
+        final int period = width + font.width(ComponentHelper.literal("  ").withStyle(label.getStyle()));
+        final int offset = (int) ((System.nanoTime() - scrollStart) / 40_000_000L % period);
+        canvas.clip(x, y, right, y + font.lineHeight + 1, () -> {
+            canvas.text(label, x - offset, y, color);
+            canvas.text(label, x - offset + period, y, color);
+        });
     }
 
     private static int drawTreeRow(Canvas canvas, List<Row> rows, int index, int left, int y, int right, boolean hover) {

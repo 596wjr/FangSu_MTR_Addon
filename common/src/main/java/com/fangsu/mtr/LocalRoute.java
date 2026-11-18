@@ -2,6 +2,7 @@ package com.fangsu.mtr;
 
 import com.fangsu.scripting.TextUtil;
 import com.fangsu.utils.MtrUtil;
+import mtr.client.ClientData;
 import mtr.data.Platform;
 import mtr.data.Route;
 import mtr.data.RouteType;
@@ -35,7 +36,9 @@ public class LocalRoute {
         this.id = route.id;
         this.color = route.color;
         for (Route.RoutePlatform p : route.platformIds) {
-            this.platformIds.add(new RoutePlatform(p.platformId, p.customDestination, RouteStopStatus.of(p)));
+            this.platformIds.add(new RoutePlatform(p.platformId, p.customDestination,
+                    StationOpening.displayStatus(p, ClientData.DATA_CACHE.platformIdToStation.get(p.platformId)),
+                    ServiceStop.get(p)));
         }
     }
 
@@ -56,15 +59,21 @@ public class LocalRoute {
         public String customDestination;
         public final long platformId;
         public final RouteStopStatus stopStatus;
+        final ServiceStop serviceStop;
 
         public RoutePlatform(long platformId, String customDestination) {
             this(platformId, customDestination, RouteStopStatus.NORMAL);
         }
 
         public RoutePlatform(long platformId, String customDestination, RouteStopStatus stopStatus) {
+            this(platformId, customDestination, stopStatus, null);
+        }
+
+        private RoutePlatform(long platformId, String customDestination, RouteStopStatus stopStatus, ServiceStop serviceStop) {
             this.platformId = platformId;
             this.customDestination = customDestination;
             this.stopStatus = stopStatus;
+            this.serviceStop = serviceStop;
         }
 
         @Override
@@ -79,6 +88,15 @@ public class LocalRoute {
             }
             return false;
         }
+    }
+
+    long parentRouteId() {
+        for (final var platform : platformIds) {
+            if (platform.serviceStop != null && platform.serviceStop.parentStop() != null) {
+                return platform.serviceStop.parentRoute();
+            }
+        }
+        return 0;
     }
 
     public int getPlatformIdIndex(long platformId) {

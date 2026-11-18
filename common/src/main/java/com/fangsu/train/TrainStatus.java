@@ -110,7 +110,9 @@ public class TrainStatus {
             // 尚未到达第一个站台，但已有路线信息 → 使用第一条路线
             Route route = ClientData.DATA_CACHE.routeIdMap.get(train.getRouteIds().get(0));
             this.currentRoute = route != null ? new LocalRoute(route) : null;
-            this.nextRoutePlatformIndex = -1;
+            this.nextRoutePlatformIndex = currentRoute != null && !currentRoute.platformIds.isEmpty()
+                    && currentRoute.platformIds.stream().noneMatch(stop -> stop.stopStatus == com.fangsu.mtr.RouteStopStatus.NORMAL)
+                    ? currentRoute.platformIds.size() : -1;
         } else {
             this.currentRoute = null;
             this.nextRoutePlatformIndex = -1;
@@ -276,7 +278,8 @@ public class TrainStatus {
             final int firstAvailablePathIndex = lastPathIndex;
             for (int index = 0; index < route.platformIds.size(); index++) {
                 final var stop = route.platformIds.get(index);
-                if (com.fangsu.mtr.RouteStopStatus.of(stop) != com.fangsu.mtr.RouteStopStatus.NORMAL) continue;
+                final Station station = dataCache.platformIdToStation.get(stop.platformId);
+                if (com.fangsu.mtr.StationOpening.displayStatus(stop, station) != com.fangsu.mtr.RouteStopStatus.NORMAL) continue;
                 final Platform platform = dataCache.platformIdMap.get(stop.platformId);
                 if (index == 0 && lastStop != null && lastStop.reverseAtPlatform && lastStop.platform == platform && platform != null) {
                     routeStops.add(lastStop);
@@ -286,7 +289,6 @@ public class TrainStatus {
                 final Integer pathIndex = candidates == null ? null : candidates.higher(lastPathIndex);
                 if (pathIndex == null) continue;
 
-                final Station station = dataCache.platformIdToStation.get(stop.platformId);
                 final String customDestination = route.getDestination(index);
                 final boolean reverse = index + 1 == route.platformIds.size() && following != null && stop.platformId == following.getFirstPlatformId();
                 final var info = new PlatformInfo(route, station, platform, terminal,
@@ -319,6 +321,7 @@ public class TrainStatus {
         // 平台数据为空或已过最后一个平台：说明路线数据尚未就绪或列车已到终点
         int platformCount = trainPlatforms.platforms.size();
         if (platformCount == 0) {
+            if (nextRoutePlatformIndex >= 0) return 6;
             // 无平台数据（刚出库尚未到达首个站台）：当作运行中
             return 3;
         }

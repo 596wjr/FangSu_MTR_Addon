@@ -2,6 +2,7 @@ package com.fangsu.mixin;
 
 import com.fangsu.mtr.RouteStopStatus;
 import com.fangsu.mtr.RouteServices;
+import com.fangsu.mtr.StationOpening;
 import mtr.data.SavedRailBase;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -42,11 +43,12 @@ public abstract class RouteStopDepotMixin {
     private static Object fangsu$copyPathStop(java.util.Map<?, ?> platforms, Object id, Operation<Object> original,
                                               @Local(argsOnly = true) Route.RoutePlatform stop, @Local(argsOnly = true) DataCache cache) {
         final Object value = original.call(platforms, id);
-        final var status = RouteStopStatus.of(stop);
-        if (value instanceof Platform platform && status != RouteStopStatus.NORMAL) {
+        if (value instanceof Platform platform) {
+            final var station = cache.platformIdToStation.get(platform.id);
+            final var status = StationOpening.pathStatus(stop, station);
+            if (status == RouteStopStatus.NORMAL) return platform;
             final var metadata = ServiceStop.get(stop);
             final var bypass = metadata == null ? null : metadata.bypass();
-            final var station = cache.platformIdToStation.get(platform.id);
             final boolean useBypass = status == RouteStopStatus.SKIPPED && bypass != null && metadata.express()
                     && RouteBypass.sameStation(station, bypass);
             final var first = useBypass ? bypass.start() : platform.getOtherPosition(platform.getMidPos());
