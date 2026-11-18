@@ -21,6 +21,8 @@ public class ModItems {
             () -> new ItemNodeMarker(MarkerColor.BLUE, "item.fangsu.node_marker_blue.desc"));
     public static final RegistrySupplier<Item> ITEM_MARKER_CLEARER = RegisterUtil.addItem("node_marker_clearer", ItemMarkerClearer::new);
 
+    public static final RegistrySupplier<Item> ITEM_DAY_TICKET = RegisterUtil.addItem("day_ticket", ItemNetworkTicket::new);
+    public static final RegistrySupplier<Item> ITEM_ITINERARY_TICKET = RegisterUtil.addItem("itinerary_ticket", ItemNetworkTicket::new);
     public static void init() {
     }
 }

@@ -1009,5 +1009,9 @@
   "ui.fangsu.ann.tts_error_not_found": "服务商找不到请求的模型、音色或接口。",
   "ui.fangsu.ann.tts_error_uncertain": "连接超时或中断，服务商是否完成请求暂不确定。",
   "ui.fangsu.ann.tts_error_server": "服务商暂时无法处理请求，请稍后再试。",
-  "ui.fangsu.ann.tts_error_remote": "服务商拒绝了这次请求。"
+  "ui.fangsu.ann.tts_error_remote": "服务商拒绝了这次请求。",
+  "block.fangsu.card_machine": "IC卡售卡机",
+  "block.fangsu.fare_adjustment_machine": "补票机",
+  "item.fangsu.day_ticket": "日票",
+  "item.fangsu.itinerary_ticket": "联程票"
 }

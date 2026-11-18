@@ -1,0 +1,79 @@
+{
+  "width": 256,
+  "height": 160,
+  "background": "fangsu:ticketing/single.png",
+  "backBackground": "fangsu:ticketing/single_back.png",
+  "fields": [
+    {
+      "field": "name",
+      "x": 146,
+      "y": 26,
+      "size": 13,
+      "prefix": "",
+      "color": "#143B58",
+      "maxWidth": 102,
+      "clear": {
+        "x": 142,
+        "y": 8,
+        "width": 114,
+        "height": 34,
+        "color": "#eee9df"
+      }
+    },
+    {
+      "field": "kindEn",
+      "x": 146,
+      "y": 37,
+      "size": 7,
+      "prefix": "",
+      "color": "#143B58",
+      "maxWidth": 106
+    },
+    {
+      "field": "fare",
+      "x": 8,
+      "y": 157,
+      "size": 8,
+      "prefix": "票额 ",
+      "color": "#143B58",
+      "maxWidth": 230,
+      "kinds": [
+        "SINGLE"
+      ]
+    },
+    {
+      "field": "rights",
+      "x": 8,
+      "y": 157,
+      "size": 8,
+      "prefix": "剩余权益 ",
+      "color": "#143B58",
+      "maxWidth": 230,
+      "kinds": [
+        "ITINERARY"
+      ]
+    },
+    {
+      "field": "state",
+      "x": 8,
+      "y": 157,
+      "size": 8,
+      "prefix": "",
+      "color": "#143B58",
+      "maxWidth": 230,
+      "kinds": [
+        "DAY"
+      ]
+    },
+    {
+      "field": "serial",
+      "x": 80,
+      "y": 157,
+      "size": 8,
+      "prefix": "NO. ",
+      "color": "#143B58",
+      "maxWidth": 165
+    }
+  ],
+  "backFields": []
+}

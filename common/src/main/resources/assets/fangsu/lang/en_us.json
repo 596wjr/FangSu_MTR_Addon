@@ -1020,5 +1020,9 @@
   "ui.fangsu.ann.tts_error_not_found": "The provider could not find the model, voice, or endpoint.",
   "ui.fangsu.ann.tts_error_uncertain": "The connection timed out or closed. The request outcome is unknown.",
   "ui.fangsu.ann.tts_error_server": "The provider could not process the request. Try again later.",
-  "ui.fangsu.ann.tts_error_remote": "The provider rejected the request."
+  "ui.fangsu.ann.tts_error_remote": "The provider rejected the request.",
+  "block.fangsu.card_machine": "IC Card Machine",
+  "block.fangsu.fare_adjustment_machine": "Fare Adjustment Machine",
+  "item.fangsu.day_ticket": "Day Pass",
+  "item.fangsu.itinerary_ticket": "Itinerary Ticket"
 }

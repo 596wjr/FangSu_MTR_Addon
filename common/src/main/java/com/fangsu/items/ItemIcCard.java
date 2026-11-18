@@ -24,7 +24,7 @@ public class ItemIcCard extends Item implements TicketItem {
     private static final int ZONE_FARE = 1;
 
     public ItemIcCard() {
-        super(new Item.Properties().stacksTo(1));
+        super(com.fangsu.utils.RegisterUtil.tabProps(new Item.Properties().stacksTo(1)));
     }
 
     @Override
@@ -70,11 +70,15 @@ public class ItemIcCard extends Item implements TicketItem {
 
     @Override
     public ItemStack createTicket(int price) {
-        return null;
+        com.fangsu.ticketSystem.v2.TicketDefinitions.Product product=new com.fangsu.ticketSystem.v2.TicketDefinitions.Product();
+        product.id="fangsu:ic";product.name="市政交通一卡通";product.kind=com.fangsu.ticketSystem.v2.TicketDefinitions.Kind.IC;
+        product.style="fangsu:ticketing/beijing_ic.json";product.initialBalance=Math.max(0,price);
+        return com.fangsu.ticketSystem.v2.TicketCards.issue(product,0,new com.fangsu.ticketSystem.v2.TicketDefinitions.Catalogue());
     }
 
     @Override
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
+        if (stack.getTag()!=null && stack.getTag().contains(com.fangsu.ticketSystem.v2.TicketCards.KEY)) { ItemNetworkTicket.tooltip(stack, tooltip); return; }
         RegisterUtil.addDescTooltip(tooltip, "item.fangsu.ic_card.desc");
     }
 

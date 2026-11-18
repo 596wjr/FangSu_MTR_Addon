@@ -53,11 +53,20 @@ public final class TicketBarrierHandler {
         boolean isOpen = Boolean.parseBoolean(extraConfigs.getOrDefault("isOpen", "false"));
         if (isOpen) return Outcome.ALREADY_OPEN;
 
-        int fareType = Integer.parseInt(extraConfigs.getOrDefault("fareType", "0"));
+        int fareType = 0; // 旧设备统一迁入默认MTR计费网络
         boolean isExit = Boolean.parseBoolean(extraConfigs.getOrDefault("isExit", "false"));
         boolean useCustomZone = Boolean.parseBoolean(extraConfigs.getOrDefault("useCustomZone", "false"));
 
         ItemStack stack = player.getItemInHand(hand);
+        com.fangsu.ticketSystem.v2.TicketGate.bind(level,pos,extraConfigs);
+        extraConfigs.putIfAbsent("ticketNetwork",com.fangsu.ticketSystem.v2.TicketDefinitions.DEFAULT_NETWORK);
+        if(com.fangsu.ticketSystem.v2.TicketCards.isNative(stack))
+            return com.fangsu.ticketSystem.v2.TicketGate.use(level,pos,player,extraConfigs,sendUpdateC2S,-1) ? Outcome.ACCEPTED : Outcome.REJECTED;
+        if(!com.fangsu.ticketSystem.v2.TicketDefinitions.DEFAULT_NETWORK.equals(extraConfigs.get("ticketNetwork"))
+                || Boolean.parseBoolean(extraConfigs.getOrDefault("ticketTransfer","false"))) {
+            player.displayClientMessage(ComponentHelper.literal("此网络仅接受已授权的方速票卡"),true); return Outcome.REJECTED;
+        }
+
 
         // 手持 Metropolis 车票/交通卡（反射检测，Metropolis 非方速前置）：按其 NBT 计费规则进出站
         if (MetropolisTicketUtil.isMetropolisItem(stack)) {

@@ -354,6 +354,9 @@ public class BlockbenchModelLoader {
 		JsonObject face = faces != null && faces.has(faceName) && faces.get(faceName).isJsonObject()
 				? faces.getAsJsonObject(faceName) : null;
 
+        // 方速票务：尊重Blockbench隐藏面；未声明faces的盒展开仍沿用默认六面。
+        if (faces != null && (face == null || face.has("texture") && face.get("texture").isJsonNull())) return;
+
 		// 面贴图索引（暂存为假路径，稍后解析成真实贴图）
 		int texIndex = face != null && face.has("texture") && face.get("texture").isJsonPrimitive()
 				? face.get("texture").getAsInt() : -1;

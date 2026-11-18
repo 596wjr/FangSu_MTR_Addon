@@ -44,6 +44,7 @@ public class MainClient {
     public static List<Runnable> resourceInitRunnables = com.fangsu.client.ClientBootstrap.resourceInitRunnables();
 
     public static void initClient() {
+        com.fangsu.ticketSystem.v2.client.TicketClient.init();
         com.fangsu.platform.CurvedPlatformClient.init();
         com.fangsu.platform.PlatformDoorClient.init();
         com.fangsu.announcements.AnnouncementClient.init();

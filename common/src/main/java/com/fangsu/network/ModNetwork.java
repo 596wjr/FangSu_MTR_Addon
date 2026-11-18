@@ -72,6 +72,7 @@ public class ModNetwork {
     public static final ResourceLocation TURNOUT_BINDING = TurnoutBindingPayload.CHANNEL;
 
     public static void init() {
+        com.fangsu.ticketSystem.v2.TicketPackets.register();
         com.fangsu.platform.CurvedPlatformPackets.registerServer();
         com.fangsu.platform.PlatformDoorPackets.registerServer();
         com.fangsu.platform.PlatformDoorTrainDriver.register();
@@ -144,6 +145,8 @@ public class ModNetwork {
             //#endif
             BlockEntity be = level.getBlockEntity(pos);
 
+            if ((be instanceof com.fangsu.blockEntities.BlockEntityTicketBarrier || be instanceof com.fangsu.blockEntities.BlockEntityTicketMachine)
+                    && (!player.hasPermissions(2) || !level.isLoaded(pos) || player.distanceToSqr(pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5)>64)) return;
             if (be instanceof Syncable syncable) {
                 FriendlyByteBuf safeBuf =
                         new FriendlyByteBuf(io.netty.buffer.Unpooled.wrappedBuffer(payload));
@@ -228,62 +231,8 @@ public class ModNetwork {
         });
     }
 
-    private static void ticketMachineSync(
-            FriendlyByteBuf buf,
-            NetworkManager.PacketContext context
-    ) {
-        ResourceLocation itemLocation = buf.readResourceLocation();
-        int price = buf.readVarInt();
-        int count = buf.readVarInt();
-
-        context.queue(() -> {
-            Main.LOGGER.info("1");
-            ServerPlayer player = (ServerPlayer) context.getPlayer();
-            if (player == null) return;
-
-            // -------- 基础校验 --------
-            if (price <= 0 || count <= 0 || count > 64) return;
-            Main.LOGGER.info(itemLocation.toString());
-            //#if MC_VERSION >= 11903
-            Item item = BuiltInRegistries.ITEM.get(itemLocation);
-            //#else
-            //$$ Item item = net.minecraft.core.Registry.ITEM.get(itemLocation);
-            //#endif
-            if (!(item instanceof TicketItem ticketItem)) return;
-            Main.LOGGER.info("2");
-
-            int totalPrice = price * count;
-
-            // -------- 创造模式：直接给 --------
-            if (player.isCreative()) {
-                ItemStack stack = ticketItem.createTicket(price);
-                Main.LOGGER.info("giving {} stack {} for {}", count, stack, player);
-                for (int i = 0; i < count; i++)
-                    player.getInventory().add(stack.copy());
-                return;
-            }
-
-            // -------- 计算绿宝石 --------
-            int emeraldCost = totalPrice / EMERALD_VALUE;
-            if (emeraldCost * EMERALD_VALUE < totalPrice) {
-                emeraldCost++; // 不找零，向上取整
-            }
-
-            Inventory inv = player.getInventory();
-
-            if (countItem(inv, Items.EMERALD) < emeraldCost) {
-                return; // 钱不够
-            }
-
-            // -------- 扣钱 --------
-            removeItem(inv, Items.EMERALD, emeraldCost);
-
-            // -------- 给票 --------
-            ItemStack stack = ticketItem.createTicket(price);
-            Main.LOGGER.info("giving {} stack {} for {}", count, stack, player);
-            for (int i = 0; i < count; i++)
-                player.getInventory().add(stack.copy());
-        });
+    private static void ticketMachineSync(FriendlyByteBuf buf, NetworkManager.PacketContext context) {
+        context.queue(() -> { if(context.getPlayer()!=null) context.getPlayer().displayClientMessage(com.fangsu.mappings.ComponentHelper.literal("请重新打开售票机使用新版票务界面"),true); });
     }
 
     private static int countItem(Inventory inv, Item item) {
@@ -334,6 +283,7 @@ public class ModNetwork {
             //#endif
             BlockEntity be = level.getBlockEntity(pos);
 
+            if (!level.isLoaded(pos) || player.distanceToSqr(pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5)>64) return;
             if (be instanceof BlockEntityTicketBarrier barrier) {
                 barrier.handleServerInteraction(level, player);
             }

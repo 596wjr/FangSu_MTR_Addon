@@ -64,6 +64,15 @@ public abstract class MetropolisTurnstileMixin {
         int zone = station.zone;
 
         ItemStack stack = player.getItemInHand(hand);
+        // 第三方闸机作为默认MTR网络入口，同样验证新版票卡快照，不能绕过网络授权。
+        if(com.fangsu.ticketSystem.v2.TicketCards.isNative(stack)) {
+            java.util.Map<String,String> settings=new java.util.HashMap<>();
+            settings.put("ticketNetwork",com.fangsu.ticketSystem.v2.TicketDefinitions.DEFAULT_NETWORK);
+            settings.put("isExit",Boolean.toString(!isEnter));
+            com.fangsu.ticketSystem.v2.TicketGate.use(level,pos,player,settings,() -> fangsu$openGate(level,pos,state),-1);
+            cir.setReturnValue(InteractionResult.SUCCESS); cir.cancel(); return;
+        }
+
 
         // Metropolis 无限交通卡（创造模式）：始终放行
         if (MetropolisTicketUtil.isCreativeCard(stack, player)) {

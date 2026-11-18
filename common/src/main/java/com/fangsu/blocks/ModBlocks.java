@@ -124,6 +124,15 @@ public class ModBlocks {
     public static final RegistrySupplier<Item> ITEM_TURNOUT = RegisterUtil.addItem("turnout",
             () -> new ItemTurnout(BLOCK_TURNOUT.get(), RegisterUtil.tabProps(new Item.Properties())));
 
+
+    public static final RegistrySupplier<Block> BLOCK_CARD_MACHINE = RegisterUtil.addBlock("card_machine", () -> new BlockTicketMachine(1));
+    public static final RegistrySupplier<Block> BLOCK_FARE_ADJUSTMENT_MACHINE = RegisterUtil.addBlock("fare_adjustment_machine", () -> new BlockTicketMachine(2));
+    public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_TICKET_MACHINE = RegisterUtil.addBlockEntity("block_entity_ticket_machine", BLOCK_TICKET_MACHINE, BlockEntityTicketMachine::new);
+    public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_CARD_MACHINE = RegisterUtil.addBlockEntity("block_entity_card_machine", BLOCK_CARD_MACHINE, BlockEntityTicketMachine::new);
+    public static final RegistrySupplier<BlockEntityType<BaseObjBlockEntity>> BLOCK_ENTITY_FARE_ADJUSTMENT_MACHINE = RegisterUtil.addBlockEntity("block_entity_fare_adjustment_machine", BLOCK_FARE_ADJUSTMENT_MACHINE, BlockEntityTicketMachine::new);
+    public static final RegistrySupplier<Item> ITEM_CARD_MACHINE = RegisterUtil.addBlockItem("card_machine", BLOCK_CARD_MACHINE);
+    public static final RegistrySupplier<Item> ITEM_FARE_ADJUSTMENT_MACHINE = RegisterUtil.addBlockItem("fare_adjustment_machine", BLOCK_FARE_ADJUSTMENT_MACHINE);
+
     public static void init() {
     }
 

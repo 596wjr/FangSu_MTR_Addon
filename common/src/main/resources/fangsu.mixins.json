@@ -28,7 +28,8 @@
     "GameRendererTiltMixin",
     "TrainRendererBaseCameraMixin",
     "PlatformOverlayWorldMixin",
-    "PlatformFrustumAccessor"
+    "PlatformFrustumAccessor",
+    "TicketItemRendererMixin"
   ],
   "mixins": [
     "CustomResourcesMixin",

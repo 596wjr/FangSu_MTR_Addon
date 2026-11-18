@@ -1,0 +1,69 @@
+{
+  "width": 256,
+  "height": 160,
+  "background": "fangsu:ticketing/beijing_ic.png",
+  "fields": [
+    {
+      "field": "balance",
+      "x": 10,
+      "y": 113,
+      "size": 12,
+      "prefix": "余额 ",
+      "color": "#FFFFFF",
+      "maxWidth": 230
+    },
+    {
+      "field": "serial",
+      "x": 10,
+      "y": 149,
+      "size": 8,
+      "prefix": "NO. ",
+      "color": "#FFFFFF",
+      "maxWidth": 230
+    }
+  ],
+  "backFields": [
+    {
+      "field": "name",
+      "x": 10,
+      "y": 70,
+      "size": 11,
+      "prefix": "",
+      "color": "#FFFFFF",
+      "maxWidth": 230
+    },
+    {
+      "field": "union",
+      "x": 10,
+      "y": 92,
+      "size": 10,
+      "prefix": "",
+      "color": "#FFFFFF",
+      "maxWidth": 230
+    },
+    {
+      "field": "state",
+      "x": 10,
+      "y": 112,
+      "size": 10,
+      "prefix": "",
+      "color": "#FFFFFF",
+      "maxWidth": 230
+    },
+    {
+      "field": "serial",
+      "x": 10,
+      "y": 146,
+      "size": 8,
+      "prefix": "NO. ",
+      "color": "#FFFFFF",
+      "maxWidth": 230
+    }
+  ],
+  "badges": {
+    "x": 198,
+    "y": 5,
+    "width": 54,
+    "height": 28
+  }
+}

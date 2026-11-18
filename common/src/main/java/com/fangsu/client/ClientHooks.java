@@ -16,6 +16,8 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public final class ClientHooks {
+    public static java.util.function.Consumer<String> REMOVE_TICKET_TEXTURE = id -> {};
+    public static java.util.function.Consumer<BlockPos> OPEN_TICKETING = pos -> {};
 
     public static Consumer<FunctionalObjBlockEntity> OPEN_OBJ_BLOCK_CONFIG_SCREEN
             = blockEntity -> {

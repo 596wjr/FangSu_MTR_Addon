@@ -76,8 +76,9 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
 
     @Override
     public void whenLoading() {
+        ensureExtraConfig("ticketNetwork",com.fangsu.ticketSystem.v2.TicketDefinitions.DEFAULT_NETWORK);
         ensureExtraConfig("isOpen", "false");
-        ensureExtraConfig("fareType", "0");
+        extraConfigs.put("fareType", "0");
         ensureExtraConfig("isExit", "false");
         ensureExtraConfig("fareVal", "10");
         ensureExtraConfig("useCustomZone", "false");
@@ -342,10 +343,33 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
         return Block.box(0, 0, 0, 16, 16, 16);
     }
 
+    public Map<String,String> ticketSettings() { return new java.util.HashMap<>(extraConfigs); }
+    public void configureTickets(Map<String,String> values, com.fangsu.ticketSystem.v2.TicketDefinitions.Catalogue catalogue) {
+        String network=values.getOrDefault("ticketNetwork",com.fangsu.ticketSystem.v2.TicketDefinitions.DEFAULT_NETWORK);
+        com.fangsu.ticketSystem.v2.TicketDefinitions.require(catalogue.networks.containsKey(network),"票务网络不存在");
+        String target=values.getOrDefault("ticketTargetNetwork",network);
+        boolean transfer=Boolean.parseBoolean(values.getOrDefault("ticketTransfer","false"));
+        com.fangsu.ticketSystem.v2.TicketDefinitions.require(!transfer || catalogue.networks.containsKey(target) && !network.equals(target),"换乘网络无效");
+        for(String kind:values.getOrDefault("ticketKinds","SINGLE,IC,ITINERARY,DAY").split(","))
+            if(!kind.isBlank()) com.fangsu.ticketSystem.v2.TicketDefinitions.Kind.valueOf(kind);
+        for(String key:java.util.List.of("ticketNetwork","ticketTargetNetwork","ticketTransfer","ticketKinds","isExit"))
+            if(values.containsKey(key)) extraConfigs.put(key,values.get(key));
+        ensureExtraConfig("ticketNetwork",network); setChanged(); sendUpdateC2S();
+    }
+    public void ticketSelected(net.minecraft.server.level.ServerPlayer player,int leg) {
+        if(getExtraConfigBool("isOpen",false)) return;
+        if(com.fangsu.ticketSystem.v2.TicketGate.use(level,worldPosition,player,extraConfigs,this::sendUpdateC2S,leg)) {
+            com.fangsu.network.BarrierSoundPackets.emit(level,worldPosition,extraConfigs,"accepted");
+            com.fangsu.network.BarrierSoundPackets.emit(level,worldPosition,extraConfigs,"opening");
+        }
+    }
+
     @Override
     public List<ConfigEntry<?>> getConfigs() {
         List<ConfigEntry<?>> configs = new ArrayList<>();
         Map<String, String> extra = this.extraConfigs;
+        configs.add(new RunnableConfig(ComponentHelper.literal("票务网络与产品管理"),new ConfigSpec("runnable"),
+            () -> com.fangsu.client.ClientHooks.OPEN_TICKETING.accept(worldPosition)));
         for (String event : List.of("accepted", "rejected", "opening", "closing")) {
             configs.add(new StringConfig(ComponentHelper.translatable("ui.fangsu.barrierSound." + event), new ConfigSpec("string"),
                     () -> extra.getOrDefault(event + "Sound", ""), v -> extra.put(event + "Sound", v)));
@@ -359,55 +383,8 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
         configs.add(new NumberInputConfig(ComponentHelper.translatable("ui.fangsu.barrierSound.pitch"), new ConfigSpec("number_input")
                 .setParam("min", new JsonPrimitive(.5)).setParam("max", new JsonPrimitive(2)),
                 () -> getExtraConfigFloat("soundPitch", 1), v -> extra.put("soundPitch", v.toString())));
-        configs.add(new EnumConfig(
-                ComponentHelper.translatable("ui.fangsu.ticketbarrier.mode"),
-                new ConfigSpec("list"),
-                List.of(
-                        ComponentHelper.translatable("ui.fangsu.ticketbarrier.modeMtr"),
-                        ComponentHelper.translatable("ui.fangsu.ticketbarrier.modeFareOnce")
-                ),
-                () -> getExtraConfigInt("fareType", 0),
-                (v) -> extra.put("fareType", v.toString())
-        ).setSaveOnChange(true));
-        configs.add(new BoolConfig(
-                ComponentHelper.translatable("ui.fangsu.ticketbarrier.isExit"),
-                new ConfigSpec("bool"),
-                () -> getExtraConfigBool("isExit", false),
-                (v) -> extra.put("isExit", v.toString())
-        ).setShowCondition(v -> {
-            int fareType = getExtraConfigInt("fareType", 0);
-            return fareType == 0;
-        }));
-        configs.add(new BoolConfig(
-                ComponentHelper.translatable("ui.fangsu.ticketbarrier.useCustomZone"),
-                new ConfigSpec("bool"),
-                () -> getExtraConfigBool("useCustomZone", false),
-                (v) -> extra.put("useCustomZone", v.toString())
-        ).setSaveOnChange(true).setShowCondition(v -> 0 == getExtraConfigInt("fareType", 0)));
-        configs.add(new NumberInputConfig(
-                ComponentHelper.translatable("ui.fangsu.ticketbarrier.fareVal"),
-                new ConfigSpec("number_input")
-                        .setParam("max", new JsonPrimitive(32767))
-                        .setParam("min", new JsonPrimitive(0))
-                        .setParam("isInt", new JsonPrimitive(true)),
-                () -> (float) getExtraConfigInt("fareVal", 10),
-                (v) -> extra.put("fareVal", String.valueOf(v.intValue()))
-        ).setShowCondition(v -> 1 == getExtraConfigInt("fareType", 0)));
-        configs.add(new NumberInputConfig(
-                ComponentHelper.translatable("ui.fangsu.ticketbarrier.customZone"),
-                new ConfigSpec("number_input")
-                        .setParam("max", new JsonPrimitive(32767))
-                        .setParam("min", new JsonPrimitive(-32768))
-                        .setParam("isInt", new JsonPrimitive(true)),
-                () -> (float) getExtraConfigInt("customZone", 0),
-                (v) -> extra.put("customZone", String.valueOf(v.intValue()))
-        ).setShowCondition(v -> 0 == getExtraConfigInt("fareType", 0) && getExtraConfigBool("useCustomZone", false)));
-        configs.add(new StringConfig(
-                ComponentHelper.translatable("ui.fangsu.ticketbarrier.customDisplayName"),
-                new ConfigSpec("string"),
-                () -> extra.getOrDefault("customDisplayName", ""),
-                (v) -> extra.put("customDisplayName", v)
-        ).setShowCondition(v -> 0 == getExtraConfigInt("fareType", 0) && getExtraConfigBool("useCustomZone", false)));
+        configs.add(new BoolConfig(ComponentHelper.translatable("ui.fangsu.ticketbarrier.isExit"),new ConfigSpec("bool"),
+                () -> getExtraConfigBool("isExit",false),v -> extra.put("isExit",v.toString())));
         return configs;
     }
 

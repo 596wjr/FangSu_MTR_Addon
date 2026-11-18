@@ -91,6 +91,7 @@ public class ItemSingleJourneyTicket extends Item implements TicketItem {
             List<Component> tooltip,
             TooltipFlag flag
     ) {
+        if (stack.getTag()!=null && stack.getTag().contains(com.fangsu.ticketSystem.v2.TicketCards.KEY)) { ItemNetworkTicket.tooltip(stack, tooltip); return; }
         CompoundTag tag = stack.getTag();
         if (tag == null) return;
 

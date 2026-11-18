@@ -7,6 +7,9 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 
 public class ModBlockClient {
     public static void initClient() {
+        BlockEntityRendererRegistry.register(ModBlocks.BLOCK_ENTITY_TICKET_MACHINE.get(),ctx -> new com.fangsu.ticketSystem.v2.client.TicketMachineRenderer(ctx.getBlockEntityRenderDispatcher()));
+        BlockEntityRendererRegistry.register(ModBlocks.BLOCK_ENTITY_CARD_MACHINE.get(),ctx -> new com.fangsu.ticketSystem.v2.client.TicketMachineRenderer(ctx.getBlockEntityRenderDispatcher()));
+        BlockEntityRendererRegistry.register(ModBlocks.BLOCK_ENTITY_FARE_ADJUSTMENT_MACHINE.get(),ctx -> new com.fangsu.ticketSystem.v2.client.TicketMachineRenderer(ctx.getBlockEntityRenderDispatcher()));
         BlockEntityRendererRegistry.register(ModBlocks.BLOCK_ENTITY_AUTO_PLATFORM_COMPONENT.get(), ctx -> new com.fangsu.platform.PlatformDoorComponentRenderer(ctx.getBlockEntityRenderDispatcher()));
         BlockEntityRendererRegistry.register(ModBlocks.BLOCK_ENTITY_CURVED_PLATFORM.get(), ctx -> new com.fangsu.platform.CurvedPlatformRenderer());
         BlockEntityRendererRegistry.register(

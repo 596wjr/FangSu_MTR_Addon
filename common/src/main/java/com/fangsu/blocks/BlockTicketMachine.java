@@ -28,7 +28,9 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class BlockTicketMachine extends Block {
+public class BlockTicketMachine extends Block implements net.minecraft.world.level.block.EntityBlock {
+    public final int ticketMachineKind;
+    public static final net.minecraft.world.level.block.state.properties.BooleanProperty CUSTOM_MODEL = net.minecraft.world.level.block.state.properties.BooleanProperty.create("custom_model");
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final EnumProperty<DoubleBlockHalf> HALF = BlockStateProperties.DOUBLE_BLOCK_HALF;
     private static final VoxelShape SHAPE_NORTH = Block.box(0, 0, 8, 16, 16, 16);
@@ -36,7 +38,8 @@ public class BlockTicketMachine extends Block {
     private static final VoxelShape SHAPE_SOUTH = Block.box(0, 0, 0, 16, 16, 8);
     private static final VoxelShape SHAPE_WEST  = Block.box(8, 0, 0, 16, 16, 16);
 
-    public BlockTicketMachine() {
+    public BlockTicketMachine() { this(0); }
+    public BlockTicketMachine(int kind) {
         super(BlockBehaviour.Properties.of(
                 //#if MC_VERSION >= 12000
                 )
@@ -44,12 +47,13 @@ public class BlockTicketMachine extends Block {
                 //$$ net.minecraft.world.level.material.Material.METAL)
                 //#endif
                 .strength(2).noOcclusion());
-        registerDefaultState(this.defaultBlockState().setValue(FACING, Direction.NORTH).setValue(HALF, DoubleBlockHalf.LOWER));
+        ticketMachineKind = kind;
+        registerDefaultState(this.defaultBlockState().setValue(CUSTOM_MODEL, true).setValue(FACING, Direction.NORTH).setValue(HALF, DoubleBlockHalf.LOWER));
     }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, HALF);
+        builder.add(FACING, HALF, CUSTOM_MODEL);
     }
 
     @Nullable
@@ -100,6 +104,9 @@ public class BlockTicketMachine extends Block {
 
     @Override
     public @NotNull VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        BlockPos base = state.getValue(HALF) == DoubleBlockHalf.UPPER ? pos.below() : pos;
+        if (state.getValue(CUSTOM_MODEL) && level.getBlockEntity(base) instanceof com.fangsu.blockEntities.BlockEntityTicketMachine machine)
+            return com.fangsu.ticketSystem.v2.TicketShapes.rotate(machine.ticketShape(state.getValue(HALF) == DoubleBlockHalf.UPPER), state.getValue(FACING));
         return switch (state.getValue(FACING)) {
             case NORTH -> SHAPE_NORTH;
             case EAST  -> SHAPE_EAST;
@@ -125,11 +132,19 @@ public class BlockTicketMachine extends Block {
     }
 
     @Override
-    public InteractionResult use(BlockState blockState, Level level, BlockPos blockPos, Player player, InteractionHand interactionHand, BlockHitResult blockHitResult) {
-        if (level.isClientSide()) {
-
-            ClientHooks.openTicketMachineScreen(ComponentHelper.translatable("ui.fangsu.ticketmachine"), blockPos);
-
+    public net.minecraft.world.level.block.entity.BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return state.getValue(HALF) == DoubleBlockHalf.LOWER ? new com.fangsu.blockEntities.BlockEntityTicketMachine(pos,state) : null;
+    }
+    @Override
+    public net.minecraft.world.level.block.RenderShape getRenderShape(BlockState state) {
+        return state.getValue(CUSTOM_MODEL) ? net.minecraft.world.level.block.RenderShape.INVISIBLE : net.minecraft.world.level.block.RenderShape.MODEL;
+    }
+    @Override
+    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+            BlockPos base = state.getValue(HALF) == DoubleBlockHalf.UPPER ? pos.below() : pos;
+            try { com.fangsu.ticketSystem.v2.TicketPackets.open(serverPlayer,base); }
+            catch(RuntimeException ex) { player.displayClientMessage(ComponentHelper.literal("票务设备打开失败："+ex.getMessage()),true); }
         }
         return InteractionResult.SUCCESS;
     }
