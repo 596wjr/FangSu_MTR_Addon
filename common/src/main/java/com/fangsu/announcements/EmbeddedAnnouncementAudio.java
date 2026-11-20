@@ -59,7 +59,7 @@ final class EmbeddedAnnouncementAudio {
     private static List<Embedded> list(ResourceManager manager) {
         Map<String, Integer> priorities = new HashMap<>();
         try (var packs = manager.listPacks()) {
-            //#if MC_VERSION >= 11900
+            //#if MC_VERSION >= 11903
             packs.forEach(pack -> priorities.put(pack.packId(), priorities.size()));
             //#else
             //$$ packs.forEach(pack -> priorities.put(pack.getName(), priorities.size()));
