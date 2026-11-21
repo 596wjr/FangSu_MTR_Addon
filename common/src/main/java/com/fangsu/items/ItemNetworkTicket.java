@@ -8,24 +8,34 @@ import net.minecraft.world.level.Level;
 import net.minecraft.network.chat.Component;
 import java.util.List;
 
-/** 日票和联程票共用物品行为，权益由服务端签发快照保存。 */
+/** 名称与权益来自已售票快照；提示文字交给客户端按游戏语言翻译。 */
 public class ItemNetworkTicket extends Item {
-    public ItemNetworkTicket() { super(com.fangsu.utils.RegisterUtil.tabProps(new Item.Properties().stacksTo(1))); }
-    public static void tooltip(ItemStack stack, List<Component> lines) {
-        if (stack.getTag() == null || !stack.getTag().contains(TicketCards.KEY)) return;
-        try {
-            Card card = TicketCards.read(stack, null);
-            lines.add(ComponentHelper.literal(card.product.name));
-            lines.add(ComponentHelper.literal("可用网络："+String.join("、", card.product.networks)));
-            for (Badge badge : card.product.badges) lines.add(ComponentHelper.literal("联合授权："+badge.name));
-            if (card.product.kind == Kind.IC) lines.add(ComponentHelper.literal("余额："+card.balance+"元"));
-            if (card.product.kind == Kind.SINGLE || card.product.kind == Kind.ITINERARY) lines.add(ComponentHelper.literal("票额："+card.allowance+"元"));
-            if (card.product.kind == Kind.ITINERARY) lines.add(ComponentHelper.literal("剩余权益："+(card.product.legs.size()-card.used.size())));
-            lines.add(ComponentHelper.literal(card.journey == null ? "未进站" : "已进站："+card.journey.entry.name));
-            if (card.activated > 0 && (card.product.kind == Kind.DAY || card.product.validHours > 0))
-                lines.add(ComponentHelper.literal("有效至："+new java.util.Date(card.activated+(card.product.kind==Kind.DAY?24:card.product.validHours)*3600000L)));
-            lines.add(ComponentHelper.literal("编号："+card.serial));
-        } catch (RuntimeException ex) { lines.add(ComponentHelper.literal("票卡数据无效")); }
+    public ItemNetworkTicket() { super(new Item.Properties().stacksTo(1)); }
+    public static Component productName(ItemStack stack,Component fallback) {
+        if(stack.getTag()==null||!stack.getTag().contains(TicketCards.KEY))return fallback;
+        try{
+            String name=TicketCards.read(stack,null).product.name;
+            return name==null||name.isBlank()?fallback:ComponentHelper.literal(name);
+        }catch(RuntimeException ex){return fallback;}
     }
-    @Override public void appendHoverText(ItemStack stack, Level world, List<Component> lines, TooltipFlag flag) { tooltip(stack, lines); }
+    @Override public Component getName(ItemStack stack){return productName(stack,super.getName(stack));}
+    public static void tooltip(ItemStack stack,List<Component> lines) {
+        if(stack.getTag()==null||!stack.getTag().contains(TicketCards.KEY))return;
+        try{
+            Card card=TicketCards.read(stack,null);
+            lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.networks",String.join(", ",card.product.networks)));
+            for(Badge badge:card.product.badges)lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.union",badge.name));
+            if(card.product.kind==Kind.IC)lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.balance",card.balance));
+            if(card.product.kind==Kind.SINGLE||card.product.kind==Kind.ITINERARY)lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.fare",card.allowance));
+            if(card.product.kind==Kind.ITINERARY)lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.rights",card.product.legs.size()-card.used.size()));
+            if(card.product.kind==Kind.DAY)lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.duration",card.product.durationHours()));
+            lines.add(card.journey==null?ComponentHelper.translatable("tooltip.fangsu.ticket.outside"):ComponentHelper.translatable("tooltip.fangsu.ticket.inside",com.fangsu.ticketSystem.v2.TicketStations.formatName(card.journey.entry)));
+            if(card.activated>0&&(card.product.kind==Kind.DAY||card.product.validHours>0)){
+                String expiry=new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm",java.util.Locale.ROOT).format(new java.util.Date(card.activated+card.product.durationHours()*3600000L));
+                lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.expiry",expiry));
+            }
+            lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.serial",card.serial));
+        }catch(RuntimeException ex){lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.invalid"));}
+    }
+    @Override public void appendHoverText(ItemStack stack,Level world,List<Component> lines,TooltipFlag flag){tooltip(stack,lines);}
 }

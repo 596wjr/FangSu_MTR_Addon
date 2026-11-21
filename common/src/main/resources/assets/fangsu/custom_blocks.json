@@ -84,5 +84,22 @@
                 "subModel": "mtr_sis_1"
             }
         }
+    ],
+    "ticketMachine": [
+        {
+            "text": "北京地铁售票机（经典）",
+            "content": "fangsu:ticketing/machine_old.json",
+            "contentText": "北京地铁售票机"
+        },
+        {
+            "text": "北京地铁售票机（新版）",
+            "content": "fangsu:ticketing/machine_new.json",
+            "contentText": "北京地铁售票机"
+        },
+        {
+            "text": "北京地铁售卡机",
+            "content": "fangsu:ticketing/card_machine.json",
+            "contentText": "北京地铁售卡机"
+        }
     ]
 }

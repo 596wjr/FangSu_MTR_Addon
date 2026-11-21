@@ -24,8 +24,11 @@ public class ItemIcCard extends Item implements TicketItem {
     private static final int ZONE_FARE = 1;
 
     public ItemIcCard() {
-        super(com.fangsu.utils.RegisterUtil.tabProps(new Item.Properties().stacksTo(1)));
+        super(new Item.Properties().stacksTo(1));
     }
+
+    @Override
+    public Component getName(ItemStack stack) { return ItemNetworkTicket.productName(stack, super.getName(stack)); }
 
     @Override
     public boolean enter(Level world, Player player, ItemStack stack, FareInfo info) {

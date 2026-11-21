@@ -20,7 +20,7 @@ public final class TicketDefinitions {
         public List<Tier> tiers = new ArrayList<>();
         public int fare(Station from, Station to) {
             if (from == null || to == null || !Objects.equals(from.dimension, to.dimension))
-                throw new IllegalArgumentException("找不到同一维度的计费车站");
+                throw new IllegalArgumentException("msg.fangsu.ticketing.station_dimension");
             if (mode == Pricing.FIXED) return fixed;
             if (mode == Pricing.MTR) {
                 long zones = 0;
@@ -36,18 +36,18 @@ public final class TicketDefinitions {
                 if (distance <= end) return money(amount);
                 start = end;
             }
-            throw new IllegalArgumentException("缺少无上限的最后一档");
+            throw new IllegalArgumentException("msg.fangsu.ticketing.missing_final_tier");
         }
         public void validate() {
-            require(mode != null && fixed >= 0, "收费模式或固定金额无效");
+            require(mode != null && fixed >= 0, "msg.fangsu.ticketing.invalid_pricing");
             if (mode != Pricing.DISTANCE) return;
-            require(!tiers.isEmpty() && tiers.size() <= 64, "需要1至64档阶梯");
+            require(!tiers.isEmpty() && tiers.size() <= 64, "msg.fangsu.ticketing.tier_count");
             double last = 0;
             for (int i = 0; i < tiers.size(); i++) {
                 Tier tier = tiers.get(i);
                 require(tier != null && Double.isFinite(tier.end) && tier.unit > 0 && tier.price >= 0,
-                        "计费单位须大于0，单价不得为负");
-                require(i == tiers.size() - 1 ? tier.end == -1 : tier.end > last, "上限须递增，最后一档上限为-1");
+                        "msg.fangsu.ticketing.invalid_tier_unit");
+                require(i == tiers.size() - 1 ? tier.end == -1 : tier.end > last, "msg.fangsu.ticketing.tier_limits");
                 last = tier.end;
             }
         }
@@ -80,7 +80,9 @@ public final class TicketDefinitions {
         public String id = "", name = "新票务产品", style = "fangsu:ticketing/single.json";
         public Kind kind = Kind.SINGLE;
         public boolean enabled = true, ordered = true;
-        public int price = 2, initialBalance, validHours;
+        public int price = 2, initialBalance, validHours, validDays = 1;
+        /** 旧票未保存天数时仍按一日票处理，已售票使用自身快照。 */
+        public int durationHours() { return kind == Kind.DAY ? Math.max(1, validDays) * 24 : validHours; }
         public Set<String> networks = new LinkedHashSet<>(List.of(DEFAULT_NETWORK));
         public Set<String> unions = new LinkedHashSet<>();
         public List<Badge> badges = new ArrayList<>();
@@ -89,7 +91,7 @@ public final class TicketDefinitions {
             Set<String> result = new LinkedHashSet<>(networks);
             for (String id : unions) {
                 NetworkUnion union = catalogue.unions.get(id);
-                require(union != null, "联合组不存在");
+                require(union != null, "msg.fangsu.ticketing.union_missing");
                 result.addAll(union.networks);
             }
             return result;
@@ -97,16 +99,17 @@ public final class TicketDefinitions {
         public void validate(Catalogue catalogue) {
             Map<String, Network> known = catalogue.networks;
             require(id != null && id.matches("[a-z0-9_.:-]{1,128}") && name != null && !name.isBlank() && name.length() <= 128,
-                    "产品ID或名称无效");
-            require(kind != null && style != null && style.matches("[a-z0-9_.:/-]{1,256}"), "票种或票面资源无效");
-            require(price >= 0 && initialBalance >= 0 && validHours >= 0 && validHours <= 876000, "金额或有效期无效");
-            require(networks != null && unions != null && unions.size() <= 16 && networks.size() <= 128 && known.keySet().containsAll(networks), "请选择已有网络");
+                    "msg.fangsu.ticketing.invalid_product_identity");
+            require(kind != null && style != null && style.matches("[a-z0-9_.:/-]{1,256}"), "msg.fangsu.ticketing.invalid_ticket_style");
+            require(price >= 0 && initialBalance >= 0 && validHours >= 0 && validHours <= 876000, "msg.fangsu.ticketing.invalid_amount_duration");
+            require(validDays >= 1 && validDays <= 365, "msg.fangsu.ticketing.day_duration");
+            require(networks != null && unions != null && unions.size() <= 16 && networks.size() <= 128 && known.keySet().containsAll(networks), "msg.fangsu.ticketing.select_existing_network");
             Set<String> authorized = authorizedNetworks(catalogue);
-            require(!authorized.isEmpty(), "产品至少需要一个网络或联合组授权");
-            require(kind != Kind.DAY || authorized.size() == 1, "日票只能授权一个网络");
-            require(legs != null && legs.size() <= 128 && (kind != Kind.ITINERARY || !legs.isEmpty()), "联程票需要乘车权益");
+            require(!authorized.isEmpty(), "msg.fangsu.ticketing.product_authorization_required");
+            require(kind != Kind.DAY || authorized.size() == 1, "msg.fangsu.ticketing.day_network_limit");
+            require(legs != null && legs.size() <= 128 && (kind != Kind.ITINERARY || !legs.isEmpty()), "msg.fangsu.ticketing.itinerary_requires_legs");
             for (Leg leg : legs) require(leg != null && authorized.contains(leg.network) && leg.from != null && leg.to != null
-                    && leg.from.length() <= 256 && leg.to.length() <= 256 && leg.allowance >= 0, "联程权益无效或不在授权网络内");
+                    && leg.from.length() <= 256 && leg.to.length() <= 256 && leg.allowance >= 0, "msg.fangsu.ticketing.invalid_leg");
         }
     }
     public static final class Journey {
@@ -129,7 +132,7 @@ public final class TicketDefinitions {
         public Journey journey;
         public Permit permit;
         public boolean expired(long now) {
-            int hours = product.kind == Kind.DAY ? 24 : product.validHours;
+            int hours = product.durationHours();
             return activated > 0 && hours > 0 && now >= activated + hours * 3600000L;
         }
     }
@@ -155,7 +158,7 @@ public final class TicketDefinitions {
     }
     public static <T> T copy(T value, Class<T> type) { return JSON.fromJson(JSON.toJson(value), type); }
     public static int money(long value) {
-        require(value >= 0 && value <= Integer.MAX_VALUE, "金额超出范围");
+        require(value >= 0 && value <= Integer.MAX_VALUE, "msg.fangsu.ticketing.amount_range");
         return (int) value;
     }
     public static void require(boolean condition, String message) {

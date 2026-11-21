@@ -18,7 +18,12 @@
         "width": 114,
         "height": 34,
         "color": "#eee9df"
-      }
+      },
+      "kinds": [
+        "IC",
+        "ITINERARY",
+        "DAY"
+      ]
     },
     {
       "field": "kindEn",
@@ -27,7 +32,12 @@
       "size": 7,
       "prefix": "",
       "color": "#143B58",
-      "maxWidth": 106
+      "maxWidth": 106,
+      "kinds": [
+        "IC",
+        "ITINERARY",
+        "DAY"
+      ]
     },
     {
       "field": "fare",

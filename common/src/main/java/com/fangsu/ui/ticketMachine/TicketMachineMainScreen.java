@@ -59,26 +59,29 @@ public class TicketMachineMainScreen extends Screen {
     private static final int NUM_PAD_ROWS = 4;
     private static final int NUM_PAD_COLS = 3;
     // 绔欑偣鍒楄〃鏄剧ず琛屾暟
-    private static final int STATION_LIST_VISIBLE_ROWS = 8;
+    private static final int STATION_LIST_VISIBLE_ROWS = 7;
 
     private final BlockPos pos;
     private final Station station;
-    private MouseClickInfo mouseClickInfo;
+    protected MouseClickInfo mouseClickInfo;
 
-    private int ticketCount = 1;
-    private int ticketPrice = 0;
+    protected int ticketCount = 1;
+    protected int ticketPrice = 0;
 
-    private int routePage = 0;          // 褰撳墠绾胯矾锟?
+    protected int routePage = 0;          // 褰撳墠绾胯矾锟?
     private int selectedStationScroll = 0; // 绔欑偣鍒楄〃婊氬姩锛堥鐣欙級
 
-    private List<RouteFareInfo> routes;
-    private RouteFareInfo selectedRoute = null;
-    private boolean isEditingCustomPrice = false;
-    private boolean isConfirming = false;
-    private StationFareInfo selectedStation = null;
+    protected List<RouteFareInfo> routes;
+    protected RouteFareInfo selectedRoute = null;
+    protected boolean isEditingCustomPrice = false;
+    protected boolean isConfirming = false;
+    protected StationFareInfo selectedStation = null;
 
-    private String customPriceInput = "";
-    private int stationScroll = 0;
+    protected String customPriceInput = "";
+    protected int stationScroll = 0;
+
+    /** 新票务沿用原界面的全部绘制和交互，数据由服务端提供。 */
+    protected TicketMachineMainScreen(Component title) { super(title); this.pos = BlockPos.ZERO; this.station = null; this.routes = new ArrayList<>(); }
 
     public TicketMachineMainScreen(Component title, BlockPos pos) {
         super(title);
@@ -210,27 +213,27 @@ public class TicketMachineMainScreen extends Screen {
         g.fill(texturePosX(0), texturePosY(BG_TEXTURE_DRAW_HEIGHT - 20), texturePosX(BG_TEXTURE_DRAW_WIDTH), texturePosY(BG_TEXTURE_DRAW_HEIGHT), 0xff59afc3);
 
         int currentX = texturePosX(4);
-        currentX = ScreenUtil.drawStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.common.title"), currentX, texturePosY(4), 0xffffffff, 1.5f, true);
-        if (station != null) {
+        currentX = ScreenUtil.drawStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.common.title"), currentX, texturePosY(4), 0xffffffff, 1.5f, useTextShadow());
+        if (!currentStationName().isEmpty()) {
             currentX += 4;
-            currentX = g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.current"), currentX, texturePosY(8), 0xffffffff, true);
+            currentX = g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.current"), currentX, texturePosY(8), 0xffffffff, useTextShadow());
             int spareX = BG_TEXTURE_DRAW_WIDTH - currentX + texturePosX(0);
-            String[] lines = station.name.split("\\|");
+            String[] lines = currentStationName().split("\\|");
             if (lines.length == 1)
-                ScreenUtil.drawCenteredStringScale(nativeGfx, lines[0], currentX + spareX / 2, texturePosY(8), 0xffffffff, 1.2f, true);
+                ScreenUtil.drawCenteredStringScale(nativeGfx, lines[0], currentX + spareX / 2, texturePosY(8), 0xffffffff, 1.2f, useTextShadow());
             else {
                 float baseScale = 1.25f / (lines.length + 2);
                 float gap = 2f / (lines.length - 1);
                 int currentY = texturePosY(4);
                 for (int i = 0; i < lines.length; i++) {
                     float scale = i == 0 ? baseScale * 3 : baseScale;
-                    ScreenUtil.drawCenteredStringScale(nativeGfx, lines[i], currentX + spareX / 2, currentY, 0xffffffff, scale, true);
+                    ScreenUtil.drawCenteredStringScale(nativeGfx, lines[i], currentX + spareX / 2, currentY, 0xffffffff, scale, useTextShadow());
                     currentY += (int) (gap + 8 * scale);
                 }
             }
         }
 
-        ScreenUtil.drawCenteredStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.ticketmachine.selectCount"), texturePosX(18), texturePosY(28), 0xffffffff, 1f, true);
+        ScreenUtil.drawCenteredStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.ticketmachine.selectCount"), texturePosX(18), texturePosY(28), 0xffffffff, 1f, useTextShadow());
         {
             int baseH = (BG_TEXTURE_DRAW_HEIGHT - 80) / MAX_TICKET_COUNT;
             int baseHPrice = (BG_TEXTURE_DRAW_HEIGHT - 80) / MAX_TICKET_PRICE_BUTTON;
@@ -248,59 +251,15 @@ public class TicketMachineMainScreen extends Screen {
                         texturePosX(3), currentY,
                         30, baseH
                 );
-                ScreenUtil.drawCenteredStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.ticketmachine.count", i + 1), texturePosX(18), currentY + 4, 0xffffffff, Math.min((baseH - 8) / 8f, 1.5f), true);
+                ScreenUtil.drawCenteredStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.ticketmachine.count", i + 1), texturePosX(18), currentY + 4, 0xffffffff, Math.min((baseH - 8) / 8f, 1.5f), useTextShadow());
                 if (mouseClickInfo != null) {
                     if (mouseClickInfo.mouseX() > texturePosX(3) && mouseClickInfo.mouseX() < texturePosX(33) && mouseClickInfo.mouseY() > currentY && mouseClickInfo.mouseY() < currentY + baseH) {
-                        ticketCount = i + 1;
+                        if (isCountAllowed(i + 1)) { ticketCount = i + 1; onTicketChoiceChanged(); }
                         mouseClickInfo = null;
                     }
                 }
             }
-            if (!isConfirming)
-                for (int i = 1; i <= MAX_TICKET_PRICE_BUTTON; i++) {
-                    int currentY = texturePosY(42) + (i - 1) * (baseHPrice + gapPrice);
-                    int val = i;
-                    if (i == MAX_TICKET_PRICE_BUTTON - 1 && ticketPrice > i) val = ticketPrice;
-                    boolean pointed = mouseX > texturePosX(BG_TEXTURE_DRAW_WIDTH - 33) && mouseX < texturePosX(BG_TEXTURE_DRAW_WIDTH - 3) && mouseY > currentY && mouseY < currentY + baseH;
-                    if (i == MAX_TICKET_PRICE_BUTTON) {
-                        boolean selected = isEditingCustomPrice;
-                        ScreenUtil.drawNineSlice(
-                                nativeGfx,
-                                selected ?
-                                        pointed ? BUTTON_ORANGE_SELECTED : BUTTON_ORANGE :
-                                        pointed ? BUTTON_BLUE_SELECTED : BUTTON_BLUE,
-                                texturePosX(BG_TEXTURE_DRAW_WIDTH - 33), currentY,
-                                30, baseHPrice
-                        );
-                        ScreenUtil.drawCenteredStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.ticketmachine.otherPrice"), texturePosX(BG_TEXTURE_DRAW_WIDTH - 18), currentY + 4, 0xffffffff, Math.min((baseHPrice - 8) / 8f, 1.5f), true);
-                        if (mouseClickInfo != null) {
-                            if (mouseClickInfo.mouseX() > texturePosX(BG_TEXTURE_DRAW_WIDTH - 33) && mouseClickInfo.mouseX() < texturePosX(BG_TEXTURE_DRAW_WIDTH - 3) && mouseClickInfo.mouseY() > currentY && mouseClickInfo.mouseY() < currentY + baseHPrice) {
-                                selectedRoute = null;
-                                if (!selected) isEditingCustomPrice = true;
-                            }
-                        }
-                    } else {
-                        boolean selected = val == ticketPrice;
-
-                        ScreenUtil.drawNineSlice(
-                                nativeGfx,
-                                selected ?
-                                        pointed ? BUTTON_ORANGE_SELECTED : BUTTON_ORANGE :
-                                        pointed ? BUTTON_BLUE_SELECTED : BUTTON_BLUE,
-                                texturePosX(BG_TEXTURE_DRAW_WIDTH - 33), currentY,
-                                30, baseHPrice
-                        );
-                        ScreenUtil.drawCenteredStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.ticketmachine.price", val), texturePosX(BG_TEXTURE_DRAW_WIDTH - 18), currentY + 4, 0xffffffff, Math.min((baseHPrice - 8) / 8f, 1.5f), true);
-                        if (mouseClickInfo != null) {
-                            if (mouseClickInfo.mouseX() > texturePosX(BG_TEXTURE_DRAW_WIDTH - 33) && mouseClickInfo.mouseX() < texturePosX(BG_TEXTURE_DRAW_WIDTH - 3) && mouseClickInfo.mouseY() > currentY && mouseClickInfo.mouseY() < currentY + baseHPrice) {
-                                ticketPrice = val;
-                                selectedStation = null;
-                                isEditingCustomPrice = false;
-                                mouseClickInfo = null;
-                            }
-                        }
-                    }
-                }
+            renderPriceChoices(g, mouseX, mouseY);
 
         }
         if (!isConfirming) {
@@ -346,16 +305,18 @@ public class TicketMachineMainScreen extends Screen {
                 //#else
                 //$$ Component labelText = ComponentHelper.literal(route.name().replace("|", " "));
                 //#endif
-                ScreenUtil.drawScrollingText(
-                        nativeGfx, font, labelText,
+                ScreenUtil.drawScrollingText(g, font, labelText,
                         x + 2,
                         y + 2,
                         cellW - 4, cellH - 4,
-                        0xffffffff, true
+                        0xffffffff, true, useTextShadow()
                 );
 
                 if (mouseClickInfo != null && pointed) {
                     selectedRoute = route;
+                    stationScroll = 0;
+                    isEditingCustomPrice = false;
+                    onRouteSelected(route);
                     selectedStationScroll = 0;
                     mouseClickInfo = null;
                 }
@@ -364,24 +325,7 @@ public class TicketMachineMainScreen extends Screen {
             g.fill(texturePosX(42), texturePosY(32), texturePosX(BG_TEXTURE_DRAW_WIDTH - 8), texturePosY(BG_TEXTURE_DRAW_HEIGHT - 28), 0xff000000);
             g.fill(texturePosX(42) + 1, texturePosY(32) + 1, texturePosX(BG_TEXTURE_DRAW_WIDTH - 8) - 1, texturePosY(BG_TEXTURE_DRAW_HEIGHT - 28) - 1, 0xffffffff);
 
-            int currentY = texturePosY(36);
-            g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm1"), texturePosX(46), currentY, 0xffff4444, false);
-            currentY += 10;
-            g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm2", ComponentHelper.translatable("ui.fangsu.ticket.singleJourney")), texturePosX(54), currentY, 0xff000000, false);
-            currentY += 10;
-            if (station != null) {
-                g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm3", station.name.replace("|", " ")), texturePosX(54), currentY, 0xff000000, false);
-                currentY += 10;
-            }
-            if (selectedStation != null) {
-                g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm4", selectedStation.name), texturePosX(54), currentY, 0xff000000, false);
-                currentY += 10;
-            }
-            g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm5", ticketPrice), texturePosX(54), currentY, 0xff000000, false);
-            currentY += 10;
-            g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm6", ticketCount), texturePosX(54), currentY, 0xff000000, false);
-            currentY += 10;
-            g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm7", ticketPrice * ticketCount), texturePosX(54), currentY, 0xff000000, false);
+            renderConfirmationDetails(g);
         }
         if (!isConfirming) {
             if (isEditingCustomPrice) {
@@ -418,26 +362,27 @@ public class TicketMachineMainScreen extends Screen {
                     //#else
                     //$$ Component stnName = ComponentHelper.literal(stn.name());
                     //#endif
-                    ScreenUtil.drawScrollingText(nativeGfx, font,
+                    ScreenUtil.drawScrollingText(g, font,
                             stnName,
                             listStartX, currentY + 4,
-                            listEndX - listStartX - 15, lineH - 6, 0xffffffff, true);
+                            listEndX - listStartX - 15, lineH - 6, 0xffffffff, true, useTextShadow());
                     ScreenUtil.drawRightAlignedStringScale(
                             nativeGfx, ComponentHelper.translatable("ui.fangsu.ticketmachine.price", stn.fare()),
-                            listEndX, currentY + 4, 0xffffffff, 1f, true
-                    );
+                            listEndX, currentY + 4, 0xffffffff, 1f, useTextShadow());
 
                     if (mouseClickInfo != null && pointed) {
                         selectedStation = stn;
                         mouseClickInfo = null;
                         ticketPrice = stn.fare();
+                        onTicketChoiceChanged();
                     }
                 }
             }
         }
 
+        renderLiveQuote(g);
         {
-            boolean confirmAvailable = ticketPrice >= MIN_TICKET_PRICE && ticketPrice <= MAX_TICKET_PRICE;
+            boolean confirmAvailable = canConfirmPurchase();
             boolean cancelAvailable = isConfirming || isEditingCustomPrice;
             boolean confirmSelected = mouseX > texturePosX(BG_TEXTURE_DRAW_WIDTH - 36) && mouseX < texturePosX(BG_TEXTURE_DRAW_WIDTH - 8) &&
                     mouseY > texturePosY(BG_TEXTURE_DRAW_HEIGHT - 18) && mouseY < texturePosY(BG_TEXTURE_DRAW_HEIGHT - 4);
@@ -456,23 +401,16 @@ public class TicketMachineMainScreen extends Screen {
             ScreenUtil.drawCenteredStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.block.confirm"),
                     texturePosX(BG_TEXTURE_DRAW_WIDTH - 22),
                     texturePosY(BG_TEXTURE_DRAW_HEIGHT - 14),
-                    confirmAvailable ? 0xffffffff : 0xff999999, 1.25f, true);
+                    confirmAvailable ? 0xffffffff : 0xff999999, 1.25f, useTextShadow());
             ScreenUtil.drawCenteredStringScale(nativeGfx, ComponentHelper.translatable("ui.fangsu.block.cancel"),
                     texturePosX(BG_TEXTURE_DRAW_WIDTH - 54),
                     texturePosY(BG_TEXTURE_DRAW_HEIGHT - 14),
-                    cancelAvailable ? 0xffffffff : 0xff999999, 1.25f, true);
+                    cancelAvailable ? 0xffffffff : 0xff999999, 1.25f, useTextShadow());
 
             if (confirmAvailable && confirmSelected && mouseClickInfo != null) {
                 if (!isConfirming) isConfirming = true;
                 else {
-                    Main.LOGGER.info("Confirm purchase: price:{}, count:{}", ticketPrice, ticketCount);
-                    ResourceLocation ticket = ModItems.ITEM_SINGLE_JOURNEY_TICKET.getId();
-                    FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
-                    buf.writeResourceLocation(ticket);
-                    buf.writeVarInt(ticketPrice);
-                    buf.writeVarInt(ticketCount);
-                    NetworkManager.sendToServer(ModNetwork.TICKET_MACHINE_SYNC, buf);
-                    onClose();
+                    submitPurchase();
                 }
                 mouseClickInfo = null;
             }
@@ -483,7 +421,99 @@ public class TicketMachineMainScreen extends Screen {
             }
         }
 
+        renderServiceControls(g, mouseX, mouseY);
         mouseClickInfo = null;
+    }
+
+    protected boolean useTextShadow() { return true; }
+    protected String currentStationName() { return station == null ? "" : station.name; }
+    protected void onCustomPriceEdited(String value) { }
+    protected void onTicketChoiceChanged() { }
+    protected void onRouteSelected(RouteFareInfo route) { }
+    protected boolean isCountAllowed(int count) { return true; }
+    protected boolean canConfirmPurchase() { return ticketPrice >= MIN_TICKET_PRICE && ticketPrice <= MAX_TICKET_PRICE; }
+    protected void renderLiveQuote(GraphicContext g) { }
+    protected void renderServiceControls(GraphicContext g, int mouseX, int mouseY) { }
+    protected void submitPurchase() {
+                    Main.LOGGER.info("Confirm purchase: price:{}, count:{}", ticketPrice, ticketCount);
+                    ResourceLocation ticket = ModItems.ITEM_SINGLE_JOURNEY_TICKET.getId();
+                    FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+                    buf.writeResourceLocation(ticket);
+                    buf.writeVarInt(ticketPrice);
+                    buf.writeVarInt(ticketCount);
+                    NetworkManager.sendToServer(ModNetwork.TICKET_MACHINE_SYNC, buf);
+                    onClose();
+    }
+    protected void renderConfirmationDetails(GraphicContext g) {
+            int currentY = texturePosY(36);
+            g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm1"), texturePosX(46), currentY, 0xffff4444, false);
+            currentY += 10;
+            g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm2", ComponentHelper.translatable("ui.fangsu.ticket.singleJourney")), texturePosX(54), currentY, 0xff000000, false);
+            currentY += 10;
+            if (!currentStationName().isEmpty()) {
+                g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm3", currentStationName().replace("|", " ")), texturePosX(54), currentY, 0xff000000, false);
+                currentY += 10;
+            }
+            if (selectedStation != null) {
+                g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm4", selectedStation.name), texturePosX(54), currentY, 0xff000000, false);
+                currentY += 10;
+            }
+            g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm5", ticketPrice), texturePosX(54), currentY, 0xff000000, false);
+            currentY += 10;
+            g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm6", ticketCount), texturePosX(54), currentY, 0xff000000, false);
+            currentY += 10;
+            g.drawString(font, ComponentHelper.translatable("ui.fangsu.ticketmachine.confirm7", ticketPrice * ticketCount), texturePosX(54), currentY, 0xff000000, false);
+    }
+    protected void renderPriceChoices(GraphicContext g, int mouseX, int mouseY) {
+        int baseH = (BG_TEXTURE_DRAW_HEIGHT - 80) / MAX_TICKET_COUNT;
+        int baseHPrice = (BG_TEXTURE_DRAW_HEIGHT - 80) / MAX_TICKET_PRICE_BUTTON;
+        int gapPrice = 16 / MAX_TICKET_PRICE_BUTTON;
+            if (!isConfirming)
+                for (int i = 1; i <= MAX_TICKET_PRICE_BUTTON; i++) {
+                    int currentY = texturePosY(42) + (i - 1) * (baseHPrice + gapPrice);
+                    int val = i;
+                    if (i == MAX_TICKET_PRICE_BUTTON - 1 && ticketPrice > i) val = ticketPrice;
+                    boolean pointed = mouseX > texturePosX(BG_TEXTURE_DRAW_WIDTH - 33) && mouseX < texturePosX(BG_TEXTURE_DRAW_WIDTH - 3) && mouseY > currentY && mouseY < currentY + baseH;
+                    if (i == MAX_TICKET_PRICE_BUTTON) {
+                        boolean selected = isEditingCustomPrice;
+                        ScreenUtil.drawNineSlice(
+                                g.asMinecraft(),
+                                selected ?
+                                        pointed ? BUTTON_ORANGE_SELECTED : BUTTON_ORANGE :
+                                        pointed ? BUTTON_BLUE_SELECTED : BUTTON_BLUE,
+                                texturePosX(BG_TEXTURE_DRAW_WIDTH - 33), currentY,
+                                30, baseHPrice
+                        );
+                        ScreenUtil.drawCenteredStringScale(g.asMinecraft(), ComponentHelper.translatable("ui.fangsu.ticketmachine.otherPrice"), texturePosX(BG_TEXTURE_DRAW_WIDTH - 18), currentY + 4, 0xffffffff, Math.min((baseHPrice - 8) / 8f, 1.5f), useTextShadow());
+                        if (mouseClickInfo != null) {
+                            if (mouseClickInfo.mouseX() > texturePosX(BG_TEXTURE_DRAW_WIDTH - 33) && mouseClickInfo.mouseX() < texturePosX(BG_TEXTURE_DRAW_WIDTH - 3) && mouseClickInfo.mouseY() > currentY && mouseClickInfo.mouseY() < currentY + baseHPrice) {
+                                selectedRoute = null;
+                                if (!selected) isEditingCustomPrice = true;
+                            }
+                        }
+                    } else {
+                        boolean selected = val == ticketPrice;
+
+                        ScreenUtil.drawNineSlice(
+                                g.asMinecraft(),
+                                selected ?
+                                        pointed ? BUTTON_ORANGE_SELECTED : BUTTON_ORANGE :
+                                        pointed ? BUTTON_BLUE_SELECTED : BUTTON_BLUE,
+                                texturePosX(BG_TEXTURE_DRAW_WIDTH - 33), currentY,
+                                30, baseHPrice
+                        );
+                        ScreenUtil.drawCenteredStringScale(g.asMinecraft(), ComponentHelper.translatable("ui.fangsu.ticketmachine.price", val), texturePosX(BG_TEXTURE_DRAW_WIDTH - 18), currentY + 4, 0xffffffff, Math.min((baseHPrice - 8) / 8f, 1.5f), useTextShadow());
+                        if (mouseClickInfo != null) {
+                            if (mouseClickInfo.mouseX() > texturePosX(BG_TEXTURE_DRAW_WIDTH - 33) && mouseClickInfo.mouseX() < texturePosX(BG_TEXTURE_DRAW_WIDTH - 3) && mouseClickInfo.mouseY() > currentY && mouseClickInfo.mouseY() < currentY + baseHPrice) {
+                                ticketPrice = val;
+                                selectedStation = null;
+                                isEditingCustomPrice = false;
+                                onTicketChoiceChanged();
+                                mouseClickInfo = null;
+                            }
+                        }
+                    }
+                }
     }
 
     @Override
@@ -505,10 +535,11 @@ public class TicketMachineMainScreen extends Screen {
         return super.mouseScrolled(mouseX, mouseY, delta);
     }
 
-    private record MouseClickInfo(double mouseX, double mouseY, int button) {
+    protected record MouseClickInfo(double mouseX, double mouseY, int button) {
     }
 
-    private record RouteFareInfo(String name, int color, Set<StationFareInfo> stations) {
+    protected record RouteFareInfo(String name, int color, Set<StationFareInfo> stations) {
+        public RouteFareInfo { }
         @Override
         public int hashCode() {
             return Objects.hash(name, color);
@@ -525,23 +556,25 @@ public class TicketMachineMainScreen extends Screen {
         }
     }
 
-    private record StationFareInfo(String name, int fare) {
+    protected record StationFareInfo(String name, int fare, String key) {
+        public StationFareInfo { }
+        public StationFareInfo(String name, int fare) { this(name, fare, ""); }
         @Override
         public boolean equals(Object obj) {
             if (obj == null) return false;
             if (this == obj) return true;
             if (obj instanceof StationFareInfo) {
-                return ((StationFareInfo) obj).name.equals(name) && fare == ((StationFareInfo) obj).fare;
+                return ((StationFareInfo) obj).name.equals(name) && fare == ((StationFareInfo) obj).fare && Objects.equals(key, ((StationFareInfo) obj).key);
             }
             return false;
         }
     }
 
-    private int texturePosX(double x) {
+    protected int texturePosX(double x) {
         return (int) (this.width / 2 - BG_TEXTURE_DRAW_WIDTH / 2 + x);
     }
 
-    private int texturePosY(double y) {
+    protected int texturePosY(double y) {
         return (int) (this.height / 2 - BG_TEXTURE_DRAW_HEIGHT / 2 + y);
     }
 
@@ -577,8 +610,7 @@ public class TicketMachineMainScreen extends Screen {
                 displayX + displayWidth / 2,
                 displayY + (displayHeight - 8) / 2,
                 0xffffff00,
-                1.25f,
-                true);
+                1.25f, useTextShadow());
 
         // 鏁板瓧鎸夐挳璧峰浣嶇疆锛堟樉绀烘涓嬫柟锟?
         int padStartX = panelX;
@@ -610,7 +642,7 @@ public class TicketMachineMainScreen extends Screen {
                 //#else
                 //$$ Component keyText = ComponentHelper.literal(key);
                 //#endif
-                ScreenUtil.drawCenteredStringScale(nativeGfx, keyText, x + buttonW / 2, y + 4, 0xffffffff, 0.8f, true);
+                ScreenUtil.drawCenteredStringScale(nativeGfx, keyText, x + buttonW / 2, y + 4, 0xffffffff, 0.8f, useTextShadow());
 
                 // 鐐瑰嚮澶勭悊
                 if (mouseClickInfo != null && pointed) {
@@ -624,6 +656,7 @@ public class TicketMachineMainScreen extends Screen {
                         customPriceInput = "";
                         selectedStation = null;
                         isConfirming = true;
+                        onTicketChoiceChanged();
                     } else if (key.matches("\\d")) {
                         String newInput = customPriceInput + key;
                         try {
@@ -633,6 +666,7 @@ public class TicketMachineMainScreen extends Screen {
                             customPriceInput = String.valueOf(MAX_TICKET_PRICE);
                         }
                     }
+                    if (!"OK".equals(key)) onCustomPriceEdited(customPriceInput);
                     mouseClickInfo = null;
                 }
             }

@@ -276,6 +276,16 @@ public class BlockbenchModelLoader {
 			meshes = java.util.Collections.emptyList();
 		}
 		if (meshes.isEmpty()) return meshes;
+		// Blockbench 元素绕 origin 旋转；漏掉这一变换会使经典售票机斜面悬空。
+		double[] origin={0,0,0},rotation={0,0,0};
+		getArray(origin,element,"origin");getArray(rotation,element,"rotation");
+		for(RawMesh mesh:meshes)if(rotation[0]!=0||rotation[1]!=0||rotation[2]!=0){
+			mesh.applyTranslation((float)-origin[0],(float)-origin[1],(float)-origin[2]);
+			mesh.applyRotation(new Vector3f(1,0,0),(float)rotation[0]);
+			mesh.applyRotation(new Vector3f(0,1,0),(float)rotation[1]);
+			mesh.applyRotation(new Vector3f(0,0,1),(float)rotation[2]);
+			mesh.applyTranslation((float)origin[0],(float)origin[1],(float)origin[2]);
+		}
 		// 渲染类型优先级：元素(块)名 #后缀 > 组名 #后缀 > 默认 exterior
 		String renderType = resolveRenderType(element, groupRenderType);
 		for (RawMesh mesh : meshes) {

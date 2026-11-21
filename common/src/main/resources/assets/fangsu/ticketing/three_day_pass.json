@@ -1,0 +1,53 @@
+{
+  "width": 256,
+  "height": 160,
+  "background": "fangsu:ticketing/three_day_pass.png",
+  "fields": [
+    {
+      "field": "expiry",
+      "x": 10,
+      "y": 137,
+      "size": 10,
+      "prefix": "有效至 ",
+      "color": "#143B58",
+      "maxWidth": 235
+    },
+    {
+      "field": "serial",
+      "x": 10,
+      "y": 152,
+      "size": 8,
+      "prefix": "NO. ",
+      "color": "#143B58",
+      "maxWidth": 235
+    }
+  ],
+  "backFields": [
+    {
+      "field": "name",
+      "x": 10,
+      "y": 124,
+      "size": 10,
+      "color": "#143B58",
+      "maxWidth": 235
+    },
+    {
+      "field": "expiry",
+      "x": 10,
+      "y": 139,
+      "size": 9,
+      "prefix": "有效至 ",
+      "color": "#143B58",
+      "maxWidth": 235
+    },
+    {
+      "field": "serial",
+      "x": 10,
+      "y": 152,
+      "size": 8,
+      "prefix": "NO. ",
+      "color": "#143B58",
+      "maxWidth": 235
+    }
+  ]
+}

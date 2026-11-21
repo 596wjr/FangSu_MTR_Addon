@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "fangsu:ticketing/single"
+    "layer0": "fangsu:ticketing/day_pass"
   }
 }

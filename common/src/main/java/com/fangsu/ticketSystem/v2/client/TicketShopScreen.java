@@ -1,83 +1,164 @@
 package com.fangsu.ticketSystem.v2.client;
 
 import com.fangsu.ticketSystem.v2.*;
-import com.fangsu.ui.*;
+import com.fangsu.ui.ticketMachine.TicketMachineMainScreen;
+import com.fangsu.ui.ConfigChoiceScreen;
 import com.fangsu.mappings.ComponentHelper;
+import com.fangsu.utils.GraphicContext;
+import com.fangsu.utils.ScreenUtil;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.resources.ResourceLocation;
 import java.util.*;
 import static com.fangsu.ticketSystem.v2.TicketDefinitions.*;
 
-public final class TicketShopScreen extends ThemedConfigScreen {
+/** 直接使用原售票机界面；只接入网络数据、产品选择和自动报价。 */
+public final class TicketShopScreen extends TicketMachineMainScreen {
     private TicketPackets.Message state;
-    private TicketTransactions.Request request=new TicketTransactions.Request();
+    private final TicketTransactions.Request request=new TicketTransactions.Request();
     private TicketTransactions.Quote offer;
-    private String status="选择业务后查看报价，确认付款。";
-    private boolean pending;
-    public TicketShopScreen(TicketPackets.Message state) { super(ComponentHelper.literal("票务服务"));this.state=state; request.payment=state.config.mtrPayment?"mtr":"item"; }
-    public boolean matches(TicketPackets.Message reply) { return state.pos==reply.pos && state.session.equals(reply.session); }
-    public void response(TicketPackets.Message reply) {
-        pending=false;
-        if("error".equals(reply.action)) { status=reply.error; offer=null; }
-        else if("quote".equals(reply.action)) { offer=reply.offer; status="请核对金额后确认付款"; }
-        else { state=reply; offer=null;status="操作成功"; }
-        requestRebuild();
+    private String status=t("select_destination");
+    private long sequence, quoteAt, refreshAt;
+    private boolean quoting, paying;
+    private String held="";
+    public TicketShopScreen(TicketPackets.Message state){
+        super(ComponentHelper.translatable("ui.fangsu.ticketing.title"));this.state=state;
+        request.payment=state.config.mtrPayment?"mtr":"item";
+        var products=products();request.product=products.isEmpty()?"":products.get(0).id;
+        if(state.kind==2)request.action="adjust";
+        rebuildChoices();onTicketChoiceChanged();
     }
-    private TicketPackets.Message message(String action) {
-        TicketPackets.Message message=new TicketPackets.Message();message.action=action;message.pos=state.pos;message.session=state.session;return message;
-    }
-    private int button(ContentLayout layout,int y,String label,Runnable action) {
-        var widget=addButton(layout.areaLeft,y,layout.contentWidth,20,ComponentHelper.literal(label),b->action.run());
-        widget.active=!pending;addEntry(widget,y);return y+24;
-    }
-    private int text(ContentLayout layout,int y,String value) { return addWrappedText(layout.areaLeft,y,layout.contentWidth,ComponentHelper.literal(value),0xDDDDDD)+6; }
-    private int number(ContentLayout layout,int y,String label,int value,java.util.function.IntConsumer setter) {
-        y=text(layout,y,label);int row=y;
-        EditBox box=new EditBox(font,layout.areaLeft,row,layout.contentWidth,20,ComponentHelper.literal(label));box.setMaxLength(10);box.setValue(Integer.toString(value));
-        box.setResponder(v->{try{int n=Integer.parseInt(v);if(n>0){setter.accept(n);offer=null;}}catch(NumberFormatException ignored){}});addRenderableWidget(box);addEntry(box,row);return row+26;
-    }
-    @Override protected void buildScrollableContent(ContentLayout layout) {
-        int y=layout.y;
-        Network network=state.catalogue.networks.get(state.config.network);
-        y=text(layout,y,network==null?"网络不可用":network.name);
-        y=text(layout,y,status);
-        if(state.card!=null) y=text(layout,y,"手持："+state.card.product.name+(state.card.product.kind==Kind.IC?" · 余额 "+state.card.balance+"元":""));
-        if(state.kind!=2) {
-            y=button(layout,y,"购买票卡",()->{request.action="buy";offer=null;requestRebuild();});
+    public boolean matches(TicketPackets.Message reply){return state.pos==reply.pos&&state.session.equals(reply.session);}
+    private List<Product> products(){return state.config.products.stream().map(state.catalogue.products::get).filter(Objects::nonNull)
+        .filter(p->p.enabled&&TicketMachineConfig.sells(state.kind,p.kind)&&p.authorizedNetworks(state.catalogue).contains(state.config.network)).toList();}
+    private int displayPrice(Product p){return p.kind==Kind.IC?(int)Math.min(Integer.MAX_VALUE,(long)p.price+p.initialBalance):p.price;}
+    private static String t(String key,Object...args){return ComponentHelper.translatable("ui.fangsu.ticketing."+key,args).getString();}
+    private Product product(){return state.catalogue.products.get(request.product);}
+    private TicketPackets.Message message(String action){var m=new TicketPackets.Message();m.action=action;m.pos=state.pos;m.session=state.session;m.requestId=sequence;return m;}
+    public void response(TicketPackets.Message reply){
+        if(!matches(reply))return;
+        if("paid".equals(reply.action)){
+            if(paying&&reply.requestId==sequence){paying=false;offer=null;onClose();}
+            return;
         }
-        y=button(layout,y,"IC卡充值",()->{request.action="recharge";offer=null;requestRebuild();});
-        if(state.kind==2) y=button(layout,y,"补票 / 修复本站出站",()->{request.action="adjust";offer=null;requestRebuild();});
-        if(state.kind==2 && "buy".equals(request.action)) request.action="adjust";
-        if("buy".equals(request.action)) {
-            List<Product> products=state.config.products.stream().map(state.catalogue.products::get).filter(Objects::nonNull)
-                .filter(p->p.enabled && (state.kind!=1||p.kind==Kind.IC)).toList();
-            if(products.stream().noneMatch(p->p.id.equals(request.product)) && !products.isEmpty()) request.product=products.get(0).id;
-            Product selected=state.catalogue.products.get(request.product);
-            y=button(layout,y,"票种："+(selected==null?"请选择":selected.name),()->{
-                List<ConfigChoiceScreen.Choice> choices=products.stream().map(p->new ConfigChoiceScreen.Choice(p.id,p.name)).toList();
-                Minecraft.getInstance().setScreen(new ConfigChoiceScreen(this,"选择票务产品",choices,v->{request.product=v;offer=null;}));
-            });
-            if(selected!=null) {
-                if(selected.kind==Kind.IC) y=text(layout,y,"卡费 "+selected.price+"元 ＋ 初始储值 "+selected.initialBalance+"元");
-                else if(selected.kind!=Kind.SINGLE) y=text(layout,y,"售价 "+selected.price+"元");
-                if(selected.kind==Kind.SINGLE) {
-                    Station destination=state.catalogue.station(state.config.network,request.destination);
-                    y=button(layout,y,"目的站："+(destination==null?"请选择":destination.name),()->{
-                        var choices=state.catalogue.stations(state.config.network).stream().map(s->new ConfigChoiceScreen.Choice(s.key,s.name)).toList();
-                        Minecraft.getInstance().setScreen(new ConfigChoiceScreen(this,"选择目的站",choices,v->{request.destination=v;offer=null;}));
-                    });
-                }
+        if("snapshot".equals(reply.action)){
+            state=reply;paying=false;status=t("success");offer=null;isConfirming=false;rebuildChoices();onTicketChoiceChanged();return;
+        }
+        if(reply.requestId!=sequence)return;
+        quoting=false;
+        if("error".equals(reply.action)){paying=false;offer=null;status=TicketMessages.text(reply.error).getString();refreshAt=System.currentTimeMillis()+10000;}
+        else if("quote".equals(reply.action)){
+            offer=reply.offer;refreshAt=System.currentTimeMillis()+10000;
+            if(offer.cardBefore!=null)state.card=JSON.fromJson(offer.cardBefore,Card.class);
+            ticketPrice="buy".equals(request.action)?offer.amount/Math.max(1,request.count):offer.amount;
+            status=t("total",offer.amount);
+        }
+    }
+    private void rebuildChoices(){
+        routes=new ArrayList<>();selectedRoute=null;selectedStation=null;stationScroll=0;
+        if(state.kind==0&&product()!=null&&product().kind!=Kind.SINGLE){
+            Product p=product();routes.add(new RouteFareInfo(p.name,0xFF347EAC,Set.of(new StationFareInfo(p.name,p.price,p.id))));ticketPrice=p.price;
+        }else if(state.kind==0){
+            Map<String,StationFareInfo> stations=new LinkedHashMap<>();
+            for(Station station:state.catalogue.stations(state.config.network))if(state.fares!=null&&state.fares.containsKey(station.key))
+                stations.put(station.key,new StationFareInfo(station.name,state.fares.get(station.key),station.key));
+            routes.add(new RouteFareInfo(t("all_stations"),0xFF347EAC,new LinkedHashSet<>(stations.values())));
+            for(var route:TicketRouteChoices.load()){
+                Set<StationFareInfo> members=new LinkedHashSet<>();
+                for(Station station:state.catalogue.stations(state.config.network))if(route.stations().contains(station.id)&&stations.containsKey(station.key))members.add(stations.get(station.key));
+                if(!members.isEmpty())routes.add(new RouteFareInfo(route.name(),route.color()|0xFF000000,members));
             }
-            y=number(layout,y,"购买数量（1至6张）",request.count,v->request.count=v);
-        } else if("recharge".equals(request.action)) y=number(layout,y,"充值金额（元）",request.recharge,v->request.recharge=v);
-        y=button(layout,y,"付款方式："+("mtr".equals(request.payment)?"MTR余额":"物品货币（"+state.config.currency+"，每个抵"+state.config.currencyValue+"元）"),()->{request.payment="mtr".equals(request.payment)?"item":"mtr";offer=null;requestRebuild();});
-        y=button(layout,y,"查看服务端报价",()->{pending=true;offer=null;var m=message("quote");m.request=request;TicketClient.send(m);requestRebuild();});
-        if(offer!=null) {
-            y=text(layout,y,offer.description+"："+offer.amount+"元");
-            y=text(layout,y,"实际扣除："+offer.paymentCount+("mtr".equals(offer.payment)?"元MTR余额":"个 "+state.config.currency+"（不找零）"));
-            y=button(layout,y,"确认付款",()->{var m=message("pay");m.quote=offer.id;offer=null;pending=true;TicketClient.send(m);requestRebuild();});
+        }else if(state.kind==1){
+            Set<StationFareInfo> rows=new LinkedHashSet<>();for(Product p:products())rows.add(new StationFareInfo(p.name,displayPrice(p),p.id));
+            routes.add(new RouteFareInfo(t("buy_cards"),0xFF347EAC,rows));
+            Set<StationFareInfo> amounts=new LinkedHashSet<>();for(int value:new int[]{10,20,50,100})amounts.add(new StationFareInfo(t("amount",value),value,"recharge/"+value));
+            routes.add(new RouteFareInfo(t("recharge"),0xFFDD8D32,amounts));
+        }else routes.add(new RouteFareInfo(t("adjust"),0xFF347EAC,Set.of(new StationFareInfo(t("adjust_here"),0,"adjust"))));
+        selectedRoute=routes.get(0);
+        if(state.kind==1){selectedStation=selectedRoute.stations().stream().filter(s->s.key().equals(request.product)).findFirst().orElse(null);ticketPrice=selectedStation==null?0:selectedStation.fare();}
+    }
+    @Override protected void onRouteSelected(RouteFareInfo route){
+        if(state.kind==1){request.action=route==routes.get(1)?"recharge":"buy";if("recharge".equals(request.action))ticketCount=1;selectedStation=route.stations().stream().findFirst().orElse(null);ticketPrice=selectedStation==null?0:selectedStation.fare();onTicketChoiceChanged();}
+    }
+    @Override protected String currentStationName(){return state.station==null?"":state.station.name;}
+    @Override protected boolean useTextShadow(){return false;}
+    @Override protected boolean isCountAllowed(int count){return !paying&&("buy".equals(request.action)||count==1);}
+    @Override protected void onCustomPriceEdited(String value){
+        try{ticketPrice=value.isEmpty()?0:Integer.parseInt(value);}catch(NumberFormatException ex){ticketPrice=0;}
+        selectedStation=null;onTicketChoiceChanged();
+    }
+    @Override protected void onTicketChoiceChanged(){
+        if(paying)return;
+        if(state.kind==0){
+            request.destination=selectedStation==null?"":selectedStation.key();request.fare=selectedStation==null&&ticketPrice>0?ticketPrice:-1;
+        }else if(state.kind==1){
+            if("buy".equals(request.action)&&selectedStation!=null)request.product=selectedStation.key();
+            if("recharge".equals(request.action))request.recharge=ticketPrice;
         }
-        if(state.admin) button(layout,y,"管理设备、网络及产品",()->Minecraft.getInstance().setScreen(new TicketAdminScreen(state,this)));
+        request.count="buy".equals(request.action)?ticketCount:1;
+        offer=null;quoting=false;sequence++;quoteAt=System.currentTimeMillis()+120;refreshAt=0;
+        status=ready()?t("updating"):state.kind==2?t("hold_card"):t("select_options");
+    }
+    private boolean ready(){
+        if("buy".equals(request.action))return product()!=null&&(product().kind!=Kind.SINGLE||!request.destination.isEmpty()||request.fare>=0);
+        var player=Minecraft.getInstance().player;return player!=null&&TicketCards.isNative(player.getMainHandItem())&&(!"recharge".equals(request.action)||request.recharge>0);
+    }
+    @Override public void tick(){
+        super.tick();long now=System.currentTimeMillis();
+        if(paying)return;
+        var player=Minecraft.getInstance().player;
+        String current=player==null?"":player.getMainHandItem().toString()+"/"+player.getMainHandItem().getTag();
+        if(!"buy".equals(request.action)&&!current.equals(held)){held=current;offer=null;sequence++;quoteAt=now+120;quoting=false;}
+        if(!quoting&&ready()&&(quoteAt>0&&now>=quoteAt||refreshAt>0&&now>=refreshAt)){
+            quoteAt=0;refreshAt=0;quoting=true;var m=message("quote");m.request=copy(request,TicketTransactions.Request.class);TicketClient.send(m);
+        }
+    }
+    @Override protected boolean canConfirmPurchase(){return !paying&&!quoting&&!isEditingCustomPrice&&offer!=null;}
+    @Override protected void submitPurchase(){
+        if(!canConfirmPurchase())return;var m=message("pay");m.quote=offer.id;offer=null;paying=true;status=t("paying");TicketClient.send(m);
+    }
+    @Override public boolean mouseClicked(double x,double y,int button){if(paying)return true;return super.mouseClicked(x,y,button);}
+    @Override protected void renderConfirmationDetails(GraphicContext g){
+        int y=36;String name=product()==null?t("title"):product().name;
+        List<String> lines=new ArrayList<>();lines.add(t("confirm"));lines.add("buy".equals(request.action)?name:"recharge".equals(request.action)?t("recharge"):t("adjust_here"));
+        if(state.station!=null)lines.add(t("origin",state.station.name.replace('|',' ')));
+        if(state.kind==0&&product()!=null&&product().kind==Kind.SINGLE&&selectedStation!=null)lines.add(t("destination",selectedStation.name().replace('|',' ')));
+        if("buy".equals(request.action))lines.add(t("quantity",ticketCount));
+        if(offer!=null){lines.add(t("total",offer.amount));lines.add(t("mtr".equals(offer.payment)?"deduct_mtr":"deduct_items",offer.paymentCount));if("item".equals(offer.payment))lines.add(t("no_change",state.config.currency));}
+        else lines.add(status);
+        for(String text:lines){ScreenUtil.drawScrollingText(g,font,ComponentHelper.literal(text),texturePosX(48),texturePosY(y),180,10,0xFF19304B,true,false);y+=12;}
+    }
+    @Override protected void renderLiveQuote(GraphicContext g){
+        String text=paying?t("paying"):offer==null?status:t("mtr".equals(offer.payment)?"summary_mtr":"summary_items",offer.amount,offer.paymentCount);
+        ScreenUtil.drawScrollingText(g,font,ComponentHelper.literal(text),texturePosX(3),texturePosY(166),164,10,0xFFFFFFFF,true,false);
+    }
+    private boolean smallButton(GraphicContext g,int x,int y,int w,String text,boolean selected,int mouseX,int mouseY){
+        int px=texturePosX(x),py=texturePosY(y);boolean hovered=mouseX>=px&&mouseX<px+w&&mouseY>=py&&mouseY<py+14;
+        String color=selected?"orange":"blue";ScreenUtil.drawNineSlice(g.asMinecraft(),new ResourceLocation("fangsu:textures/gui/button_"+color+(hovered?"_selected":"")+".png"),px,py,w,14);
+        ScreenUtil.drawScrollingText(g,font,ComponentHelper.literal(text),px+2,py+3,w-4,9,0xFFFFFFFF,true,false);
+        if(!paying&&hovered&&mouseClickInfo!=null){mouseClickInfo=null;return true;}return false;
+    }
+    @Override protected void renderServiceControls(GraphicContext g,int mouseX,int mouseY){
+        if(state.kind!=2&&smallButton(g,0,190,118,product()==null?t("select_product"):product().name,false,mouseX,mouseY)){
+            var choices=products().stream().map(p->new ConfigChoiceScreen.Choice(p.id,p.name)).toList();
+            Minecraft.getInstance().setScreen(new ConfigChoiceScreen(this,t("products"),choices,v->{request.product=v;request.action="buy";isConfirming=false;rebuildChoices();onTicketChoiceChanged();}));
+        }
+        if(smallButton(g,122,190,118,"mtr".equals(request.payment)?t("pay_mtr"):t("pay_items"),false,mouseX,mouseY)){
+            var choices=new ArrayList<ConfigChoiceScreen.Choice>();if(state.config.mtrPayment)choices.add(new ConfigChoiceScreen.Choice("mtr",t("mtr_balance")));if(state.config.itemPayment)choices.add(new ConfigChoiceScreen.Choice("item",t("item_currency")));
+            Minecraft.getInstance().setScreen(new ConfigChoiceScreen(this,t("select_payment"),choices,v->{request.payment=v;onTicketChoiceChanged();}));
+        }
+        if(routes.size()>8&&!isConfirming){
+            if(smallButton(g,40,48,22,"‹",false,mouseX,mouseY))routePage=Math.max(0,routePage-1);
+            if(smallButton(g,178,48,22,"›",false,mouseX,mouseY))routePage=Math.min((routes.size()-1)/8,routePage+1);
+        }
+    }
+    @Override protected void renderPriceChoices(GraphicContext g,int mouseX,int mouseY){
+        if(state.kind==0&&product()!=null&&product().kind==Kind.SINGLE||"recharge".equals(request.action)){super.renderPriceChoices(g,mouseX,mouseY);return;}
+        if(isConfirming)return;
+        List<Product> products=products();for(int i=0;i<Math.min(6,products.size());i++){
+            Product p=products.get(i);if(smallButton(g,207,42+i*18,30,p.kind==Kind.DAY?t("day_short",p.validDays):p.kind==Kind.IC?"IC":t("itinerary_short"),p.id.equals(request.product),mouseX,mouseY)){
+                request.product=p.id;selectedStation=selectedRoute.stations().stream().filter(s->s.key().equals(p.id)).findFirst().orElse(null);ticketPrice=displayPrice(p);onTicketChoiceChanged();
+            }
+        }
     }
     @Override public boolean isPauseScreen(){return false;}
 }

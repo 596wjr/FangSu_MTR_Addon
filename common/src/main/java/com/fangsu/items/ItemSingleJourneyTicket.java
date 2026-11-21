@@ -22,6 +22,9 @@ public class ItemSingleJourneyTicket extends Item implements TicketItem {
     }
 
     @Override
+    public Component getName(ItemStack stack) { return ItemNetworkTicket.productName(stack, super.getName(stack)); }
+
+    @Override
     public boolean enter(Level world, Player player, ItemStack stack, FareInfo info) {
         if (SingleJourneyTicketData.hasEntered(stack)) {
             player.displayClientMessage(ComponentHelper.translatable("ui.fangsu.ticket.error"), true);

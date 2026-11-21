@@ -19,17 +19,19 @@ public final class TicketTextures {
     private record Entry(String state,GraphicsTexture texture) { }
     private static final LinkedHashMap<String,Entry> CACHE=new LinkedHashMap<>(16,.75f,true);
     private static long version=-1;
+    private static final Map<String,Long> SCREEN_STARTED=new HashMap<>();
+    private static final java.awt.font.FontRenderContext DOT_METRICS=new java.awt.font.FontRenderContext(null,false,false);
     private static void checkReload(){long current=ResourceUtil.getReloadVersion();if(current!=version){clear();version=current;}}
-    public static void clear(){for(Entry entry:CACHE.values())entry.texture.close();CACHE.clear();}
+    public static void clear(){for(Entry entry:CACHE.values())entry.texture.close();CACHE.clear();SCREEN_STARTED.clear();}
     private static GraphicsTexture cached(String id,String state,java.util.function.Supplier<GraphicsTexture> make){
         checkReload();Entry previous=CACHE.get(id);
         if(previous!=null && previous.state.equals(state))return previous.texture;
         if(previous!=null)previous.texture.close();
         GraphicsTexture texture=make.get();CACHE.put(id,new Entry(state,texture));
-        while(CACHE.size()>128){var iterator=CACHE.entrySet().iterator();var entry=iterator.next();entry.getValue().texture.close();iterator.remove();}
+        while(CACHE.size()>128){var iterator=CACHE.entrySet().iterator();var entry=iterator.next();entry.getValue().texture.close();SCREEN_STARTED.remove(entry.getKey());iterator.remove();}
         return texture;
     }
-    public static void remove(String id){Entry entry=CACHE.remove(id);if(entry!=null)entry.texture.close();}
+    public static void remove(String id){SCREEN_STARTED.remove(id);Entry entry=CACHE.remove(id);if(entry!=null)entry.texture.close();}
     public static ResourceLocation card(String raw,Card card,boolean back){
         return cached("card/"+card.serial+(back?"/back":"/front"),raw,()->{
             JsonObject style;
@@ -44,9 +46,9 @@ public final class TicketTextures {
                 byte[] bytes=ResourceUtil.loadResourceBytes(new ResourceLocation(style.get(imageKey).getAsString()));
                 BufferedImage base=javax.imageio.ImageIO.read(new ByteArrayInputStream(bytes));g.drawImage(base,0,0,w,h,null);
             }catch(Exception ex){com.fangsu.Main.LOGGER.debug("票面底图不可用: {}",card.product.style);}
-            Map<String,String> values=new HashMap<>();values.put("name",card.product.name);values.put("balance",card.balance+"元");values.put("fare",card.allowance+"元");
+            Map<String,String> values=new HashMap<>();values.put("name",card.product.name);values.put("balance","$"+card.balance);values.put("fare","$"+card.allowance);
             values.put("network",String.join(" / ",card.product.networks));values.put("serial",card.serial.substring(0,Math.min(12,card.serial.length())));
-            values.put("expiry",card.activated==0?"未激活":(card.product.kind==Kind.DAY||card.product.validHours>0)?new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date(card.activated+(card.product.kind==Kind.DAY?24:card.product.validHours)*3600000L)):"不限期");
+            values.put("expiry",card.activated==0?"未激活":(card.product.kind==Kind.DAY||card.product.validHours>0)?new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date(card.activated+card.product.durationHours()*3600000L)):"不限期");
             values.put("state",card.journey==null?"未进站":"已进站");values.put("rights",Integer.toString(card.product.legs.size()-card.used.size()));
             values.put("union",card.product.badges.stream().map(b->b.name).collect(java.util.stream.Collectors.joining(" / ")));
             values.put("kindEn",switch(card.product.kind){case SINGLE->"Single Journey Ticket";case IC->"IC Card";case DAY->"Day Pass";case ITINERARY->"Itinerary Ticket";});
@@ -65,7 +67,7 @@ public final class TicketTextures {
                 try{g.setColor(Color.decode(field.has("color")?field.get("color").getAsString():"#12334b"));}catch(RuntimeException ex){g.setColor(Color.DARK_GRAY);}
                 int max=bounded(field,"maxWidth",w-x,0,w);while(!text.isEmpty()&&g.getFontMetrics().stringWidth(text)>max)text=text.substring(0,text.length()-1);
                 g.drawString(text,x,y);
-            }else if(!back){g.setColor(Color.DARK_GRAY);g.setFont(new Font("Microsoft YaHei",Font.PLAIN,12));g.drawString(card.product.name,8,24);g.drawString(card.product.kind==Kind.IC?"余额 "+card.balance+"元":"票额 "+card.allowance+"元",8,h-16);}
+            }else if(!back){g.setColor(Color.DARK_GRAY);g.setFont(new Font("Microsoft YaHei",Font.PLAIN,12));g.drawString(card.product.name,8,24);g.drawString(card.product.kind==Kind.IC?"余额 "+"$"+card.balance:"票额 "+"$"+card.allowance,8,h-16);}
             if(!back && style.has("badges")) {
                 JsonObject slot=style.getAsJsonObject("badges");int x=bounded(slot,"x",190,0,w),y=bounded(slot,"y",6,0,h);
                 int bw=bounded(slot,"width",58,1,w),bh=bounded(slot,"height",32,1,h);
@@ -80,23 +82,61 @@ public final class TicketTextures {
         }).identifier;
     }
     private static int bounded(JsonObject json,String key,int fallback,int min,int max){return Math.max(min,Math.min(max,json.has(key)?json.get(key).getAsInt():fallback));}
-    public static ResourceLocation screen(String id,String text,int w,int h,int kind){
-        return cached(id,text+"/"+w+"/"+h+"/"+kind,()->{
+    public static ResourceLocation screen(String id,String text,int w,int h,int kind,int cycleSeconds){
+        checkReload();long now=System.currentTimeMillis();
+        long started=SCREEN_STARTED.computeIfAbsent(id,key->now);
+        String[] pages=text.split("\\|",-1);
+        String page=pages[(int)((now-started)/(Math.max(1,cycleSeconds)*1000L)%pages.length)];
+        int textHeight=kind==-1?h:Math.max(32,h/4)-6;
+        String[] lines=page.split("\\n",-1);int maskWidth=Math.max(1,(kind==-1?w:w-8)/2);
+        int fontSize=Math.max(6,Math.min(20,textHeight/2/lines.length-2));
+        Font font=new Font("Microsoft YaHei",Font.PLAIN,fontSize);
+        boolean scrolling=Arrays.stream(lines).anyMatch(line->font.getStringBounds(line,DOT_METRICS).getWidth()>maskWidth-4);
+        long frame=scrolling?(now-started)/100:0;
+        return cached(id,page+"/"+w+"/"+h+"/"+kind+"/"+frame,()->{
             GraphicsTexture texture=new GraphicsTexture(w,h);Graphics2D g=texture.graphics;
-            g.setColor(new Color(0x143B58));g.fillRect(0,0,w,h);g.setColor(new Color(0xDCEFF6));
-            if(kind==-1){g.setColor(new Color(0x101613));g.fillRect(0,0,w,h);g.setColor(new Color(0xE9C740));g.setFont(new Font("Microsoft YaHei",Font.BOLD,22));g.drawString(text,8,25);texture.upload();return texture;}
-            int header=Math.max(24,h/5);int size=Math.max(8,Math.min(16,w/11));g.setFont(new Font("Microsoft YaHei",Font.BOLD,size));g.setColor(new Color(0xFFCB55));int y=size+5;
-            for(String line:text.split("\n",-1)) {String draw=line;while(!draw.isEmpty()&&g.getFontMetrics().stringWidth(draw)>w-12)draw=draw.substring(0,draw.length()-1);g.drawString(draw,6,y);y+=size+3;if(y>header)break;}
-            g.setColor(new Color(0xF0F5F9));g.fillRect(0,header,w,h-header);
-            g.setColor(new Color(0x52687C));g.setFont(new Font("Microsoft YaHei",Font.PLAIN,Math.max(7,w/22)));g.drawString("请选择需要的服务",5,header+16);
-            String[] labels=kind==2?new String[]{"补票","充值","票卡查询","出站修复"}:kind==1?new String[]{"购卡","充值","票卡查询"}:new String[]{"购票","充值","购卡","票卡查询"};
-            int[] colors={0xE04950,0x7274CE,0x318FCD,0x20A9B2};int gap=4,tileW=(w-3*gap)/2,tileH=Math.max(18,(h-header-38)/2);
+            g.setColor(new Color(0x101A1D));g.fillRect(0,0,w,h);
+            if(kind==-1){dotText(g,page,0,0,w,h,frame);texture.upload();return texture;}
+            int header=Math.max(32,h/4);dotText(g,page,4,3,w-8,header-6,frame);
+            g.setColor(new Color(0xEDF4F6));g.fillRect(0,header,w,h-header);
+            g.setColor(new Color(0x19304B));g.setFont(new Font("Microsoft YaHei",Font.PLAIN,Math.max(9,w/19)));
+            centered(g,"请选择服务 / Select a service",0,header+6,w,Math.max(20,h/12));
+            String[][] labels=kind==2?new String[][]{{"补票","Fare Adjustment"}}:kind==1?new String[][]{{"购卡","Buy Card"},{"充值","Top Up"}}:new String[][]{{"购票","Buy Ticket"}};
+            int gap=Math.max(5,w/24),tileW=w-gap*2,tileH=Math.max(16,(h-header-Math.max(25,h/10)-gap*(labels.length+1))/labels.length);
             for(int i=0;i<labels.length;i++){
-                int x=gap+(i%2)*(tileW+gap),ty=header+24+(i/2)*(tileH+gap);g.setColor(new Color(colors[i]));g.fillRect(x,ty,tileW,tileH);
-                g.setColor(Color.WHITE);g.setFont(new Font("Microsoft YaHei",Font.BOLD,Math.max(8,w/13)));g.drawString(labels[i],x+4,ty+Math.min(tileH-3,18));
+                int y=header+Math.max(25,h/10)+gap+i*(tileH+gap);
+                g.setColor(new Color(i==0?0x308EBB:0xE99836));g.fillRoundRect(gap,y,tileW,tileH,6,6);
+                g.setColor(Color.WHITE);
+                int chineseHeight=tileH*3/5,englishHeight=tileH-chineseHeight;
+                g.setFont(new Font("Microsoft YaHei",Font.BOLD,Math.max(10,Math.min(chineseHeight-4,w/7))));
+                centered(g,labels[i][0],gap,y,tileW,chineseHeight);
+                g.setFont(new Font("SansSerif",Font.PLAIN,Math.max(7,Math.min(englishHeight-3,w/16))));
+                centered(g,labels[i][1],gap,y+chineseHeight-2,tileW,englishHeight);
             }
             texture.upload();return texture;
         }).identifier;
+    }
+    private static void centered(Graphics2D g,String text,int x,int y,int w,int h){
+        FontMetrics fm=g.getFontMetrics();g.drawString(text,x+(w-fm.stringWidth(text))/2,y+(h-fm.getHeight())/2+fm.getAscent());
+    }
+    /** 保持字号，短文本居中，长文本在点阵视窗内滚动，换行不参与语言轮播。 */
+    private static void dotText(Graphics2D target,String text,int x,int y,int w,int h,long frame){
+        int step=2,mw=Math.max(1,w/step),mh=Math.max(1,h/step);
+        BufferedImage mask=new BufferedImage(mw,mh,BufferedImage.TYPE_INT_RGB);Graphics2D ink=mask.createGraphics();
+        try{
+            ink.setColor(Color.BLACK);ink.fillRect(0,0,mw,mh);ink.setColor(Color.WHITE);
+            String[] lines=text.split("\\n",-1);int row=Math.max(1,mh/lines.length);
+            int size=Math.max(6,Math.min(20,row-2));ink.setFont(new Font("Microsoft YaHei",Font.PLAIN,size));
+            FontMetrics metrics=ink.getFontMetrics();
+            for(int i=0;i<lines.length;i++){
+                String line=lines[i];int width=metrics.stringWidth(line);
+                int px=width<=mw-4?(mw-width)/2:mw-(int)(frame%(width+mw+12));
+                ink.drawString(line,px,i*row+(row-metrics.getHeight())/2+metrics.getAscent());
+            }
+            for(int py=0;py<mh;py++)for(int px=0;px<mw;px++){
+                target.setColor(new Color((mask.getRGB(px,py)&0xFFFFFF)==0?0x27302A:0xF2C94C));target.fillRect(x+px*step,y+py*step,1,1);
+            }
+        }finally{ink.dispose();}
     }
     public static void quad(PoseStack pose,MultiBufferSource buffers,ResourceLocation texture,float width,float height,float z,int light,int overlay,boolean back){
         VertexConsumer vertices=buffers.getBuffer(RenderType.entityCutoutNoCull(texture));

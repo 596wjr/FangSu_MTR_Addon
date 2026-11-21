@@ -1,0 +1,14 @@
+{
+  "model": "fangsu:ticketing/machine_example.obj",
+  "flipV": true,
+  "modelOffsetZ": 0.25,
+  "shape": "[[0,0,4,16,32,12]]",
+  "screenX": 0,
+  "screenY": 1.42,
+  "screenZ": -0.251,
+  "screenPitch": 0,
+  "screenWidth": 0.68,
+  "screenHeight": 0.4,
+  "screenPixelsX": 256,
+  "screenPixelsY": 128
+}

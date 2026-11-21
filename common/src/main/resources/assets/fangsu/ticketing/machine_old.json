@@ -1,0 +1,14 @@
+{
+  "model": "fangsu:ticketing/ticket_machine_old.bbmodel",
+  "flipV": true,
+  "modelOffsetZ": 0.15625,
+  "shape": "[[0,0,2.5,16,32,13.5]]",
+  "screenX": -0.2141,
+  "screenY": 1.309,
+  "screenZ": -0.218,
+  "screenPitch": 22.5,
+  "screenWidth": 0.4289,
+  "screenHeight": 0.3819,
+  "screenPixelsX": 256,
+  "screenPixelsY": 192
+}

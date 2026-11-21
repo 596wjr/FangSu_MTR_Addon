@@ -1,6 +1,8 @@
 package com.fangsu.ticketSystem.v2;
 
 import com.fangsu.blockEntities.BlockEntityTicketBarrier;
+import com.fangsu.mappings.ComponentHelper;
+import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -53,28 +55,30 @@ public final class TicketGate {
     public static boolean use(Level world, BlockPos pos, Player player, Map<String,String> config, Runnable update, int selectedLeg) {
         try {
             bind(world, pos, config);
-            Station station = TicketStations.at(world, pos); require(station != null, "闸机不在MTR车站区域内");
+            Station station = TicketStations.at(world, pos); require(station != null, "msg.fangsu.ticketing.gate_outside_station");
             ItemStack stack = player.getMainHandItem(); Card original = TicketCards.read(stack, station);
-            require(Arrays.asList(config.getOrDefault("ticketKinds", "SINGLE,IC,ITINERARY,DAY").split(",")).contains(original.product.kind.name()), "此闸机不接受该票种");
+            require(Arrays.asList(config.getOrDefault("ticketKinds", "SINGLE,IC,ITINERARY,DAY").split(",")).contains(original.product.kind.name()), "msg.fangsu.ticketing.gate_ticket_type");
             Catalogue catalogue = TicketWorldData.get(world.getServer()).catalogue;
-            Network network = catalogue.networks.get(network(config)); require(network != null, "票务网络不存在");
+            Network network = catalogue.networks.get(network(config)); require(network != null, "msg.fangsu.ticketing.network_missing");
+            boolean transfer=Boolean.parseBoolean(config.getOrDefault("ticketTransfer","false"));
+            boolean exiting=Boolean.parseBoolean(config.getOrDefault("isExit","false"));
             TicketEngine.Result result;
-            if (Boolean.parseBoolean(config.getOrDefault("ticketTransfer", "false"))) {
+            if (transfer) {
                 Network target = catalogue.networks.get(config.getOrDefault("ticketTargetNetwork", ""));
-                require(target != null, "换乘目标网络不存在");
+                require(target != null, "msg.fangsu.ticketing.transfer_network_missing");
                 Card afterExit = TicketEngine.exit(original, network.id, station).card();
                 List<Integer> matches = TicketEngine.eligible(afterExit, target.id, station);
                 if (selectedLeg < 0 && matches.size() > 1) {
-                    require(world.getBlockEntity(pos) instanceof BlockEntityTicketBarrier, "请使用方速闸机选择联程权益");
+                    require(world.getBlockEntity(pos) instanceof BlockEntityTicketBarrier, "msg.fangsu.ticketing.fangsu_gate_required");
                     TicketPackets.choose((ServerPlayer) player, pos, afterExit, matches); return false;
                 }
                 result = TicketEngine.transfer(original, network, target, station, selectedLeg, System.currentTimeMillis());
-            } else if (Boolean.parseBoolean(config.getOrDefault("isExit", "false"))) {
+            } else if (exiting) {
                 result = TicketEngine.exit(original, network.id, station);
             } else {
                 List<Integer> matches = TicketEngine.eligible(original, network.id, station);
                 if (selectedLeg < 0 && matches.size() > 1) {
-                    require(world.getBlockEntity(pos) instanceof BlockEntityTicketBarrier, "请使用方速闸机选择联程权益");
+                    require(world.getBlockEntity(pos) instanceof BlockEntityTicketBarrier, "msg.fangsu.ticketing.fangsu_gate_required");
                     TicketPackets.choose((ServerPlayer) player, pos, original, matches); return false;
                 }
                 result = TicketEngine.prepareEnter(original, network, station, selectedLeg, System.currentTimeMillis());
@@ -82,10 +86,23 @@ public final class TicketGate {
             if (result.consumed()) stack.shrink(1); else TicketCards.write(stack, result.card());
             config.put("ticketNetwork", network.id); config.put("isOpen", "true"); update.run();
             player.getInventory().setChanged();
-            player.displayClientMessage(com.fangsu.mappings.ComponentHelper.literal("检票成功，费用："+result.fare()+"元"), true);
+            String stationName=TicketStations.formatName(station);
+            Component message;
+            if(original.product.kind==Kind.IC){
+                // IC卡沿用原版进出闸翻译，余额来自票卡自身而非玩家账户。
+                message=transfer?ComponentHelper.translatable("msg.fangsu.ticketing.transferred_ic",stationName,result.fare(),result.card().balance)
+                        :exiting?ComponentHelper.translatable("gui.mtr.exit_barrier",stationName,result.fare(),result.card().balance)
+                        :ComponentHelper.translatable("gui.mtr.enter_barrier",stationName,result.card().balance);
+            }else{
+                int displayedFare=original.product.kind==Kind.DAY?0:result.fare();
+                message=transfer?ComponentHelper.translatable("msg.fangsu.ticketing.transferred",stationName,displayedFare)
+                        :exiting?ComponentHelper.translatable("msg.fangsu.ticketing.exited",stationName,displayedFare)
+                        :ComponentHelper.translatable("msg.fangsu.ticketing.entered",stationName);
+            }
+            player.displayClientMessage(message,true);
             return true;
         } catch (RuntimeException ex) {
-            player.displayClientMessage(com.fangsu.mappings.ComponentHelper.literal(ex.getMessage() == null ? "票卡数据无效" : ex.getMessage()), true);
+            player.displayClientMessage(ex.getMessage()==null?com.fangsu.mappings.ComponentHelper.translatable("msg.fangsu.ticketing.invalid_card"):TicketMessages.error(ex), true);
             return false;
         }
     }

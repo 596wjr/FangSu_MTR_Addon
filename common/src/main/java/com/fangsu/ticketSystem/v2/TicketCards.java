@@ -13,13 +13,13 @@ public final class TicketCards {
                 || stack.getItem() instanceof ItemNetworkTicket;
     }
     public static Card read(ItemStack stack, Station current) {
-        require(isNative(stack) && stack.getCount() == 1, "请手持一张方速票卡");
+        require(isNative(stack) && stack.getCount() == 1, "msg.fangsu.ticketing.hold_ticket");
         CompoundTag tag = stack.getTag();
         if (tag != null && tag.contains(KEY)) {
             Card card = JSON.fromJson(tag.getString(KEY), Card.class);
             require(card != null && card.version == 2 && card.serial != null && card.serial.length() <= 128
                     && card.product != null && card.product.kind != null && card.product.networks != null && card.product.badges != null
-                    && card.product.legs != null && card.used != null, "票卡数据损坏");
+                    && card.product.legs != null && card.used != null, "msg.fangsu.ticketing.ticket_corrupt");
             return card;
         }
         // 旧版票卡统一迁入默认MTR网络，保留余额、票额和分区入站记录。
@@ -35,7 +35,7 @@ public final class TicketCards {
         if (tag != null) {
             card.balance = tag.getInt("Balance"); card.allowance = Math.max(0, tag.getInt("Price"));
             if (tag.getBoolean("Entered")) {
-                require(current != null, "迁移旧票入站记录需要车站信息");
+                require(current != null, "msg.fangsu.ticketing.legacy_station_required");
                 Journey journey = new Journey(); journey.network = DEFAULT_NETWORK; journey.rule = new Rule();
                 journey.entry = copy(current, Station.class); journey.entry.key = "legacy";
                 journey.entry.zones = new int[]{tag.contains("EntryZone1") ? tag.getInt("EntryZone1") : tag.getInt("EntryZone"), tag.getInt("EntryZone2"), tag.getInt("EntryZone3")};

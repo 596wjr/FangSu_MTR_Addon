@@ -12,6 +12,15 @@ import net.minecraft.resources.ResourceLocation;
 
 public class ScreenUtil {
 
+    /** 滚动与文字阴影分别控制，居中绘制也遵循阴影选项。 */
+    public static void drawScrollingText(GraphicContext g,Font font,Component text,int x,int y,int width,int height,int color,boolean scrolling,boolean shadow) {
+        int textWidth=font.width(text),available=Math.max(1,width-6),drawY=y+(height-8)/2;
+        if(textWidth<=available){g.drawString(font,text,x+(width-textWidth)/2,drawY,color,shadow);return;}
+        int offset=scrolling?Math.max(0,(int)((Util.getMillis()/50L)%(textWidth-available+20))-10):0;
+        g.enableScissor(x+3,y,x+width-3,y+height);
+        try{g.drawString(font,text,x+3-offset,drawY,color,shadow);}finally{g.disableScissor();}
+    }
+
     //#if MC_VERSION >= 12000
     public static int drawStringScale(GuiGraphics graphics,
                                       //#else

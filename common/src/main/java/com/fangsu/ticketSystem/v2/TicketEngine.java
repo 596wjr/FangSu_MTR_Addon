@@ -8,7 +8,7 @@ public final class TicketEngine {
     public record Result(Card card, boolean consumed, int fare) { }
     public record Adjustment(Card card, int cost, String description) { }
     private static void authorized(Card card, String network) {
-        require(card.product.networks.contains(network), "这张票卡不能用于此票务网络");
+        require(card.product.networks.contains(network), "msg.fangsu.ticketing.unauthorized_network");
     }
     public static List<Integer> eligible(Card card, String network, Station at) {
         List<Integer> result = new ArrayList<>();
@@ -24,16 +24,16 @@ public final class TicketEngine {
     public static Result enter(Card original, Network network, Station at, int selectedLeg, long now) {
         Card card = copy(original, Card.class);
         authorized(card, network.id);
-        require(card.journey == null && card.permit == null, "已在站内，请先出站");
-        require(!card.expired(now), "票卡已过期，请办理补票");
-        require(card.product.kind != Kind.IC || card.balance >= network.minimumBalance, "卡内余额低于最低进站金额");
+        require(card.journey == null && card.permit == null, "msg.fangsu.ticketing.already_inside");
+        require(!card.expired(now), "msg.fangsu.ticketing.ticket_expired");
+        require(card.product.kind != Kind.IC || card.balance >= network.minimumBalance, "msg.fangsu.ticketing.entry_balance");
         Journey journey = new Journey(); journey.network = network.id; journey.entry = copy(at, Station.class);
         journey.rule = copy(network.rule, Rule.class);
         if (card.product.kind == Kind.ITINERARY) {
             List<Integer> legs = eligible(card, network.id, at);
-            require(!legs.isEmpty(), "没有可用于本站的联程权益");
+            require(!legs.isEmpty(), "msg.fangsu.ticketing.no_matching_leg");
             if (selectedLeg < 0 && legs.size() == 1) selectedLeg = legs.get(0);
-            require(legs.contains(selectedLeg), "请选择本次使用的联程权益");
+            require(legs.contains(selectedLeg), "msg.fangsu.ticketing.select_leg");
             journey.leg = selectedLeg;
             card.allowance = card.product.legs.get(selectedLeg).allowance;
         }
@@ -45,16 +45,16 @@ public final class TicketEngine {
         Card card = copy(original, Card.class); authorized(card, network);
         boolean permit = card.permit != null && Objects.equals(card.permit.ticket, card.serial)
                 && Objects.equals(card.permit.network, network) && Objects.equals(card.permit.station, at.key);
-        require(permit || card.journey != null, "缺失入站记录，请到补票机办理");
-        if (card.journey != null) require(card.journey.network.equals(network), "请在入站网络出站");
+        require(permit || card.journey != null, "msg.fangsu.ticketing.entry_record_missing");
+        if (card.journey != null) require(card.journey.network.equals(network), "msg.fangsu.ticketing.exit_entry_network");
         int fare = permit ? 0 : card.journey.rule.fare(card.journey.entry, at);
         Kind kind = card.product.kind;
         if (!permit) {
-            if (kind == Kind.SINGLE) require(card.allowance >= fare, "票额不足，请补票");
+            if (kind == Kind.SINGLE) require(card.allowance >= fare, "msg.fangsu.ticketing.fare_insufficient");
             if (kind == Kind.ITINERARY) {
                 Leg leg = card.product.legs.get(card.journey.leg);
-                require(leg.to.isEmpty() || leg.to.equals(at.key), "目的站不符，请办理补票");
-                require(card.allowance >= fare, "本段票额不足，请补票");
+                require(leg.to.isEmpty() || leg.to.equals(at.key), "msg.fangsu.ticketing.wrong_destination");
+                require(card.allowance >= fare, "msg.fangsu.ticketing.leg_fare_insufficient");
             }
             if (kind == Kind.IC) card.balance = Math.toIntExact((long) card.balance - fare);
         }
@@ -63,10 +63,10 @@ public final class TicketEngine {
         return new Result(card, kind == Kind.SINGLE || kind == Kind.ITINERARY && card.used.size() == card.product.legs.size(), fare);
     }
     public static Result transfer(Card original, Network from, Network to, Station at, int selectedLeg, long now) {
-        require(!from.id.equals(to.id), "换乘的两个网络必须不同");
-        require(original.product.kind == Kind.IC || original.product.kind == Kind.ITINERARY, "此票种不能刷换乘闸机");
+        require(!from.id.equals(to.id), "msg.fangsu.ticketing.transfer_same_network");
+        require(original.product.kind == Kind.IC || original.product.kind == Kind.ITINERARY, "msg.fangsu.ticketing.unsupported_transfer");
         Result exited = exit(original, from.id, at);
-        require(!exited.consumed(), "联程票没有剩余权益");
+        require(!exited.consumed(), "msg.fangsu.ticketing.itinerary_exhausted");
         Result entered = prepareEnter(exited.card(), to, at, selectedLeg, now);
         return new Result(entered.card(), false, exited.fare());
     }
@@ -76,13 +76,13 @@ public final class TicketEngine {
     }
     public static Adjustment adjust(Card original, Network network, Station at, List<Station> members) {
         Card card = copy(original, Card.class); authorized(card, network.id);
-        require(card.permit == null, "已完成补票，请到指定车站出站");
-        require(!members.isEmpty(), "网络内没有可计费车站");
-        if (card.journey != null) require(card.journey.network.equals(network.id), "请在原入站网络补票");
+        require(card.permit == null, "msg.fangsu.ticketing.already_adjusted");
+        require(!members.isEmpty(), "msg.fangsu.ticketing.no_fare_stations");
+        if (card.journey != null) require(card.journey.network.equals(network.id), "msg.fangsu.ticketing.adjust_entry_network");
         int fare;
         if (card.journey == null) {
             fare = members.stream().filter(s -> s.dimension.equals(at.dimension))
-                    .mapToInt(s -> network.rule.fare(s, at)).max().orElseThrow(() -> new IllegalArgumentException("网络内没有同维度计费车站"));
+                    .mapToInt(s -> network.rule.fare(s, at)).max().orElseThrow(() -> new IllegalArgumentException("msg.fangsu.ticketing.no_same_dimension_stations"));
         } else fare = card.journey.rule.fare(card.journey.entry, at);
         boolean wrongStation = card.product.kind == Kind.ITINERARY && card.journey != null
                 && !card.product.legs.get(card.journey.leg).to.isEmpty()
@@ -91,7 +91,7 @@ public final class TicketEngine {
         int cost = card.journey == null ? fare : Math.max(0, fare - credit);
         if (card.journey != null && !wrongStation && (card.product.kind == Kind.SINGLE || card.product.kind == Kind.ITINERARY)) {
             card.allowance = Math.max(card.allowance, fare);
-            return new Adjustment(card, cost, "补足本站出站票额");
+            return new Adjustment(card, cost, "ui.fangsu.ticketing.adjustment.supplement");
         }
         if (card.journey != null && card.product.kind == Kind.DAY) cost = 0;
         if (card.product.kind == Kind.ITINERARY && card.journey == null) {
@@ -101,13 +101,13 @@ public final class TicketEngine {
                 if (card.product.legs.get(i).network.equals(network.id)) { selected = i; break; }
                 if (card.product.ordered) break;
             }
-            require(selected >= 0, "此网络没有可补票的剩余权益");
+            require(selected >= 0, "msg.fangsu.ticketing.no_adjustable_rights");
             Journey repaired = new Journey(); repaired.network = network.id; repaired.entry = copy(at, Station.class);
             repaired.rule = copy(network.rule, Rule.class); repaired.leg = selected; card.journey = repaired;
         }
         Permit permit = new Permit(); permit.network = network.id; permit.station = at.key; permit.ticket = card.serial; permit.paid = cost;
         card.permit = permit;
-        return new Adjustment(card, cost, "本站一次性出站许可");
+        return new Adjustment(card, cost, "ui.fangsu.ticketing.adjustment.permit");
     }
     private TicketEngine() { }
 }

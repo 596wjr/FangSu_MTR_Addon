@@ -346,7 +346,7 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
     public Map<String,String> ticketSettings() { return new java.util.HashMap<>(extraConfigs); }
     public void configureTickets(Map<String,String> values, com.fangsu.ticketSystem.v2.TicketDefinitions.Catalogue catalogue) {
         String network=values.getOrDefault("ticketNetwork",com.fangsu.ticketSystem.v2.TicketDefinitions.DEFAULT_NETWORK);
-        com.fangsu.ticketSystem.v2.TicketDefinitions.require(catalogue.networks.containsKey(network),"票务网络不存在");
+        com.fangsu.ticketSystem.v2.TicketDefinitions.require(catalogue.networks.containsKey(network),"msg.fangsu.ticketing.network_missing");
         String target=values.getOrDefault("ticketTargetNetwork",network);
         boolean transfer=Boolean.parseBoolean(values.getOrDefault("ticketTransfer","false"));
         com.fangsu.ticketSystem.v2.TicketDefinitions.require(!transfer || catalogue.networks.containsKey(target) && !network.equals(target),"换乘网络无效");

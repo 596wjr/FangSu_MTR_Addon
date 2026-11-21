@@ -1,0 +1,50 @@
+{
+  "name": "市政交通票卡",
+  "networks": {},
+  "unions": {},
+  "products": {
+    "fangsu:day": {
+      "name": "市政交通一日通",
+      "kind": "DAY",
+      "price": 20,
+      "validDays": 1,
+      "networks": [
+        "fangsu:default_mtr"
+      ],
+      "style": "fangsu:ticketing/day_pass.json"
+    },
+    "fangsu:three_day": {
+      "name": "市政交通三日通",
+      "kind": "DAY",
+      "price": 60,
+      "validDays": 3,
+      "networks": [
+        "fangsu:default_mtr"
+      ],
+      "style": "fangsu:ticketing/three_day_pass.json"
+    },
+    "fangsu:seven_day": {
+      "name": "市政交通七日通",
+      "kind": "DAY",
+      "price": 140,
+      "validDays": 7,
+      "networks": [
+        "fangsu:default_mtr"
+      ],
+      "style": "fangsu:ticketing/seven_day_pass.json"
+    },
+    "fangsu:ic": {
+      "name": "市政交通一卡通（交通联合款）",
+      "kind": "IC",
+      "price": 0,
+      "initialBalance": 0,
+      "networks": [
+        "fangsu:default_mtr"
+      ],
+      "unions": [
+        "fangsu:transport_union"
+      ],
+      "style": "fangsu:ticketing/beijing_ic.json"
+    }
+  }
+}
