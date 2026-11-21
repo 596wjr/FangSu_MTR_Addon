@@ -502,7 +502,7 @@
   "msg.fangsu.ticketing.configuration_changed": "設定已变更，請重新報價",
   "msg.fangsu.ticketing.invalid_amount_duration": "金額或有效期無效",
   "msg.fangsu.ticketing.amount_range": "金額超出範圍",
-  "msg.fangsu.ticketing.invalid_sale_products": "銷售產品無效",
+  "msg.fangsu.ticketing.invalid_sale_products": "銷售產品無效、不屬於設備網絡或與本機票種不匹配",
   "msg.fangsu.ticketing.gate_outside_station": "閘機不在MTR車站区域內",
   "msg.fangsu.ticketing.gate_missing": "閘機不存在",
   "msg.fangsu.ticketing.tier_count": "需要1至64檔阶梯",

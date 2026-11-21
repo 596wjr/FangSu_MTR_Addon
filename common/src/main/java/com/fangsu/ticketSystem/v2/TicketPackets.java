@@ -123,7 +123,7 @@ public final class TicketPackets {
             require(message.catalogue != null && message.catalogue.revision == data.catalogue.revision, "msg.fangsu.ticketing.catalogue_changed");
             validateCatalogue(message.catalogue, data.catalogue);
             if (be instanceof BlockEntityTicketMachine machine) {
-                require(message.config != null, "msg.fangsu.ticketing.missing_device_config"); message.config.validate(message.catalogue);
+                require(message.config != null, "msg.fangsu.ticketing.missing_device_config"); message.config.validate(message.catalogue, machine.kind());
                 machine.configure(message.config);
             } else if (be instanceof BlockEntityTicketBarrier gate) {
                 require(message.gate != null, "msg.fangsu.ticketing.missing_gate_config"); gate.configureTickets(message.gate, message.catalogue);

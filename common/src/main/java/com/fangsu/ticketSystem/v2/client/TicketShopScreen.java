@@ -28,8 +28,7 @@ public final class TicketShopScreen extends TicketMachineMainScreen {
         rebuildChoices();onTicketChoiceChanged();
     }
     public boolean matches(TicketPackets.Message reply){return state.pos==reply.pos&&state.session.equals(reply.session);}
-    private List<Product> products(){return state.config.products.stream().map(state.catalogue.products::get).filter(Objects::nonNull)
-        .filter(p->p.enabled&&TicketMachineConfig.sells(state.kind,p.kind)&&p.authorizedNetworks(state.catalogue).contains(state.config.network)).toList();}
+    private List<Product> products(){return state.config.saleProducts(state.catalogue,state.kind);}
     private int displayPrice(Product p){return p.kind==Kind.IC?(int)Math.min(Integer.MAX_VALUE,(long)p.price+p.initialBalance):p.price;}
     private static String t(String key,Object...args){return ComponentHelper.translatable("ui.fangsu.ticketing."+key,args).getString();}
     private Product product(){return state.catalogue.products.get(request.product);}

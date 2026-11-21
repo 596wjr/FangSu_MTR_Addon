@@ -18,8 +18,14 @@ public final class TicketMachineConfig {
     public double screenX = 0, screenY = 1.42, screenZ = -.26, screenWidth = .68, screenHeight = .4, screenPitch;
     public int screenPixelsX = 256, screenPixelsY = 128;
     public void validate(Catalogue catalogue) {
+        validate(catalogue, -1);
+    }
+    public void validate(Catalogue catalogue, int machineKind) {
         require(catalogue.networks.containsKey(network), "msg.fangsu.ticketing.device_network_missing");
         require(products != null && products.size() <= 128 && catalogue.products.keySet().containsAll(products), "msg.fangsu.ticketing.invalid_sale_products");
+        if (machineKind >= 0 && machineKind != 2)
+            for (String id : products)
+                require(canSell(catalogue.products.get(id), catalogue, network, machineKind), "msg.fangsu.ticketing.invalid_sale_products");
         require(currency != null && currency.matches("[a-z0-9_.-]+:[a-z0-9_./-]+") && currencyValue > 0, "msg.fangsu.ticketing.invalid_currency");
         require(model != null && model.length() <= 256 && (model.isEmpty() || model.matches("[a-z0-9_.-]+:[a-z0-9_./-]+\\.(obj|bbmodel)")), "msg.fangsu.ticketing.invalid_model_format");
         require(modelPreset != null && modelPreset.length() <= 256 && (modelPreset.isEmpty() || modelPreset.matches("[a-z0-9_.-]+:[a-z0-9_./-]+\\.json")), "msg.fangsu.ticketing.invalid_model_preset");
@@ -43,6 +49,31 @@ public final class TicketMachineConfig {
     }
     public static String defaultText(int kind) {
         return switch(kind){case 1 -> "正常服务\nIn Service";case 2 -> "补票|Fare Adjustment";default -> "服务中|In Service";};
+    }
+    public List<Product> saleProducts(Catalogue catalogue, int machineKind) {
+        List<Product> result = new ArrayList<>();
+        if (products == null) return result;
+        for (String id : products) {
+            Product product = catalogue.products.get(id);
+            if (canSell(product, catalogue, network, machineKind)) result.add(product);
+        }
+        return result;
+    }
+    public static boolean canSell(Product product, Catalogue catalogue, String network, int machineKind) {
+        if (product == null || !product.enabled || !sells(machineKind, product.kind)) return false;
+        if (product.networks == null || product.unions == null) return false;
+        Set<String> authorized = new LinkedHashSet<>(product.networks);
+        for (String id : product.unions) {
+            NetworkUnion union = catalogue.unions.get(id);
+            if (union == null || !union.enabled || union.networks == null) return false;
+            authorized.addAll(union.networks);
+        }
+        if (!authorized.contains(network)) return false;
+        for (String id : authorized) {
+            Network candidate = catalogue.networks.get(id);
+            if (candidate == null || !candidate.enabled) return false;
+        }
+        return true;
     }
     public static boolean sells(int machineKind, Kind kind) {
         return machineKind == 0 ? kind == Kind.SINGLE || kind == Kind.ITINERARY

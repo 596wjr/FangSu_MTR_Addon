@@ -1128,7 +1128,7 @@
   "msg.fangsu.ticketing.configuration_changed": "Configuration changed; wait for an updated quote",
   "msg.fangsu.ticketing.invalid_amount_duration": "Invalid amount or validity period",
   "msg.fangsu.ticketing.amount_range": "The amount is out of range",
-  "msg.fangsu.ticketing.invalid_sale_products": "Invalid sale products",
+  "msg.fangsu.ticketing.invalid_sale_products": "A sale product is invalid, belongs to another network, or is unsupported by this machine",
   "msg.fangsu.ticketing.gate_outside_station": "This gate is outside an MTR station area",
   "msg.fangsu.ticketing.gate_missing": "The gate does not exist",
   "msg.fangsu.ticketing.tier_count": "Configure between 1 and 64 distance tiers",

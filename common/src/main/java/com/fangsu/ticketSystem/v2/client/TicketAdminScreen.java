@@ -63,7 +63,7 @@ public final class TicketAdminScreen extends ThemedConfigScreen {
         try{
             for(Network n:catalogue.networks.values())n.rule.validate();
             for(Product p:catalogue.products.values())p.validate(catalogue);
-            if(state.config!=null)state.config.validate(catalogue);
+            if(state.config!=null)state.config.validate(catalogue,state.kind);
             TicketPackets.Message message=copy(state,TicketPackets.Message.class);message.action="save";message.catalogue=catalogue;
             pending=true;status="正在保存…";TicketClient.send(message);requestRebuild();
         }catch(RuntimeException ex){error(ex.getMessage());}
@@ -165,11 +165,20 @@ public final class TicketAdminScreen extends ThemedConfigScreen {
             return;
         }
         TicketMachineConfig c=state.config;
-        button("设备网络："+networkName(c.network),()->chooseNetwork(v->c.network=v));
-        if(state.kind!=2)label("本机销售白名单（未选择的产品不能在本机出售）");
+        button("设备网络："+networkName(c.network),()->chooseNetwork(v->{
+            c.network=v;
+            Set<String> valid=new LinkedHashSet<>();
+            for(Product product:c.saleProducts(catalogue,state.kind))valid.add(product.id);
+            c.products.retainAll(valid);
+            requestRebuild();
+        }));
+        if(state.kind!=2)label("本机销售白名单：只列出已授权当前设备网络且适用于本机的产品；切换网络会移除不兼容选择。");
         if(state.kind!=2){
-            var choices=catalogue.products.values().stream().filter(p->TicketMachineConfig.sells(state.kind,p.kind)).map(p->new ConfigChoiceScreen.Choice(p.id,p.name)).toList();
-            Set<String> selected=new LinkedHashSet<>(c.products);selected.retainAll(choices.stream().map(ConfigChoiceScreen.Choice::value).toList());
+            List<Product> sellable=c.saleProducts(catalogue,state.kind);
+            Set<String> valid=sellable.stream().map(p->p.id).collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+            c.products.retainAll(valid);
+            var choices=sellable.stream().map(p->new ConfigChoiceScreen.Choice(p.id,p.name)).toList();
+            Set<String> selected=new LinkedHashSet<>(c.products);
             multi("本机销售产品",choices,selected,128,v->c.products=v);
             if(state.kind==1)label("默认只售IC卡。一日、三日、七日通可在销售产品选择中分别开启。");
         }

@@ -1117,7 +1117,7 @@
   "msg.fangsu.ticketing.configuration_changed": "配置已变更，请重新报价",
   "msg.fangsu.ticketing.invalid_amount_duration": "金额或有效期无效",
   "msg.fangsu.ticketing.amount_range": "金额超出范围",
-  "msg.fangsu.ticketing.invalid_sale_products": "销售产品无效",
+  "msg.fangsu.ticketing.invalid_sale_products": "销售产品无效、不属于设备网络或与本机票种不匹配",
   "msg.fangsu.ticketing.gate_outside_station": "闸机不在MTR车站区域内",
   "msg.fangsu.ticketing.gate_missing": "闸机不存在",
   "msg.fangsu.ticketing.tier_count": "需要1至64档阶梯",
