@@ -1,11 +1,11 @@
 package com.fangsu.customItem;
 
+import com.fangsu.Main;
 import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.utils.ResourceUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
@@ -46,25 +46,41 @@ public class CustomMtrLifts {
         if (mtrCustomResources == null || !mtrCustomResources.isJsonObject()) {
             return;
         }
-        JsonObject customResourcesObject = mtrCustomResources.getAsJsonObject();
-        if (customResourcesObject.has("lifts")) {
-            JsonArray liftsArray = customResourcesObject.getAsJsonArray("lifts");
-            for (int i = 0; i < liftsArray.size(); i++) {
-                JsonElement liftElement = liftsArray.get(i);
-                if (liftElement == null || !liftElement.isJsonObject()) {
-                    continue;
-                }
-                JsonObject liftObject = liftElement.getAsJsonObject();
-                LiftSelectInfo current;
-                if (liftObject.has("properties")) {
-                    current = (new AssembledLiftSelectInfo(liftObject));
-                } else if (liftObject.has("model")) {
-                    current = (new ModeledLiftSelectInfo(liftObject));
-                } else {
-                    current = (new TexturedLiftSelectInfo(liftObject));
-                }
-                infos.put(current.getContent(), current);
+        JsonElement lifts = mtrCustomResources.getAsJsonObject().get("lifts");
+        if (lifts == null) {
+            return;
+        }
+        if (!lifts.isJsonArray()) {
+            Main.LOGGER.warn("Ignoring 'lifts' in {}: expected an array", MTR_CUSTOM_RESOURCES);
+            return;
+        }
+        JsonArray liftsArray = lifts.getAsJsonArray();
+        for (int i = 0; i < liftsArray.size(); i++) {
+            JsonElement liftElement = liftsArray.get(i);
+            if (!liftElement.isJsonObject()) {
+                Main.LOGGER.warn("Skipping {} lifts[{}]: expected an object", MTR_CUSTOM_RESOURCES, i);
+                continue;
             }
+            JsonObject liftObject = liftElement.getAsJsonObject();
+            LiftSelectInfo current;
+            try {
+                if (liftObject.has("properties")) {
+                    current = new AssembledLiftSelectInfo(liftObject);
+                } else if (liftObject.has("model")) {
+                    current = new ModeledLiftSelectInfo(liftObject);
+                } else {
+                    current = new TexturedLiftSelectInfo(liftObject);
+                }
+            } catch (RuntimeException e) {
+                Main.LOGGER.warn("Skipping {} lifts[{}]: {}", MTR_CUSTOM_RESOURCES, i, e.getMessage());
+                continue;
+            }
+            JsonElement description = liftObject.get("description");
+            if (description == null || !description.isJsonPrimitive()) {
+                Main.LOGGER.warn("Using default description for lift '{}' in {} lifts[{}]",
+                        current.getContent(), MTR_CUSTOM_RESOURCES, i);
+            }
+            infos.put(current.getContent(), current);
         }
     }
 
@@ -116,8 +132,21 @@ public class CustomMtrLifts {
     }
 
     public static abstract class LiftSelectInfo extends BasicModelSelectInfo {
-        private LiftSelectInfo(@Nullable String text, @Nullable String content, @Nullable String contentText, @Nullable JsonObject defaultItem) {
-            super(text, content, contentText, defaultItem);
+        private LiftSelectInfo(JsonObject json) {
+            super(requiredText(json, "name"), requiredText(json, "id"), description(json), null);
+        }
+
+        private static String requiredText(JsonObject json, String key) {
+            JsonElement value = json.get(key);
+            if (value == null || !value.isJsonPrimitive() || value.getAsString().isBlank()) {
+                throw new IllegalArgumentException("Missing or invalid '" + key + "'");
+            }
+            return value.getAsString();
+        }
+
+        private static String description(JsonObject json) {
+            JsonElement value = json.get("description");
+            return value != null && value.isJsonPrimitive() ? value.getAsString() : null;
         }
     }
 
@@ -126,7 +155,7 @@ public class CustomMtrLifts {
         private final ResourceLocation model;
 
         private ModeledLiftSelectInfo(JsonObject json) {
-            super(json.getAsJsonPrimitive("name").getAsString(), json.getAsJsonPrimitive("id").getAsString(), json.getAsJsonPrimitive("description").getAsString(), null);
+            super(json);
             if (!json.has("texture")) {
                 texture = ResourceUtil.ERROR_IMAGE;
             } else {
@@ -149,7 +178,7 @@ public class CustomMtrLifts {
         private final ResourceLocation texture;
 
         private TexturedLiftSelectInfo(JsonObject json) {
-            super(json.getAsJsonPrimitive("name").getAsString(), json.getAsJsonPrimitive("id").getAsString(), json.getAsJsonPrimitive("description").getAsString(), null);
+            super(json);
             if (!json.has("texture")) {
                 texture = ResourceUtil.ERROR_IMAGE;
             } else {
@@ -173,9 +202,7 @@ public class CustomMtrLifts {
         private final ResourceLocation texture;
 
         private AssembledLiftSelectInfo(JsonObject json) {
-            super(json.getAsJsonPrimitive("name").getAsString(), json.getAsJsonPrimitive("id").getAsString(),
-                    json.has("description") ? json.getAsJsonPrimitive("description").getAsString()
-                            : ComponentHelper.translatable("ui.fangsu.block.no_detail").toString(), null);
+            super(json);
             properties = new ResourceLocation(json.getAsJsonPrimitive("properties").getAsString());
             model = json.has("model") ? new ResourceLocation(json.getAsJsonPrimitive("model").getAsString()) : null;
             texture = json.has("texture") ? new ResourceLocation(json.getAsJsonPrimitive("texture").getAsString()) : null;
