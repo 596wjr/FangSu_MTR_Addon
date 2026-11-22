@@ -12,7 +12,7 @@ import static com.fangsu.ticketSystem.v2.TicketDefinitions.*;
 /** 所有金额均由服务端重新核算，报价绑定设备、目录版本及手持票卡。 */
 public final class TicketTransactions {
     public static final class Request {
-        public String action = "buy", product = "fangsu:single", destination = "", payment = "mtr";
+        public String action = "buy", product = "fangsu:single", origin = "", destination = "", payment = "mtr";
         public int count = 1, recharge = 10, fare = -1;
     }
     public static final class Quote {
@@ -27,7 +27,8 @@ public final class TicketTransactions {
     }
     public static Quote quote(ServerPlayer player, BlockEntityTicketMachine machine, Request request) {
         TicketGate.refresh(player.getServer());
-        Catalogue catalogue = TicketWorldData.get(player.getServer()).catalogue;
+        TicketWorldData data = TicketWorldData.get(player.getServer());
+        Catalogue catalogue = data.catalogue;
         TicketMachineConfig config = machine.ticketConfig;
         Network network = catalogue.networks.get(config.network);
         require(network != null && network.enabled, "msg.fangsu.ticketing.device_network_disabled");
@@ -44,24 +45,36 @@ public final class TicketTransactions {
             require(product.authorizedNetworks(catalogue).contains(config.network), "msg.fangsu.ticketing.product_network");
             require(request.count > 0 && request.count <= 6, "msg.fangsu.ticketing.purchase_quantity");
             int allowance = product.price, unitPrice = product.price;
+            Station origin = null, destination = null;
             if (product.kind == Kind.SINGLE) {
-                Station to = catalogue.station(config.network, request.destination);
-                require(at != null && catalogue.station(config.network, at.key) != null, "msg.fangsu.ticketing.station_binding_required");
-                if(request.destination.isEmpty()){
-                    // 原售票机支持按票额购买；票额是所购权益，实际扣款仍由服务端计算。
-                    require(request.fare>=0 && request.fare<=32767,"msg.fangsu.ticketing.select_fare");allowance=request.fare;
-                }else{require(to!=null,"msg.fangsu.ticketing.select_network_destination");allowance=network.rule.fare(at,to);}
+                if (request.destination.isEmpty()) {
+                    require(!product.requiresStations(), "msg.fangsu.ticketing.point_to_point_required");
+                    require(request.fare >= 0 && request.fare <= 32767, "msg.fangsu.ticketing.select_fare");
+                    allowance = request.fare;
+                } else {
+                    String originKey = request.origin.isEmpty() && at != null ? at.key : request.origin;
+                    var stations = TicketStations.forSale(player.getCommandSenderWorld(), catalogue, config.network);
+                    origin = TicketStations.find(stations, originKey);
+                    require(origin != null, "msg.fangsu.ticketing.select_network_origin");
+                    destination = TicketStations.find(stations, request.destination);
+                    require(destination != null && !origin.key.equals(destination.key), "msg.fangsu.ticketing.select_network_destination");
+                    allowance = network.rule.fare(origin, destination);
+                }
                 unitPrice = allowance;
             } else if (product.kind == Kind.IC) unitPrice = money((long) product.price + product.initialBalance);
             quote.amount = money((long) unitPrice * request.count); quote.count = request.count;
             quote.description = product.name + " × " + request.count;
-            for (int i = 0; i < request.count; i++) quote.issued.add(TicketCards.issue(product, allowance, catalogue));
+            Station salesStation = product.kind == Kind.SINGLE ? at : null;
+            for (int i = 0; i < request.count; i++)
+                quote.issued.add(TicketCards.issue(product, allowance, catalogue, origin, destination, salesStation));
             long free = player.getInventory().items.stream().filter(ItemStack::isEmpty).count();
             require(free >= request.count, "msg.fangsu.ticketing.inventory_space_required");
         } else {
             ItemStack stack = player.getMainHandItem(); Card card = TicketCards.read(stack, at);
+            quote.cardBefore = JSON.toJson(card);
+            TicketCards.resolveNetworks(card, data);
             require(card.product.networks.contains(config.network), "msg.fangsu.ticketing.card_machine_network");
-            quote.cardBefore = JSON.toJson(card); quote.cardAfter = copy(card, Card.class);
+            quote.cardAfter = copy(card, Card.class);
             if ("recharge".equals(request.action)) {
                 require(machine.kind() == 1 || machine.kind() == 2, "msg.fangsu.ticketing.recharge_machine");
                 require(card.product.kind == Kind.IC && request.recharge > 0, "msg.fangsu.ticketing.invalid_recharge");

@@ -45,13 +45,36 @@ public final class TicketCards {
         return card;
     }
     public static void write(ItemStack stack, Card card) {
-        stack.getOrCreateTag().putString(KEY, JSON.toJson(card));
+        Card stored = card;
+        if (card.product.kind == Kind.IC && (!card.product.networks.isEmpty() || !card.product.unions.isEmpty())) {
+            stored = copy(card, Card.class);
+            stored.product.networks.clear();
+            stored.product.unions.clear();
+        }
+        stack.getOrCreateTag().putString(KEY, JSON.toJson(stored));
         // 保留可读的旧字段，旧提示及第三方只读集成仍可显示余额。
         stack.getOrCreateTag().putInt("Balance", card.balance);
         stack.getOrCreateTag().putInt("Price", card.allowance);
         stack.getOrCreateTag().putBoolean("Entered", card.journey != null);
     }
+    static void resolveNetworks(Card card, TicketWorldData data) {
+        if (card.product.kind != Kind.IC) return;
+        Product product = data.icProduct(card.product.id);
+        Set<String> networks = new LinkedHashSet<>();
+        if (product != null) {
+            networks.addAll(product.networks);
+            for (String unionId : product.unions) {
+                NetworkUnion union = data.catalogue.unions.get(unionId);
+                if (union != null) networks.addAll(union.networks);
+            }
+            networks.retainAll(data.catalogue.networks.keySet());
+        }
+        card.product.networks = networks;
+    }
     public static ItemStack issue(Product product, int allowance, Catalogue catalogue) {
+        return issue(product, allowance, catalogue, null, null, null);
+    }
+    public static ItemStack issue(Product product, int allowance, Catalogue catalogue, Station origin, Station destination, Station salesStation) {
         var item = switch (product.kind) {
             case SINGLE -> ModItems.ITEM_SINGLE_JOURNEY_TICKET.get();
             case IC -> ModItems.ITEM_IC_CARD.get();
@@ -60,12 +83,15 @@ public final class TicketCards {
         };
         ItemStack stack = new ItemStack(item); Card card = new Card();
         card.product = copy(product, Product.class); card.product.badges.clear();
-        card.product.networks = product.authorizedNetworks(catalogue);
+        if (product.kind != Kind.IC) card.product.networks = product.authorizedNetworks(catalogue);
         for (String id : product.unions) {
             NetworkUnion union = catalogue.unions.get(id);
             Badge badge = new Badge(); badge.name = union.name; badge.texture = union.texture; card.product.badges.add(badge);
         }
         card.allowance = allowance; card.balance = product.initialBalance;
+        if (origin != null) card.originName = origin.name;
+        if (destination != null) card.destinationName = destination.name;
+        card.salesStationName = salesStation == null ? "" : salesStation.name;
         write(stack, card); return stack;
     }
     private TicketCards() { }

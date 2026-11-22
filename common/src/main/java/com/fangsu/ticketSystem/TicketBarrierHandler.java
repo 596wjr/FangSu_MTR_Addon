@@ -2,6 +2,7 @@ package com.fangsu.ticketSystem;
 
 import com.fangsu.mappings.ComponentHelper;
 import com.fangsu.items.TicketItem;
+import com.fangsu.ticketSystem.v2.TicketGate;
 import mtr.data.Station;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -53,15 +54,19 @@ public final class TicketBarrierHandler {
         boolean isOpen = Boolean.parseBoolean(extraConfigs.getOrDefault("isOpen", "false"));
         if (isOpen) return Outcome.ALREADY_OPEN;
 
-        int fareType = 0; // 旧设备统一迁入默认MTR计费网络
+        int fareType = TicketGate.isFixedFare(extraConfigs) ? 1 : 0;
         boolean isExit = Boolean.parseBoolean(extraConfigs.getOrDefault("isExit", "false"));
         boolean useCustomZone = Boolean.parseBoolean(extraConfigs.getOrDefault("useCustomZone", "false"));
 
         ItemStack stack = player.getItemInHand(hand);
         com.fangsu.ticketSystem.v2.TicketGate.bind(level,pos,extraConfigs);
         extraConfigs.putIfAbsent("ticketNetwork",com.fangsu.ticketSystem.v2.TicketDefinitions.DEFAULT_NETWORK);
-        if(com.fangsu.ticketSystem.v2.TicketCards.isNative(stack))
-            return com.fangsu.ticketSystem.v2.TicketGate.use(level,pos,player,extraConfigs,sendUpdateC2S,-1) ? Outcome.ACCEPTED : Outcome.REJECTED;
+        if (com.fangsu.ticketSystem.v2.TicketCards.isNative(stack)) {
+            boolean accepted = fareType == 1
+                    ? TicketGate.useFixedFare(level, pos, player, stack, extraConfigs, sendUpdateC2S)
+                    : TicketGate.use(level, pos, player, extraConfigs, sendUpdateC2S, -1);
+            return accepted ? Outcome.ACCEPTED : Outcome.REJECTED;
+        }
         if(!com.fangsu.ticketSystem.v2.TicketDefinitions.DEFAULT_NETWORK.equals(extraConfigs.get("ticketNetwork"))
                 || Boolean.parseBoolean(extraConfigs.getOrDefault("ticketTransfer","false"))) {
             player.displayClientMessage(ComponentHelper.literal("此网络仅接受已授权的方速票卡"),true); return Outcome.REJECTED;
@@ -146,7 +151,7 @@ public final class TicketBarrierHandler {
                 if (stack.isEmpty() || !(stack.getItem() instanceof TicketItem ticket)) {
                     MtrTicketSystem.addObjectivesIfMissing(level);
                     Score balance = MtrTicketSystem.getScore(level, player, MtrTicketSystem.BALANCE_OBJECTIVE);
-                    int val = Integer.parseInt(extraConfigs.getOrDefault("fareVal", "10"));
+                    int val = TicketGate.fixedFare(extraConfigs);
                     if (balance.getScore() < val) {
                         player.displayClientMessage(ComponentHelper.translatable("gui.mtr.insufficient_balance", balance.getScore()), true);
                         return Outcome.REJECTED;
@@ -157,7 +162,7 @@ public final class TicketBarrierHandler {
                     sendUpdateC2S.run();
                     return Outcome.ACCEPTED;
                 } else {
-                    int val = Integer.parseInt(extraConfigs.getOrDefault("fareVal", "10"));
+                    int val = TicketGate.fixedFare(extraConfigs);
                     boolean success = ticket.enter(level, player, stack, new FareInfo(FareType.FARE_ONCE, val, ""));
                     if (!success) return Outcome.REJECTED;
                     extraConfigs.put("isOpen", "true");

@@ -48,7 +48,7 @@ public final class TicketMachineConfig {
         require(Double.isFinite(screenPitch) && Math.abs(screenPitch)<=90,"msg.fangsu.ticketing.invalid_screen_pitch");
     }
     public static String defaultText(int kind) {
-        return switch(kind){case 1 -> "正常服务\nIn Service";case 2 -> "补票|Fare Adjustment";default -> "服务中|In Service";};
+        return switch(kind){case 1 -> "正常服务\nIn Service";case 2 -> "补票\nFare Adjustment";default -> "服务中|In Service";};
     }
     public List<Product> saleProducts(Catalogue catalogue, int machineKind) {
         List<Product> result = new ArrayList<>();
@@ -58,6 +58,11 @@ public final class TicketMachineConfig {
             if (canSell(product, catalogue, network, machineKind)) result.add(product);
         }
         return result;
+    }
+    public List<Product> availableProducts(Catalogue catalogue, int machineKind) {
+        return catalogue.products.values().stream()
+                .filter(product -> canSell(product, catalogue, network, machineKind))
+                .toList();
     }
     public static boolean canSell(Product product, Catalogue catalogue, String network, int machineKind) {
         if (product == null || !product.enabled || !sells(machineKind, product.kind)) return false;

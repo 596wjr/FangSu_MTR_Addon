@@ -3,6 +3,7 @@ package com.fangsu.ticketSystem.v2;
 import com.fangsu.Main;
 import com.fangsu.blockEntities.*;
 import com.fangsu.blocks.*;
+import dev.architectury.event.events.common.LifecycleEvent;
 import dev.architectury.networking.NetworkManager;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
@@ -22,7 +23,7 @@ public final class TicketPackets {
         public String action = "open", session = "", quote = "", error;
         public long pos, revision, requestId;
         public Station station;
-        public Map<String,Integer> fares;
+        public List<Station> mtrStations;
         public boolean admin, management;
         public int kind, leg = -1;
         public Catalogue catalogue;
@@ -32,6 +33,19 @@ public final class TicketPackets {
         public Map<String,String> gate;
         public Card card;
         public List<Integer> choices;
+
+        public List<Station> saleStations() {
+            return mtrStations == null ? catalogue.stations(config.network) : mtrStations;
+        }
+
+        public Station saleStation(String key) {
+            return TicketStations.find(saleStations(), key);
+        }
+
+        public Station defaultSaleOrigin() {
+            return station == null || catalogue.station(config.network, station.key) == null
+                    ? null : saleStation(station.key);
+        }
     }
     private static final class Session {
         String id = UUID.randomUUID().toString(); BlockPos pos; String dimension; long until; boolean management; TicketTransactions.Quote quote;
@@ -43,6 +57,7 @@ public final class TicketPackets {
         sessions.entrySet().removeIf(e -> e.getValue().until < System.currentTimeMillis()); return sessions;
     }
     public static void register() {
+        LifecycleEvent.SERVER_STARTED.register(TicketWorldData::get);
         NetworkManager.registerReceiver(NetworkManager.Side.C2S, CHANNEL, (buf, context) -> {
             final String payload = buf.readUtf(MAX_JSON);
             context.queue(() -> {
@@ -94,10 +109,8 @@ public final class TicketPackets {
         if (be instanceof BlockEntityTicketMachine machine) {
             reply.config = machine.ticketConfig; reply.kind = machine.kind();
             reply.station = TicketStations.at(player.getCommandSenderWorld(),session.pos);
-            reply.fares = new LinkedHashMap<>(); Network network=reply.catalogue.networks.get(reply.config.network);
-            if(reply.station!=null && network!=null)for(Station destination:reply.catalogue.stations(reply.config.network))
-                if(reply.station.dimension.equals(destination.dimension))try{reply.fares.put(destination.key,network.rule.fare(reply.station,destination));}
-                catch(RuntimeException ex){Main.LOGGER.debug("车站票价不可用: {}",destination.key,ex);}
+            if (!session.management && reply.kind == 0 && DEFAULT_NETWORK.equals(reply.config.network))
+                reply.mtrStations = TicketStations.forSale(player.getCommandSenderWorld(), reply.catalogue, reply.config.network);
         }
         if (be instanceof BlockEntityTicketBarrier gate) reply.gate = gate.ticketSettings();
         if (TicketCards.isNative(player.getMainHandItem())) reply.card = TicketCards.read(player.getMainHandItem(), TicketStations.at(player.getCommandSenderWorld(),session.pos));
@@ -128,7 +141,7 @@ public final class TicketPackets {
             } else if (be instanceof BlockEntityTicketBarrier gate) {
                 require(message.gate != null, "msg.fangsu.ticketing.missing_gate_config"); gate.configureTickets(message.gate, message.catalogue);
             } else throw new IllegalArgumentException("msg.fangsu.ticketing.device_missing");
-            data.catalogue.networks = message.catalogue.networks; data.catalogue.products = message.catalogue.products; data.catalogue.unions = message.catalogue.unions; data.changed();
+            data.applyCatalogue(message.catalogue);
             if (be instanceof BlockEntityTicketBarrier gate) TicketGate.bind(player.getCommandSenderWorld(),pos,gate.ticketSettings());
             session.quote = null; snapshot(player,session); return;
         }
@@ -145,26 +158,29 @@ public final class TicketPackets {
         } else throw new IllegalArgumentException("msg.fangsu.ticketing.unknown_action");
     }
     private static void validateCatalogue(Catalogue proposed, Catalogue old) {
-        require(proposed.networks != null && proposed.products != null && proposed.networks.size() <= 128 && proposed.products.size() <= 512, "msg.fangsu.ticketing.catalogue_size");
-        require(proposed.networks.keySet().containsAll(old.networks.keySet()) && proposed.products.keySet().containsAll(old.products.keySet()), "msg.fangsu.ticketing.disable_entries");
+        require(proposed.networks != null && proposed.products != null
+                && proposed.networks.size() <= Math.max(128, old.networks.size())
+                && proposed.products.size() <= Math.max(512, old.products.size()), "msg.fangsu.ticketing.catalogue_size");
         for (var entry : proposed.networks.entrySet()) {
             Network network = entry.getValue();
-            require(network != null && entry.getKey().equals(network.id) && network.id.matches("[a-z0-9_.:-]{1,128}") && network.name != null
-                    && !network.name.isBlank() && network.name.length() <= 128 && network.minimumBalance >= 0 && network.rule != null, "msg.fangsu.ticketing.invalid_network");
-            network.rule.validate(); Network previous = old.networks.get(network.id);
+            require(network != null && entry.getKey().equals(network.id), "msg.fangsu.ticketing.invalid_network");
+            network.validate(); Network previous = old.networks.get(network.id);
             if (previous != null) network.rule.revision = previous.rule.revision + (JSON.toJson(previous.rule).equals(JSON.toJson(network.rule)) ? 0 : 1);
         }
         Network defaultNetwork = proposed.networks.get(DEFAULT_NETWORK);
         require(defaultNetwork != null && defaultNetwork.rule.mode == Pricing.MTR && defaultNetwork.enabled, "msg.fangsu.ticketing.default_network_rule");
         defaultNetwork.name = "默认MTR计费";
-        require(proposed.unions != null && proposed.unions.size() <= 128 && proposed.unions.keySet().containsAll(old.unions.keySet()), "msg.fangsu.ticketing.disable_unions");
+        require(proposed.unions != null && proposed.unions.size() <= Math.max(128, old.unions.size())
+                && proposed.unions.keySet().containsAll(old.unions.keySet()), "msg.fangsu.ticketing.disable_unions");
         for (var entry : proposed.unions.entrySet()) {
             NetworkUnion union = entry.getValue();
-            require(union != null && entry.getKey().equals(union.id) && union.id.matches("[a-z0-9_.:-]{1,128}") && union.name != null
-                    && !union.name.isBlank() && union.name.length() <= 128 && union.texture != null && union.texture.matches("[a-z0-9_.-]+:[a-z0-9_./-]+\\.png")
-                    && union.networks != null && !union.networks.isEmpty() && union.networks.size() <= 128 && proposed.networks.keySet().containsAll(union.networks), "msg.fangsu.ticketing.invalid_union");
+            require(union != null && entry.getKey().equals(union.id), "msg.fangsu.ticketing.invalid_union");
+            union.validate(proposed);
         }
         for (var entry : proposed.products.entrySet()) { require(entry.getValue() != null && entry.getKey().equals(entry.getValue().id), "msg.fangsu.ticketing.product_id_mismatch"); entry.getValue().validate(proposed); }
+        // 设备绑定由服务端持有，草稿中的绑定记录不能用于放行删除。
+        proposed.bindings = old.bindings;
+        old.networks.keySet().stream().filter(id -> !proposed.networks.containsKey(id)).forEach(proposed::checkNetworkRemoval);
     }
     private TicketPackets() { }
 }

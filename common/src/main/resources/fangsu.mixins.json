@@ -32,6 +32,7 @@
     "TicketItemRendererMixin"
   ],
   "mixins": [
+    "TicketMachineChunkMixin",
     "CustomResourcesMixin",
     "LiftMixin",
     "TrainMixin",

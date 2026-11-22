@@ -63,6 +63,12 @@ public final class TicketDefinitions {
         public boolean enabled = true;
         public int minimumBalance;
         public Rule rule = new Rule();
+        public void validate() {
+            require(id != null && id.matches("[a-z0-9_.:-]{1,128}") && name != null
+                    && !name.isBlank() && name.length() <= 128 && minimumBalance >= 0 && rule != null,
+                    "msg.fangsu.ticketing.invalid_network");
+            rule.validate();
+        }
     }
     public static final class Leg {
         public String network = DEFAULT_NETWORK, from = "", to = "";
@@ -72,6 +78,12 @@ public final class TicketDefinitions {
         public String id = "", name = "交通联合", texture = "fangsu:ticketing/transport_union.png";
         public boolean enabled = true;
         public Set<String> networks = new LinkedHashSet<>(List.of(DEFAULT_NETWORK));
+        public void validate(Catalogue catalogue) {
+            require(id != null && id.matches("[a-z0-9_.:-]{1,128}") && name != null
+                    && !name.isBlank() && name.length() <= 128 && texture != null && texture.matches("[a-z0-9_.-]+:[a-z0-9_./-]+\\.png")
+                    && networks != null && !networks.isEmpty() && networks.size() <= 128 && catalogue.networks.keySet().containsAll(networks),
+                    "msg.fangsu.ticketing.invalid_union");
+        }
     }
     public static final class Badge {
         public String name, texture;
@@ -79,6 +91,8 @@ public final class TicketDefinitions {
     public static final class Product {
         public String id = "", name = "新票务产品", style = "fangsu:ticketing/single.json";
         public Kind kind = Kind.SINGLE;
+        public Boolean pointToPointOnly;
+        public boolean requiresStations() { return kind == Kind.SINGLE && Boolean.TRUE.equals(pointToPointOnly); }
         public boolean enabled = true, ordered = true;
         public int price = 2, initialBalance, validHours, validDays = 1;
         /** 旧票未保存天数时仍按一日票处理，已售票使用自身快照。 */
@@ -127,6 +141,7 @@ public final class TicketDefinitions {
         public String serial = UUID.randomUUID().toString();
         public Product product;
         public int balance, allowance;
+        public String originName, destinationName, salesStationName;
         public long activated;
         public Set<Integer> used = new HashSet<>();
         public Journey journey;
@@ -154,6 +169,16 @@ public final class TicketDefinitions {
         }
         public Station station(String network, String key) {
             return stations(network).stream().filter(s -> s.key.equals(key)).findFirst().orElse(null);
+        }
+
+        public void checkNetworkRemoval(String id) {
+            require(!DEFAULT_NETWORK.equals(id), "msg.fangsu.ticketing.remove_default_network");
+            require(bindings.values().stream().noneMatch(binding -> binding.networks.contains(id)),
+                    "msg.fangsu.ticketing.remove_bound_network");
+            require(unions.values().stream().noneMatch(union -> union.networks.contains(id))
+                            && products.values().stream().noneMatch(product -> product.networks.contains(id)
+                            || product.legs.stream().anyMatch(leg -> id.equals(leg.network))),
+                    "msg.fangsu.ticketing.remove_referenced_network");
         }
     }
     public static <T> T copy(T value, Class<T> type) { return JSON.fromJson(JSON.toJson(value), type); }

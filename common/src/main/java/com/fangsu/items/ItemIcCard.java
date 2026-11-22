@@ -7,14 +7,13 @@ import com.fangsu.utils.RegisterUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
 import java.util.List;
 
-public class ItemIcCard extends Item implements TicketItem {
+public class ItemIcCard extends ItemPreviewableTicket implements TicketItem {
 
     private static final String BALANCE = "Balance";
     private static final String ENTERED = "Entered";
@@ -24,7 +23,7 @@ public class ItemIcCard extends Item implements TicketItem {
     private static final int ZONE_FARE = 1;
 
     public ItemIcCard() {
-        super(new Item.Properties().stacksTo(1));
+        super(new Properties().stacksTo(1));
     }
 
     @Override

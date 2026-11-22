@@ -18,6 +18,7 @@ import java.util.function.Supplier;
 public final class ClientHooks {
     public static java.util.function.Consumer<String> REMOVE_TICKET_TEXTURE = id -> {};
     public static java.util.function.Consumer<BlockPos> OPEN_TICKETING = pos -> {};
+    public static Consumer<net.minecraft.world.item.ItemStack> OPEN_TICKET_PREVIEW = stack -> {};
 
     public static Consumer<FunctionalObjBlockEntity> OPEN_OBJ_BLOCK_CONFIG_SCREEN
             = blockEntity -> {

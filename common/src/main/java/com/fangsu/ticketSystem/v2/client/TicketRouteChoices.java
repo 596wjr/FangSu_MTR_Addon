@@ -4,15 +4,22 @@ import java.util.*;
 public final class TicketRouteChoices {
     public record RouteChoice(String name,int color,Set<Long> stations) { }
     public static List<RouteChoice> load(){
-        List<RouteChoice> result=new ArrayList<>();
+        Map<String, RouteChoice> grouped = new LinkedHashMap<>();
         for(var route:mtr.client.ClientData.ROUTES){
             Set<Long> stations=new LinkedHashSet<>();for(var platform:route.platformIds){
                 var station=com.fangsu.utils.MtrUtil.getStationByPlatform(com.fangsu.utils.MtrUtil.getPlatformById(platform.platformId));
                 if(station!=null)stations.add(station.id);
             }
-            result.add(new RouteChoice(com.fangsu.scripting.TextUtil.getNonExtraParts(route.name),route.color,stations));
+            merge(grouped, route.name, route.color, stations);
         }
-        return result;
+        return grouped.values().stream()
+                .sorted(Comparator.comparing(RouteChoice::name).thenComparingInt(RouteChoice::color)).toList();
+    }
+    private static void merge(Map<String, RouteChoice> grouped, String name, int color, Set<Long> stations) {
+        String key = com.fangsu.scripting.TextUtil.getNonExtraParts(name);
+        if (key.isBlank()) return;
+        grouped.computeIfAbsent(key, ignored -> new RouteChoice(key, color, new LinkedHashSet<>()))
+                .stations().addAll(stations);
     }
     private TicketRouteChoices(){ }
 }

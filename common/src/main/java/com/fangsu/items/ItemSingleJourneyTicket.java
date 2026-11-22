@@ -9,16 +9,15 @@ import com.fangsu.utils.RegisterUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
 import java.util.List;
 
-public class ItemSingleJourneyTicket extends Item implements TicketItem {
+public class ItemSingleJourneyTicket extends ItemPreviewableTicket implements TicketItem {
     public ItemSingleJourneyTicket() {
-        super(com.fangsu.utils.RegisterUtil.tabProps(new Item.Properties().stacksTo(1)));
+        super(com.fangsu.utils.RegisterUtil.tabProps(new Properties().stacksTo(1)));
     }
 
     @Override

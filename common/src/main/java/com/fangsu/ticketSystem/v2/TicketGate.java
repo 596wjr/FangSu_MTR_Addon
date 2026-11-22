@@ -14,6 +14,51 @@ import static com.fangsu.ticketSystem.v2.TicketDefinitions.*;
 /** 刷闸和车站绑定只在服务器线程执行。 */
 public final class TicketGate {
     public static String network(Map<String,String> config) { return config.getOrDefault("ticketNetwork", DEFAULT_NETWORK); }
+
+    /** 旧闸机固定收费是单次过闸收费，独立于全网的 MTR 分区规则。 */
+    public static boolean isFixedFare(Map<String, String> config) {
+        return DEFAULT_NETWORK.equals(network(config)) && "1".equals(config.get("fareType"))
+                && !Boolean.parseBoolean(config.getOrDefault("ticketTransfer", "false"));
+    }
+
+    public static int fixedFare(Map<String, String> config) {
+        return Math.max(0, Integer.parseInt(config.getOrDefault("fareVal", "10")));
+    }
+
+    public static boolean useFixedFare(Level world, BlockPos pos, Player player, ItemStack stack,
+                                       Map<String, String> config, Runnable update) {
+        try {
+            Card card = TicketCards.read(stack, TicketStations.at(world, pos));
+            TicketCards.resolveNetworks(card, TicketWorldData.get(world.getServer()));
+            Kind kind = card.product.kind;
+            require(card.product.networks.contains(DEFAULT_NETWORK), "msg.fangsu.ticketing.unauthorized_network");
+            require(Arrays.asList(config.getOrDefault("ticketKinds", "SINGLE,IC,ITINERARY,DAY").split(",")).contains(kind.name())
+                    && (kind == Kind.SINGLE || kind == Kind.IC), "msg.fangsu.ticketing.gate_ticket_type");
+            require(card.journey == null && card.permit == null, "msg.fangsu.ticketing.already_inside");
+            int fare = fixedFare(config);
+            if (kind == Kind.SINGLE) {
+                require(card.allowance >= fare, "msg.fangsu.ticketing.fare_insufficient");
+                stack.shrink(1);
+                player.displayClientMessage(ComponentHelper.translatable("ui.fangsu.ticket.success"), true);
+            } else {
+                if (card.balance < fare) {
+                    player.displayClientMessage(ComponentHelper.translatable("gui.mtr.insufficient_balance", card.balance), true);
+                    return false;
+                }
+                card.balance -= fare;
+                TicketCards.write(stack, card);
+                player.displayClientMessage(ComponentHelper.translatable("msg.fangsu.ticketbarrier.fareOnce", fare, card.balance), true);
+            }
+            player.getInventory().setChanged();
+            config.put("isOpen", "true");
+            update.run();
+            return true;
+        } catch (RuntimeException ex) {
+            player.displayClientMessage(TicketMessages.error(ex), true);
+            return false;
+        }
+    }
+
     /** 从MTR车站数据库刷新绑定位置；不访问或强制加载对应区块。 */
     public static void refresh(net.minecraft.server.MinecraftServer server) {
         TicketWorldData data=TicketWorldData.get(server);
@@ -43,6 +88,11 @@ public final class TicketGate {
         Binding binding = new Binding(); binding.station = station; binding.networks.add(network(config));
         if (Boolean.parseBoolean(config.getOrDefault("ticketTransfer", "false")))
             binding.networks.add(config.getOrDefault("ticketTargetNetwork", DEFAULT_NETWORK));
+        binding.networks.retainAll(data.catalogue.networks.keySet());
+        if (binding.networks.isEmpty()) {
+            if (data.catalogue.bindings.remove(key) != null) data.changed();
+            return;
+        }
         if (!JSON.toJson(binding).equals(JSON.toJson(data.catalogue.bindings.get(key)))) {
             data.catalogue.bindings.put(key, binding); data.changed();
         }
@@ -58,7 +108,9 @@ public final class TicketGate {
             Station station = TicketStations.at(world, pos); require(station != null, "msg.fangsu.ticketing.gate_outside_station");
             ItemStack stack = player.getMainHandItem(); Card original = TicketCards.read(stack, station);
             require(Arrays.asList(config.getOrDefault("ticketKinds", "SINGLE,IC,ITINERARY,DAY").split(",")).contains(original.product.kind.name()), "msg.fangsu.ticketing.gate_ticket_type");
-            Catalogue catalogue = TicketWorldData.get(world.getServer()).catalogue;
+            TicketWorldData data = TicketWorldData.get(world.getServer());
+            TicketCards.resolveNetworks(original, data);
+            Catalogue catalogue = data.catalogue;
             Network network = catalogue.networks.get(network(config)); require(network != null, "msg.fangsu.ticketing.network_missing");
             boolean transfer=Boolean.parseBoolean(config.getOrDefault("ticketTransfer","false"));
             boolean exiting=Boolean.parseBoolean(config.getOrDefault("isExit","false"));

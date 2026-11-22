@@ -78,7 +78,7 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
     public void whenLoading() {
         ensureExtraConfig("ticketNetwork",com.fangsu.ticketSystem.v2.TicketDefinitions.DEFAULT_NETWORK);
         ensureExtraConfig("isOpen", "false");
-        extraConfigs.put("fareType", "0");
+        ensureExtraConfig("fareType", "0");
         ensureExtraConfig("isExit", "false");
         ensureExtraConfig("fareVal", "10");
         ensureExtraConfig("useCustomZone", "false");
@@ -235,7 +235,7 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
         Direction newFacing = facing.getOpposite();
 
         // MTR 计费模式下切换出入口（入站⇄出站）
-        boolean mtrFare = getExtraConfigInt("fareType", 0) == 0;
+        boolean mtrFare = !com.fangsu.ticketSystem.v2.TicketGate.isFixedFare(extraConfigs);
         if (mtrFare) {
             setExtraConfig("isExit", String.valueOf(!getExtraConfigBool("isExit", false)));
             sendUpdateC2S();
@@ -352,6 +352,15 @@ public class BlockEntityTicketBarrier extends FunctionalObjBlockEntity {
         com.fangsu.ticketSystem.v2.TicketDefinitions.require(!transfer || catalogue.networks.containsKey(target) && !network.equals(target),"换乘网络无效");
         for(String kind:values.getOrDefault("ticketKinds","SINGLE,IC,ITINERARY,DAY").split(","))
             if(!kind.isBlank()) com.fangsu.ticketSystem.v2.TicketDefinitions.Kind.valueOf(kind);
+        if (values.containsKey("fareType") || values.containsKey("fareVal")) {
+            String fareType = values.getOrDefault("fareType", extraConfigs.getOrDefault("fareType", "0"));
+            String fareValue = values.getOrDefault("fareVal", extraConfigs.getOrDefault("fareVal", "10"));
+            com.fangsu.ticketSystem.v2.TicketDefinitions.require(
+                    ("0".equals(fareType) || "1".equals(fareType)) && Integer.parseInt(fareValue) >= 0,
+                    "msg.fangsu.ticketing.select_fare");
+            extraConfigs.put("fareType", fareType);
+            extraConfigs.put("fareVal", fareValue);
+        }
         for(String key:java.util.List.of("ticketNetwork","ticketTargetNetwork","ticketTransfer","ticketKinds","isExit"))
             if(values.containsKey(key)) extraConfigs.put(key,values.get(key));
         ensureExtraConfig("ticketNetwork",network); setChanged(); sendUpdateC2S();

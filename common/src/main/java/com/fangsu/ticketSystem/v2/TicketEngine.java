@@ -42,9 +42,12 @@ public final class TicketEngine {
         return new Result(card, false, 0);
     }
     public static Result exit(Card original, String network, Station at) {
-        Card card = copy(original, Card.class); authorized(card, network);
+        Card card = copy(original, Card.class);
         boolean permit = card.permit != null && Objects.equals(card.permit.ticket, card.serial)
                 && Objects.equals(card.permit.network, network) && Objects.equals(card.permit.station, at.key);
+        // 联合组变更后，已经进站的 IC 卡仍可在该网络结算本次行程。
+        if (card.product.kind != Kind.IC || !permit && (card.journey == null || !network.equals(card.journey.network)))
+            authorized(card, network);
         require(permit || card.journey != null, "msg.fangsu.ticketing.entry_record_missing");
         if (card.journey != null) require(card.journey.network.equals(network), "msg.fangsu.ticketing.exit_entry_network");
         int fare = permit ? 0 : card.journey.rule.fare(card.journey.entry, at);

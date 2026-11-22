@@ -89,6 +89,11 @@ public class MtrTicketSystem {
 
     /* ===================== 内部工具 ===================== */
 
+    public static java.util.List<Station> allStations(Level world) {
+        RailwayData data = RailwayData.getInstance(world);
+        return data == null ? java.util.List.of() : new java.util.ArrayList<>(data.stations);
+    }
+
     public static Station getStation(Level world, BlockPos pos) {
         RailwayData data = RailwayData.getInstance(world);
         if (data == null) return null;

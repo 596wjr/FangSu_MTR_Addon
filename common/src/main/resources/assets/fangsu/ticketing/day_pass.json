@@ -2,6 +2,7 @@
   "width": 256,
   "height": 160,
   "background": "fangsu:ticketing/day_pass.png",
+  "backBackground": "fangsu:ticketing/day_pass_back.png",
   "fields": [
     {
       "field": "expiry",
@@ -24,30 +25,68 @@
   ],
   "backFields": [
     {
-      "field": "name",
-      "x": 10,
-      "y": 124,
-      "size": 10,
+      "field": "literal",
+      "x": 12,
+      "y": 24,
+      "size": 16,
+      "prefix": "使用须知",
+      "bold": true,
       "color": "#143B58",
-      "maxWidth": 235
+      "maxWidth": 232
+    },
+    {
+      "field": "literal",
+      "x": 12,
+      "y": 53,
+      "size": 10,
+      "prefix": "1. 首次成功进站后开始计时。",
+      "color": "#143B58",
+      "maxWidth": 232
+    },
+    {
+      "field": "literal",
+      "x": 12,
+      "y": 70,
+      "size": 10,
+      "prefix": "2. 有效期内可在适用网络内不限次乘车。",
+      "color": "#143B58",
+      "maxWidth": 232
+    },
+    {
+      "field": "literal",
+      "x": 12,
+      "y": 87,
+      "size": 10,
+      "prefix": "3. 到期后不可再次进站，已开始的行程可正常出站。",
+      "color": "#143B58",
+      "maxWidth": 232
+    },
+    {
+      "field": "name",
+      "x": 12,
+      "y": 116,
+      "size": 10,
+      "bold": true,
+      "color": "#143B58",
+      "maxWidth": 232
     },
     {
       "field": "expiry",
-      "x": 10,
-      "y": 139,
+      "x": 12,
+      "y": 132,
       "size": 9,
       "prefix": "有效至 ",
       "color": "#143B58",
-      "maxWidth": 235
+      "maxWidth": 232
     },
     {
       "field": "serial",
-      "x": 10,
-      "y": 152,
+      "x": 12,
+      "y": 148,
       "size": 8,
       "prefix": "NO. ",
       "color": "#143B58",
-      "maxWidth": 235
+      "maxWidth": 232
     }
   ]
 }

@@ -1,8 +1,8 @@
 {
   "ticket_machine_old.bbmodel": {
-    "triangles": 146,
+    "triangles": 364,
     "dynamic_screen_triangles": 4,
-    "texture_max_dimension": 2048
+    "texture_max_dimension": 1774
   },
   "ticket_machine_new.bbmodel": {
     "triangles": 122,

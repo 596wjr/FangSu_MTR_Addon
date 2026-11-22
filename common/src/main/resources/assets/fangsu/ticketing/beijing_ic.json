@@ -2,6 +2,7 @@
   "width": 256,
   "height": 160,
   "background": "fangsu:ticketing/beijing_ic.png",
+  "backBackground": "fangsu:ticketing/beijing_ic_back.png",
   "fields": [
     {
       "field": "balance",
@@ -24,40 +25,59 @@
   ],
   "backFields": [
     {
-      "field": "name",
-      "x": 10,
-      "y": 70,
+      "field": "literal",
+      "prefix": "建设数字北京　享受现代生活",
+      "x": 15,
+      "y": 35,
+      "size": 14,
+      "bold": true,
+      "color": "#245585",
+      "maxWidth": 229
+    },
+    {
+      "field": "literal",
+      "prefix": "Build a Digital Beijing  Enjoy Modern Living",
+      "x": 25,
+      "y": 51,
+      "size": 10,
+      "color": "#245585",
+      "maxWidth": 222
+    },
+    {
+      "field": "literal",
+      "prefix": "©",
+      "x": 234,
+      "y": 16,
       "size": 11,
-      "prefix": "",
-      "color": "#FFFFFF",
-      "maxWidth": 230
-    },
-    {
-      "field": "union",
-      "x": 10,
-      "y": 92,
-      "size": 10,
-      "prefix": "",
-      "color": "#FFFFFF",
-      "maxWidth": 230
-    },
-    {
-      "field": "state",
-      "x": 10,
-      "y": 112,
-      "size": 10,
-      "prefix": "",
-      "color": "#FFFFFF",
-      "maxWidth": 230
+      "color": "#376896"
     },
     {
       "field": "serial",
-      "x": 10,
-      "y": 146,
-      "size": 8,
-      "prefix": "NO. ",
+      "x": 16,
+      "y": 145,
+      "size": 7,
+      "color": "#D9EAFF",
+      "maxWidth": 66
+    },
+    {
+      "field": "literal",
+      "prefix": "北京市政交通一卡通有限公司",
+      "x": 88,
+      "y": 141,
+      "size": 10,
+      "bold": true,
       "color": "#FFFFFF",
-      "maxWidth": 230
+      "maxWidth": 158
+    },
+    {
+      "field": "literal",
+      "prefix": "BEIJING MUNICIPAL ADMINISTRATION & COMMUNICATION CARD CO., LTD.",
+      "x": 88,
+      "y": 150,
+      "size": 6,
+      "font": "Arial Narrow",
+      "color": "#D9EAFF",
+      "maxWidth": 158
     }
   ],
   "badges": {

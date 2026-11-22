@@ -9,8 +9,8 @@ import net.minecraft.network.chat.Component;
 import java.util.List;
 
 /** 名称与权益来自已售票快照；提示文字交给客户端按游戏语言翻译。 */
-public class ItemNetworkTicket extends Item {
-    public ItemNetworkTicket() { super(new Item.Properties().stacksTo(1)); }
+public class ItemNetworkTicket extends ItemPreviewableTicket {
+    public ItemNetworkTicket() { super(new Properties().stacksTo(1)); }
     public static Component productName(ItemStack stack,Component fallback) {
         if(stack.getTag()==null||!stack.getTag().contains(TicketCards.KEY))return fallback;
         try{
@@ -23,8 +23,13 @@ public class ItemNetworkTicket extends Item {
         if(stack.getTag()==null||!stack.getTag().contains(TicketCards.KEY))return;
         try{
             Card card=TicketCards.read(stack,null);
-            lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.networks",String.join(", ",card.product.networks)));
-            for(Badge badge:card.product.badges)lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.union",badge.name));
+            if (card.product.kind == Kind.IC) {
+                lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.live_networks"));
+            } else {
+                lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.networks", String.join(", ", card.product.networks)));
+                for (Badge badge : card.product.badges)
+                    lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.union", badge.name));
+            }
             if(card.product.kind==Kind.IC)lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.balance",card.balance));
             if(card.product.kind==Kind.SINGLE||card.product.kind==Kind.ITINERARY)lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.fare",card.allowance));
             if(card.product.kind==Kind.ITINERARY)lines.add(ComponentHelper.translatable("tooltip.fangsu.ticket.rights",card.product.legs.size()-card.used.size()));

@@ -34,13 +34,20 @@ public final class TicketItemRenderer {
                     var matrix=new com.fangsu.render.sowcer.math.Matrix4f(pose.last().pose()).copy();
                     cluster.enqueueOpaqueBlaze(proxy,matrix,light,DEVICE_CONTEXT);cluster.enqueueTranslucentBlaze(proxy,matrix,light,DEVICE_CONTEXT);proxy.commit();
                     boolean legacy=config.model.endsWith("ticket_machine_old.bbmodel");
-                    var screen=TicketTextures.screen("item/machine/"+machine.ticketMachineKind+(legacy?"/led":""),TicketMachineConfig.defaultText(machine.ticketMachineKind),legacy?256:config.screenPixelsX,legacy?32:config.screenPixelsY,legacy?-1:machine.ticketMachineKind,5);
-                    if(legacy)pose.translate(0,1.8594,-.065);
+                    var screen = TicketTextures.screen("item/machine/"+machine.ticketMachineKind+(legacy?"/led":""),
+                            TicketMachineConfig.defaultText(machine.ticketMachineKind),
+                            legacy ? TicketMachineModels.CLASSIC_LED_PIXELS_X : config.screenPixelsX,
+                            legacy ? TicketMachineModels.CLASSIC_LED_PIXELS_Y : config.screenPixelsY,
+                            legacy ? -1 : machine.ticketMachineKind, 5);
+                    if(legacy)pose.translate(0, TicketMachineModels.CLASSIC_LED_Y, TicketMachineModels.CLASSIC_LED_Z);
                     else{
                         pose.translate(config.screenX,config.screenY,config.screenZ);
                         com.fangsu.render.sowcer.math.PoseStackUtil.rotX(pose,(float)Math.toRadians(config.screenPitch));
                     }
-                    TicketTextures.quad(pose,buffers,screen,legacy?.625f:(float)config.screenWidth,legacy?.1f:(float)config.screenHeight,0,net.minecraft.client.renderer.LightTexture.FULL_BRIGHT,overlay,true);
+                    TicketTextures.quad(pose, buffers, screen,
+                            legacy ? TicketMachineModels.CLASSIC_LED_WIDTH : (float)config.screenWidth,
+                            legacy ? TicketMachineModels.CLASSIC_LED_HEIGHT : (float)config.screenHeight,
+                            0, net.minecraft.client.renderer.LightTexture.FULL_BRIGHT, overlay, true);
                 }finally{pose.popPose();}
                 return true;
             }catch(java.io.IOException|RuntimeException ex){return false;}
