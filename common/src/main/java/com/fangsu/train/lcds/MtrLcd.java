@@ -14,10 +14,16 @@ import net.minecraft.resources.ResourceLocation;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class MtrLcd extends LcdBase {
+
+    private static final ResourceLocation DISPLAY_LOGO = new ResourceLocation("mtr:textures/block/sign/logo.png");
+    private static final Color DISPLAY_CENTER_COLOR = new Color(0xDFDEE5);
+    private static final long DISPLAY_LANGUAGE_INTERVAL_MS = 5_000;
 
     private static Font CJK_FONT;
     private static Font NON_CJK_FONT;
@@ -44,10 +50,20 @@ public class MtrLcd extends LcdBase {
         return NON_CJK_FONT;
     }
 
+    public static boolean isDisplay(String name) {
+        return name.toLowerCase(Locale.ROOT).contains("display");
+    }
+
     @Override
     public void draw(Graphics2D g, TrainStatus status, LcdInfo info, Map<String, Object> state, String side, int x, int y, int w, int h, Runnable callback) {
         final Font cjkFont = getCjkFont();
         final Font nonCjkFont = getNonCjkFont();
+
+        if (isDisplay(side)) {
+            drawDisplay(g, status, x, y, w, h, cjkFont, nonCjkFont);
+            callback.run();
+            return;
+        }
 
         if (status.currentRoute == null || status.drawableRoute == null) {
             g.setColor(Color.WHITE);
@@ -75,10 +91,7 @@ public class MtrLcd extends LcdBase {
             drawDoorSideBadge(g, x, y, w, h, cjkFont, nonCjkFont, status, side);
 
         } else if (status.trainStatus == 4) {
-            DrawableRoute.DrawableRouteStation thisStation = null;
-            for (DrawableRoute.DrawableRouteStation station : stations) {
-                if (station.passingStatus == 2) thisStation = station;
-            }
+            final DrawableRoute.DrawableRouteStation thisStation = findHighlightedStation(stations);
             if (thisStation != null) {
                 String cjkName = TextUtil.getCjkMatching(thisStation.stationName, true);
                 String nonCjkName = TextUtil.getCjkMatching(thisStation.stationName, false);
@@ -104,6 +117,64 @@ public class MtrLcd extends LcdBase {
 //        g.drawString("is_reversed: " + (status.isReverse ? "true" : "false"), x + 20, y + 80);
 
         callback.run();
+    }
+
+    private static DrawableRoute.DrawableRouteStation findHighlightedStation(List<DrawableRoute.DrawableRouteStation> stations) {
+        for (DrawableRoute.DrawableRouteStation station : stations) {
+            if (station.passingStatus == 2) return station;
+        }
+        return null;
+    }
+
+    private static void drawDisplay(Graphics2D g, TrainStatus status, int x, int y, int w, int h,
+                                    Font cjkFont, Font nonCjkFont) {
+        final int sideWidth = Math.max(0, (w - h) / 2);
+        final int centerWidth = w - 2 * sideWidth;
+        g.setColor(Color.WHITE);
+        g.fillRect(x, y, w, h);
+        g.setColor(DISPLAY_CENTER_COLOR);
+        g.fillRect(x + sideWidth, y, centerWidth, h);
+
+        try {
+            final BufferedImage logo = ResourceUtil.loadImage(DISPLAY_LOGO);
+            final int logoSize = Math.min(centerWidth, (int) Math.round(h * 0.7));
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.drawImage(logo, x + (w - logoSize) / 2, y + (h - logoSize) / 2, logoSize, logoSize, null);
+        } catch (IOException ignored) {
+            // 资源暂不可用时仍保留中间底色。
+        }
+
+        final boolean arrived = status.trainStatus == 4;
+        final boolean running = status.trainStatus == 2 || status.trainStatus == 3;
+        if ((!arrived && !running) || status.currentRoute == null || status.drawableRoute == null || sideWidth == 0) return;
+        final DrawableRoute.DrawableRouteStation station = findHighlightedStation(
+                status.drawableRoute.getStations(status.getThisRoutePlatformsNextIndexGlobal()));
+        if (station == null) return;
+
+        final long phase = System.currentTimeMillis() / DISPLAY_LANGUAGE_INTERVAL_MS;
+        final String cjk = selectDisplayName(station.stationName, true, phase);
+        final String nonCjk = selectDisplayName(station.stationName, false, phase);
+        g.setColor(Color.BLACK);
+        drawDisplayName(g, cjkFont, cjk, arrived ? "" : "下一站：", x, y, sideWidth, h);
+        drawDisplayName(g, nonCjkFont, nonCjk, arrived ? "" : "Next Station: ", x + w - sideWidth, y, sideWidth, h);
+    }
+
+    private static String selectDisplayName(String stationName, boolean cjk, long phase) {
+        final List<String> names = Arrays.stream(TextUtil.getNonExtraParts(stationName).split("\\|"))
+                .map(String::strip)
+                .filter(name -> !name.isEmpty() && TextUtil.isCjk(name) == cjk)
+                .toList();
+        return names.isEmpty() ? "" : names.get(Math.floorMod(phase, names.size()));
+    }
+
+    private static void drawDisplayName(Graphics2D g, Font font, String name, String prefix, int x, int y, int w, int h) {
+        if (name.isEmpty()) return;
+        final String text = prefix + name;
+        final int maxWidth = w - 2 * Math.min(h / 12, w / 8);
+        final float fontSize = h * 0.36f;
+        final FontMetrics metrics = g.getFontMetrics(font.deriveFont(Font.PLAIN, fontSize));
+        final int baseline = y + (h + metrics.getAscent() - metrics.getDescent()) / 2;
+        G2dTextHelper.drawStrUnifiedWithStretch(g, font, text, x + w / 2, baseline, fontSize, maxWidth, 1);
     }
 
     private void drawRoute(Graphics2D g, int x, int y, int w, int h, DrawableRoute route, List<DrawableRoute.DrawableRouteStation> stations,
@@ -165,22 +236,32 @@ public class MtrLcd extends LcdBase {
             boolean hasPassed = station.passingStatus < 2;
             boolean isInRoute = !(station.passingStatus == 0 || station.passingStatus == 4);
             int currentX = (int) (x + (isReverse ? w * 0.9 : w * 0.1) + (isReverse ? -1 : 1) * distant * i);
-            if (!station.transInfo.isEmpty() && !hasPassed) {
+            final int labelMargin = Math.max(2, lineSize / 4);
+            final int leftRoom = Math.min(distant / 2, currentX - x);
+            final int rightRoom = Math.min(distant / 2, x + w - currentX);
+            final int centeredWidth = Math.max(1, 2 * (Math.min(leftRoom, rightRoom) - labelMargin));
+            final boolean showTransfers = !station.transInfo.isEmpty() && !hasPassed;
+            if (showTransfers) {
                 if (station.transInfo.size() == 1) {
                     var thisTrans = station.transInfo.get(0);
                     g.setColor(isInRoute ? thisTrans.routeColor : passedColor);
                     g.fillRoundRect(currentX - lineSize / 2, centralY - interchangeHeight, lineSize, interchangeHeight, lineSize, lineSize);
                     g.setColor(isInRoute ? Color.BLACK : passedColor);
-                    int textWidth = G2dTextHelper.getMultiLinesWidth(g, cjkFont, nonCjkFont, stationSize, thisTrans.routeName.split("\\|"));
-                    G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX - textWidth / 2, centralY - interchangeHeight - stationSize - lineSize / 5 - stationSize, stationSize, 1, thisTrans.routeName.split("\\|"));
+                    G2dTextHelper.drawStrMultiLinesWithStretch(g, cjkFont, nonCjkFont, currentX,
+                            centralY - interchangeHeight - lineSize / 5, stationSize, centeredWidth, 1, 1,
+                            thisTrans.routeName.split("\\|"));
                 } else {
+                    final int badgeWidth = Math.min(interchangeWidth, Math.max(1, rightRoom / 3));
+                    final int transferTextWidth = Math.max(1, rightRoom - badgeWidth - labelMargin);
                     for (int j = 0; j < station.transInfo.size(); j++) {
                         ColorNameTuple thisTrans = station.transInfo.get(j);
                         int currentY = (int) (centralY - lineSize * 2 - lineSize * 1.5 * j);
                         g.setColor(isInRoute ? thisTrans.routeColor : passedColor);
-                        g.fillRoundRect(currentX, currentY, interchangeWidth, lineSize, lineSize, lineSize);
+                        g.fillRoundRect(currentX, currentY, badgeWidth, lineSize, lineSize, lineSize);
                         g.setColor(isInRoute ? Color.BLACK : passedColor);
-                        G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX + interchangeWidth, currentY - lineSize, lineSize, 0, thisTrans.routeName.split("\\|"));
+                        G2dTextHelper.drawStrMultiLinesWithStretch(g, cjkFont, nonCjkFont,
+                                currentX + badgeWidth, currentY - lineSize, lineSize, transferTextWidth, 0,
+                                thisTrans.routeName.split("\\|"));
                     }
                     int stationHeight = (int) (lineSize * 0.5 + lineSize * 1.5 * station.transInfo.size());
                     g.setColor(!isInRoute ? passedColor : routeColor);
@@ -189,15 +270,16 @@ public class MtrLcd extends LcdBase {
                     g.fillRoundRect(currentX - lineSize / 2, centralY - lineSize / 2 - stationHeight, lineSize, stationHeight + lineSize, stationSize, stationSize);
                 }
             }
-            if (station.transInfo.size() <= 1) {
+            if (!showTransfers || station.transInfo.size() == 1) {
                 g.setColor(hasPassed || !isInRoute ? passedColor : routeColor);
                 g.fillOval(currentX - stationSize / 2, centralY - stationSize / 2, stationSize, stationSize);
                 g.setColor(station.passingStatus == 2 ? blinkState ? blinkColor : Color.WHITE : Color.WHITE);
                 g.fillOval(currentX - lineSize / 2, centralY - lineSize / 2, lineSize, lineSize);
             }
             g.setColor(hasPassed || !isInRoute ? passedColor : Color.BLACK);
-            int stationNameWidth = G2dTextHelper.getMultiLinesWidth(g, cjkFont, nonCjkFont, lineSize * 2, station.stationName.split("\\|"));
-            G2dTextHelper.drawStrMultiLines(g, cjkFont, nonCjkFont, currentX - stationNameWidth / 2, (int) (centralY + lineSize * 2.5) - lineSize * 2, lineSize * 2, 1, station.stationName.split("\\|"));
+            G2dTextHelper.drawStrMultiLinesWithStretch(g, cjkFont, nonCjkFont, currentX,
+                    (int) (centralY + lineSize * 4.5), lineSize * 2, centeredWidth, 1, 1,
+                    station.stationName.split("\\|"));
         }
 
         //draw route name
@@ -308,17 +390,25 @@ public class MtrLcd extends LcdBase {
             g.fillOval(x + w / 10 + deltaSize / 2, smallY, generalSizeSmall, generalSizeSmall);
 
             g.setColor(Color.BLACK);
-            G2dTextHelper.drawStrUnified(g,
-                    (TextUtil.isCjk(line) ? cjkFont : nonCjkFont),
-                    line, x + w / 10 + gap + generalSize, commonY + generalSize, generalSize, 0);
+            final Font font = TextUtil.isCjk(line) ? cjkFont : nonCjkFont;
+            final int textX = x + w / 10 + gap + generalSize;
+            G2dTextHelper.drawStrUnifiedWithStretch(g, font, line, textX, commonY + generalSize, generalSize,
+                    Math.max(1, x + w - w / 10 - textX), 0);
             return;
         }
         int cjkWidth = G2dTextHelper.getUnifiedStringWidth(g, cjkFont, cjkName, generalSize);
         int nonCjkWidth = G2dTextHelper.getUnifiedStringWidth(g, nonCjkFont, nonCjkName, generalSizeSmall);
+        final int availableTextWidth = Math.max(2, w - w / 10 - generalSize - gap * 2);
+        if (cjkWidth + nonCjkWidth > availableTextWidth) {
+            cjkWidth = Math.max(1, Math.min(availableTextWidth - 1,
+                    (int) ((long) cjkWidth * availableTextWidth / (cjkWidth + nonCjkWidth))));
+            nonCjkWidth = availableTextWidth - cjkWidth;
+        }
 
         int currentX = x + w / 2 - (cjkWidth + nonCjkWidth + generalSize + gap * 2) / 2;
         g.setColor(Color.BLACK);
-        currentX += G2dTextHelper.drawStrUnified(g, cjkFont, cjkName, currentX, commonY + generalSize, generalSize, 0);
+        currentX += G2dTextHelper.drawStrUnifiedWithStretch(g, cjkFont, cjkName, currentX,
+                commonY + generalSize, generalSize, Math.max(1, cjkWidth), 0);
         currentX += gap;
 
         g.setColor(Color.BLACK);
@@ -329,7 +419,8 @@ public class MtrLcd extends LcdBase {
 
         g.setColor(Color.BLACK);
         currentX += gap;
-        currentX += G2dTextHelper.drawStrUnified(g, cjkFont, nonCjkName, currentX, smallY + generalSizeSmall, generalSizeSmall, 0);
+        G2dTextHelper.drawStrUnifiedWithStretch(g, nonCjkFont, nonCjkName, currentX,
+                smallY + generalSizeSmall, generalSizeSmall, Math.max(1, nonCjkWidth), 0);
 
     }
 
@@ -353,7 +444,7 @@ public class MtrLcd extends LcdBase {
 
         // 绘制底部背景色
         g.setColor(Color.decode("0xffcd00"));
-        g.fillRect(x, bottomY, w, bottomHeight + 1); // +1 防止因取整造成的接缝
+        g.fillRect(x, bottomY, w, bottomHeight);
 
         int generalSize = (int) (h * 0.15f);
         int cjkWidth = G2dTextHelper.getUnifiedStringWidth(g, cjkFont, "请小心月台空隙", generalSize);
@@ -361,7 +452,7 @@ public class MtrLcd extends LcdBase {
         int gapWidth = (int) (h * 0.05f);
         int totalWidth = generalSize + cjkWidth + nonCjkWidth + gapWidth * 3;
 
-        int currentX = w / 2 - totalWidth / 2;
+        int currentX = x + (w - totalWidth) / 2;
         int currentY = bottomY + (int) (bottomHeight * textTopOffsetRatio); // 等效于 y + h * 0.825f
 
         g.setColor(Color.BLACK);

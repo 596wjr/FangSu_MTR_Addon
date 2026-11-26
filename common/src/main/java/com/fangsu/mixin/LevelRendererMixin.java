@@ -40,7 +40,11 @@ public class LevelRendererMixin {
         MtrTranslucentPass.begin();
     }
 
+    //#if MC_VERSION >= 12004
+    //$$@Inject(method = "renderSectionLayer", at = @At("HEAD"))
+    //#else
     @Inject(method = "renderChunkLayer", at = @At("HEAD"))
+    //#endif
     private void fangsu$drawMtrTranslucentPass(RenderType layer, PoseStack poseStack,
                                               double x, double y, double z, Matrix4f projection, CallbackInfo ci) {
         if (layer == RenderType.translucent()) {

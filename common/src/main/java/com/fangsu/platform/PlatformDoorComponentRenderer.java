@@ -7,8 +7,12 @@ import com.fangsu.render.sowcer.math.PoseStackUtil;
 import com.fangsu.customItem.contents.ScreendoorGlassContent;
 import com.fangsu.utils.ContentInfoUtil;
 import com.fangsu.utils.ResourceUtil;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
 import com.google.gson.*;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -19,20 +23,19 @@ import java.util.*;
 /** 共用方速原门、玻璃与吊板的加载/绘制管线；统一宿主只保存布局描述。 */
 public final class PlatformDoorComponentRenderer implements BlockEntityRenderer<BlockEntityAutoPlatformComponent> {
     private final BaseBlockEntityRender<FunctionalObjBlockEntity> renderer;
-    private final Map<BlockEntityAutoPlatformComponent,Cached> cache=new IdentityHashMap<>();
-    private static final class Cached {
+    private static final class Cached implements BlockEntityAutoPlatformComponent.ClientRenderState {
         final long revision,resources,neighbors;final List<FunctionalObjBlockEntity> children=new ArrayList<>();
         long nextNeighborCheck;
         Cached(BlockEntityAutoPlatformComponent host,long neighbors){revision=host.revision();resources=ResourceUtil.getReloadVersion();this.neighbors=neighbors;nextNeighborCheck=host.getLevel().getGameTime()+5;}
-        void close(){children.stream().filter(Objects::nonNull).forEach(FunctionalObjBlockEntity::setRemoved);children.clear();}
+        @Override public void close(){children.stream().filter(Objects::nonNull).forEach(FunctionalObjBlockEntity::setRemoved);children.clear();}
     }
     private static final class Door extends BlockEntityScreendoor {
         final BlockEntityAutoPlatformComponent host;final PlatformDoorComponent part;
         float partialTick;
         Door(BlockEntityAutoPlatformComponent host,PlatformDoorComponent part){super(host.getBlockPos(),ModBlocks.BLOCK_SCREENDOOR.get().defaultBlockState());this.host=host;this.part=part;}
-        @Override public float getDoorValue(){return progress(part,host.getDoorValue());}
-        @Override public boolean getDoorTarget(){return part.options().getOrDefault("isolation","false").equals("true")?part.options().getOrDefault("doorOpenOverride","false").equals("true"):host.getDoorTarget();}
-        @Override protected double displayDoorProgress(long delta){return progress(part,host.interpolatedProgress(partialTick));}
+        @Override public float getDoorValue(){return part.doorProgress(host.getDoorValue(),host.isCentralLocked());}
+        @Override public boolean getDoorTarget(){return part.hasLocalDoorOverride(host.isCentralLocked())?part.localDoorOpen():host.getDoorTarget();}
+        @Override protected double displayDoorProgress(long delta){return part.doorProgress(host.interpolatedProgress(partialTick),host.isCentralLocked());}
         @Override public void sendUpdateC2S(){ }
     }
     private static final class Glass extends BlockEntityScreendoorGlass {
@@ -73,17 +76,20 @@ public final class PlatformDoorComponentRenderer implements BlockEntityRenderer<
             }
             tag.put("subModel",sub);tag.put("extraConfig",extra);child.load(tag);result.children.add(child);
         }
-        host.installClientDisposer(()->{Cached old=cache.remove(host);if(old!=null)old.close();});return result;
+        return result;
     }
     @Override public void render(BlockEntityAutoPlatformComponent host,float partial,PoseStack poses,MultiBufferSource buffers,int light,int overlay){
-        if(host.getLevel()==null)return;Cached data=cache.get(host);Neighborhood neighbors=null;
+        if(host.getLevel()==null||host.isRemoved())return;
+        Cached data=host.clientRenderState() instanceof Cached cached?cached:null;
+        Neighborhood neighbors=null;
         if(data!=null&&host.getLevel().getGameTime()>=data.nextNeighborCheck){
             data.nextNeighborCheck=host.getLevel().getGameTime()+5;
             if(hasAutomaticGlass(host))neighbors=neighborhood(host);
         }
         if(data==null||data.revision!=host.revision()||data.resources!=ResourceUtil.getReloadVersion()||neighbors!=null&&neighbors.signature()!=data.neighbors){
-            if(data!=null)data.close();if(neighbors==null)neighbors=neighborhood(host);data=create(host,neighbors);cache.put(host,data);
-            if(cache.size()>1024){var iterator=cache.entrySet().iterator();while(cache.size()>1024&&iterator.hasNext()){var entry=iterator.next();if(entry.getKey()!=host){entry.getValue().close();iterator.remove();}}}
+            if(neighbors==null)neighbors=neighborhood(host);
+            data=create(host,neighbors);
+            host.setClientRenderState(data);
         }
         for(int i=0;i<host.components().size();i++){
             var part=host.components().get(i);if(part.kind().endsWith("_proxy"))continue;
@@ -190,7 +196,29 @@ public final class PlatformDoorComponentRenderer implements BlockEntityRenderer<
     }
 
     private static int boardLength(PlatformDoorComponent part){return Math.max(2,Integer.parseInt(part.options().getOrDefault("length",Integer.toString((int)Math.round(part.width()/boardUnit(part))))));}
-    public static float progress(PlatformDoorComponent part,float value){return part.options().getOrDefault("isolation","false").equals("true")?(part.options().getOrDefault("doorOpenOverride","false").equals("true")?1:0):value;}
     private static double boardUnit(PlatformDoorComponent part){try{var content=com.fangsu.utils.ContentInfoUtil.getDiaobanContent(part.model(),part.variant());if(content!=null)return Math.max(1,content.getUnit())/16d;}catch(RuntimeException ignored){}return .5;}
     @Override public boolean shouldRenderOffScreen(BlockEntityAutoPlatformComponent host){return true;}
+
+    @Override
+    public int getViewDistance() {
+        var options=Minecraft.getInstance().options;
+        //#if MC_VERSION >= 11900
+        int chunks=options.getEffectiveRenderDistance();
+        //#else
+        //$$ int chunks=options.renderDistance;
+        //#endif
+        // 构件可伸出宿主所在区块，边缘多留一个区块。
+        return (chunks+1)*16;
+    }
+
+    @Override
+    public boolean shouldRender(BlockEntityAutoPlatformComponent host, Vec3 camera) {
+        var pos=host.getBlockPos();
+        int viewChunks=getViewDistance()/16;
+        int dx=SectionPos.blockToSectionCoord(pos.getX())-SectionPos.blockToSectionCoord(Mth.floor(camera.x));
+        int dz=SectionPos.blockToSectionCoord(pos.getZ())-SectionPos.blockToSectionCoord(Mth.floor(camera.z));
+        if(Math.abs(dx)>viewChunks||Math.abs(dz)>viewChunks)return false;
+        for(var part:host.components())if(!part.kind().endsWith("_proxy"))return true;
+        return false;
+    }
 }

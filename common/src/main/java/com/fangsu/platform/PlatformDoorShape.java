@@ -5,11 +5,11 @@ import java.util.List;
 
 /** 构件以物理中心线定位，旋转矩形按 1/16 格保守栅格化，服务端无需读取客户端模型。 */
 public final class PlatformDoorShape {
-    public static VoxelShape create(List<PlatformDoorComponent> components,float progress){
+    public static VoxelShape create(List<PlatformDoorComponent> components,float progress,boolean centralLocked){
         VoxelShape result=Shapes.empty();double step=1d/16;
         for(var component:components){
             String kind=component.kind().replace("_proxy","");double width=component.width(),depth=kind.equals("board")?5d/16:1d/16;
-            float opening=component.options().getOrDefault("isolation","false").equals("true")?(component.options().getOrDefault("doorOpenOverride","false").equals("true")?1:0):progress;
+            float opening=component.doorProgress(progress,centralLocked);
             if(kind.equals("door")&&component.variant().startsWith("flex.")&&opening>=.4f)continue;
             double slide=kind.equals("door")&&!component.variant().startsWith("flex.")?width*opening*((component.variant().equals("right")||component.variant().startsWith("right."))?1:-1):0;
             double cos=Math.cos(component.yaw()),sin=Math.sin(component.yaw());

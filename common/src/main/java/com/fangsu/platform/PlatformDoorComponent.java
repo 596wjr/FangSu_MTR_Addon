@@ -12,6 +12,15 @@ public record PlatformDoorComponent(String kind,double dx,double dy,double dz,do
                 ||model==null||model.length()>256||model.contains("..")||!model.matches("[a-z0-9_.-]+:[a-z0-9_./-]+")
                 ||variant==null||!variant.matches("[A-Za-z0-9_.|\\-]{1,192}"))throw new IllegalArgumentException("invalid_door_component");
     }
+    public boolean hasLocalDoorOverride(boolean centralLocked){
+        return !centralLocked&&"true".equals(options.get("isolation"));
+    }
+    public boolean localDoorOpen(){
+        return "true".equals(options.get("doorOpenOverride"));
+    }
+    public float doorProgress(float progress,boolean centralLocked){
+        return hasLocalDoorOverride(centralLocked)?(localDoorOpen()?1:0):progress;
+    }
     public CompoundTag save(){CompoundTag t=new CompoundTag();t.putString("kind",kind);t.putDouble("dx",dx);t.putDouble("dy",dy);t.putDouble("dz",dz);t.putDouble("yaw",yaw);t.putDouble("width",width);t.putDouble("height",height);t.putString("model",model);t.putString("variant",variant);CompoundTag config=new CompoundTag();options.forEach(config::putString);t.put("options",config);return t;}
     public static PlatformDoorComponent load(CompoundTag t){return new PlatformDoorComponent(t.getString("kind"),t.getDouble("dx"),t.getDouble("dy"),t.getDouble("dz"),t.getDouble("yaw"),t.getDouble("width"),t.getDouble("height"),t.getString("model"),t.getString("variant"),options(t));}
     private static java.util.Map<String,String> options(CompoundTag tag){java.util.Map<String,String> values=new java.util.LinkedHashMap<>();var config=tag.getCompound("options");for(String key:config.getAllKeys())values.put(key,config.getString(key));return values;}

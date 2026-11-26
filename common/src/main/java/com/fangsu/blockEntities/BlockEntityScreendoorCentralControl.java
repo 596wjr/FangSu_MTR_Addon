@@ -4,6 +4,7 @@ import com.fangsu.blocks.BaseObjBlock;
 import com.fangsu.blocks.BlockScreendoorCentralControl;
 import com.fangsu.client.ClientHooks;
 import com.fangsu.network.ModNetwork;
+import com.fangsu.platform.PlatformDoorLayouts;
 import com.fangsu.utils.FacingBlockUtil;
 import dev.architectury.networking.NetworkManager;
 import io.netty.buffer.Unpooled;
@@ -13,6 +14,8 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -30,6 +33,8 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
 
     /** 需要控制的所有屏蔽门（门 / 玻璃）的坐标 */
     private final List<BlockPos> doorPositions = new ArrayList<>();
+    private final Set<UUID> curvedGroups = new HashSet<>();
+    private int curvedGroupCount;
 
     /** 门隔离状态 */
     private boolean isolation = false;
@@ -67,6 +72,7 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
 
         tag.putBoolean("isolation", isolation);
         tag.putBoolean("doorOpen", doorOpen);
+        tag.putInt("curvedGroupCount", curvedGroupCount);
 
         // 保存起始坐标
         tag.putInt("startPosCount", startPositions.size());
@@ -93,6 +99,7 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
 
         isolation = tag.getBoolean("isolation");
         doorOpen = tag.getBoolean("doorOpen");
+        curvedGroupCount = tag.getInt("curvedGroupCount");
 
         startPositions.clear();
         int count = tag.getInt("startPosCount");
@@ -135,27 +142,17 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
 
     // ======================== 网络同步 ========================
 
-    /** 发送数据到服务端 */
-    public void syncToServer() {
+    /** 扫描时只保存坐标，关闭界面时同时保存坐标和集控状态。 */
+    public void syncToServer(boolean includeStatus) {
         if (level == null || !level.isClientSide) return;
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
         buf.writeBlockPos(getBlockPos());
 
-        // 模式: 0=更新状态, 1=更新坐标列表
-        buf.writeInt(0);
-        buf.writeBoolean(isolation);
-        buf.writeBoolean(doorOpen);
-
-        NetworkManager.sendToServer(ModNetwork.CENTRAL_CONTROL_SYNC, buf);
-    }
-
-    /** 发送坐标列表到服务端 */
-    public void syncPositionsToServer() {
-        if (level == null || !level.isClientSide) return;
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
-        buf.writeBlockPos(getBlockPos());
-
-        buf.writeInt(1); // 模式: 更新坐标列表
+        buf.writeInt(includeStatus ? 2 : 1);
+        if (includeStatus) {
+            buf.writeBoolean(isolation);
+            buf.writeBoolean(doorOpen);
+        }
         buf.writeInt(startPositions.size());
         for (BlockPos p : startPositions) {
             buf.writeBlockPos(p);
@@ -165,42 +162,36 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
     }
 
     /** 服务端处理同步 */
-    public void readSync(FriendlyByteBuf buf) {
+    public void readSync(FriendlyByteBuf buf, ServerPlayer player) {
+        if (!(level instanceof ServerLevel server) || buf.readableBytes() < Integer.BYTES) return;
         int mode = buf.readInt();
-        if (mode == 0) {
-            // 更新状态
-            isolation = buf.readBoolean();
-            doorOpen = buf.readBoolean();
-
-            // 更新指示灯
-            updateLightState();
-
-            // 应用到所有屏蔽门
-            applyToAllDoors();
-
-            if (level != null) {
-                level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
-                setChanged();
-            }
-        } else if (mode == 1) {
-            // 更新坐标列表
-            startPositions.clear();
-            int count = buf.readInt();
-            for (int i = 0; i < count; i++) {
-                startPositions.add(buf.readBlockPos());
-            }
-
-            // 重新扫描屏蔽门
-            scanDoors();
-
-            // 应用当前状态
-            applyToAllDoors();
-
-            if (level != null) {
-                level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
-                setChanged();
-            }
+        if (mode < 0 || mode > 2) return;
+        boolean nextIsolation = isolation;
+        boolean nextDoorOpen = doorOpen;
+        if (mode != 1) {
+            if (buf.readableBytes() < 2) return;
+            nextIsolation = buf.readBoolean();
+            nextDoorOpen = buf.readBoolean();
         }
+        if (mode != 0) {
+            if (buf.readableBytes() < Integer.BYTES) return;
+            int count = buf.readInt();
+            if (count < 0 || count > buf.readableBytes() / Long.BYTES) return;
+            var positions = new ArrayList<BlockPos>(count);
+            for (int i = 0; i < count; i++) {
+                positions.add(buf.readBlockPos());
+            }
+            startPositions.clear();
+            startPositions.addAll(positions);
+        }
+        isolation = nextIsolation;
+        doorOpen = nextDoorOpen;
+        updateLightState();
+        scanDoors(player);
+        PlatformDoorLayouts.get(server).updateCentralControl(worldPosition, curvedGroups, isolation, doorOpen);
+        applyToAllDoors();
+        level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        setChanged();
     }
 
     // ======================== 核心逻辑 ========================
@@ -210,10 +201,27 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
      * 仅允许一条直线，遇到非屏蔽门（门或玻璃）方块就断开
      */
     public void scanDoors() {
+        scanDoors(null);
+    }
+
+    private void scanDoors(ServerPlayer player) {
         doorPositions.clear();
+        curvedGroups.clear();
+        curvedGroupCount = 0;
         if (level == null || startPositions.isEmpty()) return;
 
+        var layouts = level instanceof ServerLevel server ? PlatformDoorLayouts.get(server) : null;
+        Set<BlockPos> allDoors = new LinkedHashSet<>();
         for (BlockPos startPos : startPositions) {
+            if (level.isOutsideBuildHeight(startPos) || !level.getWorldBorder().isWithinBounds(startPos)) continue;
+            boolean loaded = level.hasChunkAt(startPos);
+            BlockEntity entity = loaded ? level.getBlockEntity(startPos) : null;
+            if (layouts != null && (entity instanceof BlockEntityAutoPlatformComponent || !loaded)) {
+                var layout = entity instanceof BlockEntityAutoPlatformComponent host ? layouts.get(host.group) : layouts.at(startPos);
+                if (layout != null && (player == null || level.mayInteract(player, startPos))) curvedGroups.add(layout.id);
+                continue;
+            }
+            if (!loaded || entity instanceof BlockEntityAutoPlatformComponent) continue;
             Set<BlockPos> scanned = new HashSet<>();
             BlockState state = level.getBlockState(startPos);
 
@@ -224,12 +232,27 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
 
             if (!state.hasProperty(BaseObjBlock.FACING)) continue;
 
+            // 保留集控自身作为默认起点；两侧紧邻曲线门时按施工组绑定。
+            if (layouts != null && startPos.equals(worldPosition)) {
+                addAdjacentCurve(layouts, FacingBlockUtil.getLeftPos(startPos, state), player);
+                addAdjacentCurve(layouts, FacingBlockUtil.getRightPos(startPos, state), player);
+            }
+
             // 向左扫描
             scanLine(startPos, state, true, scanned);
             // 向右扫描
             scanLine(startPos, state, false, scanned);
 
-            doorPositions.addAll(scanned);
+            allDoors.addAll(scanned);
+        }
+        doorPositions.addAll(allDoors);
+        curvedGroupCount = curvedGroups.size();
+    }
+
+    private void addAdjacentCurve(PlatformDoorLayouts layouts, BlockPos pos, ServerPlayer player) {
+        if (level.hasChunkAt(pos) && level.getBlockEntity(pos) instanceof BlockEntityAutoPlatformComponent host
+                && layouts.get(host.group) != null && (player == null || level.mayInteract(player, pos))) {
+            curvedGroups.add(host.group);
         }
     }
 
@@ -261,6 +284,7 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
     }
 
     private static boolean isScreendoorBlock(Level level, BlockPos pos) {
+        if (!level.hasChunkAt(pos)) return false;
         BlockEntity be = level.getBlockEntity(pos);
         return be instanceof BlockEntityScreendoor || be instanceof BlockEntityScreendoorGlass;
     }
@@ -431,14 +455,15 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
         return doorPositions;
     }
 
+    public int getCurvedGroupCount() {
+        return curvedGroupCount;
+    }
+
     @Override
     public void setRemoved() {
         // 方块被破坏或世界卸载时，解除所有门的集控状态
         // 注意：世界卸载时不可调用 applyToAllDoors()（会触发区块加载导致死锁）
         if (level != null && !level.isClientSide && !doorPositions.isEmpty()) {
-            boolean prevIsolation = isolation;
-            isolation = false;
-            doorOpen = false;
             // 仅对已加载区块中的门解除集控，避免世界卸载时触发区块加载导致死锁
             for (BlockPos pos : doorPositions) {
                 if (!level.isLoaded(pos)) continue;
@@ -455,7 +480,6 @@ public class BlockEntityScreendoorCentralControl extends BlockEntity {
                     level.sendBlockUpdated(pos, door.getBlockState(), door.getBlockState(), 3);
                 }
             }
-            isolation = prevIsolation;
         }
         super.setRemoved();
     }

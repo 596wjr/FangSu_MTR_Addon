@@ -101,25 +101,20 @@ public class ScreendoorCentralControlScreen extends Screen {
         // ===== 娣诲姞鍧愭爣鎸夐挳 =====
         //#if MC_VERSION >= 11903
         addPosBtn = Button.builder(ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.addPos"), btn -> {
-            startPositions.add(BlockPos.ZERO); /*#if MC_VERSION >= 11900*/
-            rebuildWidgets(); /*#endif*/
+            editPositions(-1);
         }).bounds(panelLeft, y, PANEL_WIDTH / 2 - GAP / 2, 20).build();
         //#else
-        //$$ addPosBtn = new Button(panelLeft, y, PANEL_WIDTH / 2 - GAP / 2, 20, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.addPos"), btn -> { startPositions.add(BlockPos.ZERO); });
+        //$$ addPosBtn = new Button(panelLeft, y, PANEL_WIDTH / 2 - GAP / 2, 20, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.addPos"), btn -> editPositions(-1));
         //#endif
         addRenderableWidget(addPosBtn);
 
         // ===== 閲嶆柊鎵弿鎸夐挳 =====
         //#if MC_VERSION >= 11903
         scanBtn = Button.builder(ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.scan"), btn -> {
-            syncPositionsFromRows();
-            ctrl.getStartPositions().clear();
-            ctrl.getStartPositions().addAll(startPositions);
-            ctrl.scanDoors();
-            ctrl.syncPositionsToServer();
+            sendPositions(false);
         }).bounds(panelLeft + PANEL_WIDTH / 2 + GAP / 2, y, PANEL_WIDTH / 2 - GAP / 2, 20).build();
         //#else
-        //$$ scanBtn = new Button(panelLeft + PANEL_WIDTH / 2 + GAP / 2, y, PANEL_WIDTH / 2 - GAP / 2, 20, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.scan"), btn -> { syncPositionsFromRows(); ctrl.getStartPositions().clear(); ctrl.getStartPositions().addAll(startPositions); ctrl.scanDoors(); ctrl.syncPositionsToServer(); });
+        //$$ scanBtn = new Button(panelLeft + PANEL_WIDTH / 2 + GAP / 2, y, PANEL_WIDTH / 2 - GAP / 2, 20, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.scan"), btn -> sendPositions(false));
         //#endif
         addRenderableWidget(scanBtn);
 
@@ -150,7 +145,7 @@ public class ScreendoorCentralControlScreen extends Screen {
         graphics.drawString(this.font, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.isolationStatus", isolationStatus),
                 centerX - PANEL_WIDTH / 2, 55, 0xAAAAAA, false);
         int doorCount = ctrl.getDoorPositions().size();
-        graphics.drawString(this.font, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.doorCount", doorCount),
+        graphics.drawString(this.font, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.doorCount", doorCount, ctrl.getCurvedGroupCount()),
                 centerX - PANEL_WIDTH / 2, this.height - 70, 0xAAAAAA, false);
         super.render(graphics, mouseX, mouseY, partialTick);
     }
@@ -169,7 +164,7 @@ public class ScreendoorCentralControlScreen extends Screen {
     //$$     this.font.draw(poseStack, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.isolationStatus", isolationStatus),
     //$$             centerX - PANEL_WIDTH / 2f, 55, 0xAAAAAA);
     //$$     int doorCount = ctrl.getDoorPositions().size();
-    //$$     this.font.draw(poseStack, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.doorCount", doorCount),
+    //$$     this.font.draw(poseStack, ComponentHelper.translatable("ui.fangsu.screendoor.centralControl.doorCount", doorCount, ctrl.getCurvedGroupCount()),
     //$$             centerX - PANEL_WIDTH / 2f, this.height - 70, 0xAAAAAA);
     //$$     super.render(poseStack, mouseX, mouseY, partialTick);
     //$$ }
@@ -197,23 +192,25 @@ public class ScreendoorCentralControlScreen extends Screen {
         }
     }
 
-    private void saveAndClose() {
-        // 浠庣紪杈戣鍚屾鍧愭爣
+    private void editPositions(int index) {
         syncPositionsFromRows();
+        if (index < 0) startPositions.add(BlockPos.ZERO);
+        else startPositions.remove(index);
+        clearWidgets();
+        init();
+    }
 
-        // 鏇存柊鐘舵€佸埌 BE
-        ctrl.setIsolation(isolation);
-        ctrl.setDoorOpen(doorOpen);
-
-        // 鏇存柊璧峰鍧愭爣
+    private void sendPositions(boolean includeStatus) {
+        syncPositionsFromRows();
         ctrl.getStartPositions().clear();
         ctrl.getStartPositions().addAll(startPositions);
+        ctrl.syncToServer(includeStatus);
+    }
 
-        // 閫氱煡鏈嶅姟锟?- 鍏堟洿鏂扮姸锟?
-        ctrl.syncToServer();
-        // 鍐嶆洿鏂板潗锟?
-        ctrl.syncPositionsToServer();
-
+    private void saveAndClose() {
+        ctrl.setIsolation(isolation);
+        ctrl.setDoorOpen(doorOpen);
+        sendPositions(true);
         onClose();
     }
 
@@ -258,12 +255,10 @@ public class ScreendoorCentralControlScreen extends Screen {
             addRenderableWidget(zBox);
 
             //#if MC_VERSION >= 11903
-            removeBtn = Button.builder(Component.literal("X"), btn -> {
-                startPositions.remove(pos);
-                /*#if MC_VERSION >= 11900*/ rebuildWidgets(); /*#endif*/
-            }).bounds(rowLeft + (fieldWidth + spacing) * 3, y, 20, 18).build();
+            removeBtn = Button.builder(Component.literal("X"), btn -> editPositions(index))
+                    .bounds(rowLeft + (fieldWidth + spacing) * 3, y, 20, 18).build();
             //#else
-            //$$ removeBtn = new Button(rowLeft + (fieldWidth + spacing) * 3, y, 20, 18, ComponentHelper.literal("X"), btn -> { startPositions.remove(pos); });
+            //$$ removeBtn = new Button(rowLeft + (fieldWidth + spacing) * 3, y, 20, 18, ComponentHelper.literal("X"), btn -> editPositions(index));
             //#endif
             addRenderableWidget(removeBtn);
         }

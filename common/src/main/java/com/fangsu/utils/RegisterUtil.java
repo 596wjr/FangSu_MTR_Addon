@@ -7,6 +7,7 @@ import com.fangsu.mappings.RegistryObject;
 import dev.architectury.registry.registries.DeferredRegister;
 import dev.architectury.registry.registries.RegistrySupplier;
 import net.minecraft.ChatFormatting;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
@@ -63,6 +64,9 @@ public class RegisterUtil {
      * 在物品栏 tooltip 中追加一条灰色描述（前置空行），供各物品/方块物品统一调用
      */
     public static void addDescTooltip(List<Component> tooltip, String descKey) {
+        if (!Language.getInstance().has(descKey)) {
+            return;
+        }
         tooltip.add(ComponentHelper.empty());
         tooltip.add(ComponentHelper.translatable(descKey).withStyle(ChatFormatting.GRAY));
     }

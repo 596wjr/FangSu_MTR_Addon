@@ -14,7 +14,7 @@ public final class PlatformDoorTrainDriver {
         LifecycleEvent.SERVER_STOPPED.register(server->HOSTS.keySet().removeIf(w->w.getServer()==server));
         TickEvent.SERVER_POST.register(server->{for(var row:new ArrayList<>(HOSTS.entrySet())){ServerLevel level=row.getKey();if(level.getServer()!=server)continue;Map<UUID,Boolean> open=new HashMap<>();
             row.getValue().removeIf(p->!level.hasChunkAt(p)||!(level.getBlockEntity(p) instanceof BlockEntityAutoPlatformComponent));
-            for(BlockPos p:row.getValue())if(level.getBlockEntity(p) instanceof BlockEntityAutoPlatformComponent host&&host.group!=null&&host.components().stream().anyMatch(c->c.kind().equals("door")||c.kind().equals("door_proxy")))open.merge(host.group,host.getDoorTarget(),Boolean::logicalOr);
+            for(BlockPos p:row.getValue())if(level.getBlockEntity(p) instanceof BlockEntityAutoPlatformComponent host&&host.group!=null&&host.components().stream().anyMatch(c->c.kind().equals("door")||c.kind().equals("door_proxy")))open.merge(host.group,host.getAutomaticDoorTarget(),Boolean::logicalOr);
             for(BlockPos p:row.getValue())if(level.getBlockEntity(p) instanceof BlockEntityAutoPlatformComponent host&&host.components().stream().noneMatch(c->c.kind().equals("door")||c.kind().equals("door_proxy"))){host.setDoorTarget(open.getOrDefault(host.group,false));host.setDoorValue(0);}
             if(row.getValue().isEmpty())HOSTS.remove(level);
         }});

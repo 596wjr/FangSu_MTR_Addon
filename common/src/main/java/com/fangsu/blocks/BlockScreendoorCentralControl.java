@@ -1,8 +1,10 @@
 package com.fangsu.blocks;
 
 import com.fangsu.blockEntities.BlockEntityScreendoorCentralControl;
+import com.fangsu.platform.PlatformDoorLayouts;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
@@ -30,6 +32,8 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.Set;
 
 public class BlockScreendoorCentralControl extends Block implements EntityBlock {
 
@@ -146,6 +150,14 @@ public class BlockScreendoorCentralControl extends Block implements EntityBlock 
             }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
+    }
+
+    @Override
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState next, boolean moving) {
+        if (state.getBlock() != next.getBlock() && level instanceof ServerLevel server) {
+            PlatformDoorLayouts.get(server).updateCentralControl(pos, Set.of(), false, false);
+        }
+        super.onRemove(state, level, pos, next, moving);
     }
 
     @Override

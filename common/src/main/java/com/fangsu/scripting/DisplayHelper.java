@@ -32,6 +32,10 @@ public class DisplayHelper {
     }
 
     public DisplayHelper(JsonObject cfg) {
+        this(cfg, null);
+    }
+
+    public DisplayHelper(JsonObject cfg, Iterable<? extends JsonElement> selectedSlots) {
         if (cfg == null) return;
 
         this.cfg = cfg;
@@ -51,7 +55,7 @@ public class DisplayHelper {
                 Main.LOGGER.warn("DisplayHelper: JSON config missing 'slots' or 'texSize' field");
                 return;
             }
-            JsonArray slots = cfg.getAsJsonArray("slots");
+            Iterable<? extends JsonElement> slots = selectedSlots == null ? cfg.getAsJsonArray("slots") : selectedSlots;
             JsonArray texSizeArr = cfg.getAsJsonArray("texSize");
             int texWidth = texSizeArr.get(0).getAsInt();
             int texHeight = texSizeArr.get(1).getAsInt();
@@ -123,6 +127,10 @@ public class DisplayHelper {
 
     public DisplayHelper create() {
         return create(null, false);
+    }
+
+    public DynamicModelHolder getBaseModel() {
+        return baseModel;
     }
 
     public DisplayHelper createWithinGt() {
