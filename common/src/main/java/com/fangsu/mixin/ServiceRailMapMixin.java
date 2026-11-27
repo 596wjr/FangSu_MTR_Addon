@@ -11,6 +11,7 @@ import mtr.client.ClientData;
 import mtr.data.TransportMode;
 import mtr.screen.WidgetMap;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -40,7 +41,6 @@ public abstract class ServiceRailMapMixin implements RouteMapSelection {
     @Shadow private boolean showStations;
     @Shadow @Final private Font textRenderer;
     @Shadow @Final private TransportMode transportMode;
-    @Shadow public abstract boolean isMouseOver(double x, double y);
 
     @Inject(method = "render", at = @At("RETURN"))
     //#if MC_VERSION >= 12000
@@ -66,7 +66,7 @@ public abstract class ServiceRailMapMixin implements RouteMapSelection {
 
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void fangsu$editBypass(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
-        if (button != 0 || !ClientData.hasPermission() || !isMouseOver(mouseX, mouseY)) {
+        if (button != 0 || !ClientData.hasPermission() || !((GuiEventListener) (Object) this).isMouseOver(mouseX, mouseY)) {
             return;
         }
         fangsu$forEachMarker(marker -> {
