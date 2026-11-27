@@ -2,6 +2,7 @@ package com.fangsu.mixin;
 
 import com.fangsu.mtr.RouteMapSelection;
 import com.fangsu.mtr.ServiceStop;
+import com.fangsu.mtr.rail.BypassMapMarker;
 import com.fangsu.mtr.rail.ServiceRail;
 import com.fangsu.network.ServiceRailPackets;
 import com.fangsu.ui.ServiceRailScreen;
@@ -10,7 +11,6 @@ import mtr.client.ClientData;
 import mtr.data.TransportMode;
 import mtr.screen.WidgetMap;
 import net.minecraft.client.gui.Font;
-import net.minecraft.core.BlockPos;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -19,6 +19,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import java.util.function.Consumer;
 
 @Mixin(value = WidgetMap.class, remap = false)
 public abstract class ServiceRailMapMixin implements RouteMapSelection {
@@ -47,13 +49,13 @@ public abstract class ServiceRailMapMixin implements RouteMapSelection {
     //$$ private void fangsu$renderBypass(com.mojang.blaze3d.vertex.PoseStack graphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
     //#endif
         final var context = GraphicContext.of(graphics);
-        fangsu$forEachMarker((start, end, settings, marker) -> {
+        fangsu$forEachMarker(marker -> {
             context.fill(Math.max(x, marker.left()), Math.max(y, marker.top()),
                     Math.min(x + width, marker.right()), Math.min(y + height, marker.bottom()), 0xFFFFFFFF);
             if (scale >= 8) {
                 context.enableScissor(x, y, x + width, y + height);
                 try {
-                    context.drawCenteredString(textRenderer, settings.number(), (marker.left() + marker.right()) / 2,
+                    context.drawCenteredString(textRenderer, marker.settings().number(), (marker.left() + marker.right()) / 2,
                             (marker.top() + marker.bottom() - textRenderer.lineHeight) / 2, 0xFFFFFFFF);
                 } finally {
                     context.disableScissor();
@@ -67,13 +69,15 @@ public abstract class ServiceRailMapMixin implements RouteMapSelection {
         if (button != 0 || !ClientData.hasPermission() || !isMouseOver(mouseX, mouseY)) {
             return;
         }
-        fangsu$forEachMarker((start, end, settings, marker) -> {
+        fangsu$forEachMarker(marker -> {
             if (!cir.isCancelled() && marker.contains(mouseX, mouseY)) {
+                final var start = marker.start();
+                final var end = marker.end();
                 final var selection = fangsu$selection;
                 if (selection != null) {
                     if (!selection.test(new ServiceStop.Bypass(start, end))) return;
                 } else {
-                    ServiceRailScreen.openTrack(settings, value -> ServiceRailPackets.updateTrack(start, end, value));
+                    ServiceRailScreen.openTrack(marker.settings(), value -> ServiceRailPackets.updateTrack(start, end, value));
                 }
                 cir.setReturnValue(true);
             }
@@ -81,7 +85,7 @@ public abstract class ServiceRailMapMixin implements RouteMapSelection {
     }
 
     @Unique
-    private void fangsu$forEachMarker(MarkerConsumer consumer) {
+    private void fangsu$forEachMarker(Consumer<BypassMapMarker> consumer) {
         if (!showStations || transportMode != TransportMode.TRAIN) {
             return;
         }
@@ -100,18 +104,8 @@ public abstract class ServiceRailMapMixin implements RouteMapSelection {
             final int right = Math.max(left + 1, (int) Math.floor(x + (blockX + 1 - centerX) * scale + width / 2D));
             final int bottom = Math.max(top + 1, (int) Math.floor(y + (blockZ + 1 - centerY) * scale + height / 2D));
             if (right > x && left < x + width && bottom > y && top < y + height) {
-                consumer.accept(start, end, settings, new Marker(left, top, right, bottom));
+                consumer.accept(new BypassMapMarker(start, end, settings, left, top, right, bottom));
             }
         }));
-    }
-
-    public interface MarkerConsumer {
-        void accept(BlockPos start, BlockPos end, ServiceRail settings, Marker marker);
-    }
-
-    public record Marker(int left, int top, int right, int bottom) {
-        public boolean contains(double x, double y) {
-            return x >= left && x < right && y >= top && y < bottom;
-        }
     }
 }
