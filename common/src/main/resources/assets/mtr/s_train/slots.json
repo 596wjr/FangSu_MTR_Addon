@@ -68,7 +68,7 @@
     },
     {
       "name": "lcd_door_left_light",
-      "renderType": "light",
+      "renderType": "lighttranslucent",
       "texArea": [
         0,
         1024,
@@ -190,7 +190,7 @@
     },
     {
       "name": "lcd_door_right_light",
-      "renderType": "light",
+      "renderType": "lighttranslucent",
       "texArea": [
         0,
         1536,
