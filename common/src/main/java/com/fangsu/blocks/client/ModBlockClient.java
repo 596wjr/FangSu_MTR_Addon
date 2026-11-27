@@ -3,10 +3,12 @@ package com.fangsu.blocks.client;
 import com.fangsu.blockEntities.client.BaseBlockEntityRender;
 import com.fangsu.blocks.ModBlocks;
 import dev.architectury.registry.client.rendering.BlockEntityRendererRegistry;
+import com.fangsu.blockEntities.client.TrainDataSenderRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 
 public class ModBlockClient {
     public static void initClient() {
+        BlockEntityRendererRegistry.register(ModBlocks.BLOCK_ENTITY_TRAIN_DATA_SENDER.get(), ctx -> new TrainDataSenderRenderer());
         BlockEntityRendererRegistry.register(ModBlocks.BLOCK_ENTITY_AUTO_PLATFORM_COMPONENT.get(), ctx -> new com.fangsu.platform.PlatformDoorComponentRenderer(ctx.getBlockEntityRenderDispatcher()));
         BlockEntityRendererRegistry.register(ModBlocks.BLOCK_ENTITY_CURVED_PLATFORM.get(), ctx -> new com.fangsu.platform.CurvedPlatformRenderer());
         BlockEntityRendererRegistry.register(

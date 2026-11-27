@@ -2,6 +2,7 @@ package com.fangsu.render.sowcerext.reuse;
 
 import com.fangsu.render.sowcer.model.Model;
 import com.fangsu.render.sowcer.model.VertArrays;
+import com.fangsu.render.sowcer.util.GlStateTracker;
 import com.fangsu.render.sowcer.vertex.VertAttrMapping;
 import com.fangsu.render.sowcer.vertex.VertAttrSrc;
 import com.fangsu.render.sowcer.vertex.VertAttrType;
@@ -11,9 +12,11 @@ import com.fangsu.render.sowcerext.model.RawModel;
 import com.fangsu.render.sowcerext.model.loader.BlockbenchModelLoader;
 import com.fangsu.render.sowcerext.model.loader.CsvModelLoader;
 import com.fangsu.render.sowcerext.model.loader.ObjModelLoader;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import org.apache.commons.io.FilenameUtils;
+import org.lwjgl.opengl.GL11;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -138,18 +141,37 @@ public class ModelManager {
     }
 
     public ModelCluster uploadVertArrays(RawModel rawModel) {
-        if (rawModel.sourceLocation == null) {
-            ModelCluster result = new ModelCluster(rawModel, DEFAULT_MAPPING, this);
-            vaoCount += result.uploadedOpaqueParts == null ? 0 : result.uploadedOpaqueParts.meshList.size();
-            uploadedVertArrays.put(new ResourceLocation("sowcerext-anonymous:vertarrays/" + UUID.randomUUID()), result);
-            return result;
-        } else {
-            if (uploadedVertArrays.containsKey(rawModel.sourceLocation))
-                return uploadedVertArrays.get(rawModel.sourceLocation);
-            ModelCluster result = new ModelCluster(rawModel, DEFAULT_MAPPING, this);
-            vaoCount += result.uploadedOpaqueParts == null ? 0 : result.uploadedOpaqueParts.meshList.size();
-            uploadedVertArrays.put(rawModel.sourceLocation, result);
-            return result;
+        ResourceLocation location = rawModel.sourceLocation;
+        ModelCluster cached = uploadedVertArrays.get(location);
+        if (cached != null) return cached;
+
+        ModelCluster result = createVertArrays(rawModel);
+        vaoCount += result.uploadedOpaqueParts == null ? 0 : result.uploadedOpaqueParts.meshList.size();
+        if (location == null) location = new ResourceLocation("sowcerext-anonymous:vertarrays/" + UUID.randomUUID());
+        uploadedVertArrays.put(location, result);
+        return result;
+    }
+
+    private ModelCluster createVertArrays(RawModel rawModel) {
+        if (GlStateTracker.isStateProtected) {
+            return new ModelCluster(rawModel, DEFAULT_MAPPING, this);
+        }
+
+        // 列车渲染器首次绘制时会在其他渲染批次之间上传 VAO。
+        boolean cullEnabled = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+        boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        GlStateTracker.capture();
+        try {
+            return new ModelCluster(rawModel, DEFAULT_MAPPING, this);
+        } finally {
+            try {
+                GlStateTracker.restore();
+            } finally {
+                // GlStateTracker.restore 固定开启剔除和深度写入，这里恢复调用前的状态。
+                if (cullEnabled) RenderSystem.enableCull();
+                else RenderSystem.disableCull();
+                RenderSystem.depthMask(depthMask);
+            }
         }
     }
 

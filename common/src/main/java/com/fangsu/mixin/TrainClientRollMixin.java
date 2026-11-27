@@ -72,6 +72,7 @@ public abstract class TrainClientRollMixin {
             CallbackInfo callbackInfo
     ) {
         final TrainClient train = (TrainClient) (Object) this;
+        com.fangsu.train.parts.TrainPartRenderAdapterMtr3.begin(train, ridingCar, carX, carY, carZ);
         RailTrainRollHelper.captureCar(
                 train.trainRenderer, ridingCar,
                 carX, carY, carZ, carYaw, carPitch,
@@ -94,6 +95,7 @@ public abstract class TrainClientRollMixin {
             boolean doorLeftOpen, boolean doorRightOpen, double realSpacing,
             CallbackInfo callbackInfo
     ) {
+        com.fangsu.train.parts.TrainPartRenderAdapterMtr3.end();
         RailTrainRollHelper.endCar();
     }
 }

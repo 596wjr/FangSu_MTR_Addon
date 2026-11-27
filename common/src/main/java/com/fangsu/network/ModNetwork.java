@@ -72,6 +72,7 @@ public class ModNetwork {
     public static final ResourceLocation TURNOUT_BINDING = TurnoutBindingPayload.CHANNEL;
 
     public static void init() {
+        com.fangsu.train.data.TrainDataNetwork.register();
         com.fangsu.platform.CurvedPlatformPackets.registerServer();
         com.fangsu.platform.PlatformDoorPackets.registerServer();
         com.fangsu.platform.PlatformDoorTrainDriver.register();

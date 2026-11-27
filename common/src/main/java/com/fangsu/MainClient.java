@@ -57,6 +57,8 @@ public class MainClient {
         // 道岔 S2C（绑定结果）接收器
         com.fangsu.network.ModNetwork.initClient();
         com.fangsu.train.DoorOpenCacheClient.initClient();
+        com.fangsu.train.data.TrainDataClient.register();
+        com.fangsu.train.parts.TrainPartRenderer.register();
         // 平交路口的网格构建队列（客户端 tick 驱动，与渲染回调解耦）
         com.fangsu.blockEntities.BlockEntityLevelCrossing.initBuildQueue();
         com.fangsu.train.DoorSideObserverMtr3.init();
@@ -174,6 +176,7 @@ public class MainClient {
 
             try {
                 com.fangsu.train.connector.ConnectorRegistry.reload();
+                com.fangsu.train.parts.TrainPartsRegistry.reload(resourceManager);
                 FunctionalCustomTrains.init(resourceManager);
             } catch (Exception e) {
                 Main.LOGGER.error("[FangSu] FunctionalCustomTrains.init failed", e);

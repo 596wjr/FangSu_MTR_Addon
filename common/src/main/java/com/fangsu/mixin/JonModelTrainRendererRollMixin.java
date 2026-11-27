@@ -1,6 +1,7 @@
 package com.fangsu.mixin;
 
 import com.fangsu.mtr.rail.RailTrainRollHelper;
+import com.fangsu.train.parts.TrainPartRenderAdapterMtr3;
 import com.mojang.blaze3d.vertex.PoseStack;
 import mtr.mappings.UtilitiesClient;
 import mtr.render.JonModelTrainRenderer;
@@ -88,6 +89,7 @@ public abstract class JonModelTrainRendererRollMixin {
     )
     private void fangsu$rollBody(PoseStack matrices, float angle) {
         UtilitiesClient.rotateX(matrices, angle);
+        TrainPartRenderAdapterMtr3.captureUnrolledBody(matrices);
         RailTrainRollHelper.applyBodyRoll(matrices);
     }
 }

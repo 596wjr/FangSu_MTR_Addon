@@ -1,0 +1,7 @@
+{
+  "parent": "mtr:block/block_overlay_base",
+  "textures": {
+    "particle": "minecraft:block/smooth_stone",
+    "side": "fangsu:block/train_data_sender"
+  }
+}

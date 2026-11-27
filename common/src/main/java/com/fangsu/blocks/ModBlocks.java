@@ -34,6 +34,13 @@ public class ModBlocks {
     public static final RegistrySupplier<Block> BLOCK_DIAOBAN = RegisterUtil.addBlock("diaoban", BlockDiaoban::new);
     public static final RegistrySupplier<Block> BLOCK_RIS = RegisterUtil.addBlock("route_info_sign", BlockRis::new);
     public static final RegistrySupplier<Block> BLOCK_ADV_BOARD = RegisterUtil.addBlock("adv_board", BlockAdvBoard::new);
+    public static final RegistrySupplier<Block> BLOCK_TRAIN_DATA_SENDER =
+            RegisterUtil.addBlock("train_data_sender", BlockTrainDataSender::new);
+    public static final RegistrySupplier<BlockEntityType<com.fangsu.blockEntities.BlockEntityTrainDataSender>> BLOCK_ENTITY_TRAIN_DATA_SENDER =
+            RegisterUtil.addBlockEntity("train_data_sender", BLOCK_TRAIN_DATA_SENDER, com.fangsu.blockEntities.BlockEntityTrainDataSender::new);
+    public static final RegistrySupplier<Item> ITEM_TRAIN_DATA_SENDER =
+            RegisterUtil.addBlockItem("train_data_sender", BLOCK_TRAIN_DATA_SENDER);
+
     public static final RegistrySupplier<Block> BLOCK_TICKET_MACHINE = RegisterUtil.addBlock("ticket_machine", BlockTicketMachine::new);
     public static final RegistrySupplier<Block> BLOCK_SIS = RegisterUtil.addBlock("station_info_sign", BlockSis::new);
     public static final RegistrySupplier<Block> BLOCK_SCREENDOOR_CENTRAL_CONTROL =

@@ -1,4 +1,25 @@
 {
+  "pantographs": {
+    "fangsu_single_arm_pantograph": {
+      "model": "fangsu:models/train/pantograph/single_arm_pantograph.bbmodel",
+      "flipV": true,
+      "raise_animation": "raise"
+    }
+  },
+  "bogies": {
+    "fangsu_trailer_bogie": {
+      "model": "fangsu:models/train/bogie/commuter_trailer_bogie.bbmodel",
+      "flipV": true,
+      "animation": "wheel_roll",
+      "blocks_per_cycle": 0.1649336143
+    },
+    "fangsu_motor_bogie": {
+      "model": "fangsu:models/train/bogie/commuter_motor_bogie.bbmodel",
+      "flipV": true,
+      "animation": "wheel_roll",
+      "blocks_per_cycle": 0.1649336143
+    }
+  },
   "connectors": {
     "fangsu_r_train_exterior": {
       "texture": "fangsu:textures/train/connector/r_train_outer.png",
@@ -120,6 +141,13 @@
   },
   "custom_trains": {
     "r_train_fangsu_lcd": {
+      "bogie": {
+        "id": "fangsu_motor_bogie",
+        "slots": [
+          { "slot": 0, "offset": [0, 1, 0] },
+          { "slot": 1, "offset": [0, 1, 0] }
+        ]
+      },
       "name": "R-TRAIN (LCD)",
       "description": "Provided by FangSu Blocks",
       "color": "6CB5E2",
@@ -144,6 +172,13 @@
       }
     },
     "r_train_fangsu_js_lcd": {
+      "bogie": {
+        "id": "fangsu_motor_bogie",
+        "slots": [
+          { "slot": 0, "offset": [0, 1, 0] },
+          { "slot": 1, "offset": [0, 1, 0] }
+        ]
+      },
       "name": "R-TRAIN (JS LCD)",
       "description": "Provided by FangSu Blocks",
       "color": "6CB5E2",
@@ -172,6 +207,13 @@
       }
     },
     "r_train_small_fangsu_lcd": {
+      "bogie": {
+        "id": "fangsu_motor_bogie",
+        "slots": [
+          { "slot": 0, "offset": [0, 1, 0] },
+          { "slot": 1, "offset": [0, 1, 0] }
+        ]
+      },
       "name": "R-TRAIN (LCD) (Small)",
       "description": "Provided by FangSu Blocks",
       "color": "6CB5E2",
@@ -196,6 +238,13 @@
       }
     },
     "r_train_small_fangsu_js_lcd": {
+      "bogie": {
+        "id": "fangsu_motor_bogie",
+        "slots": [
+          { "slot": 0, "offset": [0, 1, 0] },
+          { "slot": 1, "offset": [0, 1, 0] }
+        ]
+      },
       "name": "R-TRAIN (JS LCD) (Small)",
       "description": "Provided by FangSu Blocks",
       "color": "6CB5E2",
@@ -224,6 +273,14 @@
       }
     },
     "r_train_mini_fangsu_lcd": {
+      "bogie": {
+        "id": "fangsu_motor_bogie",
+        "slots": [
+          { "slot": 0, "offset": [0, 1, 0] },
+          { "slot": 1, "offset": [0, 1, 0] },
+          { "slot": 2, "offset": [0, 1, 0] }
+        ]
+      },
       "name": "R-TRAIN (LCD) (Mini)",
       "description": "Provided by FangSu Blocks",
       "color": "6CB5E2",
@@ -248,6 +305,14 @@
       }
     },
     "r_train_mini_fangsu_js_lcd": {
+      "bogie": {
+        "id": "fangsu_motor_bogie",
+        "slots": [
+          { "slot": 0, "offset": [0, 1, 0] },
+          { "slot": 1, "offset": [0, 1, 0] },
+          { "slot": 2, "offset": [0, 1, 0] }
+        ]
+      },
       "name": "R-TRAIN (JS LCD) (Mini)",
       "description": "Provided by FangSu Blocks",
       "color": "6CB5E2",
@@ -276,6 +341,20 @@
       }
     },
     "s_train_fangsu_led": {
+      "pantograph": {
+        "id": "fangsu_single_arm_pantograph",
+        "slots": [
+          { "name": "bow_1", "pos": [0, 2.59375, -10.5], "cars": [1], "raise_progress": 0.581858 },
+          { "name": "bow_1", "pos": [0, 2.59375, 10.5], "rotation": [0, 180, 0], "cars": [-1], "raise_progress": 0.581858 }
+        ]
+      },
+      "bogie": {
+        "id": "fangsu_motor_bogie",
+        "slots": [
+          { "slot": 0, "offset": [0, 1, 0] },
+          { "slot": 1, "offset": [0, 1, 0] }
+        ]
+      },
       "has_gangway_connection": true,
       "connector": [
         "fangsu_r_train_exterior",
@@ -300,6 +379,20 @@
       }
     },
     "s_train_small_fangsu_led": {
+      "pantograph": {
+        "id": "fangsu_single_arm_pantograph",
+        "slots": [
+          { "name": "bow_1", "pos": [0, 2.59375, -8], "cars": [1], "raise_progress": 0.581858 },
+          { "name": "bow_1", "pos": [0, 2.59375, 8], "rotation": [0, 180, 0], "cars": [-1], "raise_progress": 0.581858 }
+        ]
+      },
+      "bogie": {
+        "id": "fangsu_motor_bogie",
+        "slots": [
+          { "slot": 0, "offset": [0, 1, 0] },
+          { "slot": 1, "offset": [0, 1, 0] }
+        ]
+      },
       "has_gangway_connection": true,
       "connector": [
         "fangsu_r_train_exterior",
@@ -324,6 +417,21 @@
       }
     },
     "s_train_mini_fangsu_led": {
+      "pantograph": {
+        "id": "fangsu_single_arm_pantograph",
+        "slots": [
+          { "name": "bow_1", "pos": [0, 2.59375, -3.1875], "cars": [1], "raise_progress": 0.581858 },
+          { "name": "bow_1", "pos": [0, 2.59375, 3.1875], "rotation": [0, 180, 0], "cars": [-1], "raise_progress": 0.581858 }
+        ]
+      },
+      "bogie": {
+        "id": "fangsu_motor_bogie",
+        "slots": [
+          { "slot": 0, "offset": [0, 1, 0] },
+          { "slot": 1, "offset": [0, 1, 0] },
+          { "slot": 2, "offset": [0, 1, 0] }
+        ]
+      },
       "has_gangway_connection": true,
       "connector": [
         "fangsu_r_train_exterior",

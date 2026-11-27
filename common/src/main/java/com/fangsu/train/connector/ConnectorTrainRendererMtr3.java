@@ -1,6 +1,7 @@
 package com.fangsu.train.connector;
 
 import com.fangsu.MainClient;
+import com.fangsu.train.parts.TrainPartRenderAdapterMtr3;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import mtr.data.TrainClient;
 import net.minecraft.resources.ResourceLocation;
@@ -59,7 +60,10 @@ public final class ConnectorTrainRendererMtr3 extends TrainRendererBase {
                     try {
                         matrices.translate(x,y,z); UtilitiesClient.rotateY(matrices,(float)Math.PI+yaw);
                         UtilitiesClient.rotateX(matrices,(float)Math.PI+((pitch<0?train.transportMode.hasPitchAscending:train.transportMode.hasPitchDescending)?pitch:0));
-                        JACOBS.render(matrices,vertexConsumers,light,0);
+                        if (!TrainPartRenderAdapterMtr3.sharedBogie(
+                                train, matrices, x, y, z, yaw, pitch, light)) {
+                            JACOBS.render(matrices,vertexConsumers,light,0);
+                        }
                     } finally { matrices.popPose(); }
                 }
                 return;

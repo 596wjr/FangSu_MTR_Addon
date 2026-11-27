@@ -62,37 +62,7 @@ public class BlockbenchModelLoader {
 	public static Map<String, RawModel> loadModels(ResourceManager resourceManager, ResourceLocation location, AtlasManager atlasManager) throws IOException {
 		JsonObject root = readRoot(resourceManager, location);
 
-		float texW = 64, texH = 64;
-		if (root.has("resolution") && root.get("resolution").isJsonObject()) {
-			JsonObject res = root.getAsJsonObject("resolution");
-			texW = res.has("width") ? res.get("width").getAsFloat() : 64;
-			texH = res.has("height") ? res.get("height").getAsFloat() : 64;
-		}
-
-		// ---- 贴图表：索引 -> 候选纹理文件名（优先 name，其次 relative_path 文件名部分，忽略绝对路径）----
-		List<String[]> textureCandidates = new ArrayList<>();
-		if (root.has("textures") && root.get("textures").isJsonArray()) {
-			for (JsonElement t : root.getAsJsonArray("textures")) {
-				JsonObject tex = t.getAsJsonObject();
-				String name = tex.has("name") && tex.get("name").isJsonPrimitive()
-						? tex.get("name").getAsString() : null;
-				String rp = tex.has("relative_path") && tex.get("relative_path").isJsonPrimitive()
-						? tex.get("relative_path").getAsString() : null;
-				if (rp != null) {
-					// 只取文件名部分，丢弃可能存在的目录/绝对路径
-					int idx = Math.max(rp.lastIndexOf('/'), rp.lastIndexOf('\\'));
-					rp = idx >= 0 ? rp.substring(idx + 1) : rp;
-				}
-				// 去重：name 与 relative_path 相同只留一个
-				if (name != null && name.equals(rp)) rp = null;
-				textureCandidates.add(new String[]{name, rp});
-			}
-		}
-		// 解析每个纹理为可用的资源路径（按候选顺序找第一个存在的）
-		List<ResourceLocation> textureLocations = new ArrayList<>(textureCandidates.size());
-		for (String[] candidates : textureCandidates) {
-			textureLocations.add(resolveTextureLocation(resourceManager, location, candidates));
-		}
+		Geometry geometry = geometry(resourceManager, location, root);
 		// 元素 uuid -> 元素对象
 		Map<String, JsonObject> elementsByUuid = new HashMap<>();
 		if (root.has("elements") && root.get("elements").isJsonArray()) {
@@ -162,10 +132,7 @@ public class BlockbenchModelLoader {
 			for (String uuid : entry.getValue()) {
 				JsonObject element = elementsByUuid.get(uuid);
 				if (element == null) continue;
-				List<RawMesh> meshes = buildElement(element, texW, texH, textureLocations, groupRenderType);
-				for (RawMesh mesh : meshes) {
-					if (!mesh.faces.isEmpty()) model.append(mesh);
-				}
+				geometry.append(model, element, groupRenderType);
 			}
 			if (!model.meshList.isEmpty()) {
 				// bbmodel 坐标是像素尺寸，OBJ 导出已 ÷16 为方块单位，这里做同样换算
@@ -180,7 +147,50 @@ public class BlockbenchModelLoader {
 
 	// ==================== 读取 ====================
 
-	private static JsonObject readRoot(ResourceManager resourceManager, ResourceLocation location) throws IOException {
+	static Geometry geometry(ResourceManager resourceManager, ResourceLocation location, JsonObject root) {
+		float texW = 64, texH = 64;
+		if (root.has("resolution") && root.get("resolution").isJsonObject()) {
+			JsonObject res = root.getAsJsonObject("resolution");
+			texW = res.has("width") ? res.get("width").getAsFloat() : 64;
+			texH = res.has("height") ? res.get("height").getAsFloat() : 64;
+		}
+
+		// ---- 贴图表：索引 -> 候选纹理文件名（优先 name，其次 relative_path 文件名部分，忽略绝对路径）----
+		List<String[]> textureCandidates = new ArrayList<>();
+		if (root.has("textures") && root.get("textures").isJsonArray()) {
+			for (JsonElement t : root.getAsJsonArray("textures")) {
+				JsonObject tex = t.getAsJsonObject();
+				String name = tex.has("name") && tex.get("name").isJsonPrimitive()
+						? tex.get("name").getAsString() : null;
+				String rp = tex.has("relative_path") && tex.get("relative_path").isJsonPrimitive()
+						? tex.get("relative_path").getAsString() : null;
+				if (rp != null) {
+					// 只取文件名部分，丢弃可能存在的目录/绝对路径
+					int idx = Math.max(rp.lastIndexOf('/'), rp.lastIndexOf('\\'));
+					rp = idx >= 0 ? rp.substring(idx + 1) : rp;
+				}
+				// 去重：name 与 relative_path 相同只留一个
+				if (name != null && name.equals(rp)) rp = null;
+				textureCandidates.add(new String[]{name, rp});
+			}
+		}
+		// 解析每个纹理为可用的资源路径（按候选顺序找第一个存在的）
+		List<ResourceLocation> textureLocations = new ArrayList<>(textureCandidates.size());
+		for (String[] candidates : textureCandidates) {
+			textureLocations.add(resolveTextureLocation(resourceManager, location, candidates));
+		}
+		return new Geometry(texW, texH, textureLocations);
+	}
+
+	record Geometry(float width, float height, List<ResourceLocation> textures) {
+		void append(RawModel model, JsonObject element, String renderType) {
+			for (RawMesh mesh : buildElement(element, width, height, textures, renderType)) {
+				if (!mesh.faces.isEmpty()) model.append(mesh);
+			}
+		}
+	}
+
+	static JsonObject readRoot(ResourceManager resourceManager, ResourceLocation location) throws IOException {
 		String json = com.fangsu.render.sowcerext.util.ResourceUtil.readResource(resourceManager, location);
 		if (json == null || json.isEmpty()) {
 			throw new IOException("bbmodel not found or empty: " + location);
@@ -286,7 +296,7 @@ public class BlockbenchModelLoader {
 	}
 
 	/** 从名字中提取 # 后的渲染类型后缀（如 group#interior → interior），无 # 返回 null。 */
-	private static String renderTypeSuffix(String name) {
+	static String renderTypeSuffix(String name) {
 		if (name == null) return null;
 		int idx = name.lastIndexOf('#');
 		if (idx < 0 || idx == name.length() - 1) return null;
@@ -299,7 +309,7 @@ public class BlockbenchModelLoader {
 		String elementRenderType = element.has("name") && element.get("name").isJsonPrimitive()
 				? renderTypeSuffix(element.get("name").getAsString()) : null;
 		if (elementRenderType != null) return elementRenderType;
-		if (groupRenderType != null) return groupRenderType;
+		if (StringUtils.isNotBlank(groupRenderType)) return groupRenderType;
 		return "exterior";
 	}
 
