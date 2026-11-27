@@ -49,7 +49,8 @@ public abstract class EditStationOpeningMixin extends ScreenMapper {
         final boolean deferred = fangsu$deferredCheckbox == null
                 ? StationOpening.isDeferred(fangsu$station) : fangsu$deferredCheckbox.selected();
         final var label = ComponentHelper.translatable("ui.fangsu.station.deferred");
-        fangsu$deferredCheckbox = addDrawableChild(new Checkbox(6, 44, font.width(label) + 25, 20, label, deferred));
+        fangsu$deferredCheckbox = new Checkbox(6, 44, font.width(label) + 25, 20, label, deferred);
+        addDrawableChild(fangsu$deferredCheckbox);
     }
 
     @Inject(method = "saveData", at = @At("RETURN"))
